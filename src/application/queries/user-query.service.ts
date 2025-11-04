@@ -17,8 +17,8 @@ export class UserQueryService {
     return user;
   }
 
-  async getUserByAccount(account: string): Promise<User> {
-    const user = await this.userRepository.findByAccount(account);
+  async getUserByEmail(email: string): Promise<User> {
+    const user = await this.userRepository.findByEmail(email);
     if (!user) {
       throw new NotFoundException('User not found');
     }

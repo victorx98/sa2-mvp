@@ -9,7 +9,6 @@ export class UserTransformer {
       nickname: user.nickname,
       cnNickname: user.cnNickname,
       status: user.status,
-      account: user.account,
       email: user.email,
       country: user.country,
       createdTime: user.createdTime,

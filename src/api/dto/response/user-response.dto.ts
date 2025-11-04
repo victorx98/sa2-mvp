@@ -4,7 +4,6 @@ export class UserResponseDto {
   nickname?: string;
   cnNickname?: string;
   status?: string;
-  account?: string;
   email?: string;
   country?: string;
   createdTime?: Date;

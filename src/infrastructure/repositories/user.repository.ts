@@ -18,24 +18,19 @@ export class UserRepository implements IUserRepository {
     return user ? this.mapToUser(user) : null;
   }
 
-  async findByAccount(account: string): Promise<User | null> {
-    const user = await this.userRepository.findOne({ where: { account } });
-    return user ? this.mapToUser(user) : null;
-  }
-
-  async findByAccountWithPassword(account: string): Promise<UserWithPassword | null> {
-    const user = await this.userRepository
-      .createQueryBuilder('user')
-      .addSelect('user.password')
-      .where('user.account = :account', { account })
-      .getOne();
-
-    return user ? this.mapToUserWithPassword(user) : null;
-  }
-
   async findByEmail(email: string): Promise<User | null> {
     const user = await this.userRepository.findOne({ where: { email } });
     return user ? this.mapToUser(user) : null;
+  }
+
+  async findByEmailWithPassword(email: string): Promise<UserWithPassword | null> {
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('user.email = :email', { email })
+      .getOne();
+
+    return user ? this.mapToUserWithPassword(user) : null;
   }
 
   async create(userData: Partial<UserWithPassword>): Promise<User> {
@@ -63,7 +58,6 @@ export class UserRepository implements IUserRepository {
       nickname: entity.nickname,
       cnNickname: entity.cnNickname,
       status: entity.status,
-      account: entity.account,
       email: entity.email,
       country: entity.country,
       createdTime: entity.createdTime,

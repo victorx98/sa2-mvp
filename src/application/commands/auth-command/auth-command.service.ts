@@ -16,11 +16,6 @@ export class AuthCommandService {
 
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
     // Check if user already exists
-    const existingUserByAccount = await this.userRepository.findByAccount(registerDto.account);
-    if (existingUserByAccount) {
-      throw new ConflictException('Account already exists');
-    }
-
     const existingUserByEmail = await this.userRepository.findByEmail(registerDto.email);
     if (existingUserByEmail) {
       throw new ConflictException('Email already exists');
@@ -36,14 +31,13 @@ export class AuthCommandService {
     });
 
     // Generate JWT token
-    const payload = { sub: user.id, account: user.account };
+    const payload = { sub: user.id, email: user.email };
     const accessToken = this.jwtService.sign(payload);
 
     return {
       accessToken,
       user: {
         id: user.id,
-        account: user.account,
         email: user.email,
         nickname: user.nickname,
         cnNickname: user.cnNickname,
@@ -54,7 +48,7 @@ export class AuthCommandService {
 
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
     // Find user with password
-    const user = await this.userRepository.findByAccountWithPassword(loginDto.account);
+    const user = await this.userRepository.findByEmailWithPassword(loginDto.email);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -71,14 +65,13 @@ export class AuthCommandService {
     }
 
     // Generate JWT token
-    const payload = { sub: user.id, account: user.account };
+    const payload = { sub: user.id, email: user.email };
     const accessToken = this.jwtService.sign(payload);
 
     return {
       accessToken,
       user: {
         id: user.id,
-        account: user.account,
         email: user.email,
         nickname: user.nickname,
         cnNickname: user.cnNickname,
