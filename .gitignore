@@ -39,3 +39,7 @@ lerna-debug.log*
 .env.local
 .env.*.local
 .claude
+.cursor
+
+# MCP configuration
+.mcp.json
