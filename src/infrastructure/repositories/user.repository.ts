@@ -1,76 +1,120 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Inject, Injectable } from '@nestjs/common';
+import { eq } from 'drizzle-orm';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { v4 as uuidv4 } from 'uuid';
 import { IUserRepository } from '@domains/identity/user/user-repository.interface';
 import { User, UserWithPassword } from '@domains/identity/user/user.interface';
-import { UserEntity } from '../database/entities/user.entity';
+import { DATABASE_CONNECTION } from '../database/database.provider';
+import * as schema from '../database/schema';
+import { userTable } from '../database/schema';
 
 @Injectable()
 export class UserRepository implements IUserRepository {
   constructor(
-    @InjectRepository(UserEntity)
-    private readonly userRepository: Repository<UserEntity>,
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: NodePgDatabase<typeof schema>,
   ) {}
 
   async findById(id: string): Promise<User | null> {
-    const user = await this.userRepository.findOne({ where: { id } });
-    return user ? this.mapToUser(user) : null;
+    const result = await this.db
+      .select({
+        id: userTable.id,
+        gender: userTable.gender,
+        nickname: userTable.nickname,
+        cnNickname: userTable.cnNickname,
+        status: userTable.status,
+        email: userTable.email,
+        country: userTable.country,
+        createdTime: userTable.createdTime,
+        modifiedTime: userTable.modifiedTime,
+        createdBy: userTable.createdBy,
+        updatedBy: userTable.updatedBy,
+      })
+      .from(userTable)
+      .where(eq(userTable.id, id))
+      .limit(1);
+
+    return result[0] || null;
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    const user = await this.userRepository.findOne({ where: { email } });
-    return user ? this.mapToUser(user) : null;
+    const result = await this.db
+      .select({
+        id: userTable.id,
+        gender: userTable.gender,
+        nickname: userTable.nickname,
+        cnNickname: userTable.cnNickname,
+        status: userTable.status,
+        email: userTable.email,
+        country: userTable.country,
+        createdTime: userTable.createdTime,
+        modifiedTime: userTable.modifiedTime,
+        createdBy: userTable.createdBy,
+        updatedBy: userTable.updatedBy,
+      })
+      .from(userTable)
+      .where(eq(userTable.email, email))
+      .limit(1);
+
+    return result[0] || null;
   }
 
   async findByEmailWithPassword(email: string): Promise<UserWithPassword | null> {
-    const user = await this.userRepository
-      .createQueryBuilder('user')
-      .addSelect('user.password')
-      .where('user.email = :email', { email })
-      .getOne();
+    const result = await this.db
+      .select()
+      .from(userTable)
+      .where(eq(userTable.email, email))
+      .limit(1);
 
-    return user ? this.mapToUserWithPassword(user) : null;
+    return result[0] || null;
   }
 
   async create(userData: Partial<UserWithPassword>): Promise<User> {
     const id = uuidv4().replace(/-/g, '').substring(0, 32);
-    const user = this.userRepository.create({
-      ...userData,
-      id,
-      status: userData.status || 'active',
-    });
 
-    const savedUser = await this.userRepository.save(user);
-    return this.mapToUser(savedUser);
+    const [savedUser] = await this.db
+      .insert(userTable)
+      .values({
+        ...userData,
+        id,
+        status: userData.status || 'active',
+      })
+      .returning({
+        id: userTable.id,
+        gender: userTable.gender,
+        nickname: userTable.nickname,
+        cnNickname: userTable.cnNickname,
+        status: userTable.status,
+        email: userTable.email,
+        country: userTable.country,
+        createdTime: userTable.createdTime,
+        modifiedTime: userTable.modifiedTime,
+        createdBy: userTable.createdBy,
+        updatedBy: userTable.updatedBy,
+      });
+
+    return savedUser;
   }
 
   async update(id: string, userData: Partial<User>): Promise<User> {
-    await this.userRepository.update(id, userData);
-    const updatedUser = await this.userRepository.findOne({ where: { id } });
-    return this.mapToUser(updatedUser);
-  }
+    const [updatedUser] = await this.db
+      .update(userTable)
+      .set(userData)
+      .where(eq(userTable.id, id))
+      .returning({
+        id: userTable.id,
+        gender: userTable.gender,
+        nickname: userTable.nickname,
+        cnNickname: userTable.cnNickname,
+        status: userTable.status,
+        email: userTable.email,
+        country: userTable.country,
+        createdTime: userTable.createdTime,
+        modifiedTime: userTable.modifiedTime,
+        createdBy: userTable.createdBy,
+        updatedBy: userTable.updatedBy,
+      });
 
-  private mapToUser(entity: UserEntity): User {
-    return {
-      id: entity.id,
-      gender: entity.gender,
-      nickname: entity.nickname,
-      cnNickname: entity.cnNickname,
-      status: entity.status,
-      email: entity.email,
-      country: entity.country,
-      createdTime: entity.createdTime,
-      modifiedTime: entity.modifiedTime,
-      createdBy: entity.createdBy,
-      updatedBy: entity.updatedBy,
-    };
-  }
-
-  private mapToUserWithPassword(entity: UserEntity): UserWithPassword {
-    return {
-      ...this.mapToUser(entity),
-      password: entity.password,
-    };
+    return updatedUser;
   }
 }
