@@ -1,12 +1,12 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
-import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { v4 as uuidv4 } from 'uuid';
-import { IUserRepository } from '@domains/identity/user/user-repository.interface';
-import { User, UserWithPassword } from '@domains/identity/user/user.interface';
-import { DATABASE_CONNECTION } from '../database/database.provider';
-import * as schema from '../database/schema';
-import { userTable } from '../database/schema';
+import { Inject, Injectable } from "@nestjs/common";
+import { eq } from "drizzle-orm";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import { v4 as uuidv4 } from "uuid";
+import { IUserRepository } from "@domains/identity/user/user-repository.interface";
+import { User, UserWithPassword } from "@domains/identity/user/user.interface";
+import { DATABASE_CONNECTION } from "../database/database.provider";
+import * as schema from "../database/schema";
+import { userTable } from "../database/schema";
 
 @Injectable()
 export class UserRepository implements IUserRepository {
@@ -59,7 +59,9 @@ export class UserRepository implements IUserRepository {
     return result[0] || null;
   }
 
-  async findByEmailWithPassword(email: string): Promise<UserWithPassword | null> {
+  async findByEmailWithPassword(
+    email: string,
+  ): Promise<UserWithPassword | null> {
     const result = await this.db
       .select()
       .from(userTable)
@@ -70,14 +72,14 @@ export class UserRepository implements IUserRepository {
   }
 
   async create(userData: Partial<UserWithPassword>): Promise<User> {
-    const id = uuidv4().replace(/-/g, '').substring(0, 32);
+    const id = uuidv4().replace(/-/g, "").substring(0, 32);
 
     const [savedUser] = await this.db
       .insert(userTable)
       .values({
         ...userData,
         id,
-        status: userData.status || 'active',
+        status: userData.status || "active",
       })
       .returning({
         id: userTable.id,
@@ -96,7 +98,7 @@ export class UserRepository implements IUserRepository {
     return savedUser;
   }
 
-  async update(id: string, userData: Partial<User>): Promise<User> {
+  async update(id: string, userData: Partial<User>): Promise<User | null> {
     const [updatedUser] = await this.db
       .update(userTable)
       .set(userData)
@@ -115,6 +117,6 @@ export class UserRepository implements IUserRepository {
         updatedBy: userTable.updatedBy,
       });
 
-    return updatedUser;
+    return updatedUser || null;
   }
 }

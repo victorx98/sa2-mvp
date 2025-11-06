@@ -19,7 +19,7 @@ import { ApiModule } from './api/api.module';
     // 全局配置
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: ".env",
     }),
 
     // 基础设施层

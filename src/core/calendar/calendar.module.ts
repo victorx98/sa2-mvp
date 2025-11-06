@@ -1,10 +1,9 @@
-import { Module } from '@nestjs/common';
-import { CalendarService } from './calendar.service';
+import { Module } from "@nestjs/common";
+import { DatabaseModule } from "@infrastructure/database/database.module";
+import { CalendarService } from "./services/calendar.service";
 
-/**
- * Core Layer - Calendar Module
- */
 @Module({
+  imports: [DatabaseModule],
   providers: [CalendarService],
   exports: [CalendarService],
 })

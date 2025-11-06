@@ -32,7 +32,7 @@ export class AuthCommandService {
   async validateUser(userId: string): Promise<any> {
     const user = await this.userRepository.findById(userId);
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException("User not found");
     }
     return user;
   }

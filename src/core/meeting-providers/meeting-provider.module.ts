@@ -1,11 +1,38 @@
-import { Module } from '@nestjs/common';
-import { MeetingProviderService } from './meeting-provider.service';
+import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
+import { FeishuMeetingClient } from "./feishu/feishu-meeting.client";
+import { FeishuMeetingAdapter } from "./feishu/feishu-meeting.adapter";
+import { ZoomMeetingClient } from "./zoom/zoom-meeting.client";
+import { ZoomMeetingAdapter } from "./zoom/zoom-meeting.adapter";
+import { MeetingProviderFactory } from "./factory/meeting-provider.factory";
 
 /**
- * Core Layer - Meeting Provider Module
+ * Meeting Provider Module
+ *
+ * Provides meeting platform integration (Feishu, Zoom, etc.)
+ * Uses Strategy Pattern + Factory Pattern for extensibility
  */
 @Module({
-  providers: [MeetingProviderService],
-  exports: [MeetingProviderService],
+  imports: [ConfigModule],
+  providers: [
+    // Feishu providers
+    FeishuMeetingClient,
+    FeishuMeetingAdapter,
+
+    // Zoom providers
+    ZoomMeetingClient,
+    ZoomMeetingAdapter,
+
+    // Factory
+    MeetingProviderFactory,
+  ],
+  exports: [
+    // Export factory for other modules to use
+    MeetingProviderFactory,
+
+    // Also export individual adapters if needed
+    FeishuMeetingAdapter,
+    ZoomMeetingAdapter,
+  ],
 })
 export class MeetingProviderModule {}

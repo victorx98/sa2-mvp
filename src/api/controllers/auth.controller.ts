@@ -29,7 +29,7 @@ export class AuthController {
   ) {}
 
   @Public()
-  @Post('register')
+  @Post("register")
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: '用户注册' })
   @ApiResponse({
@@ -43,7 +43,7 @@ export class AuthController {
   }
 
   @Public()
-  @Post('login')
+  @Post("login")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '用户登录' })
   @ApiResponse({

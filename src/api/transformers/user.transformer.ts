@@ -1,5 +1,5 @@
-import { User } from '@domains/identity/user/user.interface';
-import { UserResponseDto } from '@api/dto/response/user-response.dto';
+import { User } from "@domains/identity/user/user.interface";
+import { UserResponseDto } from "@api/dto/response/user-response.dto";
 
 export class UserTransformer {
   static toResponseDto(user: User): UserResponseDto {
@@ -17,6 +17,6 @@ export class UserTransformer {
   }
 
   static toResponseDtoList(users: User[]): UserResponseDto[] {
-    return users.map(user => this.toResponseDto(user));
+    return users.map((user) => this.toResponseDto(user));
   }
 }
