@@ -13,10 +13,10 @@ import { USER_REPOSITORY } from '@domains/identity/user/user-repository.interfac
 // Application Layer - Queries
 import { UserQueryService } from './queries/user-query.service';
 
-// Application Layer - UseCases
-import { RegisterUseCase } from './use-cases/auth/register.use-case';
-import { LoginUseCase } from './use-cases/auth/login.use-case';
-import { BookSessionUseCase } from './use-cases/booking/book-session.use-case';
+// Application Layer - Commands
+import { RegisterCommand } from './commands/auth/register.command';
+import { LoginCommand } from './commands/auth/login.command';
+import { BookSessionCommand } from './commands/booking/book-session.command';
 
 // Application Layer - Commands (兼容层)
 import { AuthCommandService } from './commands/auth-command/auth-command.service';
@@ -36,7 +36,7 @@ import { JwtStrategy } from '@shared/guards/strategies/jwt.strategy';
  * Application Layer - Root Module
  * 职责：
  * 1. 注册所有 Queries
- * 2. 注册所有 UseCases
+ * 2. 注册所有 Commands
  * 3. 注册所有 Sagas
  * 4. 导出供 Operations Layer 使用
  */
@@ -71,10 +71,10 @@ import { JwtStrategy } from '@shared/guards/strategies/jwt.strategy';
     // Queries
     UserQueryService,
 
-    // UseCases
-    RegisterUseCase,
-    LoginUseCase,
-    BookSessionUseCase,
+    // Commands
+    RegisterCommand,
+    LoginCommand,
+    BookSessionCommand,
 
     // Commands (兼容层)
     AuthCommandService,
@@ -94,10 +94,10 @@ import { JwtStrategy } from '@shared/guards/strategies/jwt.strategy';
     // Queries
     UserQueryService,
 
-    // UseCases
-    RegisterUseCase,
-    LoginUseCase,
-    BookSessionUseCase,
+    // Commands
+    RegisterCommand,
+    LoginCommand,
+    BookSessionCommand,
 
     // Commands (兼容层 - 保持向后兼容)
     AuthCommandService,

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { BookSessionUseCase } from '@application/use-cases/booking/book-session.use-case';
+import { BookSessionCommand } from '@application/commands/booking/book-session.command';
 import { SessionResponseDto } from './dto/session-response.dto';
 import { BookSessionDto } from './dto/book-session.dto';
 
@@ -14,7 +14,7 @@ import { BookSessionDto } from './dto/book-session.dto';
  */
 @Injectable()
 export class SessionBffService {
-  constructor(private readonly bookSessionUseCase: BookSessionUseCase) {}
+  constructor(private readonly bookSessionCommand: BookSessionCommand) {}
 
   /**
    * 预约课程
@@ -27,8 +27,8 @@ export class SessionBffService {
     const startTime = new Date(bookSessionDto.startTime);
     const endTime = new Date(startTime.getTime() + bookSessionDto.duration * 60 * 1000);
 
-    // 调用 Application Layer 的 UseCase
-    const result = await this.bookSessionUseCase.execute({
+    // 调用 Application Layer 的 Command
+    const result = await this.bookSessionCommand.execute({
       counselorId: userId, // 从JWT token获取
       studentId: bookSessionDto.studentId,
       contractId: bookSessionDto.contractId,
@@ -47,7 +47,7 @@ export class SessionBffService {
 
   /**
    * 转换会话数据为前端响应格式
-   * @param result UseCase执行结果
+   * @param result Command执行结果
    * @returns 前端响应 DTO
    */
   private transformToResponse(result: {

@@ -1,6 +1,6 @@
 /**
  * Application Layer - Book Session Output DTO
- * BookSessionUseCase 的返回结果
+ * BookSessionCommand 的返回结果
  */
 export interface BookSessionOutput {
   // 会话信息

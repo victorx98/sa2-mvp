@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
-import { BookSessionUseCase } from '../../../src/application/use-cases/booking/book-session.use-case';
+import { BookSessionCommand } from '../../../src/application/commands/booking/book-session.command';
 import { CalendarService } from '../../../src/core/calendar';
 import { MeetingProviderFactory, MeetingProviderType } from '../../../src/core/meeting-providers';
 import { MeetingProviderModule } from '../../../src/core/meeting-providers/meeting-provider.module';
@@ -8,7 +8,7 @@ import { SessionService } from '../../../src/domains/services/session/services/s
 import { ContractService } from '../../../src/domains/contract/contract.service';
 import { DATABASE_CONNECTION } from '../../../src/infrastructure/database/database.provider';
 import { DatabaseModule } from '../../../src/infrastructure/database/database.module';
-import { BookSessionInput } from '../../../src/application/use-cases/booking/dto/book-session-input.dto';
+import { BookSessionInput } from '../../../src/application/commands/booking/dto/book-session-input.dto';
 import * as schema from '../../../src/infrastructure/database/schema';
 import { eq, and } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -25,9 +25,9 @@ import { v4 as uuidv4 } from 'uuid';
  * - DATABASE_URL 需要在 .env 文件中配置
  * - 数据库需要已经运行必要的迁移
  */
-describe('BookSessionUseCase - E2E Integration Test', () => {
+describe('BookSessionCommand - E2E Integration Test', () => {
   let app: TestingModule;
-  let useCase: BookSessionUseCase;
+  let command: BookSessionCommand;
   let db: NodePgDatabase;
   let sessionService: SessionService;
   let calendarService: CalendarService;
@@ -56,14 +56,14 @@ describe('BookSessionUseCase - E2E Integration Test', () => {
         MeetingProviderModule,
       ],
       providers: [
-        BookSessionUseCase,
+        BookSessionCommand,
         SessionService,
         ContractService,
         CalendarService,
       ],
     }).compile();
 
-    useCase = app.get<BookSessionUseCase>(BookSessionUseCase);
+    command = app.get<BookSessionCommand>(BookSessionCommand);
     db = app.get<NodePgDatabase>(DATABASE_CONNECTION);
     sessionService = app.get<SessionService>(SessionService);
     calendarService = app.get<CalendarService>(CalendarService);
@@ -139,7 +139,7 @@ describe('BookSessionUseCase - E2E Integration Test', () => {
 
       // Act - 执行预约
       console.log('\n🚀 Executing booking...');
-      const result = await useCase.execute(testInput);
+      const result = await command.execute(testInput);
 
       // Assert - 验证返回结果
       expect(result).toBeDefined();
@@ -248,7 +248,7 @@ describe('BookSessionUseCase - E2E Integration Test', () => {
 
       // Act & Assert - 执行预约应该失败
       console.log('\n🚀 Executing booking (expecting failure)...');
-      await expect(useCase.execute(testInput)).rejects.toThrow();
+      await expect(command.execute(testInput)).rejects.toThrow();
       console.log('✓ Verified: Booking failed as expected');
 
       // 验证事务回滚 - Session 不应该被创建
@@ -291,7 +291,7 @@ describe('BookSessionUseCase - E2E Integration Test', () => {
       };
 
       console.log('\n📝 Creating first booking...');
-      const firstResult = await useCase.execute(firstBooking);
+      const firstResult = await command.execute(firstBooking);
       expect(firstResult).toBeDefined();
       console.log('✓ First booking created:', firstResult.sessionId);
 
@@ -321,7 +321,7 @@ describe('BookSessionUseCase - E2E Integration Test', () => {
       console.log(`✓ Sessions before conflict attempt: ${countBefore}`);
 
       // 尝试预约应该失败
-      await expect(useCase.execute(conflictBooking)).rejects.toThrow();
+      await expect(command.execute(conflictBooking)).rejects.toThrow();
       console.log('✓ Verified: Conflicting booking rejected');
 
       // 验证没有创建新的session
@@ -364,7 +364,7 @@ describe('BookSessionUseCase - E2E Integration Test', () => {
 
       // Act
       console.log('\n📝 Creating booking for consistency check...');
-      const result = await useCase.execute(testInput);
+      const result = await command.execute(testInput);
 
       // Assert - 验证外键关联
       const session = await db
@@ -440,7 +440,7 @@ describe('BookSessionUseCase - E2E Integration Test', () => {
 
       // Act
       console.log('\n📝 Creating booking for MCP verification...');
-      const result = await useCase.execute(testInput);
+      const result = await command.execute(testInput);
 
       // 使用原生 SQL 查询验证（模拟 MCP execute_sql）
       const sqlQuery = `

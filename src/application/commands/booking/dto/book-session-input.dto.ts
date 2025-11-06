@@ -1,6 +1,6 @@
 /**
  * Application Layer - Book Session Input DTO
- * 用于 BookSessionUseCase 的输入参数
+ * 用于 BookSessionCommand 的输入参数
  */
 export interface BookSessionInput {
   // 预约发起人

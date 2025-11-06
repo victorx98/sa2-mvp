@@ -10,7 +10,7 @@ import { ApiModule } from './api/api.module';
  * 架构层次（从上到下）：
  * 1. API Layer (Controllers) - 由 ApiModule 提供
  * 2. Operations Layer (BFF Services) - 由 ApiModule 导入
- * 3. Application Layer (Queries/UseCases) - 由 OperationsModule 导入
+ * 3. Application Layer (Queries/Commands) - 由 OperationsModule 导入
  * 4. Domain Layer (Business Logic) - 由 ApplicationModule 导入
  * 5. Infrastructure Layer (Database) - 全局基础设施
  */

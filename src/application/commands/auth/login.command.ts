@@ -6,7 +6,7 @@ import { LoginDto } from '@api/dto/request/login.dto';
 import { AuthResultDto } from './dto/auth-result.dto';
 
 /**
- * Application Layer - Login UseCase
+ * Application Layer - Login Command
  * 职责：
  * 1. 实现用户登录业务用例
  * 2. 协调 Domain 层完成业务流程
@@ -20,7 +20,7 @@ import { AuthResultDto } from './dto/auth-result.dto';
  * ❌ 不包含 HTTP 相关操作
  */
 @Injectable()
-export class LoginUseCase {
+export class LoginCommand {
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepository: IUserRepository,

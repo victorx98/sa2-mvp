@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BookSessionUseCase } from './book-session.use-case';
+import { BookSessionCommand } from './book-session.command';
 import { CalendarService } from '@core/calendar';
 import { ResourceType, SlotType } from '@core/calendar/interfaces/calendar-slot.interface';
 import { MeetingProviderFactory, MeetingProviderType } from '@core/meeting-providers';
@@ -12,8 +12,8 @@ import {
 } from '@shared/exceptions';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 
-describe('BookSessionUseCase', () => {
-  let useCase: BookSessionUseCase;
+describe('BookSessionCommand', () => {
+  let command: BookSessionCommand;
   let mockDb: any;
   let mockContractService: jest.Mocked<ContractService>;
   let mockSessionService: jest.Mocked<SessionService>;
@@ -75,7 +75,7 @@ describe('BookSessionUseCase', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        BookSessionUseCase,
+        BookSessionCommand,
         {
           provide: DATABASE_CONNECTION,
           useValue: mockDb,
@@ -99,7 +99,7 @@ describe('BookSessionUseCase', () => {
       ],
     }).compile();
 
-    useCase = module.get<BookSessionUseCase>(BookSessionUseCase);
+    command = module.get<BookSessionCommand>(BookSessionCommand);
   });
 
   afterEach(() => {
@@ -153,7 +153,7 @@ describe('BookSessionUseCase', () => {
       mockCalendarService.createOccupiedSlot.mockResolvedValue(mockCalendarSlot as any);
 
       // Act
-      const result = await useCase.execute(validInput);
+      const result = await command.execute(validInput);
 
       // Assert
       expect(result).toEqual({
@@ -229,10 +229,10 @@ describe('BookSessionUseCase', () => {
       mockContractService.getServiceBalance.mockResolvedValue(mockBalance);
 
       // Act & Assert
-      await expect(useCase.execute(validInput)).rejects.toThrow(
+      await expect(command.execute(validInput)).rejects.toThrow(
         InsufficientBalanceException,
       );
-      await expect(useCase.execute(validInput)).rejects.toThrow('服务余额不足');
+      await expect(command.execute(validInput)).rejects.toThrow('服务余额不足');
 
       // Verify transaction was attempted
       expect(mockDb.transaction).toHaveBeenCalledTimes(2);
@@ -254,7 +254,7 @@ describe('BookSessionUseCase', () => {
       mockContractService.getServiceBalance.mockResolvedValue(mockBalance);
 
       // Act & Assert
-      await expect(useCase.execute(validInput)).rejects.toThrow(
+      await expect(command.execute(validInput)).rejects.toThrow(
         new InsufficientBalanceException('服务余额不足'),
       );
     });
@@ -268,10 +268,10 @@ describe('BookSessionUseCase', () => {
       mockCalendarService.isSlotAvailable.mockResolvedValue(false);
 
       // Act & Assert
-      await expect(useCase.execute(validInput)).rejects.toThrow(
+      await expect(command.execute(validInput)).rejects.toThrow(
         TimeConflictException,
       );
-      await expect(useCase.execute(validInput)).rejects.toThrow(
+      await expect(command.execute(validInput)).rejects.toThrow(
         '导师在该时段已有安排',
       );
 
@@ -309,7 +309,7 @@ describe('BookSessionUseCase', () => {
       mockMeetingProvider.createMeeting.mockRejectedValue(meetingError);
 
       // Act & Assert
-      await expect(useCase.execute(validInput)).rejects.toThrow('飞书API调用失败');
+      await expect(command.execute(validInput)).rejects.toThrow('飞书API调用失败');
 
       // Verify transaction was attempted
       expect(mockDb.transaction).toHaveBeenCalledTimes(1);
@@ -344,7 +344,7 @@ describe('BookSessionUseCase', () => {
       mockMeetingProvider.createMeeting.mockRejectedValue(meetingError);
 
       // Act & Assert
-      await expect(useCase.execute(zoomInput as any)).rejects.toThrow(
+      await expect(command.execute(zoomInput as any)).rejects.toThrow(
         'Zoom token expired',
       );
 
@@ -386,7 +386,7 @@ describe('BookSessionUseCase', () => {
       mockSessionService.createSession.mockRejectedValue(sessionError);
 
       // Act & Assert
-      await expect(useCase.execute(validInput)).rejects.toThrow('数据库约束违反');
+      await expect(command.execute(validInput)).rejects.toThrow('数据库约束违反');
 
       // Verify all steps up to session creation were called
       expect(mockContractService.getServiceBalance).toHaveBeenCalledTimes(1);
@@ -441,7 +441,7 @@ describe('BookSessionUseCase', () => {
       mockCalendarService.createOccupiedSlot.mockRejectedValue(calendarError);
 
       // Act & Assert
-      await expect(useCase.execute(validInput)).rejects.toThrow('日历服务不可用');
+      await expect(command.execute(validInput)).rejects.toThrow('日历服务不可用');
 
       // Verify all steps were called
       expect(mockContractService.getServiceBalance).toHaveBeenCalledTimes(1);
@@ -500,7 +500,7 @@ describe('BookSessionUseCase', () => {
       mockCalendarService.createOccupiedSlot.mockResolvedValue(mockCalendarSlot as any);
 
       // Act
-      const result = await useCase.execute(validInput);
+      const result = await command.execute(validInput);
 
       // Assert
       expect(result.sessionId).toBe(mockSession.id);
@@ -556,7 +556,7 @@ describe('BookSessionUseCase', () => {
       mockCalendarService.createOccupiedSlot.mockResolvedValue(mockCalendarSlot as any);
 
       // Act
-      await useCase.execute(inputWithoutProvider as any);
+      await command.execute(inputWithoutProvider as any);
 
       // Assert
       expect(mockMeetingProviderFactory.getProvider).toHaveBeenCalledWith(

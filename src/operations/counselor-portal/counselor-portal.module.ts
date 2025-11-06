@@ -7,7 +7,7 @@ import { CounselorSessionsService } from './sessions/sessions.service';
  * 职责：聚合顾问端的所有BFF服务
  *
  * 依赖：
- * - ApplicationModule: 提供UseCase、Query、Domain服务
+ * - ApplicationModule: 提供Command、Query、Domain服务
  */
 @Module({
   imports: [

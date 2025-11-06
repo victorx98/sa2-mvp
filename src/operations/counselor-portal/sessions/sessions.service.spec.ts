@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CounselorSessionsService } from './sessions.service';
-import { BookSessionUseCase } from '@application/use-cases/booking/book-session.use-case';
+import { BookSessionCommand } from '@application/commands/booking/book-session.command';
 import { SessionService } from '@domains/services/session/services/session.service';
 import { ContractService } from '@domains/contract/contract.service';
 import { BookSessionRequestDto } from './dto/book-session-request.dto';
@@ -8,7 +8,7 @@ import { SessionDetailResponseDto } from './dto/session-detail-response.dto';
 
 describe('CounselorSessionsService (BFF Layer)', () => {
   let service: CounselorSessionsService;
-  let mockBookSessionUseCase: jest.Mocked<BookSessionUseCase>;
+  let mockBookSessionCommand: jest.Mocked<BookSessionCommand>;
   let mockSessionService: jest.Mocked<SessionService>;
   let mockContractService: jest.Mocked<ContractService>;
 
@@ -27,8 +27,8 @@ describe('CounselorSessionsService (BFF Layer)', () => {
   };
 
   beforeEach(async () => {
-    // Mock BookSessionUseCase
-    mockBookSessionUseCase = {
+    // Mock BookSessionCommand
+    mockBookSessionCommand = {
       execute: jest.fn(),
     } as any;
 
@@ -46,8 +46,8 @@ describe('CounselorSessionsService (BFF Layer)', () => {
       providers: [
         CounselorSessionsService,
         {
-          provide: BookSessionUseCase,
-          useValue: mockBookSessionUseCase,
+          provide: BookSessionCommand,
+          useValue: mockBookSessionCommand,
         },
         {
           provide: SessionService,
@@ -87,7 +87,7 @@ describe('CounselorSessionsService (BFF Layer)', () => {
         serviceHoldId: 'hold-123',
       };
 
-      mockBookSessionUseCase.execute.mockResolvedValue(mockUseCaseResult);
+      mockBookSessionCommand.execute.mockResolvedValue(mockUseCaseResult);
 
       // Act
       const result = await service.bookSession(counselorId, validDto);
@@ -103,8 +103,8 @@ describe('CounselorSessionsService (BFF Layer)', () => {
         },
       });
 
-      // Verify UseCase was called with correct parameters
-      expect(mockBookSessionUseCase.execute).toHaveBeenCalledWith({
+      // Verify Command was called with correct parameters
+      expect(mockBookSessionCommand.execute).toHaveBeenCalledWith({
         counselorId,
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
@@ -137,7 +137,7 @@ describe('CounselorSessionsService (BFF Layer)', () => {
         serviceHoldId: 'hold-123',
       };
 
-      mockBookSessionUseCase.execute.mockResolvedValue(mockUseCaseResult);
+      mockBookSessionCommand.execute.mockResolvedValue(mockUseCaseResult);
 
       // Act
       const result = await service.bookSession(counselorId, validDto);
@@ -169,7 +169,7 @@ describe('CounselorSessionsService (BFF Layer)', () => {
         serviceHoldId: 'hold-123',
       };
 
-      mockBookSessionUseCase.execute.mockResolvedValue(mockUseCaseResult);
+      mockBookSessionCommand.execute.mockResolvedValue(mockUseCaseResult);
 
       // Act
       const result = await service.bookSession(counselorId, validDto);
@@ -180,11 +180,11 @@ describe('CounselorSessionsService (BFF Layer)', () => {
   });
 
   describe('bookSession - 异常场景', () => {
-    it('应该在UseCase抛出余额不足异常时传递错误', async () => {
+    it('应该在Command抛出余额不足异常时传递错误', async () => {
       // Arrange
       const error = new Error('服务余额不足');
       error.name = 'InsufficientBalanceException';
-      mockBookSessionUseCase.execute.mockRejectedValue(error);
+      mockBookSessionCommand.execute.mockRejectedValue(error);
 
       // Act & Assert
       await expect(service.bookSession(counselorId, validDto)).rejects.toThrow(
@@ -194,15 +194,15 @@ describe('CounselorSessionsService (BFF Layer)', () => {
         name: 'InsufficientBalanceException',
       });
 
-      // Verify UseCase was called
-      expect(mockBookSessionUseCase.execute).toHaveBeenCalledTimes(2);
+      // Verify Command was called
+      expect(mockBookSessionCommand.execute).toHaveBeenCalledTimes(2);
     });
 
-    it('应该在UseCase抛出时间冲突异常时传递错误', async () => {
+    it('应该在Command抛出时间冲突异常时传递错误', async () => {
       // Arrange
       const error = new Error('导师在该时段已有安排');
       error.name = 'TimeConflictException';
-      mockBookSessionUseCase.execute.mockRejectedValue(error);
+      mockBookSessionCommand.execute.mockRejectedValue(error);
 
       // Act & Assert
       await expect(service.bookSession(counselorId, validDto)).rejects.toThrow(
@@ -212,26 +212,26 @@ describe('CounselorSessionsService (BFF Layer)', () => {
         name: 'TimeConflictException',
       });
 
-      expect(mockBookSessionUseCase.execute).toHaveBeenCalledTimes(2);
+      expect(mockBookSessionCommand.execute).toHaveBeenCalledTimes(2);
     });
 
     it('应该在会议创建失败时传递错误', async () => {
       // Arrange
       const error = new Error('飞书API调用失败');
-      mockBookSessionUseCase.execute.mockRejectedValue(error);
+      mockBookSessionCommand.execute.mockRejectedValue(error);
 
       // Act & Assert
       await expect(service.bookSession(counselorId, validDto)).rejects.toThrow(
         '飞书API调用失败',
       );
 
-      expect(mockBookSessionUseCase.execute).toHaveBeenCalledTimes(1);
+      expect(mockBookSessionCommand.execute).toHaveBeenCalledTimes(1);
     });
 
-    it('应该在UseCase抛出任何异常时都不吞掉错误', async () => {
+    it('应该在Command抛出任何异常时都不吞掉错误', async () => {
       // Arrange
       const error = new Error('数据库连接失败');
-      mockBookSessionUseCase.execute.mockRejectedValue(error);
+      mockBookSessionCommand.execute.mockRejectedValue(error);
 
       // Act & Assert
       await expect(service.bookSession(counselorId, validDto)).rejects.toThrow(
@@ -260,13 +260,13 @@ describe('CounselorSessionsService (BFF Layer)', () => {
         serviceHoldId: 'hold-123',
       };
 
-      mockBookSessionUseCase.execute.mockResolvedValue(mockUseCaseResult);
+      mockBookSessionCommand.execute.mockResolvedValue(mockUseCaseResult);
 
       // Act
       await service.bookSession(counselorId, validDto);
 
       // Assert - Verify dates were converted correctly
-      expect(mockBookSessionUseCase.execute).toHaveBeenCalledWith(
+      expect(mockBookSessionCommand.execute).toHaveBeenCalledWith(
         expect.objectContaining({
           scheduledStartTime: new Date(validDto.scheduledStartTime),
           scheduledEndTime: new Date(validDto.scheduledEndTime),
@@ -274,7 +274,7 @@ describe('CounselorSessionsService (BFF Layer)', () => {
       );
     });
 
-    it('应该将所有DTO字段传递给UseCase', async () => {
+    it('应该将所有DTO字段传递给Command', async () => {
       // Arrange
       const mockUseCaseResult = {
         sessionId: 'session-123',
@@ -293,13 +293,13 @@ describe('CounselorSessionsService (BFF Layer)', () => {
         serviceHoldId: 'hold-123',
       };
 
-      mockBookSessionUseCase.execute.mockResolvedValue(mockUseCaseResult);
+      mockBookSessionCommand.execute.mockResolvedValue(mockUseCaseResult);
 
       // Act
       await service.bookSession(counselorId, validDto);
 
       // Assert - Verify all fields are passed
-      expect(mockBookSessionUseCase.execute).toHaveBeenCalledWith({
+      expect(mockBookSessionCommand.execute).toHaveBeenCalledWith({
         counselorId,
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
@@ -334,7 +334,7 @@ describe('CounselorSessionsService (BFF Layer)', () => {
         serviceHoldId: 'hold-123',
       };
 
-      mockBookSessionUseCase.execute.mockResolvedValue(mockUseCaseResult);
+      mockBookSessionCommand.execute.mockResolvedValue(mockUseCaseResult);
 
       // Act
       const result = await service.bookSession(counselorId, validDto);
@@ -362,7 +362,7 @@ describe('CounselorSessionsService (BFF Layer)', () => {
         serviceHoldId: 'hold-123',
       };
 
-      mockBookSessionUseCase.execute.mockResolvedValue(mockUseCaseResult);
+      mockBookSessionCommand.execute.mockResolvedValue(mockUseCaseResult);
 
       // Act
       const result = await service.bookSession(counselorId, validDto);

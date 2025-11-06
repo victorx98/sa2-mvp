@@ -15,7 +15,7 @@ import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider'
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 /**
- * Application Layer - Book Session Use Case
+ * Application Layer - Book Session Command
  * 职责：编排顾问为学生预约会话的完整流程
  *
  * 流程（参考 application_bff_both_need.md 5.2）：
@@ -31,8 +31,8 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
  * 包括会议创建失败也会触发回滚，确保数据一致性
  */
 @Injectable()
-export class BookSessionUseCase {
-  private readonly logger = new Logger(BookSessionUseCase.name);
+export class BookSessionCommand {
+  private readonly logger = new Logger(BookSessionCommand.name);
 
   constructor(
     @Inject(DATABASE_CONNECTION)
