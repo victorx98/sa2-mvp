@@ -40,3 +40,4 @@ lerna-debug.log*
 .env.*.local
 .claude
 CATALOG_DOMAIN_DESIGN.md
+CLAUDE.md
