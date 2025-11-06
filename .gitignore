@@ -39,5 +39,12 @@ lerna-debug.log*
 .env.local
 .env.*.local
 .claude
+<<<<<<< HEAD
 CATALOG_DOMAIN_DESIGN.md
 CLAUDE.md
+=======
+.cursor
+
+# MCP configuration
+.mcp.json
+>>>>>>> main

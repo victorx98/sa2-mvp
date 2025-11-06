@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthCommandModule } from './application/commands/auth-command/auth-command.module';
 import { UserQueryModule } from './application/queries/user-query.module';
-import { DatabaseConfig } from './infrastructure/database/database.config';
+import { DatabaseModule } from './infrastructure/database/database.module';
 
 @Module({
   imports: [
@@ -11,9 +10,7 @@ import { DatabaseConfig } from './infrastructure/database/database.config';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    TypeOrmModule.forRootAsync({
-      useClass: DatabaseConfig,
-    }),
+    DatabaseModule,
     AuthCommandModule,
     UserQueryModule,
   ],
