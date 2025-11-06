@@ -4,3 +4,7 @@ export * from "./service-packages.schema";
 export * from "./service-package-items.schema";
 export * from "./products.schema";
 export * from "./product-items.schema";
+export * from "./sessions.schema";
+export * from "./session-events.schema";
+export * from "./calendar-slots.schema";
+export * from "./notification-queue.schema";
