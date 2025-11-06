@@ -25,9 +25,9 @@ import { AuthCommandService } from './commands/auth-command/auth-command.service
 import { CalendarService } from '@core/calendar';
 import { MeetingProviderModule } from '@core/meeting-providers';
 
-// TODO: Domain Services (需要在application-layer分支实现)
-// import { SessionService } from '@domains/services/session/services/session.service';
-// import { ContractService } from '@domains/contract/contract.service';
+// Domain Services
+import { SessionModule } from '@domains/services/session/session.module';
+import { ContractModule } from '@domains/contract/contract.module';
 
 // Shared
 import { JwtStrategy } from '@shared/guards/strategies/jwt.strategy';
@@ -39,15 +39,13 @@ import { JwtStrategy } from '@shared/guards/strategies/jwt.strategy';
  * 2. 注册所有 UseCases
  * 3. 注册所有 Sagas
  * 4. 导出供 Operations Layer 使用
- *
- * TODO: 需要添加以下Domain服务的Module imports:
- * - SessionModule (包含SessionService)
- * - ContractModule (包含ContractService)
  */
 @Module({
   imports: [
     DatabaseModule, // 导入数据库模块，提供事务支持
     MeetingProviderModule, // 导入会议提供者模块
+    SessionModule, // Domain层：Session
+    ContractModule, // Domain层：Contract
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -70,10 +68,6 @@ import { JwtStrategy } from '@shared/guards/strategies/jwt.strategy';
     // Core Services
     CalendarService,
 
-    // TODO: Domain Services (需要实现后取消注释)
-    // SessionService,
-    // ContractService,
-
     // Queries
     UserQueryService,
 
@@ -93,9 +87,9 @@ import { JwtStrategy } from '@shared/guards/strategies/jwt.strategy';
     CalendarService,
     MeetingProviderModule,
 
-    // TODO: Domain Services (需要实现后取消注释)
-    // SessionService,
-    // ContractService,
+    // Domain Services
+    SessionModule,
+    ContractModule,
 
     // Queries
     UserQueryService,
