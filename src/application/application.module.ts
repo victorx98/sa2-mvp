@@ -23,7 +23,7 @@ import { AuthCommandService } from './commands/auth-command/auth-command.service
 
 // Core Services (从main分支)
 import { CalendarService } from '@core/calendar';
-import { MeetingProviderFactory } from '@core/meeting-providers';
+import { MeetingProviderModule } from '@core/meeting-providers';
 
 // TODO: Domain Services (需要在application-layer分支实现)
 // import { SessionService } from '@domains/services/session/services/session.service';
@@ -47,6 +47,7 @@ import { JwtStrategy } from '@shared/guards/strategies/jwt.strategy';
 @Module({
   imports: [
     DatabaseModule, // 导入数据库模块，提供事务支持
+    MeetingProviderModule, // 导入会议提供者模块
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -68,7 +69,6 @@ import { JwtStrategy } from '@shared/guards/strategies/jwt.strategy';
 
     // Core Services
     CalendarService,
-    MeetingProviderFactory,
 
     // TODO: Domain Services (需要实现后取消注释)
     // SessionService,
@@ -91,7 +91,7 @@ import { JwtStrategy } from '@shared/guards/strategies/jwt.strategy';
   exports: [
     // Core Services
     CalendarService,
-    MeetingProviderFactory,
+    MeetingProviderModule,
 
     // TODO: Domain Services (需要实现后取消注释)
     // SessionService,
