@@ -3,6 +3,9 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 
+// Infrastructure
+import { DatabaseModule } from '@infrastructure/database/database.module';
+
 // Domain Layer
 import { UserRepository } from '@infrastructure/repositories/user.repository';
 import { USER_REPOSITORY } from '@domains/identity/user/user-repository.interface';
@@ -13,9 +16,18 @@ import { UserQueryService } from './queries/user-query.service';
 // Application Layer - UseCases
 import { RegisterUseCase } from './use-cases/auth/register.use-case';
 import { LoginUseCase } from './use-cases/auth/login.use-case';
+import { BookSessionUseCase } from './use-cases/session/book-session.use-case';
 
 // Application Layer - Commands (兼容层)
 import { AuthCommandService } from './commands/auth-command/auth-command.service';
+
+// Core Services
+import { CalendarService } from '@core/calendar/calendar.service';
+import { MeetingProviderService } from '@core/meeting-providers/meeting-provider.service';
+
+// Domain Services
+import { SessionService } from '@domains/services/session/session.service';
+import { ContractService } from '@domains/contract/contract.service';
 
 // Shared
 import { JwtStrategy } from '@shared/guards/strategies/jwt.strategy';
@@ -30,6 +42,7 @@ import { JwtStrategy } from '@shared/guards/strategies/jwt.strategy';
  */
 @Module({
   imports: [
+    DatabaseModule, // 导入数据库模块，提供事务支持
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -49,12 +62,21 @@ import { JwtStrategy } from '@shared/guards/strategies/jwt.strategy';
       useClass: UserRepository,
     },
 
+    // Core Services
+    CalendarService,
+    MeetingProviderService,
+
+    // Domain Services
+    SessionService,
+    ContractService,
+
     // Queries
     UserQueryService,
 
     // UseCases
     RegisterUseCase,
     LoginUseCase,
+    BookSessionUseCase,
 
     // Commands (兼容层)
     AuthCommandService,
@@ -63,12 +85,21 @@ import { JwtStrategy } from '@shared/guards/strategies/jwt.strategy';
     JwtStrategy,
   ],
   exports: [
+    // Core Services
+    CalendarService,
+    MeetingProviderService,
+
+    // Domain Services
+    SessionService,
+    ContractService,
+
     // Queries
     UserQueryService,
 
     // UseCases
     RegisterUseCase,
     LoginUseCase,
+    BookSessionUseCase,
 
     // Commands (兼容层 - 保持向后兼容)
     AuthCommandService,

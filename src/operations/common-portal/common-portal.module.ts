@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthBffService } from './auth/auth.service';
 import { UserBffService } from './user/user.service';
+import { SessionBffService } from './session/session.service';
 import { ApplicationModule } from '@application/application.module';
 
 /**
@@ -18,10 +19,12 @@ import { ApplicationModule } from '@application/application.module';
   providers: [
     AuthBffService,
     UserBffService,
+    SessionBffService,
   ],
   exports: [
     AuthBffService,
     UserBffService,
+    SessionBffService,
   ],
 })
 export class CommonPortalModule {}

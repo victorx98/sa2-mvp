@@ -18,6 +18,7 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "paths": {
+      "@core/*": ["src/core/*"],
       "@domains/*": ["src/domains/*"],
       "@application/*": ["src/application/*"],
       "@operations/*": ["src/operations/*"],
