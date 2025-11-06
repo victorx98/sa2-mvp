@@ -22,11 +22,12 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
  * 2. 检查服务余额
  * 3. 检查时间冲突
  * 4. 创建服务预占
- * 5. 创建会话记录
- * 6. 占用日历时段
- * 7. 创建会议链接（异步，失败不影响预约）
+ * 5. 创建会议链接
+ * 6. 创建会话记录（包含会议信息）
+ * 7. 占用日历时段
  *
- * 注意：步骤2-6在数据库事务中执行，失败会自动回滚
+ * 注意：步骤2-7在数据库事务中执行，任何步骤失败都会自动回滚
+ * 包括会议创建失败也会触发回滚，确保数据一致性
  */
 @Injectable()
 export class BookSessionUseCase {
@@ -59,11 +60,11 @@ export class BookSessionUseCase {
     //   throw new UnauthorizedException('您不是该学生的顾问');
     // }
 
-    // Step 2-6: 在事务中执行
+    // Step 2-7: 在事务中执行（包括创建会议链接）
     let sessionResult;
     try {
       sessionResult = await this.db.transaction(async (tx) => {
-        this.logger.debug('开始数据库事务');
+        this.logger.debug('开始数据库事务，包括会议创建在内的所有操作');
 
         // Step 2: 检查余额
         const balance = await this.contractService.getServiceBalance(
@@ -101,7 +102,36 @@ export class BookSessionUseCase {
 
         this.logger.debug(`创建服务预占成功: holdId=${hold.id}`);
 
-        // Step 5: 创建会话记录
+        // Step 5: 创建会议链接（在创建session之前）
+        let meetingInfo: {
+          meetingUrl?: string;
+          password?: string;
+          provider?: string;
+        } = {};
+
+        try {
+          const meeting = await this.meetingProviderService.createMeeting({
+            provider: input.meetingProvider || 'zoom',
+            topic: input.topic,
+            startTime: input.scheduledStartTime,
+            duration: input.duration,
+            hostId: input.mentorId,
+          });
+
+          meetingInfo = {
+            meetingUrl: meeting.joinUrl,
+            password: meeting.password,
+            provider: meeting.provider,
+          };
+
+          this.logger.debug(`创建会议成功: meetingId=${meeting.meetingId}`);
+        } catch (error) {
+          // 会议创建失败，回滚整个事务
+          this.logger.error(`创建会议失败，事务将回滚: ${error.message}`, error.stack);
+          throw error; // 抛出异常触发事务回滚
+        }
+
+        // Step 6: 创建会话记录（包含会议URL）
         const session = await this.sessionService.createSession({
           studentId: input.studentId,
           mentorId: input.mentorId,
@@ -112,11 +142,12 @@ export class BookSessionUseCase {
           duration: input.duration,
           name: input.topic,
           serviceHoldId: hold.id,
+          meetingUrl: meetingInfo.meetingUrl, // 会议链接
         });
 
         this.logger.debug(`创建会话成功: sessionId=${session.id}`);
 
-        // Step 6: 占用日历时段
+        // Step 7: 占用日历时段
         const calendarSlot = await this.calendarService.createOccupiedSlot({
           resourceType: 'mentor',
           resourceId: input.mentorId,
@@ -126,13 +157,14 @@ export class BookSessionUseCase {
           status: 'occupied',
         });
 
-        this.logger.debug(`占用日历时段成功: slotId=${calendarSlot.id}`);
+        this.logger.debug(`占用日历时段成功: slotId=${calendarSlot.id}`)
 
         // 事务提交前返回结果
         return {
           session,
           hold,
           calendarSlot,
+          meetingInfo,
         };
       });
 
@@ -140,34 +172,6 @@ export class BookSessionUseCase {
     } catch (error) {
       this.logger.error(`事务回滚: ${error.message}`, error.stack);
       throw error; // 重新抛出异常，让上层处理
-    }
-
-    // Step 7: 创建会议链接（事务外，异步，失败不影响预约）
-    let meetingInfo: {
-      meetingUrl?: string;
-      password?: string;
-      provider?: string;
-    } = {};
-
-    try {
-      const meeting = await this.meetingProviderService.createMeeting({
-        provider: input.meetingProvider || 'zoom',
-        topic: input.topic,
-        startTime: input.scheduledStartTime,
-        duration: input.duration,
-        hostId: input.mentorId,
-      });
-
-      meetingInfo = {
-        meetingUrl: meeting.joinUrl,
-        password: meeting.password,
-        provider: meeting.provider,
-      };
-
-      this.logger.debug(`创建会议成功: meetingId=${meeting.meetingId}`);
-    } catch (error) {
-      // 会议创建失败不影响预约成功，只记录错误
-      this.logger.error(`创建会议失败: ${error.message}`, error.stack);
     }
 
     // 返回预约结果
@@ -183,7 +187,9 @@ export class BookSessionUseCase {
       status: sessionResult.session.status,
       calendarSlotId: sessionResult.calendarSlot.id,
       serviceHoldId: sessionResult.hold.id,
-      ...meetingInfo,
+      meetingUrl: sessionResult.meetingInfo.meetingUrl,
+      meetingPassword: sessionResult.meetingInfo.password,
+      meetingProvider: sessionResult.meetingInfo.provider,
     };
   }
 }
