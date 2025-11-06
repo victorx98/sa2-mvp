@@ -51,30 +51,15 @@ export class CounselorSessionsService {
       meetingProvider: dto.meetingProvider,
     });
 
-    // 2. 获取额外数据用于前端展示（并行查询优化）
-    const [session, balance] = await Promise.all([
-      this.sessionService.getSessionById(result.sessionId),
-      this.contractService.getServiceBalance(dto.contractId, dto.serviceId),
-    ]);
-
-    // 3. 转换为前端响应格式
+    // 2. 转换为前端响应格式
     return {
       bookingId: result.sessionId,
-      scheduledAt: new Date(dto.scheduledStartTime),
-      duration: dto.duration,
       status: result.status,
-      statusText: '已预约',
-      mentor: { id: dto.mentorId, name: 'Mentor Name' },
-      student: { id: dto.studentId, name: 'Student Name' },
-      service: { id: dto.serviceId, name: '1对1辅导', type: 'session' },
-      pricing: { cost: 0, currency: 'USD', remainingBalance: balance.available },
       meeting: result.meetingUrl ? {
         url: result.meetingUrl,
         password: result.meetingPassword,
         provider: result.meetingProvider || 'zoom',
       } : undefined,
-      actions: { canCancel: true, cancelDeadline: new Date() },
-      hints: ['✅ 预约已确认'],
     };
   }
 }
