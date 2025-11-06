@@ -16,7 +16,7 @@ import { UserQueryService } from './queries/user-query.service';
 // Application Layer - UseCases
 import { RegisterUseCase } from './use-cases/auth/register.use-case';
 import { LoginUseCase } from './use-cases/auth/login.use-case';
-import { BookSessionUseCase } from './use-cases/session/book-session.use-case';
+import { BookSessionUseCase } from './use-cases/booking/book-session.use-case';
 
 // Application Layer - Commands (兼容层)
 import { AuthCommandService } from './commands/auth-command/auth-command.service';

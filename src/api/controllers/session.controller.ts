@@ -1,5 +1,8 @@
-import { Controller, Post, Body } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
+import { CurrentUser } from '@shared/decorators/current-user.decorator';
+import { User } from '@domains/identity/user/user.interface';
 import { SessionBffService } from '@operations/common-portal/session/session.service';
 import { BookSessionDto } from '@operations/common-portal/session/dto/book-session.dto';
 import { SessionResponseDto } from '@operations/common-portal/session/dto/session-response.dto';
@@ -11,6 +14,8 @@ import { SessionResponseDto } from '@operations/common-portal/session/dto/sessio
  */
 @ApiTags('Sessions')
 @Controller('sessions')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
 export class SessionController {
   constructor(private readonly sessionBffService: SessionBffService) {}
 
@@ -33,7 +38,10 @@ export class SessionController {
     status: 409,
     description: '时间冲突，该时间段不可用',
   })
-  async bookSession(@Body() bookSessionDto: BookSessionDto): Promise<SessionResponseDto> {
-    return this.sessionBffService.bookSession(bookSessionDto);
+  async bookSession(
+    @CurrentUser() user: User,
+    @Body() bookSessionDto: BookSessionDto,
+  ): Promise<SessionResponseDto> {
+    return this.sessionBffService.bookSession(user.id, bookSessionDto);
   }
 }
