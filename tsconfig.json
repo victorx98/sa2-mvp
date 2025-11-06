@@ -20,6 +20,7 @@
     "paths": {
       "@domains/*": ["src/domains/*"],
       "@application/*": ["src/application/*"],
+      "@operations/*": ["src/operations/*"],
       "@infrastructure/*": ["src/infrastructure/*"],
       "@api/*": ["src/api/*"],
       "@shared/*": ["src/shared/*"]

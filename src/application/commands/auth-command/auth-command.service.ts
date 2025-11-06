@@ -1,83 +1,32 @@
-import { Injectable, ConflictException, UnauthorizedException, Inject } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
+import { Injectable, UnauthorizedException, Inject } from '@nestjs/common';
 import { IUserRepository, USER_REPOSITORY } from '@domains/identity/user/user-repository.interface';
 import { RegisterDto } from '@api/dto/request/register.dto';
 import { LoginDto } from '@api/dto/request/login.dto';
-import { AuthResponseDto } from '@api/dto/response/auth-response.dto';
+import { AuthResultDto } from '@application/use-cases/auth/dto/auth-result.dto';
+import { RegisterUseCase } from '@application/use-cases/auth/register.use-case';
+import { LoginUseCase } from '@application/use-cases/auth/login.use-case';
 
+/**
+ * Application Layer - Auth Command Service (兼容层)
+ * 职责：为了保持向后兼容，委托给新的 UseCases
+ *
+ * 注意：这是临时兼容层，新代码应该直接使用 RegisterUseCase 和 LoginUseCase
+ */
 @Injectable()
 export class AuthCommandService {
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepository: IUserRepository,
-    private readonly jwtService: JwtService,
+    private readonly registerUseCase: RegisterUseCase,
+    private readonly loginUseCase: LoginUseCase,
   ) {}
 
-  async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
-    // Check if user already exists
-    const existingUserByEmail = await this.userRepository.findByEmail(registerDto.email);
-    if (existingUserByEmail) {
-      throw new ConflictException('Email already exists');
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
-
-    // Create user
-    const user = await this.userRepository.create({
-      ...registerDto,
-      password: hashedPassword,
-    });
-
-    // Generate JWT token
-    const payload = { sub: user.id, email: user.email };
-    const accessToken = this.jwtService.sign(payload);
-
-    return {
-      accessToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        nickname: user.nickname,
-        cnNickname: user.cnNickname,
-        status: user.status,
-      },
-    };
+  async register(registerDto: RegisterDto): Promise<AuthResultDto> {
+    return this.registerUseCase.execute(registerDto);
   }
 
-  async login(loginDto: LoginDto): Promise<AuthResponseDto> {
-    // Find user with password
-    const user = await this.userRepository.findByEmailWithPassword(loginDto.email);
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    // Check if user is active
-    if (user.status && user.status !== 'active') {
-      throw new UnauthorizedException('User account is not active');
-    }
-
-    // Generate JWT token
-    const payload = { sub: user.id, email: user.email };
-    const accessToken = this.jwtService.sign(payload);
-
-    return {
-      accessToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        nickname: user.nickname,
-        cnNickname: user.cnNickname,
-        status: user.status,
-      },
-    };
+  async login(loginDto: LoginDto): Promise<AuthResultDto> {
+    return this.loginUseCase.execute(loginDto);
   }
 
   async validateUser(userId: string): Promise<any> {
