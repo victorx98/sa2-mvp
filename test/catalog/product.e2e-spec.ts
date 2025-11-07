@@ -14,7 +14,7 @@ import { AddProductItemDto } from "@domains/catalog/product/dto/add-product-item
 import { ProductFilterDto } from "@domains/catalog/product/dto/product-filter.dto";
 import {
   ServiceType,
-  ServiceUnit,
+  
   BillingMode,
   ProductStatus,
   Currency,
@@ -76,7 +76,6 @@ describe("ProductService Integration Tests", () => {
         serviceType: ServiceType.GAP_ANALYSIS,
         name: "Gap Analysis for Product",
         billingMode: BillingMode.ONE_TIME,
-        defaultUnit: ServiceUnit.TIMES,
       },
       testUserId,
     );
@@ -92,7 +91,6 @@ describe("ProductService Integration Tests", () => {
           {
             serviceId: gapAnalysisServiceId,
             quantity: 1,
-            unit: ServiceUnit.TIMES,
           },
         ],
       },
@@ -119,7 +117,6 @@ describe("ProductService Integration Tests", () => {
         serviceType: ServiceType.GAP_ANALYSIS,
         name: "Gap Analysis for Product",
         billingMode: BillingMode.ONE_TIME,
-        defaultUnit: ServiceUnit.TIMES,
       },
       testUserId,
     );
@@ -133,7 +130,6 @@ describe("ProductService Integration Tests", () => {
           {
             serviceId: gapAnalysisServiceId,
             quantity: 1,
-            unit: ServiceUnit.TIMES,
           },
         ],
       },
@@ -156,7 +152,6 @@ describe("ProductService Integration Tests", () => {
             type: ProductItemType.SERVICE,
             referenceId: gapAnalysisServiceId,
             quantity: 1,
-            unit: ServiceUnit.TIMES,
           },
         ],
       };
@@ -186,7 +181,6 @@ describe("ProductService Integration Tests", () => {
             type: ProductItemType.SERVICE_PACKAGE,
             referenceId: basicPackageId,
             quantity: 1,
-            unit: ServiceUnit.TIMES,
           },
         ],
         validityDays: 90,
@@ -245,7 +239,6 @@ describe("ProductService Integration Tests", () => {
             type: ProductItemType.SERVICE,
             referenceId: gapAnalysisServiceId,
             quantity: 1,
-            unit: ServiceUnit.TIMES,
           },
         ],
       };
@@ -398,7 +391,6 @@ describe("ProductService Integration Tests", () => {
         type: ProductItemType.SERVICE,
         referenceId: gapAnalysisServiceId,
         quantity: 1,
-        unit: ServiceUnit.TIMES,
       };
 
       await productService.addItem(testProductId, addDto);
@@ -413,7 +405,6 @@ describe("ProductService Integration Tests", () => {
         type: ProductItemType.SERVICE_PACKAGE,
         referenceId: basicPackageId,
         quantity: 1,
-        unit: ServiceUnit.TIMES,
       };
 
       await productService.addItem(testProductId, addDto);
@@ -429,7 +420,6 @@ describe("ProductService Integration Tests", () => {
         type: ProductItemType.SERVICE,
         referenceId: gapAnalysisServiceId,
         quantity: 1,
-        unit: ServiceUnit.TIMES,
       });
 
       const productWithItem = await productService.findOne({
@@ -456,7 +446,6 @@ describe("ProductService Integration Tests", () => {
             type: ProductItemType.SERVICE,
             referenceId: gapAnalysisServiceId,
             quantity: 1,
-            unit: ServiceUnit.TIMES,
           },
         ],
       };
@@ -481,7 +470,6 @@ describe("ProductService Integration Tests", () => {
             type: ProductItemType.SERVICE,
             referenceId: gapAnalysisServiceId,
             quantity: 1,
-            unit: ServiceUnit.TIMES,
           },
         ],
       };
@@ -536,13 +524,11 @@ describe("ProductService Integration Tests", () => {
             type: ProductItemType.SERVICE,
             referenceId: gapAnalysisServiceId,
             quantity: 1,
-            unit: ServiceUnit.TIMES,
           },
           {
             type: ProductItemType.SERVICE_PACKAGE,
             referenceId: basicPackageId,
             quantity: 1,
-            unit: ServiceUnit.TIMES,
           },
         ],
       };

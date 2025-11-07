@@ -45,3 +45,7 @@ CLAUDE.md
 
 # MCP configuration
 .mcp.json
+>>>>>>> main
+BILLING_MODULE_DESIGN.md
+.gitignore
+CONTRACT_DOMAIN_DESIGN.md

@@ -85,7 +85,6 @@ export class ServicePackageService {
             packageId: newPackage.id,
             serviceId: item.serviceId,
             quantity: item.quantity,
-            unit: item.unit,
             sortOrder: item.sortOrder ?? index,
           })),
         );
@@ -180,7 +179,6 @@ export class ServicePackageService {
       packageId,
       serviceId: dto.serviceId,
       quantity: dto.quantity,
-      unit: dto.unit,
       sortOrder: dto.sortOrder ?? 0,
     });
   }
@@ -389,7 +387,6 @@ export class ServicePackageService {
           id: item.id,
           serviceId: item.serviceId,
           quantity: item.quantity,
-          unit: item.unit as ServiceUnit,
           sortOrder: item.sortOrder,
           service: serviceData
             ? this.mapServiceToInterface(serviceData)
@@ -536,7 +533,6 @@ export class ServicePackageService {
         return {
           serviceSnapshot,
           quantity: item.quantity,
-          unit: item.unit,
           sortOrder: item.sortOrder,
         };
       }),
@@ -660,7 +656,6 @@ export class ServicePackageService {
       description: record.description,
       coverImage: record.coverImage,
       billingMode: record.billingMode as BillingMode,
-      defaultUnit: record.defaultUnit as ServiceUnit,
       requiresEvaluation: record.requiresEvaluation,
       requiresMentorAssignment: record.requiresMentorAssignment,
       status: record.status as ServiceStatus,

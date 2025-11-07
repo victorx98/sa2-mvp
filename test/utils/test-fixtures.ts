@@ -3,7 +3,7 @@ import * as schema from "@infrastructure/database/schema";
 import {
   ServiceType,
   BillingMode,
-  ServiceUnit,
+  
   Currency,
   UserType,
   ProductItemType,
@@ -52,7 +52,6 @@ export class TestFixtures {
       name: `Test Service ${timestamp}`,
       description: "Test service description",
       billingMode: BillingMode.ONE_TIME,
-      defaultUnit: ServiceUnit.TIMES,
       requiresEvaluation: false,
       requiresMentorAssignment: true,
       status: "active" as const,
@@ -134,7 +133,6 @@ export class TestFixtures {
       packageId: servicePackage.id,
       serviceId,
       quantity: 1,
-      unit: ServiceUnit.TIMES,
       sortOrder: index,
       createdAt: new Date(),
     }));
@@ -153,7 +151,6 @@ export class TestFixtures {
       type: ProductItemType;
       referenceId: string;
       quantity: number;
-      unit: ServiceUnit;
     }>,
     overrides: Partial<typeof schema.products.$inferInsert> = {},
   ): Promise<typeof schema.products.$inferSelect> {
@@ -186,7 +183,6 @@ export class TestFixtures {
       type: item.type,
       referenceId: item.referenceId,
       quantity: item.quantity,
-      unit: item.unit,
       sortOrder: index,
       createdAt: new Date(),
     }));
@@ -224,13 +220,11 @@ export class TestFixtures {
           type: ProductItemType.SERVICE,
           referenceId: services[2].id,
           quantity: 1,
-          unit: ServiceUnit.TIMES,
         },
         {
           type: ProductItemType.SERVICE_PACKAGE,
           referenceId: servicePackage.id,
           quantity: 1,
-          unit: ServiceUnit.TIMES,
         },
       ],
       { status: "draft" },
