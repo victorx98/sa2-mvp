@@ -150,7 +150,9 @@ describe("MeetingProviderModule Integration (E2E)", () => {
             .getTime()
             .toString(),
           topic: mockCreateInput.topic,
-          meeting_start_time: mockFeishuMeetingInfo.startTime.getTime().toString(),
+          meeting_start_time: mockFeishuMeetingInfo.startTime
+            .getTime()
+            .toString(),
           meeting_duration: mockFeishuMeetingInfo.duration,
           owner: {
             id: "test-user-123",
@@ -158,8 +160,12 @@ describe("MeetingProviderModule Integration (E2E)", () => {
           },
         },
       });
-      jest.spyOn(feishuClient, "updateReservation").mockResolvedValue(undefined);
-      jest.spyOn(feishuClient, "deleteReservation").mockResolvedValue(undefined);
+      jest
+        .spyOn(feishuClient, "updateReservation")
+        .mockResolvedValue(undefined);
+      jest
+        .spyOn(feishuClient, "deleteReservation")
+        .mockResolvedValue(undefined);
     });
 
     it("should complete full lifecycle: create -> get -> update -> cancel", async () => {
@@ -318,9 +324,7 @@ describe("MeetingProviderModule Integration (E2E)", () => {
     it("should create meetings with both providers using same factory", async () => {
       // Create Feishu meeting
       const feishuProvider = factory.getProvider(MeetingProviderType.FEISHU);
-      const feishuMeeting = await feishuProvider.createMeeting(
-        mockCreateInput,
-      );
+      const feishuMeeting = await feishuProvider.createMeeting(mockCreateInput);
       expect(feishuMeeting.provider).toBe(MeetingProviderType.FEISHU);
       expect(feishuMeeting.meetingNo).toBeTruthy(); // Feishu has meeting number
 
@@ -368,9 +372,7 @@ describe("MeetingProviderModule Integration (E2E)", () => {
     it("should handle update failures", async () => {
       jest
         .spyOn(zoomAdapter, "updateMeeting")
-        .mockRejectedValue(
-          new Error("Update failed: Meeting already started"),
-        );
+        .mockRejectedValue(new Error("Update failed: Meeting already started"));
 
       const provider = factory.getProvider(MeetingProviderType.ZOOM);
 
@@ -382,9 +384,7 @@ describe("MeetingProviderModule Integration (E2E)", () => {
     it("should handle cancel failures", async () => {
       jest
         .spyOn(feishuClient, "deleteReservation")
-        .mockRejectedValue(
-          new Error("Cancel failed: Meeting already ended"),
-        );
+        .mockRejectedValue(new Error("Cancel failed: Meeting already ended"));
 
       const provider = factory.getProvider(MeetingProviderType.FEISHU);
 
@@ -396,10 +396,9 @@ describe("MeetingProviderModule Integration (E2E)", () => {
     it("should respect DEFAULT_MEETING_PROVIDER from config", () => {
       const defaultProviderType = factory.getDefaultProviderType();
       expect(defaultProviderType).toBeDefined();
-      expect([
-        MeetingProviderType.FEISHU,
-        MeetingProviderType.ZOOM,
-      ]).toContain(defaultProviderType);
+      expect([MeetingProviderType.FEISHU, MeetingProviderType.ZOOM]).toContain(
+        defaultProviderType,
+      );
     });
 
     it("should use default provider when no type specified", async () => {
@@ -430,13 +429,11 @@ describe("MeetingProviderModule Integration (E2E)", () => {
         participantJoinEarly: true,
       };
 
-      jest
-        .spyOn(feishuAdapter, "createMeeting")
-        .mockResolvedValue({
-          ...mockFeishuMeetingInfo,
-          startTime: complexInput.startTime,
-          duration: complexInput.duration,
-        });
+      jest.spyOn(feishuAdapter, "createMeeting").mockResolvedValue({
+        ...mockFeishuMeetingInfo,
+        startTime: complexInput.startTime,
+        duration: complexInput.duration,
+      });
 
       const provider = factory.getProvider(MeetingProviderType.FEISHU);
       const meeting = await provider.createMeeting(complexInput);

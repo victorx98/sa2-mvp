@@ -1,9 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { SessionRecordingManager } from "./session-recording-manager";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
-import {
-  SessionNotFoundException,
-} from "../exceptions/session.exception";
+import { SessionNotFoundException } from "../exceptions/session.exception";
 import { IRecording } from "../interfaces/session.interface";
 
 describe("SessionRecordingManager", () => {
@@ -356,9 +354,9 @@ describe("SessionRecordingManager", () => {
     it("should throw SessionNotFoundException when session not found", async () => {
       mockDb.limit.mockResolvedValueOnce([]);
 
-      await expect(
-        service.getAllRecordings("non-existent-id"),
-      ).rejects.toThrow(SessionNotFoundException);
+      await expect(service.getAllRecordings("non-existent-id")).rejects.toThrow(
+        SessionNotFoundException,
+      );
     });
   });
 

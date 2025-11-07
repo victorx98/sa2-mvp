@@ -8,6 +8,7 @@ import { NotificationQueueService } from "@core/notification/queue/notification-
 import { NotificationService } from "@core/notification/services/notification.service";
 import { UpdateSessionDto } from "@domains/services/session/dto/update-session.dto";
 import { SessionStatus } from "@domains/services/session/interfaces/session.interface";
+import { ResourceType } from "@core/calendar/interfaces/calendar-slot.interface";
 
 describe("Session Reschedule Flow (e2e)", () => {
   let app: INestApplication;
@@ -108,7 +109,8 @@ describe("Session Reschedule Flow (e2e)", () => {
     notificationQueueService = moduleFixture.get<NotificationQueueService>(
       NotificationQueueService,
     );
-    notificationService = moduleFixture.get<NotificationService>(NotificationService);
+    notificationService =
+      moduleFixture.get<NotificationService>(NotificationService);
 
     app = moduleFixture.createNestApplication();
     await app.init();
@@ -143,7 +145,7 @@ describe("Session Reschedule Flow (e2e)", () => {
       (calendarService.isSlotAvailable as jest.Mock).mockResolvedValue(true);
 
       const isAvailable = await calendarService.isSlotAvailable(
-        "mentor",
+        ResourceType.MENTOR,
         mockSession.mentorId,
         newScheduledStartTime,
         newScheduledDuration,
@@ -152,7 +154,9 @@ describe("Session Reschedule Flow (e2e)", () => {
       expect(isAvailable).toBe(true);
 
       // Step 2: Update session record
-      (sessionService.getSessionById as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.getSessionById as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
       (sessionService.updateSession as jest.Mock).mockResolvedValue(
         updatedSession,
       );
@@ -202,13 +206,13 @@ describe("Session Reschedule Flow (e2e)", () => {
         newScheduledDuration,
       );
 
-      expect(rescheduledSlot.startTime).toEqual(newScheduledStartTime);
+      expect(rescheduledSlot.timeRange.start).toEqual(newScheduledStartTime);
       expect(rescheduledSlot.durationMinutes).toBe(newScheduledDuration);
 
       // Step 5: Update notification queue
-      (notificationQueueService.updateBySessionId as jest.Mock).mockResolvedValue(
-        undefined,
-      );
+      (
+        notificationQueueService.updateBySessionId as jest.Mock
+      ).mockResolvedValue(undefined);
 
       await notificationQueueService.updateBySessionId(
         mockSession.id,
@@ -241,7 +245,9 @@ describe("Session Reschedule Flow (e2e)", () => {
       expect(mockMeetingProvider.updateMeeting).toHaveBeenCalledTimes(1);
       expect(calendarService.getSlotBySessionId).toHaveBeenCalledTimes(1);
       expect(calendarService.rescheduleSlot).toHaveBeenCalledTimes(1);
-      expect(notificationQueueService.updateBySessionId).toHaveBeenCalledTimes(1);
+      expect(notificationQueueService.updateBySessionId).toHaveBeenCalledTimes(
+        1,
+      );
       expect(notificationService.sendEmail).toHaveBeenCalledTimes(1);
     });
 
@@ -253,7 +259,7 @@ describe("Session Reschedule Flow (e2e)", () => {
       (calendarService.isSlotAvailable as jest.Mock).mockResolvedValue(false);
 
       const isAvailable = await calendarService.isSlotAvailable(
-        "mentor",
+        ResourceType.MENTOR,
         mockSession.mentorId,
         newScheduledStartTime,
         newScheduledDuration,
@@ -276,7 +282,9 @@ describe("Session Reschedule Flow (e2e)", () => {
       };
 
       (calendarService.isSlotAvailable as jest.Mock).mockResolvedValue(true);
-      (sessionService.getSessionById as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.getSessionById as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
       (sessionService.updateSession as jest.Mock).mockResolvedValue({
         ...mockSession,
         scheduledStartTime: newScheduledStartTime,
@@ -284,7 +292,7 @@ describe("Session Reschedule Flow (e2e)", () => {
       });
 
       await calendarService.isSlotAvailable(
-        "mentor",
+        ResourceType.MENTOR,
         mockSession.mentorId,
         newScheduledStartTime,
         newScheduledDuration,
@@ -343,14 +351,16 @@ describe("Session Reschedule Flow (e2e)", () => {
       };
 
       (calendarService.isSlotAvailable as jest.Mock).mockResolvedValue(true);
-      (sessionService.getSessionById as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.getSessionById as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
       (sessionService.updateSession as jest.Mock).mockResolvedValue({
         ...mockSession,
         scheduledStartTime: newTime,
       });
 
       await calendarService.isSlotAvailable(
-        "mentor",
+        ResourceType.MENTOR,
         mockSession.mentorId,
         newTime,
         mockSession.scheduledDuration,
@@ -362,8 +372,12 @@ describe("Session Reschedule Flow (e2e)", () => {
       );
 
       // Verify times are in correct format (ISO 8601)
-      expect(updated.scheduledStartTime.toISOString()).toBe(newTime.toISOString());
-      expect(updated.scheduledStartTime.getTime()).not.toBe(originalTime.getTime());
+      expect(updated.scheduledStartTime.toISOString()).toBe(
+        newTime.toISOString(),
+      );
+      expect(updated.scheduledStartTime.getTime()).not.toBe(
+        originalTime.getTime(),
+      );
     });
   });
 
@@ -377,7 +391,9 @@ describe("Session Reschedule Flow (e2e)", () => {
       };
 
       (calendarService.isSlotAvailable as jest.Mock).mockResolvedValue(true);
-      (sessionService.getSessionById as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.getSessionById as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
       (sessionService.updateSession as jest.Mock).mockResolvedValue({
         ...mockSession,
         scheduledStartTime: newScheduledStartTime,
@@ -401,7 +417,9 @@ describe("Session Reschedule Flow (e2e)", () => {
       };
 
       (calendarService.isSlotAvailable as jest.Mock).mockResolvedValue(true);
-      (sessionService.getSessionById as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.getSessionById as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
       (sessionService.updateSession as jest.Mock).mockResolvedValue({
         ...mockSession,
         scheduledDuration: newDuration,
@@ -412,7 +430,9 @@ describe("Session Reschedule Flow (e2e)", () => {
         updateDto,
       );
 
-      expect(updated.scheduledStartTime).toEqual(mockSession.scheduledStartTime);
+      expect(updated.scheduledStartTime).toEqual(
+        mockSession.scheduledStartTime,
+      );
       expect(updated.scheduledDuration).toBe(newDuration);
     });
   });
