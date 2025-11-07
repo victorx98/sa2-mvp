@@ -11,13 +11,10 @@ import {
   ServiceType,
   ServiceStatus,
   BillingMode,
-  ServiceUnit,
+  
 } from "@domains/catalog/common/interfaces/enums";
 import { CatalogException } from "@domains/catalog/common/exceptions/catalog.exception";
-import {
-  createTestFixtures,
-  TestFixtures,
-} from "../utils/test-fixtures";
+import { createTestFixtures, TestFixtures } from "../utils/test-fixtures";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "@infrastructure/database/schema";
 
@@ -71,7 +68,6 @@ describe("ServiceService Integration Tests", () => {
         name: "综合评估服务",
         description: "全面分析学生背景",
         billingMode: BillingMode.ONE_TIME,
-        defaultUnit: ServiceUnit.TIMES,
         requiresEvaluation: true,
         requiresMentorAssignment: true,
       };
@@ -96,7 +92,6 @@ describe("ServiceService Integration Tests", () => {
         description: "专业简历修改",
         coverImage: "https://example.com/resume.jpg",
         billingMode: BillingMode.ONE_TIME,
-        defaultUnit: ServiceUnit.TIMES,
         requiresEvaluation: false,
         requiresMentorAssignment: true,
         metadata: {
@@ -121,7 +116,6 @@ describe("ServiceService Integration Tests", () => {
         serviceType: ServiceType.SESSION,
         name: "1对1咨询",
         billingMode: BillingMode.PER_SESSION,
-        defaultUnit: ServiceUnit.HOURS,
       };
 
       const result = await serviceService.create(dto, testUserId);
@@ -133,7 +127,6 @@ describe("ServiceService Integration Tests", () => {
         serviceType: ServiceType.SESSION,
         name: "另一个1对1咨询",
         billingMode: BillingMode.PER_SESSION,
-        defaultUnit: ServiceUnit.HOURS,
       };
 
       await expect(
@@ -148,7 +141,6 @@ describe("ServiceService Integration Tests", () => {
         serviceType: ServiceType.MOCK_INTERVIEW,
         name: "模拟面试",
         billingMode: BillingMode.ONE_TIME,
-        defaultUnit: ServiceUnit.TIMES,
       };
 
       const result = await serviceService.create(dto, testUserId);
@@ -160,7 +152,6 @@ describe("ServiceService Integration Tests", () => {
         serviceType: ServiceType.CLASS_SESSION,
         name: "另一个服务",
         billingMode: BillingMode.PER_SESSION,
-        defaultUnit: ServiceUnit.HOURS,
       };
 
       await expect(
@@ -179,7 +170,6 @@ describe("ServiceService Integration Tests", () => {
         name: "推荐信服务",
         description: "专业推荐信撰写",
         billingMode: BillingMode.ONE_TIME,
-        defaultUnit: ServiceUnit.TIMES,
       };
 
       const result = await serviceService.create(dto, testUserId);
@@ -282,7 +272,6 @@ describe("ServiceService Integration Tests", () => {
         name: "内推服务",
         description: "原始描述",
         billingMode: BillingMode.ONE_TIME,
-        defaultUnit: ServiceUnit.TIMES,
       };
 
       const result = await serviceService.create(dto, testUserId);
@@ -347,7 +336,6 @@ describe("ServiceService Integration Tests", () => {
         serviceType: ServiceType.PROXY_APPLICATION,
         name: "代申请服务",
         billingMode: BillingMode.ONE_TIME,
-        defaultUnit: ServiceUnit.TIMES,
       };
 
       const created = await serviceService.create(dto, testUserId);
@@ -364,7 +352,6 @@ describe("ServiceService Integration Tests", () => {
         serviceType: ServiceType.OTHER_SERVICE,
         name: "其他服务",
         billingMode: BillingMode.ONE_TIME,
-        defaultUnit: ServiceUnit.TIMES,
       };
 
       const created = await serviceService.create(dto, testUserId);
@@ -395,7 +382,6 @@ describe("ServiceService Integration Tests", () => {
         serviceType: ServiceType.CONTRACT_SIGNING_ASSISTANCE,
         name: "合同签约协助",
         billingMode: BillingMode.ONE_TIME,
-        defaultUnit: ServiceUnit.TIMES,
       };
 
       const created = await serviceService.create(dto, testUserId);
@@ -416,7 +402,6 @@ describe("ServiceService Integration Tests", () => {
         serviceType: ServiceType.RECOMMENDATION_LETTER_ONLINE,
         name: "在线推荐信",
         billingMode: BillingMode.ONE_TIME,
-        defaultUnit: ServiceUnit.TIMES,
       };
 
       const created = await serviceService.create(dto, testUserId);
@@ -440,7 +425,6 @@ describe("ServiceService Integration Tests", () => {
         name: "推荐信服务",
         description: "专业推荐信撰写",
         billingMode: BillingMode.ONE_TIME,
-        defaultUnit: ServiceUnit.TIMES,
         metadata: {
           features: ["学术推荐", "工作推荐"],
           duration: 5,

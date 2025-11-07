@@ -13,7 +13,6 @@ import { Type } from "class-transformer";
 import {
   ServiceType,
   BillingMode,
-  ServiceUnit,
 } from "../../common/interfaces/enums";
 
 class ServiceMetadataDto {
@@ -65,10 +64,6 @@ export class CreateServiceDto {
   @IsNotEmpty()
   @IsEnum(BillingMode)
   billingMode: BillingMode; // Billing mode
-
-  @IsNotEmpty()
-  @IsEnum(ServiceUnit)
-  defaultUnit: ServiceUnit; // Default unit
 
   // Service configuration
   @IsOptional()

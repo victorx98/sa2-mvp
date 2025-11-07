@@ -223,7 +223,6 @@ export class ProductService {
       type: dto.type,
       referenceId: dto.referenceId,
       quantity: dto.quantity,
-      unit: dto.unit,
       sortOrder: dto.sortOrder ?? 0,
     });
   }
@@ -468,7 +467,6 @@ export class ProductService {
         type: item.type as ProductItemType,
         referenceId: item.referenceId,
         quantity: item.quantity,
-        unit: item.unit as ServiceUnit,
         sortOrder: item.sortOrder,
 
         service:
@@ -822,7 +820,6 @@ export class ProductService {
           return {
             type: item.type,
             quantity: item.quantity,
-            unit: item.unit,
             sortOrder: item.sortOrder,
             serviceSnapshot,
           };
@@ -832,7 +829,6 @@ export class ProductService {
           return {
             type: item.type,
             quantity: item.quantity,
-            unit: item.unit,
             sortOrder: item.sortOrder,
             servicePackageSnapshot: packageSnapshot,
           };
