@@ -13,7 +13,6 @@ import { PackageFilterDto } from "@domains/catalog/service-package/dto/package-f
 import {
   ServiceType,
   ServiceStatus,
-  ServiceUnit,
   BillingMode,
 } from "@domains/catalog/common/interfaces/enums";
 import { CatalogException } from "@domains/catalog/common/exceptions/catalog.exception";
@@ -67,7 +66,6 @@ describe("ServicePackageService Integration Tests", () => {
         serviceType: ServiceType.GAP_ANALYSIS,
         name: "Gap Analysis",
         billingMode: BillingMode.ONE_TIME,
-        defaultUnit: ServiceUnit.TIMES,
       },
       testUserId,
     );
@@ -80,7 +78,6 @@ describe("ServicePackageService Integration Tests", () => {
         serviceType: ServiceType.RESUME_REVIEW,
         name: "Resume Review",
         billingMode: BillingMode.ONE_TIME,
-        defaultUnit: ServiceUnit.TIMES,
       },
       testUserId,
     );
@@ -105,7 +102,6 @@ describe("ServicePackageService Integration Tests", () => {
         serviceType: ServiceType.GAP_ANALYSIS,
         name: "Gap Analysis",
         billingMode: BillingMode.ONE_TIME,
-        defaultUnit: ServiceUnit.TIMES,
       },
       testUserId,
     );
@@ -117,7 +113,6 @@ describe("ServicePackageService Integration Tests", () => {
         serviceType: ServiceType.RESUME_REVIEW,
         name: "Resume Review",
         billingMode: BillingMode.ONE_TIME,
-        defaultUnit: ServiceUnit.TIMES,
       },
       testUserId,
     );
@@ -152,12 +147,10 @@ describe("ServicePackageService Integration Tests", () => {
           {
             serviceId: gapAnalysisServiceId,
             quantity: 1,
-            unit: ServiceUnit.TIMES,
           },
           {
             serviceId: resumeReviewServiceId,
             quantity: 2,
-            unit: ServiceUnit.TIMES,
           },
         ],
         metadata: {
@@ -206,7 +199,6 @@ describe("ServicePackageService Integration Tests", () => {
           {
             serviceId: gapAnalysisServiceId,
             quantity: 1,
-            unit: ServiceUnit.TIMES,
           },
         ],
       };
@@ -321,7 +313,6 @@ describe("ServicePackageService Integration Tests", () => {
       const addDto: AddServiceDto = {
         serviceId: gapAnalysisServiceId,
         quantity: 1,
-        unit: ServiceUnit.TIMES,
       };
 
       await packageService.addService(testPackageId, addDto);
@@ -336,7 +327,6 @@ describe("ServicePackageService Integration Tests", () => {
       await packageService.addService(testPackageId, {
         serviceId: gapAnalysisServiceId,
         quantity: 1,
-        unit: ServiceUnit.TIMES,
       });
 
       // 移除服务
@@ -389,7 +379,6 @@ describe("ServicePackageService Integration Tests", () => {
           {
             serviceId: gapAnalysisServiceId,
             quantity: 1,
-            unit: ServiceUnit.TIMES,
           },
         ],
       };

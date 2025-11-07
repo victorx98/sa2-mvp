@@ -1,12 +1,4 @@
-import {
-  IsNotEmpty,
-  IsUUID,
-  IsInt,
-  IsEnum,
-  Min,
-  IsOptional,
-} from "class-validator";
-import { ServiceUnit } from "../../common/interfaces/enums";
+import { IsNotEmpty, IsUUID, IsInt, Min, IsOptional } from "class-validator";
 
 export class AddServiceDto {
   @IsNotEmpty()
@@ -17,10 +9,6 @@ export class AddServiceDto {
   @IsInt()
   @Min(1)
   quantity: number;
-
-  @IsNotEmpty()
-  @IsEnum(ServiceUnit)
-  unit: ServiceUnit;
 
   @IsOptional()
   @IsInt()

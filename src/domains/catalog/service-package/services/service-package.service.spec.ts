@@ -87,13 +87,11 @@ describe("ServicePackageService (Integration with Real Database)", () => {
           {
             serviceId: services[0].id,
             quantity: 1,
-            unit: ServiceUnit.TIMES,
             sortOrder: 0,
           },
           {
             serviceId: services[1].id,
             quantity: 3,
-            unit: ServiceUnit.TIMES,
             sortOrder: 1,
           },
         ],
@@ -125,7 +123,6 @@ describe("ServicePackageService (Integration with Real Database)", () => {
           {
             serviceId: services[1].id,
             quantity: 1,
-            unit: ServiceUnit.TIMES,
             sortOrder: 0,
           },
         ],
@@ -144,7 +141,6 @@ describe("ServicePackageService (Integration with Real Database)", () => {
           {
             serviceId: "00000000-0000-0000-0000-000000000000",
             quantity: 1,
-            unit: ServiceUnit.TIMES,
             sortOrder: 0,
           },
         ],
@@ -167,7 +163,6 @@ describe("ServicePackageService (Integration with Real Database)", () => {
           {
             serviceId: inactiveService.id,
             quantity: 1,
-            unit: ServiceUnit.TIMES,
             sortOrder: 0,
           },
         ],
@@ -192,7 +187,6 @@ describe("ServicePackageService (Integration with Real Database)", () => {
       const addServiceDto = {
         serviceId: services[2].id,
         quantity: 2,
-        unit: ServiceUnit.TIMES,
         sortOrder: 2,
       };
 
@@ -215,7 +209,6 @@ describe("ServicePackageService (Integration with Real Database)", () => {
       const addServiceDto = {
         serviceId: services[0].id, // Already in package
         quantity: 1,
-        unit: ServiceUnit.TIMES,
         sortOrder: 2,
       };
 
@@ -337,7 +330,6 @@ describe("ServicePackageService (Integration with Real Database)", () => {
           type: ProductItemType.SERVICE_PACKAGE,
           referenceId: servicePackage.id,
           quantity: 1,
-          unit: ServiceUnit.TIMES,
         },
       ]);
 

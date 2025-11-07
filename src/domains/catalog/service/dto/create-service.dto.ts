@@ -10,11 +10,7 @@ import {
   Min,
 } from "class-validator";
 import { Type } from "class-transformer";
-import {
-  ServiceType,
-  BillingMode,
-  ServiceUnit,
-} from "../../common/interfaces/enums";
+import { ServiceType, BillingMode } from "../../common/interfaces/enums";
 
 class ServiceMetadataDto {
   @IsOptional()
@@ -65,10 +61,6 @@ export class CreateServiceDto {
   @IsNotEmpty()
   @IsEnum(BillingMode)
   billingMode: BillingMode; // Billing mode
-
-  @IsNotEmpty()
-  @IsEnum(ServiceUnit)
-  defaultUnit: ServiceUnit; // Default unit
 
   // Service configuration
   @IsOptional()
