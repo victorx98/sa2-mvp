@@ -42,6 +42,7 @@ lerna-debug.log*
 CATALOG_DOMAIN_DESIGN.md
 CLAUDE.md
 .cursor
+.vscode
 
 # MCP configuration
 .mcp.json
