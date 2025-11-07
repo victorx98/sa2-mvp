@@ -41,6 +41,7 @@ lerna-debug.log*
 .claude
 CLAUDE.md
 .cursor
+.vscode
 
 # MCP configuration
 .mcp.json
