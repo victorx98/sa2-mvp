@@ -1,5 +1,4 @@
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { PgTransaction } from "drizzle-orm/pg-core";
 import * as schema from "@infrastructure/database/schema";
 
 /**
@@ -11,12 +10,11 @@ export type DrizzleDatabase = NodePgDatabase<typeof schema>;
 /**
  * Drizzle transaction type
  * Used for operations within a transaction context
+ * Extracted from database transaction callback parameter type
  */
-export type DrizzleTransaction = PgTransaction<
-  typeof schema,
-  any,
-  Record<string, never>
->;
+export type DrizzleTransaction = Parameters<
+  Parameters<DrizzleDatabase["transaction"]>[0]
+>[0];
 
 /**
  * Drizzle executor type
