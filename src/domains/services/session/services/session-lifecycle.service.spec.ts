@@ -280,9 +280,7 @@ describe("SessionLifecycleService", () => {
 
       mockSessionService.getSessionByMeetingId.mockResolvedValue(mockSession);
       mockSessionEventRepository.create.mockResolvedValue({} as any);
-      mockRecordingManager.appendRecording.mockResolvedValue(
-        updatedRecordings,
-      );
+      mockRecordingManager.appendRecording.mockResolvedValue(updatedRecordings);
       mockTranscriptPollingService.startPolling.mockResolvedValue();
       mockRecordingManager.isAllTranscriptsFetched.mockResolvedValue(false);
 

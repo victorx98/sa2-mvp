@@ -2,12 +2,22 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import { SessionService } from "@domains/services/session/services/session.service";
 import { CalendarService } from "@core/calendar/services/calendar.service";
-import { IMeetingProvider } from "@core/meeting-providers/interfaces/meeting-provider.interface";
+import {
+  IMeetingProvider,
+  MeetingProviderType,
+} from "@core/meeting-providers/interfaces/meeting-provider.interface";
 import { MeetingProviderFactory } from "@core/meeting-providers/factory/meeting-provider.factory";
 import { NotificationQueueService } from "@core/notification/queue/notification-queue.service";
 import { NotificationService } from "@core/notification/services/notification.service";
 import { CreateSessionDto } from "@domains/services/session/dto/create-session.dto";
-import { MeetingProvider, SessionStatus } from "@domains/services/session/interfaces/session.interface";
+import {
+  MeetingProvider,
+  SessionStatus,
+} from "@domains/services/session/interfaces/session.interface";
+import {
+  ResourceType,
+  SlotType,
+} from "@core/calendar/interfaces/calendar-slot.interface";
 
 describe("Session Creation Flow (e2e)", () => {
   let app: INestApplication;
@@ -74,7 +84,8 @@ describe("Session Creation Flow (e2e)", () => {
     notificationQueueService = moduleFixture.get<NotificationQueueService>(
       NotificationQueueService,
     );
-    notificationService = moduleFixture.get<NotificationService>(NotificationService);
+    notificationService =
+      moduleFixture.get<NotificationService>(NotificationService);
 
     app = moduleFixture.createNestApplication();
     await app.init();
@@ -94,7 +105,9 @@ describe("Session Creation Flow (e2e)", () => {
       const createDto: CreateSessionDto = {
         studentId: "00000000-0000-0000-0000-000000000001",
         mentorId: "00000000-0000-0000-0000-000000000002",
-        scheduledStartTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        scheduledStartTime: new Date(
+          Date.now() + 24 * 60 * 60 * 1000,
+        ).toISOString(),
         scheduledDuration: 60,
         sessionName: "System Design Interview Prep",
         meetingProvider: MeetingProvider.FEISHU,
@@ -116,7 +129,7 @@ describe("Session Creation Flow (e2e)", () => {
       };
 
       const mockMeetingInfo = {
-        provider: "feishu",
+        provider: MeetingProviderType.FEISHU,
         meetingId: "6892847362938471942",
         meetingNo: "123456789",
         meetingUrl: "https://vc.feishu.cn/j/123456789",
@@ -137,7 +150,9 @@ describe("Session Creation Flow (e2e)", () => {
       (calendarService.isSlotAvailable as jest.Mock).mockResolvedValue(true);
 
       // Step 2: Create session record
-      (sessionService.createSession as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.createSession as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
 
       // Step 3: Create meeting
       mockMeetingProvider.createMeeting.mockResolvedValue(mockMeetingInfo);
@@ -150,23 +165,27 @@ describe("Session Creation Flow (e2e)", () => {
       // Step 5: Occupy calendar slot
       (calendarService.createOccupiedSlot as jest.Mock).mockResolvedValue({
         id: "slot-001",
-        resourceType: "mentor",
+        resourceType: ResourceType.MENTOR,
         resourceId: createDto.mentorId,
         startTime: new Date(createDto.scheduledStartTime),
         duration: 60,
       });
 
       // Step 6: Enqueue notifications
-      (notificationQueueService.enqueue as jest.Mock).mockResolvedValue(undefined);
+      (notificationQueueService.enqueue as jest.Mock).mockResolvedValue(
+        undefined,
+      );
 
       // Step 7: Send immediate email
-      (notificationService.sendSessionCreatedEmail as jest.Mock).mockResolvedValue(undefined);
+      (
+        notificationService.sendSessionCreatedEmail as jest.Mock
+      ).mockResolvedValue(undefined);
 
       // Act
       // Simulate BFF layer orchestration
       // Step 1: Check calendar availability
       const isAvailable = await calendarService.isSlotAvailable(
-        "mentor",
+        ResourceType.MENTOR,
         createDto.mentorId,
         new Date(createDto.scheduledStartTime),
         createDto.scheduledDuration,
@@ -181,7 +200,9 @@ describe("Session Creation Flow (e2e)", () => {
       expect(session.id).toBe(mockSession.id);
 
       // Step 3: Create meeting
-      const provider = meetingProviderFactory.getProvider(createDto.meetingProvider);
+      const provider = meetingProviderFactory.getProvider(
+        createDto.meetingProvider as unknown as MeetingProviderType,
+      );
       const meetingInfo = await provider.createMeeting({
         topic: createDto.sessionName || `Session with mentor`,
         startTime: new Date(createDto.scheduledStartTime),
@@ -193,24 +214,27 @@ describe("Session Creation Flow (e2e)", () => {
       expect(meetingInfo.meetingId).toBe(mockMeetingInfo.meetingId);
 
       // Step 4: Update session with meeting info
-      const updatedSession = await sessionService.updateMeetingInfo(session.id, {
-        meetingProvider: meetingInfo.provider as any,
-        meetingId: meetingInfo.meetingId,
-        meetingNo: meetingInfo.meetingNo,
-        meetingUrl: meetingInfo.meetingUrl,
-        meetingPassword: meetingInfo.meetingPassword,
-      });
+      const updatedSession = await sessionService.updateMeetingInfo(
+        session.id,
+        {
+          meetingProvider: meetingInfo.provider as unknown as MeetingProvider,
+          meetingId: meetingInfo.meetingId,
+          meetingNo: meetingInfo.meetingNo,
+          meetingUrl: meetingInfo.meetingUrl,
+          meetingPassword: meetingInfo.meetingPassword,
+        },
+      );
 
       expect(updatedSession.meetingUrl).toBe(mockMeetingInfo.meetingUrl);
 
       // Step 5: Occupy calendar
       await calendarService.createOccupiedSlot({
-        resourceType: "mentor",
+        resourceType: ResourceType.MENTOR,
         resourceId: createDto.mentorId,
-        startTime: new Date(createDto.scheduledStartTime),
+        startTime: new Date(createDto.scheduledStartTime).toISOString(),
         durationMinutes: createDto.scheduledDuration,
         sessionId: session.id,
-        slotType: "session",
+        slotType: SlotType.SESSION,
       });
 
       // Step 6: Enqueue notifications
@@ -221,7 +245,9 @@ describe("Session Creation Flow (e2e)", () => {
           recipientType: "student" as const,
           recipientId: createDto.studentId,
           notificationType: "session_reminder_3d",
-          scheduledAt: new Date(scheduledTime.getTime() - 3 * 24 * 60 * 60 * 1000),
+          scheduledAt: new Date(
+            scheduledTime.getTime() - 3 * 24 * 60 * 60 * 1000,
+          ),
         },
         {
           sessionId: session.id,
@@ -237,7 +263,11 @@ describe("Session Creation Flow (e2e)", () => {
       }
 
       // Step 7: Send immediate email
-      await notificationService.sendSessionCreatedEmail(updatedSession as any);
+      await notificationService.sendSessionCreatedEmail(
+        updatedSession as any,
+        "student@example.com",
+        "mentor@example.com",
+      );
 
       // Assert
       // Verify all steps were called in correct order
@@ -247,14 +277,18 @@ describe("Session Creation Flow (e2e)", () => {
       expect(sessionService.updateMeetingInfo).toHaveBeenCalledTimes(1);
       expect(calendarService.createOccupiedSlot).toHaveBeenCalledTimes(1);
       expect(notificationQueueService.enqueue).toHaveBeenCalledTimes(2);
-      expect(notificationService.sendSessionCreatedEmail).toHaveBeenCalledTimes(1);
+      expect(notificationService.sendSessionCreatedEmail).toHaveBeenCalledTimes(
+        1,
+      );
     });
 
     it("should fail when mentor calendar is not available", async () => {
       const createDto: CreateSessionDto = {
         studentId: "00000000-0000-0000-0000-000000000001",
         mentorId: "00000000-0000-0000-0000-000000000002",
-        scheduledStartTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        scheduledStartTime: new Date(
+          Date.now() + 24 * 60 * 60 * 1000,
+        ).toISOString(),
         scheduledDuration: 60,
         sessionName: "System Design Interview Prep",
         meetingProvider: MeetingProvider.FEISHU,
@@ -264,7 +298,7 @@ describe("Session Creation Flow (e2e)", () => {
       (calendarService.isSlotAvailable as jest.Mock).mockResolvedValue(false);
 
       const isAvailable = await calendarService.isSlotAvailable(
-        "mentor",
+        ResourceType.MENTOR,
         createDto.mentorId,
         new Date(createDto.scheduledStartTime),
         createDto.scheduledDuration,
@@ -280,7 +314,9 @@ describe("Session Creation Flow (e2e)", () => {
       const createDto: CreateSessionDto = {
         studentId: "00000000-0000-0000-0000-000000000001",
         mentorId: "00000000-0000-0000-0000-000000000002",
-        scheduledStartTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        scheduledStartTime: new Date(
+          Date.now() + 24 * 60 * 60 * 1000,
+        ).toISOString(),
         scheduledDuration: 60,
         sessionName: "System Design Interview Prep",
         meetingProvider: MeetingProvider.FEISHU,
@@ -294,7 +330,9 @@ describe("Session Creation Flow (e2e)", () => {
       };
 
       (calendarService.isSlotAvailable as jest.Mock).mockResolvedValue(true);
-      (sessionService.createSession as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.createSession as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
 
       // Meeting creation fails
       mockMeetingProvider.createMeeting.mockRejectedValue(
@@ -302,7 +340,7 @@ describe("Session Creation Flow (e2e)", () => {
       );
 
       await calendarService.isSlotAvailable(
-        "mentor",
+        ResourceType.MENTOR,
         createDto.mentorId,
         new Date(createDto.scheduledStartTime),
         createDto.scheduledDuration,
@@ -310,7 +348,9 @@ describe("Session Creation Flow (e2e)", () => {
 
       await sessionService.createSession(createDto);
 
-      const provider = meetingProviderFactory.getProvider(createDto.meetingProvider);
+      const provider = meetingProviderFactory.getProvider(
+        createDto.meetingProvider as unknown as MeetingProviderType,
+      );
 
       // Should throw error when creating meeting
       await expect(

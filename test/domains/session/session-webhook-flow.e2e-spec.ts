@@ -115,13 +115,15 @@ describe("Session Webhook Flow (e2e)", () => {
         mockSession,
       );
       (sessionEventRepository.create as jest.Mock).mockResolvedValue({});
-      (sessionService.updateSession as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.updateSession as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
 
       // Step 1: Meeting Started
       const meetingStartedEvent: IWebhookEvent = {
         eventId: "event-001",
         eventType: "vc.meeting.meeting_started_v1",
-        timestamp: "2025-11-10T14:02:00Z",
+        timestamp: new Date("2025-11-10T14:02:00Z").getTime(),
         eventData: {
           meeting: { id: mockSession.meetingId },
         },
@@ -150,7 +152,7 @@ describe("Session Webhook Flow (e2e)", () => {
       const mentorJoinEvent: IWebhookEvent = {
         eventId: "event-002",
         eventType: "vc.meeting.join_meeting_v1",
-        timestamp: "2025-11-10T14:02:15Z",
+        timestamp: new Date("2025-11-10T14:02:15Z").getTime(),
         eventData: {
           meeting: { id: mockSession.meetingId },
           user: { id: mockSession.mentorId },
@@ -162,7 +164,7 @@ describe("Session Webhook Flow (e2e)", () => {
       const studentJoinEvent: IWebhookEvent = {
         eventId: "event-003",
         eventType: "vc.meeting.join_meeting_v1",
-        timestamp: "2025-11-10T14:05:00Z",
+        timestamp: new Date("2025-11-10T14:05:00Z").getTime(),
         eventData: {
           meeting: { id: mockSession.meetingId },
           user: { id: mockSession.studentId },
@@ -175,7 +177,7 @@ describe("Session Webhook Flow (e2e)", () => {
       const studentLeaveEvent: IWebhookEvent = {
         eventId: "event-004",
         eventType: "vc.meeting.leave_meeting_v1",
-        timestamp: "2025-11-10T15:00:00Z",
+        timestamp: new Date("2025-11-10T15:00:00Z").getTime(),
         eventData: {
           meeting: { id: mockSession.meetingId },
           user: { id: mockSession.studentId },
@@ -187,7 +189,7 @@ describe("Session Webhook Flow (e2e)", () => {
       const mentorLeaveEvent: IWebhookEvent = {
         eventId: "event-005",
         eventType: "vc.meeting.leave_meeting_v1",
-        timestamp: "2025-11-10T15:05:00Z",
+        timestamp: new Date("2025-11-10T15:05:00Z").getTime(),
         eventData: {
           meeting: { id: mockSession.meetingId },
           user: { id: mockSession.mentorId },
@@ -213,7 +215,7 @@ describe("Session Webhook Flow (e2e)", () => {
       const meetingEndedEvent: IWebhookEvent = {
         eventId: "event-006",
         eventType: "vc.meeting.meeting_ended_v1",
-        timestamp: "2025-11-10T15:05:00Z",
+        timestamp: new Date("2025-11-10T15:05:00Z").getTime(),
         eventData: {
           meeting: { id: mockSession.meetingId },
         },
@@ -245,12 +247,14 @@ describe("Session Webhook Flow (e2e)", () => {
           endedAt: new Date("2025-11-10T15:02:00Z"),
         },
       ]);
-      (recordingManager.isAllTranscriptsFetched as jest.Mock).mockResolvedValue(false);
+      (recordingManager.isAllTranscriptsFetched as jest.Mock).mockResolvedValue(
+        false,
+      );
 
       const recordingReadyEvent: IWebhookEvent = {
         eventId: "event-007",
         eventType: "vc.meeting.recording_ready_v1",
-        timestamp: "2025-11-10T15:10:00Z",
+        timestamp: new Date("2025-11-10T15:10:00Z").getTime(),
         eventData: {
           meeting: { id: mockSession.meetingId },
           recording: {
@@ -291,12 +295,14 @@ describe("Session Webhook Flow (e2e)", () => {
           sequence: 1,
         },
       ]);
-      (recordingManager.isAllTranscriptsFetched as jest.Mock).mockResolvedValueOnce(false);
+      (
+        recordingManager.isAllTranscriptsFetched as jest.Mock
+      ).mockResolvedValueOnce(false);
 
       const firstRecordingEvent: IWebhookEvent = {
         eventId: "event-001",
         eventType: "vc.meeting.recording_ready_v1",
-        timestamp: "2025-11-10T15:10:00Z",
+        timestamp: new Date("2025-11-10T15:10:00Z").getTime(),
         eventData: {
           meeting: { id: mockSession.meetingId },
           recording: {
@@ -322,12 +328,14 @@ describe("Session Webhook Flow (e2e)", () => {
           sequence: 2,
         },
       ]);
-      (recordingManager.isAllTranscriptsFetched as jest.Mock).mockResolvedValueOnce(true);
+      (
+        recordingManager.isAllTranscriptsFetched as jest.Mock
+      ).mockResolvedValueOnce(true);
 
       const secondRecordingEvent: IWebhookEvent = {
         eventId: "event-002",
         eventType: "vc.meeting.recording_ready_v1",
-        timestamp: "2025-11-10T15:15:00Z",
+        timestamp: new Date("2025-11-10T15:15:00Z").getTime(),
         eventData: {
           meeting: { id: mockSession.meetingId },
           recording: {
@@ -355,7 +363,7 @@ describe("Session Webhook Flow (e2e)", () => {
       const shareStartedEvent: IWebhookEvent = {
         eventId: "event-001",
         eventType: "vc.meeting.share_started_v1",
-        timestamp: "2025-11-10T14:30:00Z",
+        timestamp: new Date("2025-11-10T14:30:00Z").getTime(),
         eventData: {
           meeting: { id: mockSession.meetingId },
         },
@@ -374,7 +382,7 @@ describe("Session Webhook Flow (e2e)", () => {
       const shareEndedEvent: IWebhookEvent = {
         eventId: "event-002",
         eventType: "vc.meeting.share_ended_v1",
-        timestamp: "2025-11-10T14:45:00Z",
+        timestamp: new Date("2025-11-10T14:45:00Z").getTime(),
         eventData: {
           meeting: { id: mockSession.meetingId },
         },
@@ -391,12 +399,14 @@ describe("Session Webhook Flow (e2e)", () => {
     });
 
     it("should gracefully handle webhook for non-existent session", async () => {
-      (sessionService.getSessionByMeetingId as jest.Mock).mockResolvedValue(null);
+      (sessionService.getSessionByMeetingId as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       const event: IWebhookEvent = {
         eventId: "event-001",
         eventType: "vc.meeting.meeting_started_v1",
-        timestamp: "2025-11-10T14:00:00Z",
+        timestamp: new Date("2025-11-10T14:00:00Z").getTime(),
         eventData: {
           meeting: { id: "non-existent-meeting" },
         },

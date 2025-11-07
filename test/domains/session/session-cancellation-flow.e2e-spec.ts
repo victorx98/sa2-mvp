@@ -107,7 +107,8 @@ describe("Session Cancellation Flow (e2e)", () => {
     notificationQueueService = moduleFixture.get<NotificationQueueService>(
       NotificationQueueService,
     );
-    notificationService = moduleFixture.get<NotificationService>(NotificationService);
+    notificationService =
+      moduleFixture.get<NotificationService>(NotificationService);
 
     app = moduleFixture.createNestApplication();
     await app.init();
@@ -132,7 +133,9 @@ describe("Session Cancellation Flow (e2e)", () => {
       };
 
       // Step 1: Cancel session (update status and add reason to notes)
-      (sessionService.getSessionById as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.getSessionById as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
       (sessionService.cancelSession as jest.Mock).mockResolvedValue(
         cancelledSession,
       );
@@ -170,18 +173,22 @@ describe("Session Cancellation Flow (e2e)", () => {
       await calendarService.releaseSlot(slot.id);
 
       // Step 4: Cancel all pending notifications
-      (notificationQueueService.cancelBySessionId as jest.Mock).mockResolvedValue(
-        undefined,
-      );
+      (
+        notificationQueueService.cancelBySessionId as jest.Mock
+      ).mockResolvedValue(undefined);
 
       await notificationQueueService.cancelBySessionId(mockSession.id);
 
       // Step 5: Send cancellation notification email
-      (notificationService.sendSessionCancelledEmail as jest.Mock).mockResolvedValue(
-        undefined,
-      );
+      (
+        notificationService.sendSessionCancelledEmail as jest.Mock
+      ).mockResolvedValue(undefined);
 
-      await notificationService.sendSessionCancelledEmail(cancelledSession as any);
+      await notificationService.sendSessionCancelledEmail(
+        cancelledSession as any,
+        "student@example.com",
+        "mentor@example.com",
+      );
 
       // Verify all steps were executed
       expect(sessionService.cancelSession).toHaveBeenCalledWith(
@@ -198,9 +205,9 @@ describe("Session Cancellation Flow (e2e)", () => {
       expect(notificationQueueService.cancelBySessionId).toHaveBeenCalledWith(
         mockSession.id,
       );
-      expect(notificationService.sendSessionCancelledEmail).toHaveBeenCalledWith(
-        cancelledSession,
-      );
+      expect(
+        notificationService.sendSessionCancelledEmail,
+      ).toHaveBeenCalledWith(cancelledSession);
     });
 
     it("should successfully cancel a session with mentor-requested reason", async () => {
@@ -212,7 +219,9 @@ describe("Session Cancellation Flow (e2e)", () => {
         notes: `[Cancelled] ${cancelReason}`,
       };
 
-      (sessionService.getSessionById as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.getSessionById as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
       (sessionService.cancelSession as jest.Mock).mockResolvedValue(
         cancelledSession,
       );
@@ -235,7 +244,9 @@ describe("Session Cancellation Flow (e2e)", () => {
         notes: `[Cancelled] ${cancelReason}`,
       };
 
-      (sessionService.getSessionById as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.getSessionById as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
       (sessionService.cancelSession as jest.Mock).mockResolvedValue(
         cancelledSession,
       );
@@ -305,7 +316,9 @@ describe("Session Cancellation Flow (e2e)", () => {
         notes: `[Cancelled] ${cancelReason}`,
       };
 
-      (sessionService.getSessionById as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.getSessionById as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
       (sessionService.cancelSession as jest.Mock).mockResolvedValue(
         cancelledSession,
       );
@@ -327,7 +340,9 @@ describe("Session Cancellation Flow (e2e)", () => {
         notes: `[Cancelled] ${cancelReason}`,
       };
 
-      (sessionService.getSessionById as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.getSessionById as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
       (sessionService.cancelSession as jest.Mock).mockResolvedValue(
         cancelledSession,
       );
@@ -343,7 +358,9 @@ describe("Session Cancellation Flow (e2e)", () => {
     it("should require non-empty cancellation reason", async () => {
       const emptyReason = "";
 
-      (sessionService.getSessionById as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.getSessionById as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
 
       // In actual implementation, cancelSession should throw an error
       // when reason is empty (tested in unit tests)
@@ -362,7 +379,9 @@ describe("Session Cancellation Flow (e2e)", () => {
         notes: `[Cancelled] ${cancelReason}`,
       };
 
-      (sessionService.getSessionById as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.getSessionById as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
       (sessionService.cancelSession as jest.Mock).mockResolvedValue(
         cancelledSession,
       );
@@ -371,12 +390,12 @@ describe("Session Cancellation Flow (e2e)", () => {
         mockCalendarSlot,
       );
       (calendarService.releaseSlot as jest.Mock).mockResolvedValue({});
-      (notificationQueueService.cancelBySessionId as jest.Mock).mockResolvedValue(
-        undefined,
-      );
-      (notificationService.sendSessionCancelledEmail as jest.Mock).mockResolvedValue(
-        undefined,
-      );
+      (
+        notificationQueueService.cancelBySessionId as jest.Mock
+      ).mockResolvedValue(undefined);
+      (
+        notificationService.sendSessionCancelledEmail as jest.Mock
+      ).mockResolvedValue(undefined);
 
       await sessionService.cancelSession(mockSession.id, cancelReason);
 
@@ -390,18 +409,28 @@ describe("Session Cancellation Flow (e2e)", () => {
 
       await notificationQueueService.cancelBySessionId(mockSession.id);
 
-      await notificationService.sendSessionCancelledEmail(cancelledSession as any);
+      await notificationService.sendSessionCancelledEmail(
+        cancelledSession as any,
+        "student@example.com",
+        "mentor@example.com",
+      );
 
       // Verify notification was sent
-      expect(notificationService.sendSessionCancelledEmail).toHaveBeenCalledWith(
+      expect(
+        notificationService.sendSessionCancelledEmail,
+      ).toHaveBeenCalledWith(
         cancelledSession,
+        "student@example.com",
+        "mentor@example.com",
       );
     });
 
     it("should cancel all scheduled notifications (reminders)", async () => {
       const cancelReason = "Cancellation test";
 
-      (sessionService.getSessionById as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.getSessionById as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
       (sessionService.cancelSession as jest.Mock).mockResolvedValue({
         ...mockSession,
         status: SessionStatus.CANCELLED,
@@ -411,9 +440,9 @@ describe("Session Cancellation Flow (e2e)", () => {
         mockCalendarSlot,
       );
       (calendarService.releaseSlot as jest.Mock).mockResolvedValue({});
-      (notificationQueueService.cancelBySessionId as jest.Mock).mockResolvedValue(
-        undefined,
-      );
+      (
+        notificationQueueService.cancelBySessionId as jest.Mock
+      ).mockResolvedValue(undefined);
 
       await sessionService.cancelSession(mockSession.id, cancelReason);
 
@@ -438,7 +467,9 @@ describe("Session Cancellation Flow (e2e)", () => {
     it("should release mentor calendar slot", async () => {
       const cancelReason = "Release calendar test";
 
-      (sessionService.getSessionById as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.getSessionById as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
       (sessionService.cancelSession as jest.Mock).mockResolvedValue({
         ...mockSession,
         status: SessionStatus.CANCELLED,
@@ -466,7 +497,9 @@ describe("Session Cancellation Flow (e2e)", () => {
     it("should handle missing calendar slot gracefully", async () => {
       const cancelReason = "Missing slot test";
 
-      (sessionService.getSessionById as jest.Mock).mockResolvedValue(mockSession);
+      (sessionService.getSessionById as jest.Mock).mockResolvedValue(
+        mockSession,
+      );
       (sessionService.cancelSession as jest.Mock).mockResolvedValue({
         ...mockSession,
         status: SessionStatus.CANCELLED,
