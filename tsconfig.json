@@ -18,8 +18,10 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "paths": {
+      "@core/*": ["src/core/*"],
       "@domains/*": ["src/domains/*"],
       "@application/*": ["src/application/*"],
+      "@operations/*": ["src/operations/*"],
       "@infrastructure/*": ["src/infrastructure/*"],
       "@api/*": ["src/api/*"],
       "@shared/*": ["src/shared/*"]

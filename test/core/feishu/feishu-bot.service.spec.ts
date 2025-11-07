@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { FeishuBotService } from "@core/feishu/bot/services/feishu-bot.service";
+import { IFeishuCard } from "@core/feishu/bot/interfaces/feishu-bot.interface";
 import axios from "axios";
 import { ISessionEntity } from "@domains/services/session/interfaces/session.interface";
 import { SessionStatus } from "@domains/services/session/interfaces/session.interface";
@@ -52,17 +53,17 @@ describe("FeishuBotService Unit Tests", () => {
     it("should send card message successfully", async () => {
       // Arrange
       const userId = "ou_test_user_id";
-      const card = {
+      const card: IFeishuCard = {
         config: {
           wide_screen_mode: true,
           enable_forward: true,
         },
         header: {
           title: {
-            tag: "plain_text",
+            tag: "plain_text" as const,
             content: "Test Card",
           },
-          template: "blue",
+          template: "blue" as const,
         },
         elements: [
           {

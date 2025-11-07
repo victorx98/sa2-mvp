@@ -4,6 +4,7 @@ import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import { IQueuedNotification } from "../queue/notification-queue.interface";
+import { NotificationType } from "../dto/queue-notification.dto";
 
 /**
  * Notification Queue Repository
@@ -234,7 +235,7 @@ export class NotificationQueueRepository {
     return {
       id: record.id,
       sessionId: record.sessionId,
-      type: record.type,
+      type: record.type as unknown as NotificationType,
       recipient: record.recipient,
       template: record.template,
       data: record.data as Record<string, unknown>,

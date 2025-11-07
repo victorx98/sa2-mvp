@@ -32,6 +32,7 @@
     "@nestjs/passport": "~11.0.5",
     "@nestjs/platform-express": "~11.1.8",
     "@nestjs/schedule": "~6.0.1",
+    "@nestjs/swagger": "~11.1.0",
     "axios": "^1.13.2",
     "bcrypt": "~6.0.0",
     "class-transformer": "~0.5.1",
@@ -95,6 +96,8 @@
       "^@application/(.*)$": "<rootDir>/application/$1",
       "^@infrastructure/(.*)$": "<rootDir>/infrastructure/$1",
       "^@api/(.*)$": "<rootDir>/api/$1",
+      "^@operations/(.*)$": "<rootDir>/operations/$1",
+      "^@core/(.*)$": "<rootDir>/core/$1",
       "^@shared/(.*)$": "<rootDir>/shared/$1"
     }
   }

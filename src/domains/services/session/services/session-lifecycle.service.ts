@@ -6,7 +6,7 @@ import { SessionRecordingManager } from "../recording/session-recording-manager"
 import { TranscriptPollingService } from "../recording/transcript-polling.service";
 import { AISummaryService } from "../recording/ai-summary.service";
 import { IWebhookEvent } from "@core/webhook/interfaces/webhook-handler.interface";
-import { IRecording } from "../interfaces/session.interface";
+import { IRecording, SessionStatus } from "../interfaces/session.interface";
 
 /**
  * Session Lifecycle Service
@@ -60,24 +60,9 @@ export class SessionLifecycleService {
 
     // Update session: actual_start_time and status
     await this.sessionService.updateSession(session.id, {
-      status: "started",
-    });
-
-    // Note: actual_start_time is updated via a database trigger or separate update
-    // For now, we'll update it directly
-    await this.sessionService["db"]
-      .update(this.sessionService["db"].schema.sessions)
-      .set({
-        actualStartTime: new Date(event.timestamp),
-        status: "started",
-      })
-      .where(
-        this.sessionService["db"].eq(
-          this.sessionService["db"].schema.sessions.id,
-          session.id,
-        ),
-      )
-      .returning();
+      status: SessionStatus.STARTED,
+      actualStartTime: new Date(event.timestamp),
+    } as any);
 
     this.logger.log(`Meeting started for session: ${session.id}`);
   }
@@ -117,25 +102,16 @@ export class SessionLifecycleService {
     );
 
     // Update session with end time and duration stats
-    await this.sessionService["db"]
-      .update(this.sessionService["db"].schema.sessions)
-      .set({
-        actualEndTime: new Date(event.timestamp),
-        status: "completed",
-        mentorTotalDurationSeconds: durationStats.mentorTotalDurationSeconds,
-        studentTotalDurationSeconds: durationStats.studentTotalDurationSeconds,
-        effectiveTutoringDurationSeconds:
-          durationStats.effectiveTutoringDurationSeconds,
-        mentorJoinCount: durationStats.mentorJoinCount,
-        studentJoinCount: durationStats.studentJoinCount,
-      })
-      .where(
-        this.sessionService["db"].eq(
-          this.sessionService["db"].schema.sessions.id,
-          session.id,
-        ),
-      )
-      .returning();
+    await this.sessionService.updateSession(session.id, {
+      actualEndTime: new Date(event.timestamp),
+      status: SessionStatus.COMPLETED,
+      mentorTotalDurationSeconds: durationStats.mentorTotalDurationSeconds,
+      studentTotalDurationSeconds: durationStats.studentTotalDurationSeconds,
+      effectiveTutoringDurationSeconds:
+        durationStats.effectiveTutoringDurationSeconds,
+      mentorJoinCount: durationStats.mentorJoinCount,
+      studentJoinCount: durationStats.studentJoinCount,
+    } as any);
 
     this.logger.log(
       `Meeting ended for session: ${session.id}, Effective duration: ${durationStats.effectiveTutoringDurationSeconds}s`,

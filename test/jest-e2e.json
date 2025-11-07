@@ -11,6 +11,8 @@
     "^@application/(.*)$": "<rootDir>/../src/application/$1",
     "^@infrastructure/(.*)$": "<rootDir>/../src/infrastructure/$1",
     "^@api/(.*)$": "<rootDir>/../src/api/$1",
+    "^@operations/(.*)$": "<rootDir>/../src/operations/$1",
+    "^@core/(.*)$": "<rootDir>/../src/core/$1",
     "^@shared/(.*)$": "<rootDir>/../src/shared/$1"
   },
   "collectCoverageFrom": [

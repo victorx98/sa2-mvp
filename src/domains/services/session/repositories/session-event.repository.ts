@@ -172,7 +172,7 @@ export class SessionEventRepository {
       sessionId: record.sessionId,
       provider: record.provider,
       eventType: record.eventType,
-      eventData: record.eventData as unknown,
+      eventData: (record.eventData as Record<string, unknown>) || {},
       occurredAt: record.occurredAt,
       createdAt: record.createdAt,
     };
