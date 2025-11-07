@@ -10,10 +10,7 @@ import {
   Min,
 } from "class-validator";
 import { Type } from "class-transformer";
-import {
-  ServiceType,
-  BillingMode,
-} from "../../common/interfaces/enums";
+import { ServiceType, BillingMode } from "../../common/interfaces/enums";
 
 class ServiceMetadataDto {
   @IsOptional()

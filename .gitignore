@@ -39,13 +39,9 @@ lerna-debug.log*
 .env.local
 .env.*.local
 .claude
-CATALOG_DOMAIN_DESIGN.md
 CLAUDE.md
 .cursor
 
 # MCP configuration
 .mcp.json
->>>>>>> main
-BILLING_MODULE_DESIGN.md
 .gitignore
-CONTRACT_DOMAIN_DESIGN.md

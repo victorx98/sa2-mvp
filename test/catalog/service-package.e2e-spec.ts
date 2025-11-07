@@ -13,7 +13,6 @@ import { PackageFilterDto } from "@domains/catalog/service-package/dto/package-f
 import {
   ServiceType,
   ServiceStatus,
-  
   BillingMode,
 } from "@domains/catalog/common/interfaces/enums";
 import { CatalogException } from "@domains/catalog/common/exceptions/catalog.exception";

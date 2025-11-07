@@ -105,7 +105,6 @@ export class ProductService {
             type: item.type,
             referenceId: item.referenceId,
             quantity: item.quantity,
-            unit: item.unit,
             sortOrder: item.sortOrder ?? index,
           })),
         );

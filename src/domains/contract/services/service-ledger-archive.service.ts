@@ -1,0 +1,425 @@
+import { Inject, Injectable, Logger } from "@nestjs/common";
+import { eq, and, lt, sql } from "drizzle-orm";
+import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
+import * as schema from "@infrastructure/database/schema";
+import { DrizzleDatabase } from "@shared/types/database.types";
+import {
+  ContractException,
+  ContractNotFoundException,
+  ContractConflictException,
+} from "../common/exceptions/contract.exception";
+import {
+  ARCHIVE_AFTER_DAYS,
+  DELETE_AFTER_ARCHIVE,
+  ARCHIVE_MAX_DATE_RANGE_DAYS,
+} from "../common/constants/contract.constants";
+import type {
+  ServiceLedgerArchivePolicy,
+  ServiceLedger,
+} from "@infrastructure/database/schema";
+
+/**
+ * Service Ledger Archive Service
+ * - Cold-hot data separation for service_ledgers table
+ * - Archives old ledgers to service_ledgers_archive table
+ * - Manages archive policies with priority: contract > service_type > global
+ * - Supports querying across both main and archive tables
+ *
+ * Design Decisions:
+ * - v2.16.9: Archive policies with priority-based resolution
+ * - v2.16.9: Default archive period: 90 days
+ * - v2.16.9: Optional deletion after archiving (default: false)
+ * - v2.16.9: Archive queries limited to 1-year date range
+ */
+@Injectable()
+export class ServiceLedgerArchiveService {
+  private readonly logger = new Logger(ServiceLedgerArchiveService.name);
+
+  constructor(
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: DrizzleDatabase,
+  ) {}
+
+  /**
+   * Archive old ledgers
+   * - Move ledgers older than archive period to archive table
+   * - Optionally delete from main table after archiving
+   * - Uses policies to determine archive period
+   * - Returns count of archived records
+   *
+   * Called by: Scheduled task daily at 2 AM
+   */
+  async archiveOldLedgers(): Promise<number> {
+    this.logger.log("Starting ledger archiving task...");
+
+    try {
+      // 1. Get all active archive policies
+      const policies = await this.db
+        .select()
+        .from(schema.serviceLedgerArchivePolicies)
+        .where(eq(schema.serviceLedgerArchivePolicies.enabled, true));
+
+      if (policies.length === 0) {
+        // Use global default if no policies configured
+        return await this.archiveByGlobalDefault();
+      }
+
+      let totalArchived = 0;
+
+      // 2. Process each policy
+      for (const policy of policies) {
+        const archived = await this.archiveByPolicy(policy);
+        totalArchived += archived;
+      }
+
+      this.logger.log(`Archived ${totalArchived} ledger records`);
+      return totalArchived;
+    } catch (error) {
+      this.logger.error(`Ledger archiving task failed: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Archive ledgers using global default policy
+   */
+  private async archiveByGlobalDefault(): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - ARCHIVE_AFTER_DAYS);
+
+    return await this.archiveLedgers(
+      null,
+      null,
+      cutoffDate,
+      DELETE_AFTER_ARCHIVE,
+    );
+  }
+
+  /**
+   * Archive ledgers based on policy
+   */
+  private async archiveByPolicy(
+    policy: ServiceLedgerArchivePolicy,
+  ): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - policy.archiveAfterDays);
+
+    return await this.archiveLedgers(
+      policy.contractId || null,
+      policy.serviceType || null,
+      cutoffDate,
+      policy.deleteAfterArchive,
+    );
+  }
+
+  /**
+   * Archive ledgers matching criteria
+   */
+  private async archiveLedgers(
+    contractId: string | null,
+    serviceType: string | null,
+    cutoffDate: Date,
+    deleteAfterArchive: boolean,
+  ): Promise<number> {
+    const conditions: any[] = [lt(schema.serviceLedgers.createdAt, cutoffDate)];
+
+    if (contractId) {
+      conditions.push(eq(schema.serviceLedgers.contractId, contractId));
+    }
+    if (serviceType) {
+      conditions.push(
+        eq(schema.serviceLedgers.serviceType, serviceType as any),
+      );
+    }
+
+    // 1. Select ledgers to archive
+    const ledgersToArchive = await this.db
+      .select()
+      .from(schema.serviceLedgers)
+      .where(and(...conditions));
+
+    if (ledgersToArchive.length === 0) {
+      return 0;
+    }
+
+    // 2. Insert into archive table
+    await this.db.insert(schema.serviceLedgersArchive).values(ledgersToArchive);
+
+    // 3. Optionally delete from main table
+    if (deleteAfterArchive) {
+      const ledgerIds = ledgersToArchive.map((l) => l.id);
+      await this.db
+        .delete(schema.serviceLedgers)
+        .where(sql`${schema.serviceLedgers.id} = ANY(${ledgerIds}::uuid[])`);
+    }
+
+    this.logger.log(
+      `Archived ${ledgersToArchive.length} ledgers (contractId=${contractId}, serviceType=${serviceType}, delete=${deleteAfterArchive})`,
+    );
+
+    return ledgersToArchive.length;
+  }
+
+  /**
+   * Get archive policy for contract/service type
+   * - Priority: contract > service_type > global
+   * - Returns effective policy or null if using defaults
+   */
+  async getArchivePolicy(
+    contractId?: string,
+    serviceType?: string,
+  ): Promise<ServiceLedgerArchivePolicy | null> {
+    // 1. Try contract-specific policy
+    if (contractId) {
+      const [contractPolicy] = await this.db
+        .select()
+        .from(schema.serviceLedgerArchivePolicies)
+        .where(
+          and(
+            eq(schema.serviceLedgerArchivePolicies.contractId, contractId),
+            eq(schema.serviceLedgerArchivePolicies.enabled, true),
+          ),
+        )
+        .limit(1);
+
+      if (contractPolicy) {
+        return contractPolicy;
+      }
+    }
+
+    // 2. Try service-type-specific policy
+    if (serviceType) {
+      const [serviceTypePolicy] = await this.db
+        .select()
+        .from(schema.serviceLedgerArchivePolicies)
+        .where(
+          and(
+            eq(
+              schema.serviceLedgerArchivePolicies.serviceType,
+              serviceType as any,
+            ),
+            sql`${schema.serviceLedgerArchivePolicies.contractId} IS NULL`,
+            eq(schema.serviceLedgerArchivePolicies.enabled, true),
+          ),
+        )
+        .limit(1);
+
+      if (serviceTypePolicy) {
+        return serviceTypePolicy;
+      }
+    }
+
+    // 3. Try global policy
+    const [globalPolicy] = await this.db
+      .select()
+      .from(schema.serviceLedgerArchivePolicies)
+      .where(
+        and(
+          sql`${schema.serviceLedgerArchivePolicies.contractId} IS NULL`,
+          sql`${schema.serviceLedgerArchivePolicies.serviceType} IS NULL`,
+          eq(schema.serviceLedgerArchivePolicies.enabled, true),
+        ),
+      )
+      .limit(1);
+
+    return globalPolicy || null;
+  }
+
+  /**
+   * Create archive policy
+   * - Scope: global (both null), service_type (contractId=null), or contract-specific
+   * - Validates no duplicate policy exists for same scope
+   */
+  async createPolicy(dto: {
+    contractId?: string;
+    serviceType?: string;
+    archiveAfterDays: number;
+    deleteAfterArchive: boolean;
+    createdBy: string;
+  }): Promise<ServiceLedgerArchivePolicy> {
+    const {
+      contractId,
+      serviceType,
+      archiveAfterDays,
+      deleteAfterArchive,
+      createdBy,
+    } = dto;
+
+    // 1. Validate archiveAfterDays
+    if (archiveAfterDays < 1) {
+      throw new ContractException("ARCHIVE_AFTER_DAYS_TOO_SMALL");
+    }
+
+    // 2. Check for duplicate policy
+    const conditions: any[] = [
+      eq(schema.serviceLedgerArchivePolicies.enabled, true),
+    ];
+
+    if (contractId) {
+      conditions.push(
+        eq(schema.serviceLedgerArchivePolicies.contractId, contractId),
+      );
+    } else {
+      conditions.push(
+        sql`${schema.serviceLedgerArchivePolicies.contractId} IS NULL`,
+      );
+    }
+
+    if (serviceType) {
+      conditions.push(
+        eq(schema.serviceLedgerArchivePolicies.serviceType, serviceType as any),
+      );
+    } else {
+      conditions.push(
+        sql`${schema.serviceLedgerArchivePolicies.serviceType} IS NULL`,
+      );
+    }
+
+    const existingPolicies = await this.db
+      .select()
+      .from(schema.serviceLedgerArchivePolicies)
+      .where(and(...conditions));
+
+    if (existingPolicies.length > 0) {
+      throw new ContractConflictException("ARCHIVE_POLICY_ALREADY_EXISTS");
+    }
+
+    // 3. Determine scope
+    let scope: "global" | "contract" | "service_type" = "global";
+    if (contractId) {
+      scope = "contract";
+    } else if (serviceType) {
+      scope = "service_type";
+    }
+
+    // 4. Create policy
+    const [newPolicy] = await this.db
+      .insert(schema.serviceLedgerArchivePolicies)
+      .values({
+        scope,
+        contractId: contractId || null,
+        serviceType: (serviceType as any) || null,
+        archiveAfterDays,
+        deleteAfterArchive,
+        enabled: true,
+        createdBy: createdBy as any, // UUID type
+      })
+      .returning();
+
+    this.logger.log(
+      `Created archive policy: ${newPolicy.id} (contractId=${contractId}, serviceType=${serviceType})`,
+    );
+
+    return newPolicy;
+  }
+
+  /**
+   * Update archive policy
+   * - Can update archiveAfterDays, deleteAfterArchive, isActive
+   */
+  async updatePolicy(
+    id: string,
+    updates: {
+      archiveAfterDays?: number;
+      deleteAfterArchive?: boolean;
+      isActive?: boolean;
+    },
+  ): Promise<ServiceLedgerArchivePolicy> {
+    // 1. Find policy
+    const [policy] = await this.db
+      .select()
+      .from(schema.serviceLedgerArchivePolicies)
+      .where(eq(schema.serviceLedgerArchivePolicies.id, id))
+      .limit(1);
+
+    if (!policy) {
+      throw new ContractNotFoundException("ARCHIVE_POLICY_NOT_FOUND");
+    }
+
+    // 2. Validate updates
+    if (
+      updates.archiveAfterDays !== undefined &&
+      updates.archiveAfterDays < 1
+    ) {
+      throw new ContractException("ARCHIVE_AFTER_DAYS_TOO_SMALL");
+    }
+
+    // 3. Update policy
+    const [updatedPolicy] = await this.db
+      .update(schema.serviceLedgerArchivePolicies)
+      .set(updates)
+      .where(eq(schema.serviceLedgerArchivePolicies.id, id))
+      .returning();
+
+    this.logger.log(`Updated archive policy: ${id}`);
+
+    return updatedPolicy;
+  }
+
+  /**
+   * Query ledgers with archive support
+   * - Queries both main and archive tables
+   * - Requires date range filter (max 1 year)
+   * - Returns combined results ordered by createdAt
+   */
+  async queryWithArchive(filter: {
+    contractId?: string;
+    studentId?: string;
+    serviceType?: string;
+    startDate: Date;
+    endDate: Date;
+    limit?: number;
+  }): Promise<ServiceLedger[]> {
+    const {
+      contractId,
+      studentId,
+      serviceType,
+      startDate,
+      endDate,
+      limit = 100,
+    } = filter;
+
+    // 1. Validate date range
+    const daysDiff = Math.floor(
+      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    if (daysDiff > ARCHIVE_MAX_DATE_RANGE_DAYS) {
+      throw new ContractException("ARCHIVE_DATE_RANGE_TOO_LARGE");
+    }
+
+    // 2. Build conditions
+    const conditions: any[] = [
+      sql`created_at >= ${startDate}`,
+      sql`created_at <= ${endDate}`,
+    ];
+
+    if (contractId) {
+      conditions.push(sql`contract_id = ${contractId}`);
+    }
+    if (studentId) {
+      conditions.push(sql`student_id = ${studentId}`);
+    }
+    if (serviceType) {
+      conditions.push(sql`service_type = ${serviceType}`);
+    }
+
+    // 3. Query both tables with UNION ALL
+    const query = sql`
+      (
+        SELECT * FROM service_ledgers
+        WHERE ${sql.join(conditions, sql` AND `)}
+      )
+      UNION ALL
+      (
+        SELECT * FROM service_ledgers_archive
+        WHERE ${sql.join(conditions, sql` AND `)}
+      )
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+
+    const result = await this.db.execute(query);
+    return result.rows as ServiceLedger[];
+  }
+}

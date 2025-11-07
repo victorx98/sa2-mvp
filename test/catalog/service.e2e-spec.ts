@@ -11,7 +11,6 @@ import {
   ServiceType,
   ServiceStatus,
   BillingMode,
-  
 } from "@domains/catalog/common/interfaces/enums";
 import { CatalogException } from "@domains/catalog/common/exceptions/catalog.exception";
 import { createTestFixtures, TestFixtures } from "../utils/test-fixtures";

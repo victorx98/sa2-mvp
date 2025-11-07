@@ -487,7 +487,7 @@ ProductService.generateSnapshot(productId: string): Promise<IProductSnapshot>
 1. ✅ **完全展开**：service_package 已递归展开为具体的 services，无需 Contract Domain 再次查询
 2. ✅ **批量优化**：Catalog Domain 内部使用批量查询避免 N+1 问题
 3. ✅ **历史准确**：包含 snapshotAt 时间戳，记录快照生成时间
-4. ✅ **数据完整**：包含 Contract Domain 需要的所有字段（price, validityDays, serviceType, unit 等）
+4. ✅ **数据完整**：包含 Contract Domain 需要的所有字段（price, validityDays, serviceType 等）
 5. ✅ **零外部查询**：Contract Domain 无需再次调用 Catalog Domain 查询 service 或 package 详情
 
 #### 1.4.2 快照数据结构
@@ -601,9 +601,8 @@ interface IServicePackageSnapshotItem {
 | `contractId` | 新创建的 `contracts.id` | 关联合同 |
 | `serviceType` | `serviceSnapshot.serviceType` | 服务类型（来自 Catalog） |
 | `source` | 固定值 `'product'` | 标准权益来源 |
-| `totalQuantity` | `item.quantity * pkgItem.quantity` | 数量（展开计算） |
+| `totalQuantity` | `item.quantity * pkgItem.quantity` | 数量（展开计算，所有服务统一按次数计费） |
 | `availableQuantity` | 等于 `totalQuantity` | 初始可用数量 |
-| `unit` | `item.unit` 或 `pkgItem.unit` | 单位 |
 | `serviceSnapshot` | 构造快照对象 | 服务信息快照（v2.16.2 必填） |
 | `expiresAt` | 继承 `contracts.expiresAt` | 权益过期时间 |
 

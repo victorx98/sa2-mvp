@@ -14,7 +14,6 @@ import { AddProductItemDto } from "@domains/catalog/product/dto/add-product-item
 import { ProductFilterDto } from "@domains/catalog/product/dto/product-filter.dto";
 import {
   ServiceType,
-  
   BillingMode,
   ProductStatus,
   Currency,

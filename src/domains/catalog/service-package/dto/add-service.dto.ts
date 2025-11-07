@@ -1,10 +1,4 @@
-import {
-  IsNotEmpty,
-  IsUUID,
-  IsInt,
-  Min,
-  IsOptional,
-} from "class-validator";
+import { IsNotEmpty, IsUUID, IsInt, Min, IsOptional } from "class-validator";
 
 export class AddServiceDto {
   @IsNotEmpty()
