@@ -1,16 +1,11 @@
 import { IServiceSnapshot } from "../../service/interfaces/service-snapshot.interface";
 import { IServicePackageSnapshot } from "../../service-package/interfaces/service-package-snapshot.interface";
-import {
-  ProductItemType,
-  ServiceUnit,
-  Currency,
-} from "../../common/interfaces/enums";
+import { ProductItemType, Currency } from "../../common/interfaces/enums";
 
 // Product snapshot item (with expanded service packages)
 export interface IProductSnapshotItem {
   type: ProductItemType;
-  quantity: number;
-  unit: ServiceUnit;
+  quantity: number; // All services are billed by times (次数)
   sortOrder: number;
   // Service or service package snapshot
   serviceSnapshot?: IServiceSnapshot;

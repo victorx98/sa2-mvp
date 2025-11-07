@@ -16,7 +16,6 @@ import {
   UserType,
   MarketingLabel,
   ProductItemType,
-  ServiceUnit,
 } from "../../common/interfaces/enums";
 
 class ProductMetadataDto {
@@ -55,10 +54,6 @@ class ProductItemDto {
   @IsInt()
   @Min(1)
   quantity: number;
-
-  @IsNotEmpty()
-  @IsEnum(ServiceUnit)
-  unit: ServiceUnit;
 
   @IsOptional()
   @IsInt()

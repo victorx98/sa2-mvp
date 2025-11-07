@@ -1,11 +1,9 @@
 import { IServiceSnapshot } from "../../service/interfaces/service-snapshot.interface";
-import { ServiceUnit } from "../../common/interfaces/enums";
 
 // ServicePackage snapshot item
 export interface IServicePackageSnapshotItem {
   serviceSnapshot: IServiceSnapshot;
-  quantity: number;
-  unit: ServiceUnit;
+  quantity: number; // All services are billed by times (次数)
   sortOrder: number;
 }
 

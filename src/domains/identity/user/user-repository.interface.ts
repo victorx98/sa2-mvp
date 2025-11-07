@@ -1,4 +1,4 @@
-import { User, UserWithPassword } from './user.interface';
+import { User, UserWithPassword } from "./user.interface";
 
 export interface IUserRepository {
   findById(id: string): Promise<User | null>;
@@ -8,4 +8,4 @@ export interface IUserRepository {
   update(id: string, user: Partial<User>): Promise<User>;
 }
 
-export const USER_REPOSITORY = Symbol('USER_REPOSITORY');
+export const USER_REPOSITORY = Symbol("USER_REPOSITORY");

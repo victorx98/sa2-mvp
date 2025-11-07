@@ -6,7 +6,7 @@ import {
   Min,
   IsOptional,
 } from "class-validator";
-import { ProductItemType, ServiceUnit } from "../../common/interfaces/enums";
+import { ProductItemType } from "../../common/interfaces/enums";
 
 export class AddProductItemDto {
   @IsNotEmpty()
@@ -21,10 +21,6 @@ export class AddProductItemDto {
   @IsInt()
   @Min(1)
   quantity: number;
-
-  @IsNotEmpty()
-  @IsEnum(ServiceUnit)
-  unit: ServiceUnit;
 
   @IsOptional()
   @IsInt()

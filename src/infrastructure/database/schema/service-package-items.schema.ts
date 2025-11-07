@@ -1,6 +1,6 @@
 import { pgTable, uuid, integer, timestamp } from "drizzle-orm/pg-core";
 import { servicePackages } from "./service-packages.schema";
-import { services, serviceUnitEnum } from "./services.schema";
+import { services } from "./services.schema";
 
 export const servicePackageItems = pgTable("service_package_items", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -14,8 +14,7 @@ export const servicePackageItems = pgTable("service_package_items", {
     .references(() => services.id, { onDelete: "restrict" }),
 
   // 数量配置
-  quantity: integer("quantity").notNull(), // 服务次数
-  unit: serviceUnitEnum("unit").notNull().default("times"), // 单位
+  quantity: integer("quantity").notNull(), // 服务次数（所有服务统一按次数计费）
 
   // 展示顺序
   sortOrder: integer("sort_order").notNull().default(0),

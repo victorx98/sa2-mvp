@@ -1,7 +1,6 @@
 import {
   ServiceType,
   BillingMode,
-  ServiceUnit,
   ServiceStatus,
 } from "../../common/interfaces/enums";
 
@@ -14,7 +13,6 @@ export interface IService {
   description?: string;
   coverImage?: string;
   billingMode: BillingMode;
-  defaultUnit: ServiceUnit;
   requiresEvaluation: boolean;
   requiresMentorAssignment: boolean;
   status: ServiceStatus;

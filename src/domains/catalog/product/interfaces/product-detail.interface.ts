@@ -1,7 +1,7 @@
 import { IProduct } from "./product.interface";
 import { IService } from "../../service/interfaces/service.interface";
 import { IServicePackage } from "../../service-package/interfaces/service-package.interface";
-import { ProductItemType, ServiceUnit } from "../../common/interfaces/enums";
+import { ProductItemType } from "../../common/interfaces/enums";
 
 // Product detail interface (includes product items)
 export interface IProductItem {
@@ -9,7 +9,6 @@ export interface IProductItem {
   type: ProductItemType;
   referenceId: string;
   quantity: number;
-  unit: ServiceUnit;
   sortOrder: number;
   // Associated data (optional)
   service?: IService;

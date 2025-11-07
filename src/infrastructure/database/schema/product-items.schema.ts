@@ -1,6 +1,5 @@
 import { pgTable, uuid, integer, timestamp, pgEnum } from "drizzle-orm/pg-core";
 import { products } from "./products.schema";
-import { serviceUnitEnum } from "./services.schema";
 
 // 产品项类型枚举
 export const productItemTypeEnum = pgEnum("product_item_type", [
@@ -22,8 +21,7 @@ export const productItems = pgTable("product_items", {
   // type='service_package' → service_packages.id
 
   // 数量配置
-  quantity: integer("quantity").notNull(), // 服务次数
-  unit: serviceUnitEnum("unit").notNull().default("times"), // 单位
+  quantity: integer("quantity").notNull(), // 服务次数（所有服务统一按次数计费）
 
   // 展示顺序
   sortOrder: integer("sort_order").notNull().default(0),

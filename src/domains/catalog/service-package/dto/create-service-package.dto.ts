@@ -6,11 +6,9 @@ import {
   ValidateNested,
   IsUUID,
   IsInt,
-  IsEnum,
   Min,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { ServiceUnit } from "../../common/interfaces/enums";
 
 class ServicePackageMetadataDto {
   @IsOptional()
@@ -28,10 +26,6 @@ class ServicePackageItemDto {
   @IsInt()
   @Min(1)
   quantity: number;
-
-  @IsNotEmpty()
-  @IsEnum(ServiceUnit)
-  unit: ServiceUnit;
 
   @IsOptional()
   @IsInt()

@@ -40,12 +40,6 @@ export const billingModeEnum = pgEnum("billing_mode", [
   "package", // 服务包计费（整包售卖）
 ]);
 
-// 单位枚举
-export const serviceUnitEnum = pgEnum("service_unit", [
-  "times", // 次
-  "hours", // 小时
-]);
-
 // 服务状态枚举
 export const serviceStatusEnum = pgEnum("service_status", [
   "active", // 启用
@@ -67,7 +61,6 @@ export const services = pgTable("services", {
 
   // 计费配置
   billingMode: billingModeEnum("billing_mode").notNull().default("one_time"),
-  defaultUnit: serviceUnitEnum("default_unit").notNull().default("times"),
 
   // 服务配置
   requiresEvaluation: boolean("requires_evaluation").default(false), // 是否需要评价后计费
