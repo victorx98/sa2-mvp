@@ -1,6 +1,6 @@
-import { Module } from '@nestjs/common';
-import { SessionBffService } from './session.service';
-import { ApplicationModule } from '@application/application.module';
+import { Module } from "@nestjs/common";
+import { SessionBffService } from "./session.service";
+import { ApplicationModule } from "@application/application.module";
 
 /**
  * Operations Layer - Session Module (BFF)

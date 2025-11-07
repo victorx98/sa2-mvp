@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty } from "@nestjs/swagger";
 
 /**
  * Operations Layer - Session Detail Response DTO
@@ -8,19 +8,19 @@ import { ApiProperty } from '@nestjs/swagger';
  */
 export class SessionDetailResponseDto {
   @ApiProperty({
-    description: '预约ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
+    description: "预约ID",
+    example: "123e4567-e89b-12d3-a456-426614174000",
   })
   bookingId: string;
 
   @ApiProperty({
-    description: '会话状态',
-    example: 'scheduled',
+    description: "会话状态",
+    example: "scheduled",
   })
   status: string;
 
   @ApiProperty({
-    description: '会议信息',
+    description: "会议信息",
     required: false,
   })
   meeting?: {

@@ -121,12 +121,9 @@ export class TranscriptPollingService {
       return;
     }
 
-    this.pollingTimer = setInterval(
-      () => {
-        this.processPollingJobs();
-      },
-      60 * 1000,
-    ); // Check every minute
+    this.pollingTimer = setInterval(() => {
+      this.processPollingJobs();
+    }, 60 * 1000); // Check every minute
 
     this.logger.log("Transcript polling timer started");
   }

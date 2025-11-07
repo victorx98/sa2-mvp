@@ -1,9 +1,12 @@
-import { Injectable, ConflictException, Inject } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
-import { IUserRepository, USER_REPOSITORY } from '@domains/identity/user/user-repository.interface';
-import { RegisterDto } from '@api/dto/request/register.dto';
-import { AuthResultDto } from './dto/auth-result.dto';
+import { Injectable, ConflictException, Inject } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import * as bcrypt from "bcrypt";
+import {
+  IUserRepository,
+  USER_REPOSITORY,
+} from "@domains/identity/user/user-repository.interface";
+import { RegisterDto } from "@api/dto/request/register.dto";
+import { AuthResultDto } from "./dto/auth-result.dto";
 
 /**
  * Application Layer - Register Command
@@ -29,9 +32,11 @@ export class RegisterCommand {
 
   async execute(registerDto: RegisterDto): Promise<AuthResultDto> {
     // Step 1: 检查用户是否已存在
-    const existingUserByEmail = await this.userRepository.findByEmail(registerDto.email);
+    const existingUserByEmail = await this.userRepository.findByEmail(
+      registerDto.email,
+    );
     if (existingUserByEmail) {
-      throw new ConflictException('Email already exists');
+      throw new ConflictException("Email already exists");
     }
 
     // Step 2: 加密密码

@@ -1,18 +1,21 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigModule } from '@nestjs/config';
-import { BookSessionCommand } from '../../../src/application/commands/booking/book-session.command';
-import { CalendarService } from '../../../src/core/calendar';
-import { MeetingProviderFactory, MeetingProviderType } from '../../../src/core/meeting-providers';
-import { MeetingProviderModule } from '../../../src/core/meeting-providers/meeting-provider.module';
-import { SessionService } from '../../../src/domains/services/session/services/session.service';
-import { ContractService } from '../../../src/domains/contract/contract.service';
-import { DATABASE_CONNECTION } from '../../../src/infrastructure/database/database.provider';
-import { DatabaseModule } from '../../../src/infrastructure/database/database.module';
-import { BookSessionInput } from '../../../src/application/commands/booking/dto/book-session-input.dto';
-import * as schema from '../../../src/infrastructure/database/schema';
-import { eq, and } from 'drizzle-orm';
-import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { v4 as uuidv4 } from 'uuid';
+import { Test, TestingModule } from "@nestjs/testing";
+import { ConfigModule } from "@nestjs/config";
+import { BookSessionCommand } from "../../../src/application/commands/booking/book-session.command";
+import { CalendarService } from "../../../src/core/calendar";
+import {
+  MeetingProviderFactory,
+  MeetingProviderType,
+} from "../../../src/core/meeting-providers";
+import { MeetingProviderModule } from "../../../src/core/meeting-providers/meeting-provider.module";
+import { SessionService } from "../../../src/domains/services/session/services/session.service";
+import { ContractService } from "../../../src/domains/contract/contract.service";
+import { DATABASE_CONNECTION } from "../../../src/infrastructure/database/database.provider";
+import { DatabaseModule } from "../../../src/infrastructure/database/database.module";
+import { BookSessionInput } from "../../../src/application/commands/booking/dto/book-session-input.dto";
+import * as schema from "../../../src/infrastructure/database/schema";
+import { eq, and } from "drizzle-orm";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import { v4 as uuidv4 } from "uuid";
 
 /**
  * E2E 集成测试：验证预约会话的完整流程
@@ -25,7 +28,7 @@ import { v4 as uuidv4 } from 'uuid';
  * - DATABASE_URL 需要在 .env 文件中配置
  * - 数据库需要已经运行必要的迁移
  */
-describe('BookSessionCommand - E2E Integration Test', () => {
+describe("BookSessionCommand - E2E Integration Test", () => {
   let app: TestingModule;
   let command: BookSessionCommand;
   let db: NodePgDatabase;
@@ -49,7 +52,7 @@ describe('BookSessionCommand - E2E Integration Test', () => {
     app = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({
-          envFilePath: '.env',
+          envFilePath: ".env",
           isGlobal: true,
         }),
         DatabaseModule,
@@ -68,9 +71,11 @@ describe('BookSessionCommand - E2E Integration Test', () => {
     sessionService = app.get<SessionService>(SessionService);
     calendarService = app.get<CalendarService>(CalendarService);
     contractService = app.get<ContractService>(ContractService);
-    meetingProviderFactory = app.get<MeetingProviderFactory>(MeetingProviderFactory);
+    meetingProviderFactory = app.get<MeetingProviderFactory>(
+      MeetingProviderFactory,
+    );
 
-    console.log('✅ E2E Test Module initialized with real database connection');
+    console.log("✅ E2E Test Module initialized with real database connection");
   });
 
   afterAll(async () => {
@@ -78,18 +83,18 @@ describe('BookSessionCommand - E2E Integration Test', () => {
     try {
       if (db) {
         // 按照依赖顺序删除
-        await db.delete(schema.calendarSlots).where(
-          eq(schema.calendarSlots.resourceId, testIds.mentor)
-        );
+        await db
+          .delete(schema.calendarSlots)
+          .where(eq(schema.calendarSlots.resourceId, testIds.mentor));
 
-        await db.delete(schema.sessions).where(
-          eq(schema.sessions.studentId, testIds.student)
-        );
+        await db
+          .delete(schema.sessions)
+          .where(eq(schema.sessions.studentId, testIds.student));
 
-        console.log('✅ Test data cleaned up');
+        console.log("✅ Test data cleaned up");
       }
     } catch (error) {
-      console.error('⚠️  Error cleaning up test data:', error.message);
+      console.error("⚠️  Error cleaning up test data:", error.message);
     }
 
     if (app) {
@@ -97,8 +102,8 @@ describe('BookSessionCommand - E2E Integration Test', () => {
     }
   });
 
-  describe('✅ 成功预约场景 - 真实数据库写入', () => {
-    it('应该成功创建预约并将数据写入数据库', async () => {
+  describe("✅ 成功预约场景 - 真实数据库写入", () => {
+    it("应该成功创建预约并将数据写入数据库", async () => {
       // Arrange
       const testInput: BookSessionInput = {
         counselorId: testIds.counselor,
@@ -106,14 +111,14 @@ describe('BookSessionCommand - E2E Integration Test', () => {
         mentorId: testIds.mentor,
         contractId: testIds.contract,
         serviceId: testIds.service,
-        scheduledStartTime: new Date('2025-12-15T10:00:00Z'),
-        scheduledEndTime: new Date('2025-12-15T11:00:00Z'),
+        scheduledStartTime: new Date("2025-12-15T10:00:00Z"),
+        scheduledEndTime: new Date("2025-12-15T11:00:00Z"),
         duration: 60,
         topic: `${testPrefix} - E2E Success Test`,
-        meetingProvider: 'feishu',
+        meetingProvider: "feishu",
       };
 
-      console.log('\n📝 Test Input:', {
+      console.log("\n📝 Test Input:", {
         studentId: testInput.studentId,
         mentorId: testInput.mentorId,
         scheduledStartTime: testInput.scheduledStartTime,
@@ -127,7 +132,7 @@ describe('BookSessionCommand - E2E Integration Test', () => {
         .where(eq(schema.sessions.studentId, testIds.student));
 
       expect(sessionsBefore).toHaveLength(0);
-      console.log('✓ Verified: No sessions exist before booking');
+      console.log("✓ Verified: No sessions exist before booking");
 
       const calendarSlotsBefore = await db
         .select()
@@ -135,26 +140,26 @@ describe('BookSessionCommand - E2E Integration Test', () => {
         .where(eq(schema.calendarSlots.resourceId, testIds.mentor));
 
       expect(calendarSlotsBefore).toHaveLength(0);
-      console.log('✓ Verified: No calendar slots exist before booking');
+      console.log("✓ Verified: No calendar slots exist before booking");
 
       // Act - 执行预约
-      console.log('\n🚀 Executing booking...');
+      console.log("\n🚀 Executing booking...");
       const result = await command.execute(testInput);
 
       // Assert - 验证返回结果
       expect(result).toBeDefined();
       expect(result.sessionId).toBeDefined();
-      expect(result.status).toBe('scheduled');
+      expect(result.status).toBe("scheduled");
       expect(result.studentId).toBe(testIds.student);
       expect(result.mentorId).toBe(testIds.mentor);
       expect(result.meetingUrl).toBeDefined();
       expect(result.calendarSlotId).toBeDefined();
       expect(result.serviceHoldId).toBeDefined();
 
-      console.log('\n✅ Booking Result:', {
+      console.log("\n✅ Booking Result:", {
         sessionId: result.sessionId,
         status: result.status,
-        meetingUrl: result.meetingUrl ? 'Generated' : 'Not generated',
+        meetingUrl: result.meetingUrl ? "Generated" : "Not generated",
         calendarSlotId: result.calendarSlotId,
         serviceHoldId: result.serviceHoldId,
       });
@@ -170,11 +175,14 @@ describe('BookSessionCommand - E2E Integration Test', () => {
       expect(savedSession.id).toBe(result.sessionId);
       expect(savedSession.studentId).toBe(testIds.student);
       expect(savedSession.mentorId).toBe(testIds.mentor);
-      expect(savedSession.status).toBe('scheduled');
+      expect(savedSession.status).toBe("scheduled");
       expect(savedSession.meetingUrl).toBeDefined();
       expect(savedSession.sessionName).toBe(testInput.topic);
 
-      console.log('✓ Verified: Session saved in database with ID:', savedSession.id);
+      console.log(
+        "✓ Verified: Session saved in database with ID:",
+        savedSession.id,
+      );
 
       // 验证 Calendar Slot 已写入数据库
       const calendarSlotsAfter = await db
@@ -187,28 +195,33 @@ describe('BookSessionCommand - E2E Integration Test', () => {
       expect(savedSlot.id).toBe(result.calendarSlotId);
       expect(savedSlot.resourceId).toBe(testIds.mentor);
       expect(savedSlot.sessionId).toBe(result.sessionId);
-      expect(savedSlot.slotType).toBe('session');
-      expect(savedSlot.status).toBe('occupied');
+      expect(savedSlot.slotType).toBe("session");
+      expect(savedSlot.status).toBe("occupied");
 
-      console.log('✓ Verified: Calendar slot saved in database with ID:', savedSlot.id);
+      console.log(
+        "✓ Verified: Calendar slot saved in database with ID:",
+        savedSlot.id,
+      );
 
       // 验证会议信息
-      expect(savedSession.meetingProvider).toBe('feishu');
-      expect(savedSession.meetingUrl).toContain('feishu');
+      expect(savedSession.meetingProvider).toBe("feishu");
+      expect(savedSession.meetingUrl).toContain("feishu");
       expect(savedSession.meetingPassword).toBeDefined();
 
-      console.log('✓ Verified: Meeting info generated:', {
+      console.log("✓ Verified: Meeting info generated:", {
         provider: savedSession.meetingProvider,
         hasUrl: !!savedSession.meetingUrl,
         hasPassword: !!savedSession.meetingPassword,
       });
 
-      console.log('\n🎉 SUCCESS: Complete booking flow verified with real database!');
+      console.log(
+        "\n🎉 SUCCESS: Complete booking flow verified with real database!",
+      );
     }, 30000); // 30秒超时，因为有真实的数据库操作和API调用
   });
 
-  describe('🔄 事务回滚场景 - 验证数据一致性', () => {
-    it('应该在会议创建失败时完全回滚事务', async () => {
+  describe("🔄 事务回滚场景 - 验证数据一致性", () => {
+    it("应该在会议创建失败时完全回滚事务", async () => {
       // Arrange - 准备会导致失败的输入
       const testInput: BookSessionInput = {
         counselorId: testIds.counselor,
@@ -216,14 +229,14 @@ describe('BookSessionCommand - E2E Integration Test', () => {
         mentorId: uuidv4(), // 使用新的mentor ID
         contractId: testIds.contract,
         serviceId: testIds.service,
-        scheduledStartTime: new Date('2025-12-16T10:00:00Z'),
-        scheduledEndTime: new Date('2025-12-16T11:00:00Z'),
+        scheduledStartTime: new Date("2025-12-16T10:00:00Z"),
+        scheduledEndTime: new Date("2025-12-16T11:00:00Z"),
         duration: 60,
         topic: `${testPrefix} - E2E Rollback Test`,
-        meetingProvider: 'invalid_provider' as any, // 使用无效的provider触发失败
+        meetingProvider: "invalid_provider" as any, // 使用无效的provider触发失败
       };
 
-      console.log('\n📝 Test Input (should fail):', {
+      console.log("\n📝 Test Input (should fail):", {
         studentId: testInput.studentId,
         mentorId: testInput.mentorId,
         meetingProvider: testInput.meetingProvider,
@@ -236,7 +249,7 @@ describe('BookSessionCommand - E2E Integration Test', () => {
         .where(eq(schema.sessions.studentId, testInput.studentId));
 
       expect(sessionsBefore).toHaveLength(0);
-      console.log('✓ Verified: No sessions exist before failed booking');
+      console.log("✓ Verified: No sessions exist before failed booking");
 
       const calendarSlotsBefore = await db
         .select()
@@ -244,12 +257,12 @@ describe('BookSessionCommand - E2E Integration Test', () => {
         .where(eq(schema.calendarSlots.resourceId, testInput.mentorId));
 
       expect(calendarSlotsBefore).toHaveLength(0);
-      console.log('✓ Verified: No calendar slots exist before failed booking');
+      console.log("✓ Verified: No calendar slots exist before failed booking");
 
       // Act & Assert - 执行预约应该失败
-      console.log('\n🚀 Executing booking (expecting failure)...');
+      console.log("\n🚀 Executing booking (expecting failure)...");
       await expect(command.execute(testInput)).rejects.toThrow();
-      console.log('✓ Verified: Booking failed as expected');
+      console.log("✓ Verified: Booking failed as expected");
 
       // 验证事务回滚 - Session 不应该被创建
       const sessionsAfter = await db
@@ -258,7 +271,7 @@ describe('BookSessionCommand - E2E Integration Test', () => {
         .where(eq(schema.sessions.studentId, testInput.studentId));
 
       expect(sessionsAfter).toHaveLength(0);
-      console.log('✓ Verified: No session created (transaction rolled back)');
+      console.log("✓ Verified: No session created (transaction rolled back)");
 
       // 验证事务回滚 - Calendar Slot 不应该被创建
       const calendarSlotsAfter = await db
@@ -267,12 +280,16 @@ describe('BookSessionCommand - E2E Integration Test', () => {
         .where(eq(schema.calendarSlots.resourceId, testInput.mentorId));
 
       expect(calendarSlotsAfter).toHaveLength(0);
-      console.log('✓ Verified: No calendar slot created (transaction rolled back)');
+      console.log(
+        "✓ Verified: No calendar slot created (transaction rolled back)",
+      );
 
-      console.log('\n🎉 SUCCESS: Transaction rollback verified - no partial data in database!');
+      console.log(
+        "\n🎉 SUCCESS: Transaction rollback verified - no partial data in database!",
+      );
     }, 30000);
 
-    it('应该在时间冲突时不创建任何数据', async () => {
+    it("应该在时间冲突时不创建任何数据", async () => {
       // 首先创建一个成功的预约
       const firstMentorId = uuidv4();
       const firstStudentId = uuidv4();
@@ -283,17 +300,17 @@ describe('BookSessionCommand - E2E Integration Test', () => {
         mentorId: firstMentorId,
         contractId: testIds.contract,
         serviceId: testIds.service,
-        scheduledStartTime: new Date('2025-12-17T10:00:00Z'),
-        scheduledEndTime: new Date('2025-12-17T11:00:00Z'),
+        scheduledStartTime: new Date("2025-12-17T10:00:00Z"),
+        scheduledEndTime: new Date("2025-12-17T11:00:00Z"),
         duration: 60,
         topic: `${testPrefix} - First Booking`,
-        meetingProvider: 'feishu',
+        meetingProvider: "feishu",
       };
 
-      console.log('\n📝 Creating first booking...');
+      console.log("\n📝 Creating first booking...");
       const firstResult = await command.execute(firstBooking);
       expect(firstResult).toBeDefined();
-      console.log('✓ First booking created:', firstResult.sessionId);
+      console.log("✓ First booking created:", firstResult.sessionId);
 
       // 尝试预约相同的时间段（应该失败）
       const conflictBooking: BookSessionInput = {
@@ -302,14 +319,14 @@ describe('BookSessionCommand - E2E Integration Test', () => {
         mentorId: firstMentorId, // 相同的mentor
         contractId: testIds.contract,
         serviceId: testIds.service,
-        scheduledStartTime: new Date('2025-12-17T10:00:00Z'), // 相同的时间
-        scheduledEndTime: new Date('2025-12-17T11:00:00Z'),
+        scheduledStartTime: new Date("2025-12-17T10:00:00Z"), // 相同的时间
+        scheduledEndTime: new Date("2025-12-17T11:00:00Z"),
         duration: 60,
         topic: `${testPrefix} - Conflict Booking`,
-        meetingProvider: 'feishu',
+        meetingProvider: "feishu",
       };
 
-      console.log('\n📝 Attempting conflicting booking...');
+      console.log("\n📝 Attempting conflicting booking...");
 
       // 记录冲突前的session数量
       const sessionsBeforeConflict = await db
@@ -322,7 +339,7 @@ describe('BookSessionCommand - E2E Integration Test', () => {
 
       // 尝试预约应该失败
       await expect(command.execute(conflictBooking)).rejects.toThrow();
-      console.log('✓ Verified: Conflicting booking rejected');
+      console.log("✓ Verified: Conflicting booking rejected");
 
       // 验证没有创建新的session
       const sessionsAfterConflict = await db
@@ -334,20 +351,22 @@ describe('BookSessionCommand - E2E Integration Test', () => {
       console.log(`✓ Verified: Session count unchanged (${countBefore})`);
 
       // 清理测试数据
-      await db.delete(schema.calendarSlots).where(
-        eq(schema.calendarSlots.resourceId, firstMentorId)
-      );
-      await db.delete(schema.sessions).where(
-        eq(schema.sessions.mentorId, firstMentorId)
-      );
-      console.log('✓ Test data cleaned up');
+      await db
+        .delete(schema.calendarSlots)
+        .where(eq(schema.calendarSlots.resourceId, firstMentorId));
+      await db
+        .delete(schema.sessions)
+        .where(eq(schema.sessions.mentorId, firstMentorId));
+      console.log("✓ Test data cleaned up");
 
-      console.log('\n🎉 SUCCESS: Time conflict properly prevented duplicate bookings!');
+      console.log(
+        "\n🎉 SUCCESS: Time conflict properly prevented duplicate bookings!",
+      );
     }, 30000);
   });
 
-  describe('📊 数据一致性验证', () => {
-    it('应该确保 Session 和 Calendar Slot 的外键关联正确', async () => {
+  describe("📊 数据一致性验证", () => {
+    it("应该确保 Session 和 Calendar Slot 的外键关联正确", async () => {
       // Arrange
       const testInput: BookSessionInput = {
         counselorId: testIds.counselor,
@@ -355,15 +374,15 @@ describe('BookSessionCommand - E2E Integration Test', () => {
         mentorId: uuidv4(),
         contractId: testIds.contract,
         serviceId: testIds.service,
-        scheduledStartTime: new Date('2025-12-18T10:00:00Z'),
-        scheduledEndTime: new Date('2025-12-18T11:00:00Z'),
+        scheduledStartTime: new Date("2025-12-18T10:00:00Z"),
+        scheduledEndTime: new Date("2025-12-18T11:00:00Z"),
         duration: 60,
         topic: `${testPrefix} - Consistency Test`,
-        meetingProvider: 'feishu',
+        meetingProvider: "feishu",
       };
 
       // Act
-      console.log('\n📝 Creating booking for consistency check...');
+      console.log("\n📝 Creating booking for consistency check...");
       const result = await command.execute(testInput);
 
       // Assert - 验证外键关联
@@ -374,7 +393,7 @@ describe('BookSessionCommand - E2E Integration Test', () => {
         .limit(1);
 
       expect(session).toHaveLength(1);
-      console.log('✓ Session found:', session[0].id);
+      console.log("✓ Session found:", session[0].id);
 
       const calendarSlot = await db
         .select()
@@ -384,7 +403,7 @@ describe('BookSessionCommand - E2E Integration Test', () => {
 
       expect(calendarSlot).toHaveLength(1);
       expect(calendarSlot[0].sessionId).toBe(result.sessionId);
-      console.log('✓ Calendar slot linked to session:', {
+      console.log("✓ Calendar slot linked to session:", {
         slotId: calendarSlot[0].id,
         sessionId: calendarSlot[0].sessionId,
       });
@@ -400,30 +419,30 @@ describe('BookSessionCommand - E2E Integration Test', () => {
         .from(schema.sessions)
         .innerJoin(
           schema.calendarSlots,
-          eq(schema.sessions.id, schema.calendarSlots.sessionId)
+          eq(schema.sessions.id, schema.calendarSlots.sessionId),
         )
         .where(eq(schema.sessions.id, result.sessionId));
 
       expect(joinedData).toHaveLength(1);
       expect(joinedData[0].sessionId).toBe(result.sessionId);
       expect(joinedData[0].slotId).toBe(result.calendarSlotId);
-      console.log('✓ JOIN query successful:', joinedData[0]);
+      console.log("✓ JOIN query successful:", joinedData[0]);
 
       // 清理
-      await db.delete(schema.calendarSlots).where(
-        eq(schema.calendarSlots.id, result.calendarSlotId)
-      );
-      await db.delete(schema.sessions).where(
-        eq(schema.sessions.id, result.sessionId)
-      );
-      console.log('✓ Test data cleaned up');
+      await db
+        .delete(schema.calendarSlots)
+        .where(eq(schema.calendarSlots.id, result.calendarSlotId));
+      await db
+        .delete(schema.sessions)
+        .where(eq(schema.sessions.id, result.sessionId));
+      console.log("✓ Test data cleaned up");
 
-      console.log('\n🎉 SUCCESS: Data consistency and relationships verified!');
+      console.log("\n🎉 SUCCESS: Data consistency and relationships verified!");
     }, 30000);
   });
 
-  describe('🔍 使用 Supabase MCP 工具验证', () => {
-    it('应该能够通过 SQL 查询验证数据', async () => {
+  describe("🔍 使用 Supabase MCP 工具验证", () => {
+    it("应该能够通过 SQL 查询验证数据", async () => {
       // Arrange
       const testInput: BookSessionInput = {
         counselorId: testIds.counselor,
@@ -431,15 +450,15 @@ describe('BookSessionCommand - E2E Integration Test', () => {
         mentorId: uuidv4(),
         contractId: testIds.contract,
         serviceId: testIds.service,
-        scheduledStartTime: new Date('2025-12-19T10:00:00Z'),
-        scheduledEndTime: new Date('2025-12-19T11:00:00Z'),
+        scheduledStartTime: new Date("2025-12-19T10:00:00Z"),
+        scheduledEndTime: new Date("2025-12-19T11:00:00Z"),
         duration: 60,
         topic: `${testPrefix} - MCP Test`,
-        meetingProvider: 'feishu',
+        meetingProvider: "feishu",
       };
 
       // Act
-      console.log('\n📝 Creating booking for MCP verification...');
+      console.log("\n📝 Creating booking for MCP verification...");
       const result = await command.execute(testInput);
 
       // 使用原生 SQL 查询验证（模拟 MCP execute_sql）
@@ -458,7 +477,9 @@ describe('BookSessionCommand - E2E Integration Test', () => {
         WHERE s.id::text = $1
       `;
 
-      const sqlResult = await db.execute(sqlQuery.replace('$1', `'${result.sessionId}'`));
+      const sqlResult = await db.execute(
+        sqlQuery.replace("$1", `'${result.sessionId}'`),
+      );
 
       // Assert
       expect(sqlResult.rows).toHaveLength(1);
@@ -466,13 +487,13 @@ describe('BookSessionCommand - E2E Integration Test', () => {
       expect(row.session_id).toBe(result.sessionId);
       expect(row.student_id).toBe(testInput.studentId);
       expect(row.mentor_id).toBe(testInput.mentorId);
-      expect(row.session_status).toBe('scheduled');
+      expect(row.session_status).toBe("scheduled");
       expect(row.meeting_url).toBeDefined();
       expect(row.calendar_slot_id).toBe(result.calendarSlotId);
-      expect(row.slot_type).toBe('session');
-      expect(row.slot_status).toBe('occupied');
+      expect(row.slot_type).toBe("session");
+      expect(row.slot_status).toBe("occupied");
 
-      console.log('✓ SQL query result:', {
+      console.log("✓ SQL query result:", {
         sessionId: row.session_id,
         sessionStatus: row.session_status,
         hasMeetingUrl: !!row.meeting_url,
@@ -481,15 +502,15 @@ describe('BookSessionCommand - E2E Integration Test', () => {
       });
 
       // 清理
-      await db.delete(schema.calendarSlots).where(
-        eq(schema.calendarSlots.id, result.calendarSlotId)
-      );
-      await db.delete(schema.sessions).where(
-        eq(schema.sessions.id, result.sessionId)
-      );
-      console.log('✓ Test data cleaned up');
+      await db
+        .delete(schema.calendarSlots)
+        .where(eq(schema.calendarSlots.id, result.calendarSlotId));
+      await db
+        .delete(schema.sessions)
+        .where(eq(schema.sessions.id, result.sessionId));
+      console.log("✓ Test data cleaned up");
 
-      console.log('\n🎉 SUCCESS: MCP-style SQL verification completed!');
+      console.log("\n🎉 SUCCESS: MCP-style SQL verification completed!");
     }, 30000);
   });
 });

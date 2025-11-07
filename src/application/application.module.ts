@@ -1,37 +1,37 @@
-import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { PassportModule } from '@nestjs/passport';
-import type { StringValue } from 'ms';
+import { Module } from "@nestjs/common";
+import { JwtModule } from "@nestjs/jwt";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { PassportModule } from "@nestjs/passport";
+import type { StringValue } from "ms";
 
 // Infrastructure
-import { DatabaseModule } from '@infrastructure/database/database.module';
+import { DatabaseModule } from "@infrastructure/database/database.module";
 
 // Domain Layer
-import { UserRepository } from '@infrastructure/repositories/user.repository';
-import { USER_REPOSITORY } from '@domains/identity/user/user-repository.interface';
+import { UserRepository } from "@infrastructure/repositories/user.repository";
+import { USER_REPOSITORY } from "@domains/identity/user/user-repository.interface";
 
 // Application Layer - Queries
-import { UserQueryService } from './queries/user-query.service';
+import { UserQueryService } from "./queries/user-query.service";
 
 // Application Layer - Commands
-import { RegisterCommand } from './commands/auth/register.command';
-import { LoginCommand } from './commands/auth/login.command';
-import { BookSessionCommand } from './commands/booking/book-session.command';
+import { RegisterCommand } from "./commands/auth/register.command";
+import { LoginCommand } from "./commands/auth/login.command";
+import { BookSessionCommand } from "./commands/booking/book-session.command";
 
 // Application Layer - Commands (兼容层)
-import { AuthCommandService } from './commands/auth-command/auth-command.service';
+import { AuthCommandService } from "./commands/auth-command/auth-command.service";
 
 // Core Services (从main分支)
-import { CalendarService } from '@core/calendar';
-import { MeetingProviderModule } from '@core/meeting-providers';
+import { CalendarService } from "@core/calendar";
+import { MeetingProviderModule } from "@core/meeting-providers";
 
 // Domain Services
-import { SessionModule } from '@domains/services/session/session.module';
-import { ContractModule } from '@domains/contract/contract.module';
+import { SessionModule } from "@domains/services/session/session.module";
+import { ContractModule } from "@domains/contract/contract.module";
 
 // Shared
-import { JwtStrategy } from '@shared/guards/strategies/jwt.strategy';
+import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";
 
 /**
  * Application Layer - Root Module
@@ -47,13 +47,15 @@ import { JwtStrategy } from '@shared/guards/strategies/jwt.strategy';
     MeetingProviderModule, // 导入会议提供者模块
     SessionModule, // Domain层：Session
     ContractModule, // Domain层：Contract
-    PassportModule.register({ defaultStrategy: 'jwt' }),
+    PassportModule.register({ defaultStrategy: "jwt" }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
+        secret: configService.get<string>("JWT_SECRET"),
         signOptions: {
-          expiresIn: (configService.get<string>('JWT_EXPIRATION') || '24h') as StringValue | number,
+          expiresIn: (configService.get<string>("JWT_EXPIRATION") || "24h") as
+            | StringValue
+            | number,
         },
       }),
       inject: [ConfigService],

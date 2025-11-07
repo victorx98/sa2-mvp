@@ -1,0 +1,319 @@
+import { Test, TestingModule } from "@nestjs/testing";
+import { SessionQueryService } from "./session-query.service";
+import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
+import { QueryFiltersDto, PaginationDto } from "../dto/query-filters.dto";
+
+describe("SessionQueryService", () => {
+  let service: SessionQueryService;
+  let mockDb: any;
+
+  const mockSession = {
+    id: "00000000-0000-0000-0000-000000000001",
+    studentId: "00000000-0000-0000-0000-000000000002",
+    mentorId: "00000000-0000-0000-0000-000000000003",
+    scheduledStartTime: new Date("2025-11-10T14:00:00Z"),
+    scheduledDuration: 60,
+    sessionName: "Test Session",
+    status: "scheduled",
+    recordings: [],
+    aiSummary: null,
+    mentorJoinCount: 0,
+    studentJoinCount: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    deletedAt: null,
+    meetingProvider: "feishu",
+    meetingId: null,
+    meetingNo: null,
+    meetingUrl: null,
+    meetingPassword: null,
+    actualStartTime: null,
+    actualEndTime: null,
+    mentorTotalDurationSeconds: null,
+    studentTotalDurationSeconds: null,
+    effectiveTutoringDurationSeconds: null,
+    notes: null,
+    contractId: null,
+  };
+
+  beforeEach(async () => {
+    // Create a simpler mock that returns chainable objects
+    mockDb = {
+      select: jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([{ count: "1" }]),
+        }),
+      }),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        SessionQueryService,
+        {
+          provide: DATABASE_CONNECTION,
+          useValue: mockDb,
+        },
+      ],
+    }).compile();
+
+    service = module.get<SessionQueryService>(SessionQueryService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("findByStudentId", () => {
+    it("should return paginated sessions for a student", async () => {
+      const studentId = "00000000-0000-0000-0000-000000000002";
+      const filters: QueryFiltersDto = {};
+      const pagination: PaginationDto = { page: 1, limit: 20 };
+
+      // Mock count query
+      mockDb.select = jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([{ count: "1" }]),
+        }),
+      });
+
+      // Mock data query
+      mockDb.select = jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                offset: jest.fn().mockResolvedValue([mockSession]),
+              }),
+            }),
+          }),
+        }),
+      });
+
+      const result = await service.findByStudentId(
+        studentId,
+        filters,
+        pagination,
+      );
+
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(20);
+      expect(result.totalPages).toBe(1);
+      expect(result.hasNext).toBe(false);
+      expect(result.hasPrev).toBe(false);
+    });
+  });
+
+  describe("findByMentorId", () => {
+    it("should return paginated sessions for a mentor", async () => {
+      const mentorId = "00000000-0000-0000-0000-000000000003";
+      const filters: QueryFiltersDto = {};
+      const pagination: PaginationDto = { page: 1, limit: 20 };
+
+      // Mock count query
+      mockDb.select = jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([{ count: "1" }]),
+        }),
+      });
+
+      // Mock data query
+      mockDb.select = jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                offset: jest.fn().mockResolvedValue([mockSession]),
+              }),
+            }),
+          }),
+        }),
+      });
+
+      const result = await service.findByMentorId(
+        mentorId,
+        filters,
+        pagination,
+      );
+
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(1);
+    });
+  });
+
+  describe("findUpcomingSessions", () => {
+    it("should return upcoming sessions for a student", async () => {
+      const userId = "00000000-0000-0000-0000-000000000002";
+      const role = "student";
+      const limit = 10;
+
+      mockDb.select = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockSession]),
+            }),
+          }),
+        }),
+      });
+
+      const result = await service.findUpcomingSessions(userId, role, limit);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].studentId).toBe(userId);
+    });
+
+    it("should return upcoming sessions for a mentor", async () => {
+      const userId = "00000000-0000-0000-0000-000000000003";
+      const role = "mentor";
+      const limit = 10;
+
+      mockDb.select = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockSession]),
+            }),
+          }),
+        }),
+      });
+
+      const result = await service.findUpcomingSessions(userId, role, limit);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].mentorId).toBe(userId);
+    });
+  });
+
+  describe("getSessionStatistics", () => {
+    it("should calculate statistics for completed sessions", async () => {
+      const userId = "00000000-0000-0000-0000-000000000002";
+      const role = "student";
+
+      const completedSession = {
+        ...mockSession,
+        status: "completed",
+        effectiveTutoringDurationSeconds: 3600,
+      };
+
+      mockDb.select = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([
+            completedSession,
+            completedSession,
+            { ...mockSession, status: "cancelled" },
+          ]),
+        }),
+      });
+
+      const result = await service.getSessionStatistics(userId, role);
+
+      expect(result.totalSessions).toBe(3);
+      expect(result.completedSessions).toBe(2);
+      expect(result.cancelledSessions).toBe(1);
+      expect(result.totalDurationHours).toBe(2.0); // 7200 seconds = 2 hours
+      expect(result.averageDurationMinutes).toBe(60); // 3600 seconds / 60
+      expect(result.completionRate).toBe(66.67); // 2/3 * 100
+    });
+
+    it("should handle no sessions", async () => {
+      const userId = "00000000-0000-0000-0000-000000000002";
+      const role = "student";
+
+      mockDb.select = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
+        }),
+      });
+
+      const result = await service.getSessionStatistics(userId, role);
+
+      expect(result.totalSessions).toBe(0);
+      expect(result.completedSessions).toBe(0);
+      expect(result.cancelledSessions).toBe(0);
+      expect(result.totalDurationHours).toBe(0);
+      expect(result.averageDurationMinutes).toBe(0);
+      expect(result.completionRate).toBe(0);
+    });
+  });
+
+  describe("pagination", () => {
+    it("should calculate correct pagination for multiple pages", async () => {
+      const studentId = "00000000-0000-0000-0000-000000000002";
+      const filters: QueryFiltersDto = {};
+      const pagination: PaginationDto = { page: 2, limit: 10 };
+
+      // Mock count query - total 25 items
+      mockDb.select = jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([{ count: "25" }]),
+        }),
+      });
+
+      // Mock data query
+      mockDb.select = jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                offset: jest.fn().mockResolvedValue([mockSession]),
+              }),
+            }),
+          }),
+        }),
+      });
+
+      const result = await service.findByStudentId(
+        studentId,
+        filters,
+        pagination,
+      );
+
+      expect(result.total).toBe(25);
+      expect(result.page).toBe(2);
+      expect(result.limit).toBe(10);
+      expect(result.totalPages).toBe(3); // ceil(25/10) = 3
+      expect(result.hasNext).toBe(true); // page 2 of 3
+      expect(result.hasPrev).toBe(true); // page 2 of 3
+    });
+
+    it("should enforce maximum limit of 100", async () => {
+      const studentId = "00000000-0000-0000-0000-000000000002";
+      const filters: QueryFiltersDto = {};
+      const pagination: PaginationDto = { page: 1, limit: 200 };
+
+      // Mock count query
+      mockDb.select = jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([{ count: "0" }]),
+        }),
+      });
+
+      // Mock data query with limit spy
+      const limitSpy = jest.fn().mockReturnValue({
+        offset: jest.fn().mockResolvedValue([]),
+      });
+
+      mockDb.select = jest.fn().mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            orderBy: jest.fn().mockReturnValue({
+              limit: limitSpy,
+            }),
+          }),
+        }),
+      });
+
+      const result = await service.findByStudentId(
+        studentId,
+        filters,
+        pagination,
+      );
+
+      // Should be capped at 100
+      expect(result.limit).toBe(100);
+      expect(limitSpy).toHaveBeenCalledWith(100);
+    });
+  });
+});

@@ -1,5 +1,5 @@
-import { Module } from '@nestjs/common';
-import { ContractService } from './contract.service';
+import { Module } from "@nestjs/common";
+import { ContractService } from "./contract.service";
 
 /**
  * Contract Module (临时实现)

@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { UserQueryService } from '@application/queries/user-query.service';
-import { UserResponseDto } from './dto/user-response.dto';
-import { User } from '@domains/identity/user/user.interface';
+import { Injectable } from "@nestjs/common";
+import { UserQueryService } from "@application/queries/user-query.service";
+import { UserResponseDto } from "./dto/user-response.dto";
+import { User } from "@domains/identity/user/user.interface";
 
 /**
  * BFF Layer - User Service
@@ -70,10 +70,10 @@ export class UserBffService {
    */
   private getStatusText(status: string): string {
     const statusMap: Record<string, string> = {
-      active: '活跃',
-      inactive: '未激活',
-      suspended: '已暂停',
-      deleted: '已删除',
+      active: "活跃",
+      inactive: "未激活",
+      suspended: "已暂停",
+      deleted: "已删除",
     };
     return statusMap[status] || status;
   }
@@ -83,19 +83,19 @@ export class UserBffService {
    */
   private getStatusColor(status: string): string {
     const colorMap: Record<string, string> = {
-      active: 'green',
-      inactive: 'gray',
-      suspended: 'orange',
-      deleted: 'red',
+      active: "green",
+      inactive: "gray",
+      suspended: "orange",
+      deleted: "red",
     };
-    return colorMap[status] || 'gray';
+    return colorMap[status] || "gray";
   }
 
   /**
    * 获取显示名称（优先显示中文昵称）
    */
   private getDisplayName(user: User): string {
-    return user.cnNickname || user.nickname || user.email.split('@')[0];
+    return user.cnNickname || user.nickname || user.email.split("@")[0];
   }
 
   /**
@@ -104,7 +104,7 @@ export class UserBffService {
   private getAvatarUrl(user: User): string {
     // 这里可以从user对象中获取avatarUrl字段
     // 如果没有，返回默认头像
-    return '/assets/default-avatar.png';
+    return "/assets/default-avatar.png";
   }
 
   /**
@@ -117,16 +117,16 @@ export class UserBffService {
   }> {
     const actions = [];
 
-    if (user.status === 'active') {
+    if (user.status === "active") {
       actions.push({
-        label: '编辑资料',
-        action: 'edit_profile',
-        icon: 'edit',
+        label: "编辑资料",
+        action: "edit_profile",
+        icon: "edit",
       });
       actions.push({
-        label: '修改密码',
-        action: 'change_password',
-        icon: 'lock',
+        label: "修改密码",
+        action: "change_password",
+        icon: "lock",
       });
     }
 
