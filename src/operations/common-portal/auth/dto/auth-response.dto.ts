@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty } from "@nestjs/swagger";
 
 /**
  * BFF Layer - Auth Response DTO
@@ -6,10 +6,10 @@ import { ApiProperty } from '@nestjs/swagger';
  * 特点：包含前端需要的字段和提示信息
  */
 export class AuthResponseDto {
-  @ApiProperty({ description: 'JWT access token' })
+  @ApiProperty({ description: "JWT access token" })
   accessToken: string;
 
-  @ApiProperty({ description: '用户基本信息' })
+  @ApiProperty({ description: "用户基本信息" })
   user: {
     id: string;
     email: string;
@@ -18,9 +18,9 @@ export class AuthResponseDto {
     status: string;
   };
 
-  @ApiProperty({ description: '欢迎提示信息（可选）', required: false })
+  @ApiProperty({ description: "欢迎提示信息（可选）", required: false })
   message?: string;
 
-  @ApiProperty({ description: '下一步操作提示（可选）', required: false })
+  @ApiProperty({ description: "下一步操作提示（可选）", required: false })
   hints?: string[];
 }

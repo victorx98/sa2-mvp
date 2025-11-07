@@ -1,6 +1,6 @@
-import { Module } from '@nestjs/common';
-import { ApplicationModule } from '@application/application.module';
-import { CounselorSessionsService } from './sessions/sessions.service';
+import { Module } from "@nestjs/common";
+import { ApplicationModule } from "@application/application.module";
+import { CounselorSessionsService } from "./sessions/sessions.service";
 
 /**
  * Operations Layer - Counselor Portal Module
@@ -17,8 +17,6 @@ import { CounselorSessionsService } from './sessions/sessions.service';
     // BFF Services
     CounselorSessionsService,
   ],
-  exports: [
-    CounselorSessionsService,
-  ],
+  exports: [CounselorSessionsService],
 })
 export class CounselorPortalModule {}

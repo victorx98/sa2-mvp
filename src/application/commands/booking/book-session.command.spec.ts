@@ -1,18 +1,24 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { BookSessionCommand } from './book-session.command';
-import { CalendarService } from '@core/calendar';
-import { ResourceType, SlotType } from '@core/calendar/interfaces/calendar-slot.interface';
-import { MeetingProviderFactory, MeetingProviderType } from '@core/meeting-providers';
-import { SessionService } from '@domains/services/session/services/session.service';
-import { ContractService } from '@domains/contract/contract.service';
-import { BookSessionInput } from './dto/book-session-input.dto';
+import { Test, TestingModule } from "@nestjs/testing";
+import { BookSessionCommand } from "./book-session.command";
+import { CalendarService } from "@core/calendar";
+import {
+  ResourceType,
+  SlotType,
+} from "@core/calendar/interfaces/calendar-slot.interface";
+import {
+  MeetingProviderFactory,
+  MeetingProviderType,
+} from "@core/meeting-providers";
+import { SessionService } from "@domains/services/session/services/session.service";
+import { ContractService } from "@domains/contract/contract.service";
+import { BookSessionInput } from "./dto/book-session-input.dto";
 import {
   InsufficientBalanceException,
   TimeConflictException,
-} from '@shared/exceptions';
-import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
+} from "@shared/exceptions";
+import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 
-describe('BookSessionCommand', () => {
+describe("BookSessionCommand", () => {
   let command: BookSessionCommand;
   let mockDb: any;
   let mockContractService: jest.Mocked<ContractService>;
@@ -23,16 +29,16 @@ describe('BookSessionCommand', () => {
 
   // 测试数据
   const validInput: BookSessionInput = {
-    counselorId: 'counselor-123',
-    studentId: 'student-456',
-    mentorId: 'mentor-789',
-    contractId: 'contract-001',
-    serviceId: 'service-001',
-    scheduledStartTime: new Date('2025-12-01T10:00:00Z'),
-    scheduledEndTime: new Date('2025-12-01T11:00:00Z'),
+    counselorId: "counselor-123",
+    studentId: "student-456",
+    mentorId: "mentor-789",
+    contractId: "contract-001",
+    serviceId: "service-001",
+    scheduledStartTime: new Date("2025-12-01T10:00:00Z"),
+    scheduledEndTime: new Date("2025-12-01T11:00:00Z"),
     duration: 60,
-    topic: 'Test Session',
-    meetingProvider: 'feishu',
+    topic: "Test Session",
+    meetingProvider: "feishu",
   };
 
   beforeEach(async () => {
@@ -106,43 +112,43 @@ describe('BookSessionCommand', () => {
     jest.clearAllMocks();
   });
 
-  describe('execute - 成功场景', () => {
-    it('应该成功预约会话并返回完整信息', async () => {
+  describe("execute - 成功场景", () => {
+    it("应该成功预约会话并返回完整信息", async () => {
       // Arrange
       const mockBalance = { available: 10, used: 5, total: 15 };
       const mockHold = {
-        id: 'hold-123',
+        id: "hold-123",
         contractId: validInput.contractId,
         serviceId: validInput.serviceId,
-        sessionId: 'temp_session_id',
+        sessionId: "temp_session_id",
         quantity: 1,
         createdAt: new Date(),
       };
       const mockMeeting = {
         provider: MeetingProviderType.FEISHU,
-        meetingId: 'meeting-123',
-        meetingNo: '123456789',
-        meetingUrl: 'https://feishu.cn/meeting/123',
-        meetingPassword: 'pass123',
+        meetingId: "meeting-123",
+        meetingNo: "123456789",
+        meetingUrl: "https://feishu.cn/meeting/123",
+        meetingPassword: "pass123",
         hostJoinUrl: null,
         startTime: validInput.scheduledStartTime,
         duration: validInput.duration,
       };
       const mockSession = {
-        id: 'session-123',
+        id: "session-123",
         studentId: validInput.studentId,
         mentorId: validInput.mentorId,
         contractId: validInput.contractId,
-        status: 'scheduled',
+        status: "scheduled",
         scheduledStartTime: validInput.scheduledStartTime,
         scheduledDuration: validInput.duration,
       };
       const mockCalendarSlot = {
-        id: 'slot-123',
+        id: "slot-123",
         resourceType: ResourceType.MENTOR,
         resourceId: validInput.mentorId,
         sessionId: mockSession.id,
-        status: 'occupied',
+        status: "occupied",
       };
 
       mockContractService.getServiceBalance.mockResolvedValue(mockBalance);
@@ -150,7 +156,9 @@ describe('BookSessionCommand', () => {
       mockContractService.createServiceHold.mockResolvedValue(mockHold);
       mockMeetingProvider.createMeeting.mockResolvedValue(mockMeeting);
       mockSessionService.createSession.mockResolvedValue(mockSession as any);
-      mockCalendarService.createOccupiedSlot.mockResolvedValue(mockCalendarSlot as any);
+      mockCalendarService.createOccupiedSlot.mockResolvedValue(
+        mockCalendarSlot as any,
+      );
 
       // Act
       const result = await command.execute(validInput);
@@ -190,7 +198,7 @@ describe('BookSessionCommand', () => {
       expect(mockContractService.createServiceHold).toHaveBeenCalledWith({
         contractId: validInput.contractId,
         serviceId: validInput.serviceId,
-        sessionId: 'temp_session_id',
+        sessionId: "temp_session_id",
         quantity: 1,
       });
       expect(mockMeetingProviderFactory.getProvider).toHaveBeenCalledWith(
@@ -222,8 +230,8 @@ describe('BookSessionCommand', () => {
     });
   });
 
-  describe('execute - 余额不足场景', () => {
-    it('应该在余额不足时抛出 InsufficientBalanceException', async () => {
+  describe("execute - 余额不足场景", () => {
+    it("应该在余额不足时抛出 InsufficientBalanceException", async () => {
       // Arrange
       const mockBalance = { available: 0, used: 15, total: 15 };
       mockContractService.getServiceBalance.mockResolvedValue(mockBalance);
@@ -232,7 +240,7 @@ describe('BookSessionCommand', () => {
       await expect(command.execute(validInput)).rejects.toThrow(
         InsufficientBalanceException,
       );
-      await expect(command.execute(validInput)).rejects.toThrow('服务余额不足');
+      await expect(command.execute(validInput)).rejects.toThrow("服务余额不足");
 
       // Verify transaction was attempted
       expect(mockDb.transaction).toHaveBeenCalledTimes(2);
@@ -248,20 +256,20 @@ describe('BookSessionCommand', () => {
       expect(mockCalendarService.createOccupiedSlot).not.toHaveBeenCalled();
     });
 
-    it('应该在余额刚好为0时抛出异常', async () => {
+    it("应该在余额刚好为0时抛出异常", async () => {
       // Arrange
       const mockBalance = { available: 0, used: 10, total: 10 };
       mockContractService.getServiceBalance.mockResolvedValue(mockBalance);
 
       // Act & Assert
       await expect(command.execute(validInput)).rejects.toThrow(
-        new InsufficientBalanceException('服务余额不足'),
+        new InsufficientBalanceException("服务余额不足"),
       );
     });
   });
 
-  describe('execute - 时间冲突场景', () => {
-    it('应该在时间冲突时抛出 TimeConflictException', async () => {
+  describe("execute - 时间冲突场景", () => {
+    it("应该在时间冲突时抛出 TimeConflictException", async () => {
       // Arrange
       const mockBalance = { available: 10, used: 5, total: 15 };
       mockContractService.getServiceBalance.mockResolvedValue(mockBalance);
@@ -272,7 +280,7 @@ describe('BookSessionCommand', () => {
         TimeConflictException,
       );
       await expect(command.execute(validInput)).rejects.toThrow(
-        '导师在该时段已有安排',
+        "导师在该时段已有安排",
       );
 
       // Verify balance check was called
@@ -289,19 +297,19 @@ describe('BookSessionCommand', () => {
     });
   });
 
-  describe('execute - 会议创建失败场景 (事务回滚验证)', () => {
-    it('应该在会议创建失败时回滚整个事务', async () => {
+  describe("execute - 会议创建失败场景 (事务回滚验证)", () => {
+    it("应该在会议创建失败时回滚整个事务", async () => {
       // Arrange
       const mockBalance = { available: 10, used: 5, total: 15 };
       const mockHold = {
-        id: 'hold-123',
+        id: "hold-123",
         contractId: validInput.contractId,
         serviceId: validInput.serviceId,
-        sessionId: 'temp_session_id',
+        sessionId: "temp_session_id",
         quantity: 1,
         createdAt: new Date(),
       };
-      const meetingError = new Error('飞书API调用失败');
+      const meetingError = new Error("飞书API调用失败");
 
       mockContractService.getServiceBalance.mockResolvedValue(mockBalance);
       mockCalendarService.isSlotAvailable.mockResolvedValue(true);
@@ -309,7 +317,9 @@ describe('BookSessionCommand', () => {
       mockMeetingProvider.createMeeting.mockRejectedValue(meetingError);
 
       // Act & Assert
-      await expect(command.execute(validInput)).rejects.toThrow('飞书API调用失败');
+      await expect(command.execute(validInput)).rejects.toThrow(
+        "飞书API调用失败",
+      );
 
       // Verify transaction was attempted
       expect(mockDb.transaction).toHaveBeenCalledTimes(1);
@@ -325,19 +335,19 @@ describe('BookSessionCommand', () => {
       expect(mockCalendarService.createOccupiedSlot).not.toHaveBeenCalled();
     });
 
-    it('应该在Zoom会议创建失败时回滚事务', async () => {
+    it("应该在Zoom会议创建失败时回滚事务", async () => {
       // Arrange
-      const zoomInput = { ...validInput, meetingProvider: 'zoom' };
+      const zoomInput = { ...validInput, meetingProvider: "zoom" };
       const mockBalance = { available: 10, used: 5, total: 15 };
-      const meetingError = new Error('Zoom token expired');
+      const meetingError = new Error("Zoom token expired");
 
       mockContractService.getServiceBalance.mockResolvedValue(mockBalance);
       mockCalendarService.isSlotAvailable.mockResolvedValue(true);
       mockContractService.createServiceHold.mockResolvedValue({
-        id: 'hold-123',
+        id: "hold-123",
         contractId: zoomInput.contractId,
         serviceId: zoomInput.serviceId,
-        sessionId: 'temp_session_id',
+        sessionId: "temp_session_id",
         quantity: 1,
         createdAt: new Date(),
       });
@@ -345,7 +355,7 @@ describe('BookSessionCommand', () => {
 
       // Act & Assert
       await expect(command.execute(zoomInput as any)).rejects.toThrow(
-        'Zoom token expired',
+        "Zoom token expired",
       );
 
       expect(mockMeetingProviderFactory.getProvider).toHaveBeenCalledWith(
@@ -355,29 +365,29 @@ describe('BookSessionCommand', () => {
     });
   });
 
-  describe('execute - Session创建失败场景', () => {
-    it('应该在Session创建失败时抛出错误并回滚', async () => {
+  describe("execute - Session创建失败场景", () => {
+    it("应该在Session创建失败时抛出错误并回滚", async () => {
       // Arrange
       const mockBalance = { available: 10, used: 5, total: 15 };
       const mockHold = {
-        id: 'hold-123',
+        id: "hold-123",
         contractId: validInput.contractId,
         serviceId: validInput.serviceId,
-        sessionId: 'temp_session_id',
+        sessionId: "temp_session_id",
         quantity: 1,
         createdAt: new Date(),
       };
       const mockMeeting = {
         provider: MeetingProviderType.FEISHU,
-        meetingId: 'meeting-123',
-        meetingNo: '123456789',
-        meetingUrl: 'https://feishu.cn/meeting/123',
-        meetingPassword: 'pass123',
+        meetingId: "meeting-123",
+        meetingNo: "123456789",
+        meetingUrl: "https://feishu.cn/meeting/123",
+        meetingPassword: "pass123",
         hostJoinUrl: null,
         startTime: validInput.scheduledStartTime,
         duration: validInput.duration,
       };
-      const sessionError = new Error('数据库约束违反');
+      const sessionError = new Error("数据库约束违反");
 
       mockContractService.getServiceBalance.mockResolvedValue(mockBalance);
       mockCalendarService.isSlotAvailable.mockResolvedValue(true);
@@ -386,7 +396,9 @@ describe('BookSessionCommand', () => {
       mockSessionService.createSession.mockRejectedValue(sessionError);
 
       // Act & Assert
-      await expect(command.execute(validInput)).rejects.toThrow('数据库约束违反');
+      await expect(command.execute(validInput)).rejects.toThrow(
+        "数据库约束违反",
+      );
 
       // Verify all steps up to session creation were called
       expect(mockContractService.getServiceBalance).toHaveBeenCalledTimes(1);
@@ -400,38 +412,38 @@ describe('BookSessionCommand', () => {
     });
   });
 
-  describe('execute - 日历时段占用失败场景', () => {
-    it('应该在日历占用失败时抛出错误', async () => {
+  describe("execute - 日历时段占用失败场景", () => {
+    it("应该在日历占用失败时抛出错误", async () => {
       // Arrange
       const mockBalance = { available: 10, used: 5, total: 15 };
       const mockHold = {
-        id: 'hold-123',
+        id: "hold-123",
         contractId: validInput.contractId,
         serviceId: validInput.serviceId,
-        sessionId: 'temp_session_id',
+        sessionId: "temp_session_id",
         quantity: 1,
         createdAt: new Date(),
       };
       const mockMeeting = {
         provider: MeetingProviderType.FEISHU,
-        meetingId: 'meeting-123',
-        meetingNo: '123456789',
-        meetingUrl: 'https://feishu.cn/meeting/123',
-        meetingPassword: 'pass123',
+        meetingId: "meeting-123",
+        meetingNo: "123456789",
+        meetingUrl: "https://feishu.cn/meeting/123",
+        meetingPassword: "pass123",
         hostJoinUrl: null,
         startTime: validInput.scheduledStartTime,
         duration: validInput.duration,
       };
       const mockSession = {
-        id: 'session-123',
+        id: "session-123",
         studentId: validInput.studentId,
         mentorId: validInput.mentorId,
         contractId: validInput.contractId,
-        status: 'scheduled',
+        status: "scheduled",
         scheduledStartTime: validInput.scheduledStartTime,
         scheduledDuration: validInput.duration,
       };
-      const calendarError = new Error('日历服务不可用');
+      const calendarError = new Error("日历服务不可用");
 
       mockContractService.getServiceBalance.mockResolvedValue(mockBalance);
       mockCalendarService.isSlotAvailable.mockResolvedValue(true);
@@ -441,7 +453,9 @@ describe('BookSessionCommand', () => {
       mockCalendarService.createOccupiedSlot.mockRejectedValue(calendarError);
 
       // Act & Assert
-      await expect(command.execute(validInput)).rejects.toThrow('日历服务不可用');
+      await expect(command.execute(validInput)).rejects.toThrow(
+        "日历服务不可用",
+      );
 
       // Verify all steps were called
       expect(mockContractService.getServiceBalance).toHaveBeenCalledTimes(1);
@@ -453,43 +467,43 @@ describe('BookSessionCommand', () => {
     });
   });
 
-  describe('execute - 边界值测试', () => {
-    it('应该处理余额刚好为1的情况', async () => {
+  describe("execute - 边界值测试", () => {
+    it("应该处理余额刚好为1的情况", async () => {
       // Arrange
       const mockBalance = { available: 1, used: 14, total: 15 };
       const mockHold = {
-        id: 'hold-123',
+        id: "hold-123",
         contractId: validInput.contractId,
         serviceId: validInput.serviceId,
-        sessionId: 'temp_session_id',
+        sessionId: "temp_session_id",
         quantity: 1,
         createdAt: new Date(),
       };
       const mockMeeting = {
         provider: MeetingProviderType.FEISHU,
-        meetingId: 'meeting-123',
-        meetingNo: '123456789',
-        meetingUrl: 'https://feishu.cn/meeting/123',
-        meetingPassword: 'pass123',
+        meetingId: "meeting-123",
+        meetingNo: "123456789",
+        meetingUrl: "https://feishu.cn/meeting/123",
+        meetingPassword: "pass123",
         hostJoinUrl: null,
         startTime: validInput.scheduledStartTime,
         duration: validInput.duration,
       };
       const mockSession = {
-        id: 'session-123',
+        id: "session-123",
         studentId: validInput.studentId,
         mentorId: validInput.mentorId,
         contractId: validInput.contractId,
-        status: 'scheduled',
+        status: "scheduled",
         scheduledStartTime: validInput.scheduledStartTime,
         scheduledDuration: validInput.duration,
       };
       const mockCalendarSlot = {
-        id: 'slot-123',
+        id: "slot-123",
         resourceType: ResourceType.MENTOR,
         resourceId: validInput.mentorId,
         sessionId: mockSession.id,
-        status: 'occupied',
+        status: "occupied",
       };
 
       mockContractService.getServiceBalance.mockResolvedValue(mockBalance);
@@ -497,7 +511,9 @@ describe('BookSessionCommand', () => {
       mockContractService.createServiceHold.mockResolvedValue(mockHold);
       mockMeetingProvider.createMeeting.mockResolvedValue(mockMeeting);
       mockSessionService.createSession.mockResolvedValue(mockSession as any);
-      mockCalendarService.createOccupiedSlot.mockResolvedValue(mockCalendarSlot as any);
+      mockCalendarService.createOccupiedSlot.mockResolvedValue(
+        mockCalendarSlot as any,
+      );
 
       // Act
       const result = await command.execute(validInput);
@@ -508,44 +524,47 @@ describe('BookSessionCommand', () => {
     });
   });
 
-  describe('execute - 默认会议提供商测试', () => {
-    it('应该在未指定provider时使用默认的FEISHU', async () => {
+  describe("execute - 默认会议提供商测试", () => {
+    it("应该在未指定provider时使用默认的FEISHU", async () => {
       // Arrange
-      const inputWithoutProvider = { ...validInput, meetingProvider: undefined };
+      const inputWithoutProvider = {
+        ...validInput,
+        meetingProvider: undefined,
+      };
       const mockBalance = { available: 10, used: 5, total: 15 };
       const mockHold = {
-        id: 'hold-123',
+        id: "hold-123",
         contractId: validInput.contractId,
         serviceId: validInput.serviceId,
-        sessionId: 'temp_session_id',
+        sessionId: "temp_session_id",
         quantity: 1,
         createdAt: new Date(),
       };
       const mockMeeting = {
         provider: MeetingProviderType.FEISHU,
-        meetingId: 'meeting-123',
-        meetingNo: '123456789',
-        meetingUrl: 'https://feishu.cn/meeting/123',
-        meetingPassword: 'pass123',
+        meetingId: "meeting-123",
+        meetingNo: "123456789",
+        meetingUrl: "https://feishu.cn/meeting/123",
+        meetingPassword: "pass123",
         hostJoinUrl: null,
         startTime: validInput.scheduledStartTime,
         duration: validInput.duration,
       };
       const mockSession = {
-        id: 'session-123',
+        id: "session-123",
         studentId: validInput.studentId,
         mentorId: validInput.mentorId,
         contractId: validInput.contractId,
-        status: 'scheduled',
+        status: "scheduled",
         scheduledStartTime: validInput.scheduledStartTime,
         scheduledDuration: validInput.duration,
       };
       const mockCalendarSlot = {
-        id: 'slot-123',
+        id: "slot-123",
         resourceType: ResourceType.MENTOR,
         resourceId: validInput.mentorId,
         sessionId: mockSession.id,
-        status: 'occupied',
+        status: "occupied",
       };
 
       mockContractService.getServiceBalance.mockResolvedValue(mockBalance);
@@ -553,7 +572,9 @@ describe('BookSessionCommand', () => {
       mockContractService.createServiceHold.mockResolvedValue(mockHold);
       mockMeetingProvider.createMeeting.mockResolvedValue(mockMeeting);
       mockSessionService.createSession.mockResolvedValue(mockSession as any);
-      mockCalendarService.createOccupiedSlot.mockResolvedValue(mockCalendarSlot as any);
+      mockCalendarService.createOccupiedSlot.mockResolvedValue(
+        mockCalendarSlot as any,
+      );
 
       // Act
       await command.execute(inputWithoutProvider as any);

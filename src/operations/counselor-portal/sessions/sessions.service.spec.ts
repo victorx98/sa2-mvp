@@ -1,29 +1,29 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { CounselorSessionsService } from './sessions.service';
-import { BookSessionCommand } from '@application/commands/booking/book-session.command';
-import { SessionService } from '@domains/services/session/services/session.service';
-import { ContractService } from '@domains/contract/contract.service';
-import { BookSessionRequestDto } from './dto/book-session-request.dto';
-import { SessionDetailResponseDto } from './dto/session-detail-response.dto';
+import { Test, TestingModule } from "@nestjs/testing";
+import { CounselorSessionsService } from "./sessions.service";
+import { BookSessionCommand } from "@application/commands/booking/book-session.command";
+import { SessionService } from "@domains/services/session/services/session.service";
+import { ContractService } from "@domains/contract/contract.service";
+import { BookSessionRequestDto } from "./dto/book-session-request.dto";
+import { SessionDetailResponseDto } from "./dto/session-detail-response.dto";
 
-describe('CounselorSessionsService (BFF Layer)', () => {
+describe("CounselorSessionsService (BFF Layer)", () => {
   let service: CounselorSessionsService;
   let mockBookSessionCommand: jest.Mocked<BookSessionCommand>;
   let mockSessionService: jest.Mocked<SessionService>;
   let mockContractService: jest.Mocked<ContractService>;
 
   // 测试数据
-  const counselorId = 'counselor-123';
+  const counselorId = "counselor-123";
   const validDto: BookSessionRequestDto = {
-    studentId: 'student-456',
-    mentorId: 'mentor-789',
-    contractId: 'contract-001',
-    serviceId: 'service-001',
-    scheduledStartTime: '2025-12-01T10:00:00Z',
-    scheduledEndTime: '2025-12-01T11:00:00Z',
+    studentId: "student-456",
+    mentorId: "mentor-789",
+    contractId: "contract-001",
+    serviceId: "service-001",
+    scheduledStartTime: "2025-12-01T10:00:00Z",
+    scheduledEndTime: "2025-12-01T11:00:00Z",
     duration: 60,
-    topic: 'Test Session',
-    meetingProvider: 'feishu',
+    topic: "Test Session",
+    meetingProvider: "feishu",
   };
 
   beforeEach(async () => {
@@ -67,11 +67,11 @@ describe('CounselorSessionsService (BFF Layer)', () => {
     jest.clearAllMocks();
   });
 
-  describe('bookSession - 成功场景', () => {
-    it('应该成功预约并返回简化的响应数据', async () => {
+  describe("bookSession - 成功场景", () => {
+    it("应该成功预约并返回简化的响应数据", async () => {
       // Arrange
       const mockUseCaseResult = {
-        sessionId: 'session-123',
+        sessionId: "session-123",
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
         contractId: validDto.contractId,
@@ -79,12 +79,12 @@ describe('CounselorSessionsService (BFF Layer)', () => {
         scheduledStartTime: new Date(validDto.scheduledStartTime),
         scheduledEndTime: new Date(validDto.scheduledEndTime),
         duration: validDto.duration,
-        status: 'scheduled',
-        meetingUrl: 'https://feishu.cn/meeting/123',
-        meetingPassword: 'pass123',
-        meetingProvider: 'feishu',
-        calendarSlotId: 'slot-123',
-        serviceHoldId: 'hold-123',
+        status: "scheduled",
+        meetingUrl: "https://feishu.cn/meeting/123",
+        meetingPassword: "pass123",
+        meetingProvider: "feishu",
+        calendarSlotId: "slot-123",
+        serviceHoldId: "hold-123",
       };
 
       mockBookSessionCommand.execute.mockResolvedValue(mockUseCaseResult);
@@ -94,12 +94,12 @@ describe('CounselorSessionsService (BFF Layer)', () => {
 
       // Assert
       expect(result).toEqual({
-        bookingId: 'session-123',
-        status: 'scheduled',
+        bookingId: "session-123",
+        status: "scheduled",
         meeting: {
-          url: 'https://feishu.cn/meeting/123',
-          password: 'pass123',
-          provider: 'feishu',
+          url: "https://feishu.cn/meeting/123",
+          password: "pass123",
+          provider: "feishu",
         },
       });
 
@@ -118,10 +118,10 @@ describe('CounselorSessionsService (BFF Layer)', () => {
       });
     });
 
-    it('应该处理没有会议URL的情况', async () => {
+    it("应该处理没有会议URL的情况", async () => {
       // Arrange
       const mockUseCaseResult = {
-        sessionId: 'session-123',
+        sessionId: "session-123",
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
         contractId: validDto.contractId,
@@ -129,12 +129,12 @@ describe('CounselorSessionsService (BFF Layer)', () => {
         scheduledStartTime: new Date(validDto.scheduledStartTime),
         scheduledEndTime: new Date(validDto.scheduledEndTime),
         duration: validDto.duration,
-        status: 'scheduled',
+        status: "scheduled",
         meetingUrl: undefined, // 没有会议URL
         meetingPassword: undefined,
         meetingProvider: undefined,
-        calendarSlotId: 'slot-123',
-        serviceHoldId: 'hold-123',
+        calendarSlotId: "slot-123",
+        serviceHoldId: "hold-123",
       };
 
       mockBookSessionCommand.execute.mockResolvedValue(mockUseCaseResult);
@@ -144,16 +144,16 @@ describe('CounselorSessionsService (BFF Layer)', () => {
 
       // Assert
       expect(result).toEqual({
-        bookingId: 'session-123',
-        status: 'scheduled',
+        bookingId: "session-123",
+        status: "scheduled",
         meeting: undefined,
       });
     });
 
-    it('应该正确映射会议provider', async () => {
+    it("应该正确映射会议provider", async () => {
       // Arrange
       const mockUseCaseResult = {
-        sessionId: 'session-123',
+        sessionId: "session-123",
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
         contractId: validDto.contractId,
@@ -161,12 +161,12 @@ describe('CounselorSessionsService (BFF Layer)', () => {
         scheduledStartTime: new Date(validDto.scheduledStartTime),
         scheduledEndTime: new Date(validDto.scheduledEndTime),
         duration: validDto.duration,
-        status: 'scheduled',
-        meetingUrl: 'https://zoom.us/j/123456789',
-        meetingPassword: 'zoom123',
+        status: "scheduled",
+        meetingUrl: "https://zoom.us/j/123456789",
+        meetingPassword: "zoom123",
         meetingProvider: undefined, // Provider未定义时使用默认值
-        calendarSlotId: 'slot-123',
-        serviceHoldId: 'hold-123',
+        calendarSlotId: "slot-123",
+        serviceHoldId: "hold-123",
       };
 
       mockBookSessionCommand.execute.mockResolvedValue(mockUseCaseResult);
@@ -175,76 +175,80 @@ describe('CounselorSessionsService (BFF Layer)', () => {
       const result = await service.bookSession(counselorId, validDto);
 
       // Assert
-      expect(result.meeting?.provider).toBe('zoom'); // 默认为zoom
+      expect(result.meeting?.provider).toBe("zoom"); // 默认为zoom
     });
   });
 
-  describe('bookSession - 异常场景', () => {
-    it('应该在Command抛出余额不足异常时传递错误', async () => {
+  describe("bookSession - 异常场景", () => {
+    it("应该在Command抛出余额不足异常时传递错误", async () => {
       // Arrange
-      const error = new Error('服务余额不足');
-      error.name = 'InsufficientBalanceException';
+      const error = new Error("服务余额不足");
+      error.name = "InsufficientBalanceException";
       mockBookSessionCommand.execute.mockRejectedValue(error);
 
       // Act & Assert
       await expect(service.bookSession(counselorId, validDto)).rejects.toThrow(
-        '服务余额不足',
+        "服务余额不足",
       );
-      await expect(service.bookSession(counselorId, validDto)).rejects.toMatchObject({
-        name: 'InsufficientBalanceException',
+      await expect(
+        service.bookSession(counselorId, validDto),
+      ).rejects.toMatchObject({
+        name: "InsufficientBalanceException",
       });
 
       // Verify Command was called
       expect(mockBookSessionCommand.execute).toHaveBeenCalledTimes(2);
     });
 
-    it('应该在Command抛出时间冲突异常时传递错误', async () => {
+    it("应该在Command抛出时间冲突异常时传递错误", async () => {
       // Arrange
-      const error = new Error('导师在该时段已有安排');
-      error.name = 'TimeConflictException';
+      const error = new Error("导师在该时段已有安排");
+      error.name = "TimeConflictException";
       mockBookSessionCommand.execute.mockRejectedValue(error);
 
       // Act & Assert
       await expect(service.bookSession(counselorId, validDto)).rejects.toThrow(
-        '导师在该时段已有安排',
+        "导师在该时段已有安排",
       );
-      await expect(service.bookSession(counselorId, validDto)).rejects.toMatchObject({
-        name: 'TimeConflictException',
+      await expect(
+        service.bookSession(counselorId, validDto),
+      ).rejects.toMatchObject({
+        name: "TimeConflictException",
       });
 
       expect(mockBookSessionCommand.execute).toHaveBeenCalledTimes(2);
     });
 
-    it('应该在会议创建失败时传递错误', async () => {
+    it("应该在会议创建失败时传递错误", async () => {
       // Arrange
-      const error = new Error('飞书API调用失败');
+      const error = new Error("飞书API调用失败");
       mockBookSessionCommand.execute.mockRejectedValue(error);
 
       // Act & Assert
       await expect(service.bookSession(counselorId, validDto)).rejects.toThrow(
-        '飞书API调用失败',
+        "飞书API调用失败",
       );
 
       expect(mockBookSessionCommand.execute).toHaveBeenCalledTimes(1);
     });
 
-    it('应该在Command抛出任何异常时都不吞掉错误', async () => {
+    it("应该在Command抛出任何异常时都不吞掉错误", async () => {
       // Arrange
-      const error = new Error('数据库连接失败');
+      const error = new Error("数据库连接失败");
       mockBookSessionCommand.execute.mockRejectedValue(error);
 
       // Act & Assert
       await expect(service.bookSession(counselorId, validDto)).rejects.toThrow(
-        '数据库连接失败',
+        "数据库连接失败",
       );
     });
   });
 
-  describe('bookSession - 输入验证', () => {
-    it('应该正确转换日期字符串为Date对象', async () => {
+  describe("bookSession - 输入验证", () => {
+    it("应该正确转换日期字符串为Date对象", async () => {
       // Arrange
       const mockUseCaseResult = {
-        sessionId: 'session-123',
+        sessionId: "session-123",
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
         contractId: validDto.contractId,
@@ -252,12 +256,12 @@ describe('CounselorSessionsService (BFF Layer)', () => {
         scheduledStartTime: new Date(validDto.scheduledStartTime),
         scheduledEndTime: new Date(validDto.scheduledEndTime),
         duration: validDto.duration,
-        status: 'scheduled',
-        meetingUrl: 'https://feishu.cn/meeting/123',
-        meetingPassword: 'pass123',
-        meetingProvider: 'feishu',
-        calendarSlotId: 'slot-123',
-        serviceHoldId: 'hold-123',
+        status: "scheduled",
+        meetingUrl: "https://feishu.cn/meeting/123",
+        meetingPassword: "pass123",
+        meetingProvider: "feishu",
+        calendarSlotId: "slot-123",
+        serviceHoldId: "hold-123",
       };
 
       mockBookSessionCommand.execute.mockResolvedValue(mockUseCaseResult);
@@ -274,10 +278,10 @@ describe('CounselorSessionsService (BFF Layer)', () => {
       );
     });
 
-    it('应该将所有DTO字段传递给Command', async () => {
+    it("应该将所有DTO字段传递给Command", async () => {
       // Arrange
       const mockUseCaseResult = {
-        sessionId: 'session-123',
+        sessionId: "session-123",
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
         contractId: validDto.contractId,
@@ -285,12 +289,12 @@ describe('CounselorSessionsService (BFF Layer)', () => {
         scheduledStartTime: new Date(validDto.scheduledStartTime),
         scheduledEndTime: new Date(validDto.scheduledEndTime),
         duration: validDto.duration,
-        status: 'scheduled',
-        meetingUrl: 'https://feishu.cn/meeting/123',
-        meetingPassword: 'pass123',
-        meetingProvider: 'feishu',
-        calendarSlotId: 'slot-123',
-        serviceHoldId: 'hold-123',
+        status: "scheduled",
+        meetingUrl: "https://feishu.cn/meeting/123",
+        meetingPassword: "pass123",
+        meetingProvider: "feishu",
+        calendarSlotId: "slot-123",
+        serviceHoldId: "hold-123",
       };
 
       mockBookSessionCommand.execute.mockResolvedValue(mockUseCaseResult);
@@ -314,11 +318,11 @@ describe('CounselorSessionsService (BFF Layer)', () => {
     });
   });
 
-  describe('bookSession - 响应转换', () => {
-    it('应该将sessionId映射为bookingId', async () => {
+  describe("bookSession - 响应转换", () => {
+    it("应该将sessionId映射为bookingId", async () => {
       // Arrange
       const mockUseCaseResult = {
-        sessionId: 'unique-session-id-12345',
+        sessionId: "unique-session-id-12345",
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
         contractId: validDto.contractId,
@@ -326,12 +330,12 @@ describe('CounselorSessionsService (BFF Layer)', () => {
         scheduledStartTime: new Date(validDto.scheduledStartTime),
         scheduledEndTime: new Date(validDto.scheduledEndTime),
         duration: validDto.duration,
-        status: 'scheduled',
-        meetingUrl: 'https://feishu.cn/meeting/123',
-        meetingPassword: 'pass123',
-        meetingProvider: 'feishu',
-        calendarSlotId: 'slot-123',
-        serviceHoldId: 'hold-123',
+        status: "scheduled",
+        meetingUrl: "https://feishu.cn/meeting/123",
+        meetingPassword: "pass123",
+        meetingProvider: "feishu",
+        calendarSlotId: "slot-123",
+        serviceHoldId: "hold-123",
       };
 
       mockBookSessionCommand.execute.mockResolvedValue(mockUseCaseResult);
@@ -340,13 +344,13 @@ describe('CounselorSessionsService (BFF Layer)', () => {
       const result = await service.bookSession(counselorId, validDto);
 
       // Assert
-      expect(result.bookingId).toBe('unique-session-id-12345');
+      expect(result.bookingId).toBe("unique-session-id-12345");
     });
 
-    it('应该保留原始status值', async () => {
+    it("应该保留原始status值", async () => {
       // Arrange
       const mockUseCaseResult = {
-        sessionId: 'session-123',
+        sessionId: "session-123",
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
         contractId: validDto.contractId,
@@ -354,12 +358,12 @@ describe('CounselorSessionsService (BFF Layer)', () => {
         scheduledStartTime: new Date(validDto.scheduledStartTime),
         scheduledEndTime: new Date(validDto.scheduledEndTime),
         duration: validDto.duration,
-        status: 'pending_confirmation', // 不同的状态值
-        meetingUrl: 'https://feishu.cn/meeting/123',
-        meetingPassword: 'pass123',
-        meetingProvider: 'feishu',
-        calendarSlotId: 'slot-123',
-        serviceHoldId: 'hold-123',
+        status: "pending_confirmation", // 不同的状态值
+        meetingUrl: "https://feishu.cn/meeting/123",
+        meetingPassword: "pass123",
+        meetingProvider: "feishu",
+        calendarSlotId: "slot-123",
+        serviceHoldId: "hold-123",
       };
 
       mockBookSessionCommand.execute.mockResolvedValue(mockUseCaseResult);
@@ -368,7 +372,7 @@ describe('CounselorSessionsService (BFF Layer)', () => {
       const result = await service.bookSession(counselorId, validDto);
 
       // Assert
-      expect(result.status).toBe('pending_confirmation');
+      expect(result.status).toBe("pending_confirmation");
     });
   });
 });

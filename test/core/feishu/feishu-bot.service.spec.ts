@@ -211,9 +211,8 @@ describe("FeishuBotService Unit Tests", () => {
         providers: [FeishuBotService],
       }).compile();
 
-      const serviceWithoutCreds = module.get<FeishuBotService>(
-        FeishuBotService,
-      );
+      const serviceWithoutCreds =
+        module.get<FeishuBotService>(FeishuBotService);
 
       const userId = "ou_test_user_id";
       const card = {
@@ -221,9 +220,9 @@ describe("FeishuBotService Unit Tests", () => {
       };
 
       // Act & Assert
-      await expect(
-        serviceWithoutCreds.sendCard(userId, card),
-      ).rejects.toThrow("Feishu Bot credentials not configured");
+      await expect(serviceWithoutCreds.sendCard(userId, card)).rejects.toThrow(
+        "Feishu Bot credentials not configured",
+      );
     });
   });
 

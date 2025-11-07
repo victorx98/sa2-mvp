@@ -1,8 +1,8 @@
-import { Module } from '@nestjs/common';
-import { AuthBffService } from './auth/auth.service';
-import { UserBffService } from './user/user.service';
-import { SessionBffService } from './session/session.service';
-import { ApplicationModule } from '@application/application.module';
+import { Module } from "@nestjs/common";
+import { AuthBffService } from "./auth/auth.service";
+import { UserBffService } from "./user/user.service";
+import { SessionBffService } from "./session/session.service";
+import { ApplicationModule } from "@application/application.module";
 
 /**
  * Operations Layer - Common Portal Module
@@ -16,15 +16,7 @@ import { ApplicationModule } from '@application/application.module';
   imports: [
     ApplicationModule, // 导入 Application Layer
   ],
-  providers: [
-    AuthBffService,
-    UserBffService,
-    SessionBffService,
-  ],
-  exports: [
-    AuthBffService,
-    UserBffService,
-    SessionBffService,
-  ],
+  providers: [AuthBffService, UserBffService, SessionBffService],
+  exports: [AuthBffService, UserBffService, SessionBffService],
 })
 export class CommonPortalModule {}

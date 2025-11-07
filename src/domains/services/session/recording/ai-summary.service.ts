@@ -7,10 +7,7 @@ import * as schema from "@infrastructure/database/schema";
 import axios, { AxiosInstance } from "axios";
 import { SessionRecordingManager } from "./session-recording-manager";
 import { SessionService } from "../services/session.service";
-import {
-  IAISummary,
-  ISessionEntity,
-} from "../interfaces/session.interface";
+import { IAISummary, ISessionEntity } from "../interfaces/session.interface";
 import { SessionNotFoundException } from "../exceptions/session.exception";
 
 /**
@@ -66,7 +63,9 @@ export class AISummaryService {
       this.apiKey = "";
     } else {
       this.apiKey = apiKey;
-      this.logger.log(`AI Summary Service initialized with provider: ${this.provider}`);
+      this.logger.log(
+        `AI Summary Service initialized with provider: ${this.provider}`,
+      );
     }
   }
 

@@ -1,9 +1,12 @@
-import { Injectable, UnauthorizedException, Inject } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
-import { IUserRepository, USER_REPOSITORY } from '@domains/identity/user/user-repository.interface';
-import { LoginDto } from '@api/dto/request/login.dto';
-import { AuthResultDto } from './dto/auth-result.dto';
+import { Injectable, UnauthorizedException, Inject } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import * as bcrypt from "bcrypt";
+import {
+  IUserRepository,
+  USER_REPOSITORY,
+} from "@domains/identity/user/user-repository.interface";
+import { LoginDto } from "@api/dto/request/login.dto";
+import { AuthResultDto } from "./dto/auth-result.dto";
 
 /**
  * Application Layer - Login Command
@@ -29,20 +32,25 @@ export class LoginCommand {
 
   async execute(loginDto: LoginDto): Promise<AuthResultDto> {
     // Step 1: 查找用户（包含密码）
-    const user = await this.userRepository.findByEmailWithPassword(loginDto.email);
+    const user = await this.userRepository.findByEmailWithPassword(
+      loginDto.email,
+    );
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException("Invalid credentials");
     }
 
     // Step 2: 验证密码
-    const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      loginDto.password,
+      user.password,
+    );
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException("Invalid credentials");
     }
 
     // Step 3: 检查用户状态
-    if (user.status && user.status !== 'active') {
-      throw new UnauthorizedException('User account is not active');
+    if (user.status && user.status !== "active") {
+      throw new UnauthorizedException("User account is not active");
     }
 
     // Step 4: 生成 JWT token

@@ -1,18 +1,24 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { CalendarService } from '@core/calendar';
-import { ResourceType, SlotType } from '@core/calendar/interfaces/calendar-slot.interface';
-import { MeetingProviderFactory, MeetingProviderType } from '@core/meeting-providers';
-import { SessionService } from '@domains/services/session/services/session.service';
-import { ContractService } from '@domains/contract/contract.service';
-import { BookSessionInput } from './dto/book-session-input.dto';
-import { BookSessionOutput } from './dto/book-session-output.dto';
+import { Inject, Injectable, Logger } from "@nestjs/common";
+import { CalendarService } from "@core/calendar";
+import {
+  ResourceType,
+  SlotType,
+} from "@core/calendar/interfaces/calendar-slot.interface";
+import {
+  MeetingProviderFactory,
+  MeetingProviderType,
+} from "@core/meeting-providers";
+import { SessionService } from "@domains/services/session/services/session.service";
+import { ContractService } from "@domains/contract/contract.service";
+import { BookSessionInput } from "./dto/book-session-input.dto";
+import { BookSessionOutput } from "./dto/book-session-output.dto";
 import {
   UnauthorizedException,
   InsufficientBalanceException,
   TimeConflictException,
-} from '@shared/exceptions';
-import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
-import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+} from "@shared/exceptions";
+import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 /**
  * Application Layer - Book Session Command
@@ -49,7 +55,9 @@ export class BookSessionCommand {
    * @returns 预约结果
    */
   async execute(input: BookSessionInput): Promise<BookSessionOutput> {
-    this.logger.log(`开始预约会话: studentId=${input.studentId}, mentorId=${input.mentorId}`);
+    this.logger.log(
+      `开始预约会话: studentId=${input.studentId}, mentorId=${input.mentorId}`,
+    );
 
     // Step 1: 检查顾问权限（事务外）
     // TODO: 实现 CounselorAssignmentService 后添加
@@ -65,7 +73,7 @@ export class BookSessionCommand {
     let sessionResult;
     try {
       sessionResult = await this.db.transaction(async (tx) => {
-        this.logger.debug('开始数据库事务，包括会议创建在内的所有操作');
+        this.logger.debug("开始数据库事务，包括会议创建在内的所有操作");
 
         // Step 2: 检查余额
         const balance = await this.contractService.getServiceBalance(
@@ -73,7 +81,7 @@ export class BookSessionCommand {
           input.serviceId,
         );
         if (balance.available < 1) {
-          throw new InsufficientBalanceException('服务余额不足');
+          throw new InsufficientBalanceException("服务余额不足");
         }
 
         // Step 3: 检查时间冲突
@@ -84,22 +92,29 @@ export class BookSessionCommand {
           input.duration,
         );
         if (!isAvailable) {
-          throw new TimeConflictException('导师在该时段已有安排');
+          throw new TimeConflictException("导师在该时段已有安排");
         }
 
         // Step 4: 创建服务预占
         const hold = await this.contractService.createServiceHold({
           contractId: input.contractId,
           serviceId: input.serviceId,
-          sessionId: 'temp_session_id', // 临时ID，稍后会更新
+          sessionId: "temp_session_id", // 临时ID，稍后会更新
           quantity: 1,
         });
 
         // Step 5: 创建会议链接（在事务内，先创建）
-        let meetingInfo: { meetingUrl?: string; password?: string; provider?: string } = {};
+        let meetingInfo: {
+          meetingUrl?: string;
+          password?: string;
+          provider?: string;
+        } = {};
         try {
           const meeting = await this.meetingProviderFactory
-            .getProvider((input.meetingProvider as MeetingProviderType) || MeetingProviderType.FEISHU)
+            .getProvider(
+              (input.meetingProvider as MeetingProviderType) ||
+                MeetingProviderType.FEISHU,
+            )
             .createMeeting({
               topic: input.topic,
               startTime: input.scheduledStartTime,

@@ -1,10 +1,13 @@
-import { Injectable, UnauthorizedException, Inject } from '@nestjs/common';
-import { IUserRepository, USER_REPOSITORY } from '@domains/identity/user/user-repository.interface';
-import { RegisterDto } from '@api/dto/request/register.dto';
-import { LoginDto } from '@api/dto/request/login.dto';
-import { AuthResultDto } from '@application/commands/auth/dto/auth-result.dto';
-import { RegisterCommand } from '@application/commands/auth/register.command';
-import { LoginCommand } from '@application/commands/auth/login.command';
+import { Injectable, UnauthorizedException, Inject } from "@nestjs/common";
+import {
+  IUserRepository,
+  USER_REPOSITORY,
+} from "@domains/identity/user/user-repository.interface";
+import { RegisterDto } from "@api/dto/request/register.dto";
+import { LoginDto } from "@api/dto/request/login.dto";
+import { AuthResultDto } from "@application/commands/auth/dto/auth-result.dto";
+import { RegisterCommand } from "@application/commands/auth/register.command";
+import { LoginCommand } from "@application/commands/auth/login.command";
 
 /**
  * Application Layer - Auth Command Service (兼容层)

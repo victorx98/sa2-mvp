@@ -53,7 +53,8 @@ export class SessionRecordingManager {
     }
 
     // Get current recordings
-    const currentRecordings = (session.recordings as unknown as IRecording[]) || [];
+    const currentRecordings =
+      (session.recordings as unknown as IRecording[]) || [];
 
     // Calculate next sequence number
     const nextSequence = currentRecordings.length + 1;
@@ -116,7 +117,8 @@ export class SessionRecordingManager {
     }
 
     // Get current recordings
-    const currentRecordings = (session.recordings as unknown as IRecording[]) || [];
+    const currentRecordings =
+      (session.recordings as unknown as IRecording[]) || [];
 
     // Find and update the recording
     const updatedRecordings = currentRecordings.map((recording) => {
@@ -235,8 +237,7 @@ export class SessionRecordingManager {
 
     const recordings = await this.getAllRecordings(sessionId);
 
-    const recording =
-      recordings.find((r) => r.sequence === sequence) || null;
+    const recording = recordings.find((r) => r.sequence === sequence) || null;
 
     if (recording) {
       this.logger.debug(

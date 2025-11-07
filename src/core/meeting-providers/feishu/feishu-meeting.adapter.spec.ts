@@ -43,13 +43,18 @@ describe("FeishuMeetingAdapter", () => {
         participantJoinEarly: true,
       };
 
+      // Calculate expected end time: startTime + duration
+      const expectedEndTime = Math.floor(
+        (input.startTime.getTime() + input.duration * 60 * 1000) / 1000,
+      ).toString();
+
       const mockResponse = {
         reserve: {
           id: "reserve_123",
           meeting_no: "123456789",
           url: "https://vc.feishu.cn/j/123456789",
           live_link: "",
-          end_time: "1731250800",
+          end_time: expectedEndTime,
         },
       };
 
@@ -69,7 +74,7 @@ describe("FeishuMeetingAdapter", () => {
       });
 
       expect(client.applyReservation).toHaveBeenCalledWith({
-        end_time: "1731250800",
+        end_time: expectedEndTime,
         meeting_settings: {
           topic: "Test Meeting",
           auto_record: true,

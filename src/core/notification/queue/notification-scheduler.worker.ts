@@ -220,9 +220,7 @@ export class NotificationSchedulerWorker {
     mentorEmail: string,
     config?: Partial<IScheduleConfig>,
   ): Promise<string[]> {
-    this.logger.log(
-      `Rescheduling notifications for session: ${session.id}`,
-    );
+    this.logger.log(`Rescheduling notifications for session: ${session.id}`);
 
     // Cancel existing notifications
     await this.notificationQueueService.cancelBySessionId(session.id);
@@ -243,9 +241,7 @@ export class NotificationSchedulerWorker {
    * @returns Number of cancelled notifications
    */
   async cancelSessionNotifications(sessionId: string): Promise<number> {
-    this.logger.log(
-      `Cancelling all notifications for session: ${sessionId}`,
-    );
+    this.logger.log(`Cancelling all notifications for session: ${sessionId}`);
 
     return this.notificationQueueService.cancelBySessionId(sessionId);
   }

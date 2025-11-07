@@ -1,9 +1,9 @@
-import { Module } from '@nestjs/common';
-import { AuthController } from './controllers/auth.controller';
-import { UserController } from './controllers/user.controller';
-import { SessionController } from './controllers/session.controller';
-import { CounselorSessionsController } from './controllers/counselor/counselor-sessions.controller';
-import { OperationsModule } from '@operations/operations.module';
+import { Module } from "@nestjs/common";
+import { AuthController } from "./controllers/auth.controller";
+import { UserController } from "./controllers/user.controller";
+import { SessionController } from "./controllers/session.controller";
+import { CounselorSessionsController } from "./controllers/counselor/counselor-sessions.controller";
+import { OperationsModule } from "@operations/operations.module";
 
 /**
  * API Layer - Root Module

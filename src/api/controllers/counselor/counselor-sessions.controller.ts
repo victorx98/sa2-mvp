@@ -1,11 +1,23 @@
-import { Controller, Post, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
-import { CurrentUser } from '@shared/decorators/current-user.decorator';
-import { User } from '@domains/identity/user/user.interface';
-import { CounselorSessionsService } from '@operations/counselor-portal/sessions/sessions.service';
-import { BookSessionRequestDto } from '@operations/counselor-portal/sessions/dto/book-session-request.dto';
-import { SessionDetailResponseDto } from '@operations/counselor-portal/sessions/dto/session-detail-response.dto';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from "@nestjs/common";
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from "@nestjs/swagger";
+import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
+import { CurrentUser } from "@shared/decorators/current-user.decorator";
+import { User } from "@domains/identity/user/user.interface";
+import { CounselorSessionsService } from "@operations/counselor-portal/sessions/sessions.service";
+import { BookSessionRequestDto } from "@operations/counselor-portal/sessions/dto/book-session-request.dto";
+import { SessionDetailResponseDto } from "@operations/counselor-portal/sessions/dto/session-detail-response.dto";
 
 /**
  * API Layer - Counselor Sessions Controller
@@ -17,14 +29,12 @@ import { SessionDetailResponseDto } from '@operations/counselor-portal/sessions/
  * 3. 调用BFF层服务
  * 4. 返回HTTP响应
  */
-@ApiTags('Counselor Portal - Sessions')
-@Controller('api/counselor/sessions')
+@ApiTags("Counselor Portal - Sessions")
+@Controller("api/counselor/sessions")
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class CounselorSessionsController {
-  constructor(
-    private readonly sessionsService: CounselorSessionsService,
-  ) {}
+  constructor(private readonly sessionsService: CounselorSessionsService) {}
 
   /**
    * 预约会话
@@ -33,7 +43,7 @@ export class CounselorSessionsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: '顾问为学生预约会话',
+    summary: "顾问为学生预约会话",
     description: `
       顾问为其负责的学生预约一对一辅导会话。
 
@@ -49,20 +59,20 @@ export class CounselorSessionsController {
   })
   @ApiResponse({
     status: 201,
-    description: '预约成功',
+    description: "预约成功",
     type: SessionDetailResponseDto,
   })
   @ApiResponse({
     status: 400,
-    description: '请求参数错误或余额不足',
+    description: "请求参数错误或余额不足",
   })
   @ApiResponse({
     status: 403,
-    description: '无权限为该学生预约（不是该学生的顾问）',
+    description: "无权限为该学生预约（不是该学生的顾问）",
   })
   @ApiResponse({
     status: 409,
-    description: '时间冲突（导师该时段已有安排）',
+    description: "时间冲突（导师该时段已有安排）",
   })
   async bookSession(
     @CurrentUser() user: User,
