@@ -29,19 +29,19 @@ export class SessionController {
    * POST /sessions/book
    */
   @Post("book")
-  @ApiOperation({ summary: "预约课程" })
+  @ApiOperation({ summary: "Book a session" })
   @ApiResponse({
     status: 201,
-    description: "预约成功",
+    description: "Booking created successfully",
     type: SessionResponseDto,
   })
   @ApiResponse({
     status: 400,
-    description: "请求参数错误或服务余额不足",
+    description: "Invalid request parameters or insufficient balance",
   })
   @ApiResponse({
     status: 409,
-    description: "时间冲突，该时间段不可用",
+    description: "Timeslot conflict; mentor unavailable",
   })
   async bookSession(
     @CurrentUser() user: User,

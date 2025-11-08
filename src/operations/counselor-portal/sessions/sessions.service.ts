@@ -35,7 +35,9 @@ export class CounselorSessionsService {
     counselorId: string,
     dto: BookSessionRequestDto,
   ): Promise<SessionDetailResponseDto> {
-    this.logger.log(`顾问 ${counselorId} 为学生 ${dto.studentId} 预约会话`);
+    this.logger.log(
+      `Counselor ${counselorId} is booking a session for student ${dto.studentId}`,
+    );
 
     // 1. 调用 Application 层 Command（事务处理）
     const result = await this.bookSessionCommand.execute({

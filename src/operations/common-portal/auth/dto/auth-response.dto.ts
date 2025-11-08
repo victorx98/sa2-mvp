@@ -9,7 +9,7 @@ export class AuthResponseDto {
   @ApiProperty({ description: "JWT access token" })
   accessToken: string;
 
-  @ApiProperty({ description: "用户基本信息" })
+  @ApiProperty({ description: "Basic user information" })
   user: {
     id: string;
     email: string;
@@ -18,9 +18,9 @@ export class AuthResponseDto {
     status: string;
   };
 
-  @ApiProperty({ description: "欢迎提示信息（可选）", required: false })
+  @ApiProperty({ description: "Welcome message (optional)", required: false })
   message?: string;
 
-  @ApiProperty({ description: "下一步操作提示（可选）", required: false })
+  @ApiProperty({ description: "Next-step hints (optional)", required: false })
   hints?: string[];
 }

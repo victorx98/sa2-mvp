@@ -31,10 +31,10 @@ export class AuthController {
   @Public()
   @Post("register")
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: "用户注册" })
+  @ApiOperation({ summary: "User registration" })
   @ApiResponse({
     status: 201,
-    description: "注册成功",
+    description: "Registration successful",
     type: AuthResponseDto,
   })
   async register(@Body() registerDto: RegisterDto): Promise<AuthResponseDto> {
@@ -45,10 +45,10 @@ export class AuthController {
   @Public()
   @Post("login")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "用户登录" })
+  @ApiOperation({ summary: "User login" })
   @ApiResponse({
     status: 200,
-    description: "登录成功",
+    description: "Login successful",
     type: AuthResponseDto,
   })
   async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {

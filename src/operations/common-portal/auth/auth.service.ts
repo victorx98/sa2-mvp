@@ -33,11 +33,13 @@ export class AuthBffService {
     // 2. 转换为前端特定格式并添加提示信息
     return {
       ...result,
-      message: `欢迎加入 MentorX，${result.user.nickname || result.user.email}！`,
+      message: `Welcome to MentorX, ${
+        result.user.nickname || result.user.email
+      }!`,
       hints: [
-        "🎉 注册成功！",
-        "💡 建议：完善您的个人资料以获得更好的体验",
-        "📚 您可以开始浏览我们的服务和导师",
+        "🎉 Registration successful!",
+        "💡 Tip: Complete your profile for a better experience",
+        "📚 You can start exploring our services and mentors",
       ],
     };
   }
@@ -52,8 +54,8 @@ export class AuthBffService {
     // 2. 转换为前端特定格式并添加提示信息
     return {
       ...result,
-      message: `欢迎回来，${result.user.nickname || result.user.email}！`,
-      hints: ["✅ 登录成功！"],
+      message: `Welcome back, ${result.user.nickname || result.user.email}!`,
+      hints: ["✅ Login successful!"],
     };
   }
 }

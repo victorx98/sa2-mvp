@@ -4,7 +4,6 @@ import { BookSessionCommand } from "@application/commands/booking/book-session.c
 import { SessionService } from "@domains/services/session/services/session.service";
 import { ContractService } from "@domains/contract/contract.service";
 import { BookSessionRequestDto } from "./dto/book-session-request.dto";
-import { SessionDetailResponseDto } from "./dto/session-detail-response.dto";
 
 describe("CounselorSessionsService (BFF Layer)", () => {
   let service: CounselorSessionsService;
@@ -67,8 +66,8 @@ describe("CounselorSessionsService (BFF Layer)", () => {
     jest.clearAllMocks();
   });
 
-  describe("bookSession - 成功场景", () => {
-    it("应该成功预约并返回简化的响应数据", async () => {
+  describe("bookSession - success cases", () => {
+    it("should book a session and return simplified response", async () => {
       // Arrange
       const mockUseCaseResult = {
         sessionId: "session-123",
@@ -118,7 +117,7 @@ describe("CounselorSessionsService (BFF Layer)", () => {
       });
     });
 
-    it("应该处理没有会议URL的情况", async () => {
+    it("should handle missing meeting URL", async () => {
       // Arrange
       const mockUseCaseResult = {
         sessionId: "session-123",
@@ -150,7 +149,7 @@ describe("CounselorSessionsService (BFF Layer)", () => {
       });
     });
 
-    it("应该正确映射会议provider", async () => {
+    it("should map meeting provider correctly", async () => {
       // Arrange
       const mockUseCaseResult = {
         sessionId: "session-123",
@@ -179,16 +178,16 @@ describe("CounselorSessionsService (BFF Layer)", () => {
     });
   });
 
-  describe("bookSession - 异常场景", () => {
-    it("应该在Command抛出余额不足异常时传递错误", async () => {
+  describe("bookSession - error cases", () => {
+    it("should surface insufficient balance errors from command", async () => {
       // Arrange
-      const error = new Error("服务余额不足");
+      const error = new Error("Insufficient service balance");
       error.name = "InsufficientBalanceException";
       mockBookSessionCommand.execute.mockRejectedValue(error);
 
       // Act & Assert
       await expect(service.bookSession(counselorId, validDto)).rejects.toThrow(
-        "服务余额不足",
+        "Insufficient service balance",
       );
       await expect(
         service.bookSession(counselorId, validDto),
@@ -200,15 +199,15 @@ describe("CounselorSessionsService (BFF Layer)", () => {
       expect(mockBookSessionCommand.execute).toHaveBeenCalledTimes(2);
     });
 
-    it("应该在Command抛出时间冲突异常时传递错误", async () => {
+    it("should surface time conflict errors from command", async () => {
       // Arrange
-      const error = new Error("导师在该时段已有安排");
+      const error = new Error("The mentor already has a conflict");
       error.name = "TimeConflictException";
       mockBookSessionCommand.execute.mockRejectedValue(error);
 
       // Act & Assert
       await expect(service.bookSession(counselorId, validDto)).rejects.toThrow(
-        "导师在该时段已有安排",
+        "The mentor already has a conflict",
       );
       await expect(
         service.bookSession(counselorId, validDto),
@@ -219,33 +218,33 @@ describe("CounselorSessionsService (BFF Layer)", () => {
       expect(mockBookSessionCommand.execute).toHaveBeenCalledTimes(2);
     });
 
-    it("应该在会议创建失败时传递错误", async () => {
+    it("should propagate meeting creation failures", async () => {
       // Arrange
-      const error = new Error("飞书API调用失败");
+      const error = new Error("Feishu API call failed");
       mockBookSessionCommand.execute.mockRejectedValue(error);
 
       // Act & Assert
       await expect(service.bookSession(counselorId, validDto)).rejects.toThrow(
-        "飞书API调用失败",
+        "Feishu API call failed",
       );
 
       expect(mockBookSessionCommand.execute).toHaveBeenCalledTimes(1);
     });
 
-    it("应该在Command抛出任何异常时都不吞掉错误", async () => {
+    it("should not swallow unexpected command errors", async () => {
       // Arrange
-      const error = new Error("数据库连接失败");
+      const error = new Error("Database connection failed");
       mockBookSessionCommand.execute.mockRejectedValue(error);
 
       // Act & Assert
       await expect(service.bookSession(counselorId, validDto)).rejects.toThrow(
-        "数据库连接失败",
+        "Database connection failed",
       );
     });
   });
 
-  describe("bookSession - 输入验证", () => {
-    it("应该正确转换日期字符串为Date对象", async () => {
+  describe("bookSession - input validation", () => {
+    it("should convert ISO strings into Date objects", async () => {
       // Arrange
       const mockUseCaseResult = {
         sessionId: "session-123",
@@ -278,7 +277,7 @@ describe("CounselorSessionsService (BFF Layer)", () => {
       );
     });
 
-    it("应该将所有DTO字段传递给Command", async () => {
+    it("should pass every DTO field to the command", async () => {
       // Arrange
       const mockUseCaseResult = {
         sessionId: "session-123",
@@ -318,8 +317,8 @@ describe("CounselorSessionsService (BFF Layer)", () => {
     });
   });
 
-  describe("bookSession - 响应转换", () => {
-    it("应该将sessionId映射为bookingId", async () => {
+  describe("bookSession - response mapping", () => {
+    it("should map sessionId to bookingId", async () => {
       // Arrange
       const mockUseCaseResult = {
         sessionId: "unique-session-id-12345",
@@ -347,7 +346,7 @@ describe("CounselorSessionsService (BFF Layer)", () => {
       expect(result.bookingId).toBe("unique-session-id-12345");
     });
 
-    it("应该保留原始status值", async () => {
+    it("should preserve the original status value", async () => {
       // Arrange
       const mockUseCaseResult = {
         sessionId: "session-123",

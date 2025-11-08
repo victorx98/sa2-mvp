@@ -54,8 +54,8 @@ describe("CounselorSessionsController (API Layer)", () => {
     jest.clearAllMocks();
   });
 
-  describe("POST /api/counselor/sessions - 成功场景", () => {
-    it("应该成功创建预约并返回200状态码", async () => {
+  describe("POST /api/counselor/sessions - success cases", () => {
+    it("should create a booking and return the session detail", async () => {
       // Arrange
       const mockResponse: SessionDetailResponseDto = {
         bookingId: "session-123",
@@ -84,7 +84,7 @@ describe("CounselorSessionsController (API Layer)", () => {
       expect(mockCounselorSessionsService.bookSession).toHaveBeenCalledTimes(1);
     });
 
-    it("应该从JWT token中提取counselorId", async () => {
+    it("should read counselorId from the JWT payload", async () => {
       // Arrange
       const differentUser = {
         id: "counselor-999",
@@ -115,62 +115,62 @@ describe("CounselorSessionsController (API Layer)", () => {
     });
   });
 
-  describe("POST /api/counselor/sessions - 异常场景", () => {
-    it("应该在余额不足时返回400错误", async () => {
+  describe("POST /api/counselor/sessions - error cases", () => {
+    it("should surface insufficient balance errors", async () => {
       // Arrange
-      const error = new Error("服务余额不足");
+      const error = new Error("Insufficient service balance");
       error.name = "InsufficientBalanceException";
       mockCounselorSessionsService.bookSession.mockRejectedValue(error);
 
       // Act & Assert
       await expect(
         controller.bookSession(mockUser as any, validRequestDto),
-      ).rejects.toThrow("服务余额不足");
+      ).rejects.toThrow("Insufficient service balance");
 
       expect(mockCounselorSessionsService.bookSession).toHaveBeenCalledTimes(1);
     });
 
-    it("应该在时间冲突时返回409错误", async () => {
+    it("should surface mentor time conflicts", async () => {
       // Arrange
-      const error = new Error("导师在该时段已有安排");
+      const error = new Error("The mentor already has a conflict");
       error.name = "TimeConflictException";
       mockCounselorSessionsService.bookSession.mockRejectedValue(error);
 
       // Act & Assert
       await expect(
         controller.bookSession(mockUser as any, validRequestDto),
-      ).rejects.toThrow("导师在该时段已有安排");
+      ).rejects.toThrow("The mentor already has a conflict");
 
       expect(mockCounselorSessionsService.bookSession).toHaveBeenCalledTimes(1);
     });
 
-    it("应该在会议创建失败时返回500错误", async () => {
+    it("should propagate meeting creation failures", async () => {
       // Arrange
-      const error = new Error("飞书API调用失败");
+      const error = new Error("Feishu API call failed");
       mockCounselorSessionsService.bookSession.mockRejectedValue(error);
 
       // Act & Assert
       await expect(
         controller.bookSession(mockUser as any, validRequestDto),
-      ).rejects.toThrow("飞书API调用失败");
+      ).rejects.toThrow("Feishu API call failed");
 
       expect(mockCounselorSessionsService.bookSession).toHaveBeenCalledTimes(1);
     });
 
-    it("应该在数据库错误时返回500错误", async () => {
+    it("should propagate database errors", async () => {
       // Arrange
-      const error = new Error("数据库连接超时");
+      const error = new Error("Database connection timed out");
       mockCounselorSessionsService.bookSession.mockRejectedValue(error);
 
       // Act & Assert
       await expect(
         controller.bookSession(mockUser as any, validRequestDto),
-      ).rejects.toThrow("数据库连接超时");
+      ).rejects.toThrow("Database connection timed out");
 
       expect(mockCounselorSessionsService.bookSession).toHaveBeenCalledTimes(1);
     });
 
-    it("应该在未认证时抛出异常", async () => {
+    it("should throw when the user is unauthenticated", async () => {
       // Arrange
       const unauthorizedUser = null;
 
@@ -181,8 +181,8 @@ describe("CounselorSessionsController (API Layer)", () => {
     });
   });
 
-  describe("POST /api/counselor/sessions - 输入验证", () => {
-    it("应该接受有效的请求DTO", async () => {
+  describe("POST /api/counselor/sessions - input validation", () => {
+    it("should accept a valid request DTO", async () => {
       // Arrange
       const mockResponse: SessionDetailResponseDto = {
         bookingId: "session-123",
@@ -206,7 +206,7 @@ describe("CounselorSessionsController (API Layer)", () => {
       );
     });
 
-    it("应该处理可选的meetingProvider字段", async () => {
+    it("should handle the optional meetingProvider field", async () => {
       // Arrange
       const dtoWithoutProvider = { ...validRequestDto };
       delete (dtoWithoutProvider as any).meetingProvider;
@@ -234,8 +234,8 @@ describe("CounselorSessionsController (API Layer)", () => {
     });
   });
 
-  describe("POST /api/counselor/sessions - 响应格式验证", () => {
-    it("应该返回包含所有必要字段的响应", async () => {
+  describe("POST /api/counselor/sessions - response validation", () => {
+    it("should return a response with all required fields", async () => {
       // Arrange
       const mockResponse: SessionDetailResponseDto = {
         bookingId: "session-123",
@@ -261,7 +261,7 @@ describe("CounselorSessionsController (API Layer)", () => {
       expect(result).toHaveProperty("meeting");
     });
 
-    it("应该在会议信息不存在时返回undefined", async () => {
+    it("should return undefined meeting when details are absent", async () => {
       // Arrange
       const mockResponse: SessionDetailResponseDto = {
         bookingId: "session-123",
@@ -282,8 +282,8 @@ describe("CounselorSessionsController (API Layer)", () => {
     });
   });
 
-  describe("POST /api/counselor/sessions - 性能测试", () => {
-    it("应该在合理时间内完成请求", async () => {
+  describe("POST /api/counselor/sessions - performance", () => {
+    it("should complete the request within an acceptable time", async () => {
       // Arrange
       const mockResponse: SessionDetailResponseDto = {
         bookingId: "session-123",

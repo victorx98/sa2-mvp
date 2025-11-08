@@ -70,10 +70,10 @@ export class UserBffService {
    */
   private getStatusText(status: string): string {
     const statusMap: Record<string, string> = {
-      active: "活跃",
-      inactive: "未激活",
-      suspended: "已暂停",
-      deleted: "已删除",
+      active: "Active",
+      inactive: "Inactive",
+      suspended: "Suspended",
+      deleted: "Deleted",
     };
     return statusMap[status] || status;
   }
@@ -119,12 +119,12 @@ export class UserBffService {
 
     if (user.status === "active") {
       actions.push({
-        label: "编辑资料",
+        label: "Edit profile",
         action: "edit_profile",
         icon: "edit",
       });
       actions.push({
-        label: "修改密码",
+        label: "Change password",
         action: "change_password",
         icon: "lock",
       });

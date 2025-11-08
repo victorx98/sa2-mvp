@@ -43,36 +43,36 @@ export class CounselorSessionsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: "顾问为学生预约会话",
+    summary: "Counselor books a session for a student",
     description: `
-      顾问为其负责的学生预约一对一辅导会话。
+      Counselors book a one-on-one coaching session for their assigned students.
 
-      流程：
-      1. 验证顾问权限
-      2. 检查学生服务余额
-      3. 检查导师时间可用性
-      4. 创建会话预约
-      5. 占用日历时段
-      6. 创建会议链接
-      7. 发送通知
+      Flow:
+      1. Validate counselor permissions
+      2. Check student service balance
+      3. Verify mentor availability
+      4. Create the session booking
+      5. Reserve the calendar slot
+      6. Create the meeting link
+      7. Send notifications
     `,
   })
   @ApiResponse({
     status: 201,
-    description: "预约成功",
+    description: "Booking created successfully",
     type: SessionDetailResponseDto,
   })
   @ApiResponse({
     status: 400,
-    description: "请求参数错误或余额不足",
+    description: "Invalid request parameters or insufficient balance",
   })
   @ApiResponse({
     status: 403,
-    description: "无权限为该学生预约（不是该学生的顾问）",
+    description: "Not authorized to book for this student",
   })
   @ApiResponse({
     status: 409,
-    description: "时间冲突（导师该时段已有安排）",
+    description: "Timeslot conflict (mentor already scheduled)",
   })
   async bookSession(
     @CurrentUser() user: User,

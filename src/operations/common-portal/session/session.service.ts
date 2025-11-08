@@ -85,43 +85,43 @@ export class SessionBffService {
       meetingUrl: result.meetingUrl || "",
 
       // 前端友好的提示信息
-      message: "🎉 课程预约成功！",
+      message: "🎉 Session booked successfully!",
       hints: [
-        "📅 请准时参加课程",
+        "📅 Please attend on time",
         result.meetingUrl
-          ? "🔗 会议链接已生成，可在开始前5分钟进入"
-          : "⚠️ 会议链接创建失败，请联系管理员",
-        "💡 如需取消或修改，请至少提前24小时操作",
+          ? "🔗 Meeting link is ready; you can join five minutes before start"
+          : "⚠️ Meeting link creation failed, please contact the administrator",
+        "💡 To cancel or reschedule, please do so at least 24 hours in advance",
       ],
 
       // 前端可用的操作按钮
       actions: result.meetingUrl
         ? [
             {
-              label: "加入会议",
+              label: "Join meeting",
               action: "join_meeting",
               icon: "video",
               url: result.meetingUrl,
             },
             {
-              label: "添加到日历",
+              label: "Add to calendar",
               action: "add_to_calendar",
               icon: "calendar",
             },
             {
-              label: "取消预约",
+              label: "Cancel session",
               action: "cancel_session",
               icon: "close",
             },
           ]
         : [
             {
-              label: "添加到日历",
+              label: "Add to calendar",
               action: "add_to_calendar",
               icon: "calendar",
             },
             {
-              label: "取消预约",
+              label: "Cancel session",
               action: "cancel_session",
               icon: "close",
             },
@@ -134,12 +134,12 @@ export class SessionBffService {
    */
   private getStatusText(status: string): string {
     const statusMap: Record<string, string> = {
-      scheduled: "已预约",
-      confirmed: "已确认",
-      in_progress: "进行中",
-      completed: "已完成",
-      cancelled: "已取消",
-      no_show: "缺席",
+      scheduled: "Scheduled",
+      confirmed: "Confirmed",
+      in_progress: "In progress",
+      completed: "Completed",
+      cancelled: "Cancelled",
+      no_show: "No show",
     };
     return statusMap[status] || status;
   }

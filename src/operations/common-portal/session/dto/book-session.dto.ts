@@ -12,41 +12,41 @@ import {
  * 职责：定义预约课程的请求参数
  */
 export class BookSessionDto {
-  @ApiProperty({ description: "学生ID" })
+  @ApiProperty({ description: "Student ID" })
   @IsString()
   @IsNotEmpty()
   studentId: string;
 
-  @ApiProperty({ description: "合同ID" })
+  @ApiProperty({ description: "Contract ID" })
   @IsString()
   @IsNotEmpty()
   contractId: string;
 
-  @ApiProperty({ description: "导师ID" })
+  @ApiProperty({ description: "Mentor ID" })
   @IsString()
   @IsNotEmpty()
   mentorId: string;
 
   @ApiProperty({
-    description: "开始时间（ISO 8601格式）",
+    description: "Start time (ISO 8601 format)",
     example: "2024-01-20T10:00:00Z",
   })
   @IsDateString()
   @IsNotEmpty()
   startTime: string;
 
-  @ApiProperty({ description: "持续时间（分钟）", example: 60 })
+  @ApiProperty({ description: "Duration (minutes)", example: 60 })
   @IsNumber()
   @IsNotEmpty()
   duration: number;
 
-  @ApiProperty({ description: "课程名称" })
+  @ApiProperty({ description: "Session name" })
   @IsString()
   @IsNotEmpty()
   name: string;
 
   @ApiProperty({
-    description: "服务ID（可选，不传则使用合同默认服务）",
+    description: "Service ID (optional, defaults to the contract service)",
     required: false,
   })
   @IsString()
@@ -54,7 +54,7 @@ export class BookSessionDto {
   serviceId?: string;
 
   @ApiProperty({
-    description: "会议服务提供商（可选，默认zoom）",
+    description: "Meeting provider (optional, defaults to zoom)",
     enum: ["zoom", "teams", "google_meet"],
     required: false,
   })

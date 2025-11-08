@@ -16,7 +16,7 @@ export class BusinessException extends HttpException {
  * 未授权异常
  */
 export class UnauthorizedException extends BusinessException {
-  constructor(message: string = "未授权访问") {
+  constructor(message: string = "Unauthorized access") {
     super(message, HttpStatus.FORBIDDEN);
   }
 }
@@ -25,7 +25,7 @@ export class UnauthorizedException extends BusinessException {
  * 余额不足异常
  */
 export class InsufficientBalanceException extends BusinessException {
-  constructor(message: string = "服务余额不足") {
+  constructor(message: string = "Insufficient service balance") {
     super(message, HttpStatus.BAD_REQUEST);
   }
 }
@@ -34,7 +34,7 @@ export class InsufficientBalanceException extends BusinessException {
  * 时间冲突异常
  */
 export class TimeConflictException extends BusinessException {
-  constructor(message: string = "时间段已被占用") {
+  constructor(message: string = "Timeslot already booked") {
     super(message, HttpStatus.CONFLICT);
   }
 }
@@ -43,7 +43,7 @@ export class TimeConflictException extends BusinessException {
  * 资源未找到异常
  */
 export class NotFoundException extends BusinessException {
-  constructor(message: string = "资源未找到") {
+  constructor(message: string = "Resource not found") {
     super(message, HttpStatus.NOT_FOUND);
   }
 }
