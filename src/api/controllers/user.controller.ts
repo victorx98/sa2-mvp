@@ -5,6 +5,10 @@ import { UserResponseDto } from "@operations/common-portal/user/dto/user-respons
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 
+type CurrentUserPayload = {
+  userId: string;
+};
+
 /**
  * API Layer - User Controller
  * 职责：
@@ -30,22 +34,24 @@ export class UserController {
   ) {}
 
   @Get("me")
-  @ApiOperation({ summary: "获取当前登录用户信息" })
+  @ApiOperation({ summary: "Get current authenticated user" })
   @ApiResponse({
     status: 200,
-    description: "成功获取用户信息",
+    description: "User retrieved successfully",
     type: UserResponseDto,
   })
-  async getCurrentUser(@CurrentUser() user: any): Promise<UserResponseDto> {
+  async getCurrentUser(
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<UserResponseDto> {
     // ✅ 直接调用 BFF Service，返回前端格式
     return this.userBffService.getCurrentUser(user.userId);
   }
 
   @Get(":id")
-  @ApiOperation({ summary: "根据ID获取用户信息" })
+  @ApiOperation({ summary: "Get user by ID" })
   @ApiResponse({
     status: 200,
-    description: "成功获取用户信息",
+    description: "User retrieved successfully",
     type: UserResponseDto,
   })
   async getUserById(@Param("id") id: string): Promise<UserResponseDto> {

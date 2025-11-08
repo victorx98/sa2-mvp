@@ -14,7 +14,7 @@ import {
  */
 export class BookSessionRequestDto {
   @ApiProperty({
-    description: "学生ID",
+    description: "Student ID",
     example: "123e4567-e89b-12d3-a456-426614174000",
   })
   @IsString()
@@ -22,7 +22,7 @@ export class BookSessionRequestDto {
   studentId: string;
 
   @ApiProperty({
-    description: "导师ID",
+    description: "Mentor ID",
     example: "123e4567-e89b-12d3-a456-426614174001",
   })
   @IsString()
@@ -30,7 +30,7 @@ export class BookSessionRequestDto {
   mentorId: string;
 
   @ApiProperty({
-    description: "合同ID",
+    description: "Contract ID",
     example: "123e4567-e89b-12d3-a456-426614174002",
   })
   @IsString()
@@ -38,7 +38,7 @@ export class BookSessionRequestDto {
   contractId: string;
 
   @ApiProperty({
-    description: "服务ID",
+    description: "Service ID",
     example: "service-1v1-session",
   })
   @IsString()
@@ -46,7 +46,7 @@ export class BookSessionRequestDto {
   serviceId: string;
 
   @ApiProperty({
-    description: "预约开始时间（ISO 8601格式）",
+    description: "Session start time (ISO 8601 format)",
     example: "2025-11-10T14:00:00Z",
   })
   @IsDateString()
@@ -54,7 +54,7 @@ export class BookSessionRequestDto {
   scheduledStartTime: string;
 
   @ApiProperty({
-    description: "预约结束时间（ISO 8601格式）",
+    description: "Session end time (ISO 8601 format)",
     example: "2025-11-10T15:00:00Z",
   })
   @IsDateString()
@@ -62,7 +62,7 @@ export class BookSessionRequestDto {
   scheduledEndTime: string;
 
   @ApiProperty({
-    description: "会话时长（分钟）",
+    description: "Session duration (minutes)",
     example: 60,
   })
   @IsInt()
@@ -70,15 +70,15 @@ export class BookSessionRequestDto {
   duration: number;
 
   @ApiProperty({
-    description: "会话主题",
-    example: "简历修改指导",
+    description: "Session topic",
+    example: "Resume review guidance",
   })
   @IsString()
   @IsNotEmpty()
   topic: string;
 
   @ApiProperty({
-    description: "会议服务提供商",
+    description: "Meeting provider",
     example: "zoom",
     required: false,
   })

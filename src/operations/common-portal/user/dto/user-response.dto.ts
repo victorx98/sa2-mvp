@@ -6,37 +6,37 @@ import { ApiProperty } from "@nestjs/swagger";
  * 特点：添加前端需要的格式化字段和操作提示
  */
 export class UserResponseDto {
-  @ApiProperty({ description: "用户ID" })
+  @ApiProperty({ description: "User ID" })
   id: string;
 
-  @ApiProperty({ description: "邮箱" })
+  @ApiProperty({ description: "Email" })
   email: string;
 
-  @ApiProperty({ description: "英文昵称", required: false })
+  @ApiProperty({ description: "English nickname", required: false })
   nickname?: string;
 
-  @ApiProperty({ description: "中文昵称", required: false })
+  @ApiProperty({ description: "Chinese nickname", required: false })
   cnNickname?: string;
 
-  @ApiProperty({ description: "用户状态" })
+  @ApiProperty({ description: "User status" })
   status: string;
 
-  @ApiProperty({ description: "状态显示文本（前端友好）" })
+  @ApiProperty({ description: "Status display text (frontend friendly)" })
   statusText: string;
 
-  @ApiProperty({ description: "状态颜色标记（前端使用）" })
+  @ApiProperty({ description: "Status color tag (frontend)" })
   statusColor: string;
 
-  @ApiProperty({ description: "显示名称（优先显示中文昵称）" })
+  @ApiProperty({ description: "Display name (prefers Chinese nickname)" })
   displayName: string;
 
   @ApiProperty({
-    description: "头像URL（如果没有则返回默认头像）",
+    description: "Avatar URL (falls back to default)",
     required: false,
   })
   avatar?: string;
 
-  @ApiProperty({ description: "可用操作按钮", required: false })
+  @ApiProperty({ description: "Available action buttons", required: false })
   actions?: Array<{
     label: string;
     action: string;

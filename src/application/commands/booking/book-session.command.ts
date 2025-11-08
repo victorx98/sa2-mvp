@@ -73,7 +73,9 @@ export class BookSessionCommand {
     let sessionResult;
     try {
       sessionResult = await this.db.transaction(async (tx) => {
-        this.logger.debug("开始数据库事务，包括会议创建在内的所有操作");
+        this.logger.debug(
+          "Starting database transaction, including meeting creation",
+        );
 
         // Step 2: 检查余额
         const balance = await this.contractService.getServiceBalance(
@@ -81,7 +83,7 @@ export class BookSessionCommand {
           input.serviceId,
         );
         if (balance.available < 1) {
-          throw new InsufficientBalanceException("服务余额不足");
+          throw new InsufficientBalanceException("Insufficient service balance");
         }
 
         // Step 3: 检查时间冲突
@@ -92,7 +94,7 @@ export class BookSessionCommand {
           input.duration,
         );
         if (!isAvailable) {
-          throw new TimeConflictException("导师在该时段已有安排");
+          throw new TimeConflictException("The mentor already has a conflict");
         }
 
         // Step 4: 创建服务预占
@@ -128,7 +130,9 @@ export class BookSessionCommand {
           };
         } catch (error) {
           // 会议创建失败，回滚整个事务
-          this.logger.error(`创建会议失败，事务将回滚: ${error.message}`);
+          this.logger.error(
+            `Meeting creation failed, rolling back transaction: ${error.message}`,
+          );
           throw error;
         }
 

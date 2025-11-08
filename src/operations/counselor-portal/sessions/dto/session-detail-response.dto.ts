@@ -8,19 +8,19 @@ import { ApiProperty } from "@nestjs/swagger";
  */
 export class SessionDetailResponseDto {
   @ApiProperty({
-    description: "预约ID",
+    description: "Booking ID",
     example: "123e4567-e89b-12d3-a456-426614174000",
   })
   bookingId: string;
 
   @ApiProperty({
-    description: "会话状态",
+    description: "Session status",
     example: "scheduled",
   })
   status: string;
 
   @ApiProperty({
-    description: "会议信息",
+    description: "Meeting details",
     required: false,
   })
   meeting?: {
