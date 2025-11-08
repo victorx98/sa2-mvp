@@ -115,8 +115,10 @@ describe("FeishuMeetingClient", () => {
 
       const payload = {
         end_time: "1731250800",
+        owner_id: "ou_test_owner",
         meeting_settings: {
           topic: "Test Meeting",
+          meeting_initial_type: 1,
           auto_record: true,
           open_lobby: false,
           allow_attendees_start: true,
@@ -139,7 +141,11 @@ describe("FeishuMeetingClient", () => {
       expect(mockAxiosInstance.post).toHaveBeenNthCalledWith(
         2,
         "/vc/v1/reserves/apply",
-        payload,
+        expect.objectContaining({
+          end_time: "1731250800",
+          owner_id: "ou_test_owner",
+          meeting_settings: payload.meeting_settings,
+        }),
         {
           headers: {
             Authorization: "Bearer mock_token",
@@ -173,6 +179,7 @@ describe("FeishuMeetingClient", () => {
 
       const payload = {
         end_time: "1731250800",
+        owner_id: "ou_test_owner",
         meeting_settings: {
           topic: "Test Meeting",
         },
@@ -208,6 +215,10 @@ describe("FeishuMeetingClient", () => {
 
       const payload = {
         end_time: "1731250800",
+        owner_id: "ou_test_owner",
+        meeting_settings: {
+          topic: "Test Meeting",
+        },
       };
 
       await expect(client.applyReservation(payload)).rejects.toThrow(
@@ -233,6 +244,10 @@ describe("FeishuMeetingClient", () => {
 
       const payload = {
         end_time: "1731250800",
+        owner_id: "ou_test_owner",
+        meeting_settings: {
+          topic: "Test Meeting",
+        },
       };
 
       await expect(client.applyReservation(payload)).rejects.toThrow(
@@ -506,11 +521,19 @@ describe("FeishuMeetingClient", () => {
       // First call - should fetch token
       await client.applyReservation({
         end_time: "1731250800",
+        owner_id: "ou_test_owner",
+        meeting_settings: {
+          topic: "Test Meeting",
+        },
       });
 
       // Second call - should reuse cached token
       await client.applyReservation({
         end_time: "1731250800",
+        owner_id: "ou_test_owner",
+        meeting_settings: {
+          topic: "Test Meeting",
+        },
       });
 
       // Token endpoint should only be called once
@@ -538,6 +561,10 @@ describe("FeishuMeetingClient", () => {
       await expect(
         client.applyReservation({
           end_time: "1731250800",
+          owner_id: "ou_test_owner",
+          meeting_settings: {
+            topic: "Test Meeting",
+          },
         }),
       ).rejects.toThrow(MeetingProviderAuthenticationException);
     });
@@ -555,6 +582,10 @@ describe("FeishuMeetingClient", () => {
       await expect(
         client.applyReservation({
           end_time: "1731250800",
+          owner_id: "ou_test_owner",
+          meeting_settings: {
+            topic: "Test Meeting",
+          },
         }),
       ).rejects.toThrow(MeetingProviderAuthenticationException);
     });
