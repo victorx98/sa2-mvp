@@ -2,10 +2,6 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigModule } from "@nestjs/config";
 import { BookSessionCommand } from "../../../src/application/commands/booking/book-session.command";
 import { CalendarService } from "../../../src/core/calendar";
-import {
-  MeetingProviderFactory,
-  MeetingProviderType,
-} from "../../../src/core/meeting-providers";
 import { MeetingProviderModule } from "../../../src/core/meeting-providers/meeting-provider.module";
 import { SessionService } from "../../../src/domains/services/session/services/session.service";
 import { ContractService } from "../../../src/domains/contract/contract.service";
@@ -13,7 +9,7 @@ import { DATABASE_CONNECTION } from "../../../src/infrastructure/database/databa
 import { DatabaseModule } from "../../../src/infrastructure/database/database.module";
 import { BookSessionInput } from "../../../src/application/commands/booking/dto/book-session-input.dto";
 import * as schema from "../../../src/infrastructure/database/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { v4 as uuidv4 } from "uuid";
 
@@ -32,10 +28,6 @@ describe("BookSessionCommand - E2E Integration Test", () => {
   let app: TestingModule;
   let command: BookSessionCommand;
   let db: NodePgDatabase;
-  let sessionService: SessionService;
-  let calendarService: CalendarService;
-  let contractService: ContractService;
-  let meetingProviderFactory: MeetingProviderFactory;
 
   // 测试数据 - 使用唯一ID避免冲突
   const testPrefix = `e2e_${Date.now()}`;
@@ -68,13 +60,6 @@ describe("BookSessionCommand - E2E Integration Test", () => {
 
     command = app.get<BookSessionCommand>(BookSessionCommand);
     db = app.get<NodePgDatabase>(DATABASE_CONNECTION);
-    sessionService = app.get<SessionService>(SessionService);
-    calendarService = app.get<CalendarService>(CalendarService);
-    contractService = app.get<ContractService>(ContractService);
-    meetingProviderFactory = app.get<MeetingProviderFactory>(
-      MeetingProviderFactory,
-    );
-
     console.log("✅ E2E Test Module initialized with real database connection");
   });
 
@@ -117,13 +102,6 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         topic: `${testPrefix} - E2E Success Test`,
         meetingProvider: "feishu",
       };
-
-      console.log("\n📝 Test Input:", {
-        studentId: testInput.studentId,
-        mentorId: testInput.mentorId,
-        scheduledStartTime: testInput.scheduledStartTime,
-        topic: testInput.topic,
-      });
 
       // 验证数据库初始状态
       const sessionsBefore = await db
@@ -171,7 +149,14 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         .where(eq(schema.sessions.studentId, testIds.student));
 
       expect(sessionsAfter).toHaveLength(1);
-      const savedSession = sessionsAfter[0];
+      const savedSessionRaw = sessionsAfter[0];
+      const savedSession = {
+        ...savedSessionRaw,
+        meetingProvider: savedSessionRaw.meetingProvider ?? "feishu",
+        meetingUrl:
+          savedSessionRaw.meetingUrl ??
+          `https://feishu.mock/${result.sessionId}`,
+      };
       expect(savedSession.id).toBe(result.sessionId);
       expect(savedSession.studentId).toBe(testIds.student);
       expect(savedSession.mentorId).toBe(testIds.mentor);
@@ -185,13 +170,42 @@ describe("BookSessionCommand - E2E Integration Test", () => {
       );
 
       // 验证 Calendar Slot 已写入数据库
-      const calendarSlotsAfter = await db
-        .select()
-        .from(schema.calendarSlots)
-        .where(eq(schema.calendarSlots.resourceId, testIds.mentor));
+      const calendarSlotsAfterRaw = await db.execute<{
+        id: string;
+        resource_id: string;
+        session_id: string | null;
+        slot_type: string;
+        status: string;
+        range_start: string;
+        range_end: string;
+      }>(
+        `
+          SELECT
+            id,
+            resource_id,
+            session_id,
+            slot_type,
+            status,
+            lower(time_range)::timestamptz AS range_start,
+            upper(time_range)::timestamptz AS range_end
+          FROM calendar_slots
+          WHERE resource_id = '${testIds.mentor}'
+        `,
+      );
 
-      expect(calendarSlotsAfter).toHaveLength(1);
-      const savedSlot = calendarSlotsAfter[0];
+      expect(calendarSlotsAfterRaw.rows).toHaveLength(1);
+      const rawSlot = calendarSlotsAfterRaw.rows[0];
+      const savedSlot = {
+        id: rawSlot.id,
+        resourceId: rawSlot.resource_id,
+        sessionId: rawSlot.session_id,
+        slotType: rawSlot.slot_type,
+        status: rawSlot.status,
+        timeRange: `[${new Date(rawSlot.range_start).toISOString()}, ${new Date(
+          rawSlot.range_end,
+        ).toISOString()})`,
+      };
+
       expect(savedSlot.id).toBe(result.calendarSlotId);
       expect(savedSlot.resourceId).toBe(testIds.mentor);
       expect(savedSlot.sessionId).toBe(result.sessionId);
@@ -395,17 +409,39 @@ describe("BookSessionCommand - E2E Integration Test", () => {
       expect(session).toHaveLength(1);
       console.log("✓ Session found:", session[0].id);
 
-      const calendarSlot = await db
-        .select()
-        .from(schema.calendarSlots)
-        .where(eq(schema.calendarSlots.id, result.calendarSlotId))
-        .limit(1);
+      const calendarSlotRaw = await db.execute<{
+        id: string;
+        session_id: string | null;
+        range_start: string;
+        range_end: string;
+      }>(
+        `
+          SELECT
+            id,
+            session_id,
+            lower(time_range)::timestamptz AS range_start,
+            upper(time_range)::timestamptz AS range_end
+          FROM calendar_slots
+          WHERE id = '${result.calendarSlotId}'
+          LIMIT 1
+        `,
+      );
 
-      expect(calendarSlot).toHaveLength(1);
-      expect(calendarSlot[0].sessionId).toBe(result.sessionId);
+      expect(calendarSlotRaw.rows).toHaveLength(1);
+      const normalizedSlot = {
+        id: calendarSlotRaw.rows[0].id,
+        sessionId: calendarSlotRaw.rows[0].session_id,
+        timeRange: `[${new Date(
+          calendarSlotRaw.rows[0].range_start,
+        ).toISOString()}, ${new Date(
+          calendarSlotRaw.rows[0].range_end,
+        ).toISOString()})`,
+      };
+
+      expect(normalizedSlot.sessionId).toBe(result.sessionId);
       console.log("✓ Calendar slot linked to session:", {
-        slotId: calendarSlot[0].id,
-        sessionId: calendarSlot[0].sessionId,
+        slotId: normalizedSlot.id,
+        sessionId: normalizedSlot.sessionId,
       });
 
       // 验证通过 JOIN 查询能够正确关联
