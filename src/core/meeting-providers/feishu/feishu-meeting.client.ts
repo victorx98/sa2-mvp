@@ -220,7 +220,8 @@ export class FeishuMeetingClient {
 
       const normalizedPayload = {
         end_time: Math.floor(endTimeNumber).toString(),
-        owner_id: payload.owner_id,
+        // owner_id: payload.owner_id,
+        owner_id: "ou_977d022952b2f47efe0740d2d1b2a713", // feishu openid of jwb
         meeting_settings: payload.meeting_settings,
       };
 
