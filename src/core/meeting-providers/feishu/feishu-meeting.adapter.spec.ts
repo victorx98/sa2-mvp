@@ -39,14 +39,20 @@ describe("FeishuMeetingAdapter", () => {
         topic: "Test Meeting",
         startTime: new Date("2025-11-10T14:00:00Z"),
         duration: 60,
+        hostUserId: "ou_test_owner",
         autoRecord: true,
         participantJoinEarly: true,
       };
 
+      const expectedStartTime = Math.floor(
+        input.startTime.getTime() / 1000,
+      );
+
       // Calculate expected end time: startTime + duration
-      const expectedEndTime = Math.floor(
+      const expectedEndTimeNumber = Math.floor(
         (input.startTime.getTime() + input.duration * 60 * 1000) / 1000,
-      ).toString();
+      );
+      const expectedEndTime = expectedEndTimeNumber.toString();
 
       const mockResponse = {
         reserve: {
@@ -74,9 +80,11 @@ describe("FeishuMeetingAdapter", () => {
       });
 
       expect(client.applyReservation).toHaveBeenCalledWith({
-        end_time: expectedEndTime,
+        end_time: expectedEndTimeNumber.toString(),
+        owner_id: "ou_test_owner",
         meeting_settings: {
           topic: "Test Meeting",
+          meeting_initial_type: 1,
           auto_record: true,
           open_lobby: false,
           allow_attendees_start: true,
