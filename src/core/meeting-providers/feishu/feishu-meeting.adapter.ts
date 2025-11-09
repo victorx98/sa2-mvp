@@ -28,98 +28,56 @@ export class FeishuMeetingAdapter implements IMeetingProvider {
   /**
    * Create a meeting on Feishu
    *
-   * @param input - Meeting creation parameters
-   * @returns Meeting information
-   */
-  async createMeeting(input: ICreateMeetingInput): Promise<IMeetingInfo> {
-    // try {
-    //   this.logger.debug(
-    //     `Creating Feishu meeting: ${input.topic} at ${input.startTime}`,
-    //   );
-
-    //   // Calculate end time (Feishu expects Unix timestamp in seconds)
-    //   const startTime = new Date(input.startTime);
-    //   const endTime = new Date(
-    //     startTime.getTime() + input.duration * 60 * 1000,
-    //   );
-    //   const endTimeUnix = Math.floor(endTime.getTime() / 1000).toString();
-
-    //   // Build Feishu API payload
-    //   const payload = {
-    //     end_time: endTimeUnix,
-    //     meeting_settings: {
-    //       topic: input.topic,
-    //       auto_record: input.autoRecord ?? false,
-    //       open_lobby: false, // Feishu doesn't support waiting room
-    //       allow_attendees_start: input.participantJoinEarly ?? true,
-    //     },
-    //   };
-
-    //   // Call Feishu API
-    //   const response = await this.feishuClient.applyReservation(payload);
-
-    //   // Map Feishu response to standard MeetingInfo
-    //   const meetingInfo: IMeetingInfo = {
-    //     provider: MeetingProviderType.FEISHU,
-    //     meetingId: response.reserve.id,
-    //     meetingNo: response.reserve.meeting_no,
-    //     meetingUrl: response.reserve.url,
-    //     meetingPassword: null, // Feishu doesn't use passwords
-    //     hostJoinUrl: null, // Feishu doesn't have separate host URL
-    //     startTime: startTime,
-    //     duration: input.duration,
-    //   };
-
-    //   this.logger.debug(
-    //     `Successfully created Feishu meeting: ${meetingInfo.meetingId}`,
-    //   );
-    //   return meetingInfo;
-    // } catch (error) {
-    //   const message = error instanceof Error ? error.message : String(error);
-    //   this.logger.error(`Failed to create Feishu meeting: ${message}`);
-    //   throw new MeetingCreationFailedException("Feishu", message);
-    // }
-    return {
-      "provider": MeetingProviderType.FEISHU,
-      "meetingId": "123456789",
-      "meetingNo": "123456789",
-      "meetingUrl": "https://vc.feishu.cn/j/123456789",
-      "meetingPassword": null,
-      "hostJoinUrl": null,
-      "startTime": new Date("2025-11-10T14:00:00Z"),
-      "duration": 60,
-    }
-  }
-
-  /**
-   * Create a meeting on Feishu
+   * According to Feishu API documentation:
+   * - end_time must be a Unix timestamp in seconds (as a number, not string)
+   * - The API requires the meeting reservation to be specified with end_time
    *
    * @param input - Meeting creation parameters
    * @returns Meeting information
    */
-  async createMeetingTest(input: ICreateMeetingInput): Promise<IMeetingInfo> {
+  async createMeeting(input: ICreateMeetingInput): Promise<IMeetingInfo> {
     try {
       this.logger.debug(
         `Creating Feishu meeting: ${input.topic} at ${input.startTime}`,
       );
 
-      // Calculate end time (Feishu expects Unix timestamp in seconds)
+      if (!input.hostUserId) {
+        throw new MeetingCreationFailedException(
+          "Feishu",
+          "Feishu meeting requires hostUserId (Feishu user ID) to be provided",
+        );
+      }
+
+      // Calculate timestamps (Feishu expects Unix timestamps in seconds)
       const startTime = new Date(input.startTime);
       const endTime = new Date(
         startTime.getTime() + input.duration * 60 * 1000,
       );
-      const endTimeUnix = Math.floor(endTime.getTime() / 1000).toString();
 
-      // Build Feishu API payload
+      // Convert to Unix timestamp in seconds as numbers
+      const startTimeUnix = Math.floor(startTime.getTime() / 1000);
+      const endTimeUnix = Math.floor(endTime.getTime() / 1000);
+
+      this.logger.debug(
+        `Meeting times - Start: ${startTimeUnix}, End: ${endTimeUnix} (Unix seconds)`,
+      );
+
+      // Build Feishu API payload based on official documentation
       const payload = {
-        end_time: endTimeUnix,
+        end_time: endTimeUnix.toString(),
+        owner_id: input.hostUserId,
         meeting_settings: {
           topic: input.topic,
+          meeting_initial_type: 1, // Reserved meeting type
           auto_record: input.autoRecord ?? false,
-          open_lobby: false, // Feishu doesn't support waiting room
+          open_lobby: false,
           allow_attendees_start: input.participantJoinEarly ?? true,
         },
       };
+
+      this.logger.debug(
+        `Feishu API payload: ${JSON.stringify(payload)}`,
+      );
 
       // Call Feishu API
       const response = await this.feishuClient.applyReservation(payload);
