@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit, Inject } from "@nestjs/common";
 import { IEventPublisher } from "../../services/event-publisher.service";
 import { ServiceHoldService } from "../../services/service-hold.service";
 
@@ -18,7 +18,7 @@ export class SessionCancelledListener implements OnModuleInit {
 
   constructor(
     private readonly holdService: ServiceHoldService,
-    private readonly eventPublisher: IEventPublisher,
+    @Inject('EVENT_PUBLISHER') private readonly eventPublisher: IEventPublisher,
   ) {}
 
   onModuleInit() {

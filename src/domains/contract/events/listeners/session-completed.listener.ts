@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit, Inject } from "@nestjs/common";
 import { ContractService } from "../../services/contract.service";
 import { IEventPublisher } from "../../services/event-publisher.service";
 import type { ServiceType } from "../../common/types/enum.types";
@@ -18,7 +18,7 @@ export class SessionCompletedListener implements OnModuleInit {
 
   constructor(
     private readonly contractService: ContractService,
-    private readonly eventPublisher: IEventPublisher,
+    @Inject('EVENT_PUBLISHER') private readonly eventPublisher: IEventPublisher,
   ) {}
 
   onModuleInit() {
