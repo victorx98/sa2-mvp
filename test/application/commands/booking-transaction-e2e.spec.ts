@@ -1,5 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigModule } from "@nestjs/config";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 import { BookSessionCommand } from "../../../src/application/commands/booking/book-session.command";
 import { CalendarService } from "../../../src/core/calendar";
 import { MeetingProviderModule } from "../../../src/core/meeting-providers/meeting-provider.module";
@@ -49,6 +50,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         }),
         DatabaseModule,
         MeetingProviderModule,
+        EventEmitterModule.forRoot(),
       ],
       providers: [
         BookSessionCommand,

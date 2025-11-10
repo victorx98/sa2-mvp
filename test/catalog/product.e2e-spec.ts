@@ -1,5 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigModule } from "@nestjs/config";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 import { ServiceService } from "@domains/catalog/service/services/service.service";
 import { ServicePackageService } from "@domains/catalog/service-package/services/service-package.service";
 import { ProductService } from "@domains/catalog/product/services/product.service";
@@ -52,6 +53,7 @@ describe("ProductService Integration Tests", () => {
         ServiceModule,
         ServicePackageModule,
         ProductModule,
+        EventEmitterModule.forRoot(),
       ],
     }).compile();
 
