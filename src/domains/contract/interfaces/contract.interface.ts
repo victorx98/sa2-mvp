@@ -18,7 +18,11 @@ export interface IContractService {
     sort?: ISortDto,
   ): Promise<IPaginatedResult<Contract>>;
   findOne(filter: IFindOneContractDto): Promise<Contract | null>;
-  update(id: string, dto: IUpdateContractDto): Promise<Contract>;
+  update(
+    id: string,
+    dto: IUpdateContractDto,
+    updatedBy?: string,
+  ): Promise<Contract>;
   activate(id: string): Promise<Contract>;
   terminate(id: string, reason: string): Promise<Contract>;
   complete(id: string): Promise<Contract>;
@@ -41,6 +45,7 @@ export interface ICreateContractDto {
   overrideReason?: string;
   overrideApprovedBy?: string;
   createdBy: string;
+  title?: string;
 }
 
 export interface IUpdateContractDto {
@@ -60,6 +65,10 @@ export interface IContractFilterDto {
   studentId?: string;
   status?: string;
   productId?: string;
+  signedAfter?: Date;
+  signedBefore?: Date;
+  expiresAfter?: Date;
+  expiresBefore?: Date;
 }
 
 export interface IFindOneContractDto {
@@ -67,6 +76,7 @@ export interface IFindOneContractDto {
   contractNumber?: string;
   studentId?: string;
   status?: string;
+  productId?: string;
 }
 
 export interface IPaginationDto {
@@ -90,14 +100,40 @@ export interface IServiceBalanceQuery {
   contractId?: string;
   studentId?: string;
   serviceType?: string;
+  includeExpired?: boolean;
 }
 
 export interface IServiceBalance {
-  serviceType: string;
-  totalQuantity: number;
-  consumedQuantity: number;
-  heldQuantity: number;
-  availableQuantity: number;
+  query: {
+    contractId?: string;
+    studentId?: string;
+    serviceType?: string;
+  };
+  student?: {
+    id: string;
+    name?: string;
+    email?: string;
+  };
+  contracts: Array<{
+    contractId: string;
+    contractNumber: string;
+    contractTitle?: string;
+    contractStatus: string;
+    studentId: string;
+    signedAt?: Date;
+    expiresAt?: Date;
+    isExpired: boolean;
+    entitlements: Array<{
+      serviceType: string;
+      serviceName: string;
+      totalQuantity: number;
+      consumedQuantity: number;
+      heldQuantity: number;
+      availableQuantity: number;
+      expiresAt?: Date;
+      isExpired: boolean;
+    }>;
+  }>;
 }
 
 export interface IConsumeServiceDto {

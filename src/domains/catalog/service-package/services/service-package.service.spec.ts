@@ -15,7 +15,6 @@ import {
   CatalogGoneException,
 } from "../../common/exceptions/catalog.exception";
 import {
-  ServiceUnit,
   ServiceStatus,
   ProductItemType,
 } from "../../common/interfaces/enums";

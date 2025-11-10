@@ -226,43 +226,6 @@ describe("ServiceHoldService", () => {
     });
   });
 
-  describe("expireHolds", () => {
-    it("should expire all active holds past expiration time", async () => {
-      // Arrange
-      const mockExpiredHolds = [
-        { id: "hold-1", status: "expired" },
-        { id: "hold-2", status: "expired" },
-        { id: "hold-3", status: "expired" },
-      ];
-
-      mockDb.returning.mockResolvedValueOnce(mockExpiredHolds);
-
-      // Act
-      const result = await service.expireHolds();
-
-      // Assert
-      expect(result).toBe(3);
-      expect(mockDb.update).toHaveBeenCalled();
-      expect(mockDb.set).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: "expired",
-          releaseReason: "expired",
-        }),
-      );
-    });
-
-    it("should return 0 when no holds to expire", async () => {
-      // Arrange
-      mockDb.returning.mockResolvedValueOnce([]);
-
-      // Act
-      const result = await service.expireHolds();
-
-      // Assert
-      expect(result).toBe(0);
-    });
-  });
-
   describe("getActiveHolds", () => {
     it("should return all active holds for contract and service type", async () => {
       // Arrange

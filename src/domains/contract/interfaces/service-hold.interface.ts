@@ -11,7 +11,16 @@ export interface IServiceHoldService {
     tx?: DrizzleTransaction,
   ): Promise<ServiceHold>;
   releaseHold(id: string, reason: string): Promise<ServiceHold>;
-  expireHolds(): Promise<number>;
+  /**
+   * Get long-unreleased holds for manual review (v2.16.9)
+   * - Returns holds created more than N hours ago that are still active
+   * - No automatic expiration - manual review and release only
+   * @param hoursOld - Threshold in hours (default: 24)
+   */
+  getLongUnreleasedHolds(
+    hoursOld?: number,
+    tx?: DrizzleTransaction,
+  ): Promise<ServiceHold[]>;
   getActiveHolds(
     contractId: string,
     serviceType: string,
