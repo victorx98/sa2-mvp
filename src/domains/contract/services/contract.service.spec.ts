@@ -17,7 +17,9 @@ describe("ContractService", () => {
     select: jest.fn().mockReturnThis(),
     from: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
+    offset: jest.fn().mockReturnThis(),
     for: jest.fn().mockReturnThis(),
     insert: jest.fn().mockReturnThis(),
     values: jest.fn().mockReturnThis(),
@@ -36,6 +38,9 @@ describe("ContractService", () => {
     where: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
     from: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockReturnThis(),
+    offset: jest.fn().mockReturnThis(),
     for: jest.fn().mockReturnThis(),
   };
 
@@ -426,6 +431,315 @@ describe("ContractService", () => {
       await expect(service.complete("contract-123")).rejects.toThrow(
         ContractException,
       );
+    });
+  });
+
+  describe("sign", () => {
+    it("should sign contract successfully", async () => {
+      // Arrange
+      const mockContract = {
+        id: "contract-123",
+        status: "draft",
+        contractNumber: "CONTRACT-2025-01-00001",
+        studentId: "student-123",
+      };
+
+      jest.spyOn(service, "findOne").mockResolvedValueOnce(mockContract as any);
+      mockTx.returning.mockResolvedValueOnce([
+        {
+          ...mockContract,
+          status: "signed",
+          signedAt: new Date(),
+        },
+      ]);
+
+      // Act
+      const result = await service.sign("contract-123", "admin-123");
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.status).toBe("signed");
+      expect(result.signedAt).toBeDefined();
+    });
+
+    it("should throw exception when contract not found", async () => {
+      // Arrange
+      jest.spyOn(service, "findOne").mockResolvedValueOnce(null);
+
+      // Act & Assert
+      await expect(service.sign("contract-123", "admin-123")).rejects.toThrow(
+        ContractNotFoundException,
+      );
+    });
+
+    it("should throw exception when contract not in draft status", async () => {
+      // Arrange
+      const mockContract = {
+        id: "contract-123",
+        status: "signed", // not draft
+      };
+
+      jest.spyOn(service, "findOne").mockResolvedValueOnce(mockContract as any);
+
+      // Act & Assert
+      await expect(service.sign("contract-123", "admin-123")).rejects.toThrow(
+        ContractException,
+      );
+    });
+  });
+
+  describe("update", () => {
+    it("should update contract price override successfully", async () => {
+      // Arrange
+      const mockContract = {
+        id: "contract-123",
+        status: "draft",
+        totalAmount: "1000.00",
+      };
+
+      jest.spyOn(service, "findOne").mockResolvedValueOnce(mockContract as any);
+      mockTx.returning.mockResolvedValueOnce([
+        {
+          ...mockContract,
+          overrideAmount: "900.00",
+          overrideReason: "Student discount",
+          overrideApprovedBy: "manager-123",
+        },
+      ]);
+
+      // Act
+      const result = await service.update("contract-123", {
+        overrideAmount: "900.00",
+        overrideReason: "Student discount",
+        overrideApprovedBy: "manager-123",
+        updatedBy: "admin-123",
+      });
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.overrideAmount).toBe("900.00");
+      expect(result.overrideReason).toBe("Student discount");
+    });
+
+    it("should clear price override when overrideAmount is empty string", async () => {
+      // Arrange
+      const mockContract = {
+        id: "contract-123",
+        status: "draft",
+        totalAmount: "1000.00",
+        overrideAmount: "900.00",
+        overrideReason: "Discount",
+        overrideApprovedBy: "manager-123",
+      };
+
+      jest.spyOn(service, "findOne").mockResolvedValueOnce(mockContract as any);
+      mockTx.returning.mockResolvedValueOnce([
+        {
+          ...mockContract,
+          overrideAmount: null,
+          overrideReason: null,
+          overrideApprovedBy: null,
+        },
+      ]);
+
+      // Act
+      const result = await service.update("contract-123", {
+        overrideAmount: "",
+      });
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.overrideAmount).toBeNull();
+      expect(result.overrideReason).toBeNull();
+    });
+
+    it("should throw exception when contract not found", async () => {
+      // Arrange
+      jest.spyOn(service, "findOne").mockResolvedValueOnce(null);
+
+      // Act & Assert
+      await expect(
+        service.update("contract-123", {
+          overrideAmount: "900.00",
+        }),
+      ).rejects.toThrow(ContractNotFoundException);
+    });
+
+    it("should throw exception when contract not in draft status", async () => {
+      // Arrange
+      const mockContract = {
+        id: "contract-123",
+        status: "active", // not draft
+      };
+
+      jest.spyOn(service, "findOne").mockResolvedValueOnce(mockContract as any);
+
+      // Act & Assert
+      await expect(
+        service.update("contract-123", {
+          overrideAmount: "900.00",
+        }),
+      ).rejects.toThrow(ContractException);
+    });
+
+    it("should throw exception when price override reason not provided", async () => {
+      // Arrange
+      const mockContract = {
+        id: "contract-123",
+        status: "draft",
+        totalAmount: "1000.00",
+      };
+
+      jest.spyOn(service, "findOne").mockResolvedValueOnce(mockContract as any);
+
+      // Act & Assert
+      await expect(
+        service.update("contract-123", {
+          overrideAmount: "900.00",
+          // missing overrideReason and overrideApprovedBy
+        }),
+      ).rejects.toThrow(ContractException);
+    });
+  });
+
+  describe("search", () => {
+    it("should search contracts with filters", async () => {
+      // Arrange
+      const mockContracts = [
+        {
+          id: "contract-1",
+          studentId: "student-123",
+          status: "active",
+        },
+        {
+          id: "contract-2",
+          studentId: "student-123",
+          status: "active",
+        },
+      ];
+
+      // Mock count query (first select call)
+      const countWhereMock = jest.fn().mockResolvedValue([{ count: 2 }]);
+      const countFromMock = jest.fn().mockReturnValue({ where: countWhereMock });
+      const countSelectMock = jest.fn().mockReturnValue({ from: countFromMock });
+
+      // Mock data query (second select call)
+      const dataOffsetMock = jest.fn().mockResolvedValue(mockContracts);
+      const dataLimitMock = jest.fn().mockReturnValue({ offset: dataOffsetMock });
+      const dataOrderByMock = jest.fn().mockReturnValue({ limit: dataLimitMock });
+      const dataWhereMock = jest.fn().mockReturnValue({ orderBy: dataOrderByMock });
+      const dataFromMock = jest.fn().mockReturnValue({ where: dataWhereMock });
+      const dataSelectMock = jest.fn().mockReturnValue({ from: dataFromMock });
+
+      // Setup sequential mock returns for select
+      mockDb.select
+        .mockReturnValueOnce({ from: countFromMock }) // First call (count)
+        .mockReturnValueOnce({ from: dataFromMock }); // Second call (data)
+
+      // Act
+      const result = await service.search(
+        { studentId: "student-123" },
+        { page: 1, pageSize: 10 },
+        { field: "createdAt", order: "desc" },
+      );
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.data).toHaveLength(2);
+      expect(result.total).toBe(2);
+      expect(result.page).toBe(1);
+      expect(result.pageSize).toBe(10);
+    });
+
+    it("should return empty array when no contracts match filters", async () => {
+      // Arrange
+      // Mock count query
+      const countWhereMock = jest.fn().mockResolvedValue([{ count: 0 }]);
+      const countFromMock = jest.fn().mockReturnValue({ where: countWhereMock });
+
+      // Mock data query
+      const dataOffsetMock = jest.fn().mockResolvedValue([]);
+      const dataLimitMock = jest.fn().mockReturnValue({ offset: dataOffsetMock });
+      const dataOrderByMock = jest.fn().mockReturnValue({ limit: dataLimitMock });
+      const dataWhereMock = jest.fn().mockReturnValue({ orderBy: dataOrderByMock });
+      const dataFromMock = jest.fn().mockReturnValue({ where: dataWhereMock });
+
+      mockDb.select
+        .mockReturnValueOnce({ from: countFromMock })
+        .mockReturnValueOnce({ from: dataFromMock });
+
+      // Act
+      const result = await service.search(
+        { studentId: "non-existent" },
+        { page: 1, pageSize: 10 },
+      );
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.data).toHaveLength(0);
+      expect(result.total).toBe(0);
+    });
+
+    it("should use default pagination when pagination not provided", async () => {
+      // Arrange
+      const mockContracts = Array(25).fill({ id: "contract-1" });
+
+      // Mock count query
+      const countWhereMock = jest.fn().mockResolvedValue([{ count: 25 }]);
+      const countFromMock = jest.fn().mockReturnValue({ where: countWhereMock });
+
+      // Mock data query
+      const dataOffsetMock = jest.fn().mockResolvedValue(mockContracts.slice(0, 20));
+      const dataLimitMock = jest.fn().mockReturnValue({ offset: dataOffsetMock });
+      const dataOrderByMock = jest.fn().mockReturnValue({ limit: dataLimitMock });
+      const dataWhereMock = jest.fn().mockReturnValue({ orderBy: dataOrderByMock });
+      const dataFromMock = jest.fn().mockReturnValue({ where: dataWhereMock });
+
+      mockDb.select
+        .mockReturnValueOnce({ from: countFromMock })
+        .mockReturnValueOnce({ from: dataFromMock });
+
+      // Act
+      const result = await service.search({ status: "active" });
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.page).toBe(1);
+      expect(result.pageSize).toBe(20);
+      expect(result.totalPages).toBe(2);
+    });
+
+    it("should apply date range filters correctly", async () => {
+      // Arrange
+      const signedAfter = new Date("2025-01-01");
+      const signedBefore = new Date("2025-01-31");
+      const mockContracts = [{ id: "contract-1", status: "active" }];
+
+      // Mock count query
+      const countWhereMock = jest.fn().mockResolvedValue([{ count: 1 }]);
+      const countFromMock = jest.fn().mockReturnValue({ where: countWhereMock });
+
+      // Mock data query
+      const dataOffsetMock = jest.fn().mockResolvedValue(mockContracts);
+      const dataLimitMock = jest.fn().mockReturnValue({ offset: dataOffsetMock });
+      const dataOrderByMock = jest.fn().mockReturnValue({ limit: dataLimitMock });
+      const dataWhereMock = jest.fn().mockReturnValue({ orderBy: dataOrderByMock });
+      const dataFromMock = jest.fn().mockReturnValue({ where: dataWhereMock });
+
+      mockDb.select
+        .mockReturnValueOnce({ from: countFromMock })
+        .mockReturnValueOnce({ from: dataFromMock });
+
+      // Act
+      const result = await service.search({
+        signedAfter,
+        signedBefore,
+      });
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.data).toHaveLength(1);
+      expect(mockDb.select).toHaveBeenCalled();
     });
   });
 });

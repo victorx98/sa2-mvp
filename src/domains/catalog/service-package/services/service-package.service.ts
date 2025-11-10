@@ -14,7 +14,6 @@ import {
   CatalogGoneException,
 } from "../../common/exceptions/catalog.exception";
 import {
-  ServiceUnit,
   ServiceType,
   BillingMode,
   ServiceStatus,

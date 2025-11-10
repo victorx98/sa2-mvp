@@ -12,7 +12,6 @@ import {
   ContractNotFoundException,
 } from "../common/exceptions/contract.exception";
 import { CreateHoldDto } from "../dto/create-hold.dto";
-import { calculateHoldExpirationDate } from "../common/utils/date.utils";
 import type { ServiceHold } from "@infrastructure/database/schema";
 import type { ServiceType } from "../common/types/enum.types";
 
@@ -23,11 +22,13 @@ export class ServiceHoldService {
     private readonly db: DrizzleDatabase,
   ) {}
 
-  /**
-   * Create hold (v2.16.7: supports optional transaction parameter)
-   * - Check available balance
-   * - Create hold record with TTL
-   * - Trigger automatically updates held_quantity
+/**
+   * Create hold(创建预占)
+   * - Check available balance(检查可用余额)
+   * - Create hold record with TTL(创建带TTL的预占记录)
+   * - Trigger automatically updates held_quantity(触发器自动更新预占数量)
+   *
+   * Supports optional transaction parameter(支持可选的事务参数)
    */
   async createHold(
     dto: CreateHoldDto,
@@ -43,7 +44,7 @@ export class ServiceHoldService {
     } = dto;
     const executor = tx ?? this.db;
 
-    // 1. Find entitlement and check balance (with pessimistic lock)
+    /* 1. Find entitlement and check balance (with pessimistic lock)(1. 查找权益并检查余额(使用悲观锁)) */
     const entitlements = await executor
       .select()
       .from(schema.contractServiceEntitlements)
@@ -62,7 +63,7 @@ export class ServiceHoldService {
       throw new ContractNotFoundException("ENTITLEMENT_NOT_FOUND");
     }
 
-    // Sum available quantity across all entitlements
+    /* Sum available quantity across all entitlements(汇总所有权益的可用数量) */
     const totalAvailable = entitlements.reduce(
       (sum, e) => sum + e.availableQuantity,
       0,
@@ -72,10 +73,8 @@ export class ServiceHoldService {
       throw new ContractException("INSUFFICIENT_BALANCE");
     }
 
-    // 2. Calculate expiration time
-    const expiresAt = calculateHoldExpirationDate();
-
-    // 3. Create hold (trigger will update held_quantity automatically)
+    /* 2. Create hold (trigger will update held_quantity automatically)(2. 创建预占(触发器将自动更新预占数量)) */
+    /* v2.16.9: No expiration time - holds never expire(v2.16.9: 无过期时间 - 预占永不失效) */
     const [newHold] = await executor
       .insert(schema.serviceHolds)
       .values({
@@ -84,7 +83,6 @@ export class ServiceHoldService {
         serviceType: serviceType as ServiceType,
         quantity,
         status: "active",
-        expiresAt,
         relatedBookingId,
         createdBy,
       })
@@ -93,10 +91,10 @@ export class ServiceHoldService {
     return newHold;
   }
 
-  /**
-   * Release hold
-   * - Update status to released
-   * - Trigger automatically updates held_quantity
+/**
+   * Release hold(释放预占)
+   * - Update status to released(更新状态为已释放)
+   * - Trigger automatically updates held_quantity(触发器自动更新预占数量)
    */
   async releaseHold(
     id: string,
@@ -105,7 +103,7 @@ export class ServiceHoldService {
   ): Promise<ServiceHold> {
     const executor: DrizzleExecutor = tx ?? this.db;
 
-    // 1. Find hold
+    /* 1. Find hold(1. 查找预占) */
     const [hold] = await executor
       .select()
       .from(schema.serviceHolds)
@@ -116,12 +114,12 @@ export class ServiceHoldService {
       throw new ContractNotFoundException("HOLD_NOT_FOUND");
     }
 
-    // 2. Validate status
+    /* 2. Validate status(2. 验证状态) */
     if (hold.status !== "active") {
       throw new ContractException("HOLD_NOT_ACTIVE");
     }
 
-    // 3. Release hold (trigger will update held_quantity automatically)
+    /* 3. Release hold (trigger will update held_quantity automatically)(3. 释放预占(触发器将自动更新预占数量)) */
     const [releasedHold] = await executor
       .update(schema.serviceHolds)
       .set({
@@ -136,36 +134,34 @@ export class ServiceHoldService {
   }
 
   /**
-   * Expire holds (cleanup task)
-   * - Find active holds with expires_at < now
-   * - Update status to expired
-   * - Trigger automatically updates held_quantity
-   * - Returns count of expired holds
+   * Get long-unreleased holds for manual review(v2.16.9)
+   * - Returns list of active holds created more than 24 hours ago(返回超过24小时前创建的活跃预占列表)
+   * - No automatic update - manual review and release only(无自动更新 - 仅人工审核和释放)
+   * - Caller should manually review and use releaseHold() to process(调用者应手动审核并使用releaseHold()处理)
+   *
+   * Purpose: Monitor holds that may need manual intervention(目的：监控可能需要人工干预的预占)
+   * Threshold: 24 hours (configurable based on business needs)(阈值：24小时(可根据业务需求配置))
    */
-  async expireHolds(tx?: DrizzleTransaction): Promise<number> {
-    const now = new Date();
+  async getLongUnreleasedHolds(
+    hoursOld = 24,
+    tx?: DrizzleTransaction,
+  ): Promise<ServiceHold[]> {
+    const cutoffTime = new Date(Date.now() - hoursOld * 60 * 60 * 1000);
     const executor: DrizzleExecutor = tx ?? this.db;
 
-    const expiredHolds = await executor
-      .update(schema.serviceHolds)
-      .set({
-        status: "expired",
-        releaseReason: "expired",
-        releasedAt: now,
-      })
+    return await executor
+      .select()
+      .from(schema.serviceHolds)
       .where(
         and(
           eq(schema.serviceHolds.status, "active"),
-          lt(schema.serviceHolds.expiresAt, now),
+          lt(schema.serviceHolds.createdAt, cutoffTime),
         ),
-      )
-      .returning();
-
-    return expiredHolds.length;
+      );
   }
 
   /**
-   * Get active holds for contract and service type
+   * Get active holds for contract and service type(获取合同和服务类型的活跃预占)
    */
   async getActiveHolds(
     contractId: string,
@@ -184,8 +180,8 @@ export class ServiceHoldService {
   }
 
   /**
-   * Cancel hold
-   * - Similar to release but with 'cancelled' reason
+   * Cancel hold(取消预占)
+   * - Similar to release but with 'cancelled' reason(类似于释放但使用'cancelled'原因)
    */
   async cancelHold(
     id: string,

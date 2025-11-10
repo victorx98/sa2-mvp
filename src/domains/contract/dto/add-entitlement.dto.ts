@@ -29,7 +29,7 @@ export class AddEntitlementDto {
 
   @IsNotEmpty()
   @IsString()
-  reason: string;
+  addOnReason: string;
 
   @IsNotEmpty()
   @IsString()

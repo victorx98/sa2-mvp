@@ -48,4 +48,8 @@ export class CreateContractDto {
   @IsNotEmpty()
   @IsString()
   createdBy: string;
+
+  @IsOptional()
+  @IsString()
+  title?: string;
 }

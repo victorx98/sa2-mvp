@@ -210,7 +210,6 @@ describe("Contract Lifecycle E2E Tests (Real Database)", () => {
       expect(hold).toBeDefined();
       expect(hold.status).toBe("active");
       expect(hold.quantity).toBe(1);
-      expect(hold.expiresAt).toBeDefined();
 
       holdId = hold.id; // Save hold ID for later use
     });
@@ -398,12 +397,7 @@ describe("Contract Lifecycle E2E Tests (Real Database)", () => {
       const hold = await holdService.createHold(holdDto);
       expect(hold.status).toBe("active");
 
-      // Run cleanup (in real scenario, this runs every 5 minutes)
-      const expiredCount = await holdService.expireHolds();
-
-      // Newly created hold shouldn't be expired yet (TTL is 15 minutes)
-      expect(expiredCount).toBe(0);
-
+      // Verify hold is still active (no auto-expiration in v2.16.9+)
       const activeHolds = await holdService.getActiveHolds(
         holdContract.id,
         ServiceType.RESUME_REVIEW,

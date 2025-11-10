@@ -31,6 +31,7 @@ export function calculateExpirationDate(
  * @param createdAt Hold creation date
  * @param ttlMinutes TTL in minutes (default: HOLD_TTL_MINUTES)
  * @returns Hold expiration date
+ * @deprecated v2.16.9: Hold TTL mechanism removed. Holds no longer expire automatically.
  */
 export function calculateHoldExpirationDate(
   createdAt: Date = new Date(),
@@ -57,6 +58,7 @@ export function isContractExpired(expiresAt: Date | null): boolean {
  * Check if hold has expired
  * @param expiresAt Hold expiration date
  * @returns True if expired, false otherwise
+ * @deprecated v2.16.9: Hold TTL mechanism removed. Holds no longer expire automatically.
  */
 export function isHoldExpired(expiresAt: Date): boolean {
   return new Date() > expiresAt;
