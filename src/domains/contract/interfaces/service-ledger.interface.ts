@@ -1,5 +1,5 @@
 /**
- * Service Ledger Service Interface
+ * Service Ledger Service Interface (服务台账服务接口)
  */
 
 import { ServiceLedger } from "@infrastructure/database/schema";
@@ -24,7 +24,7 @@ export interface IRecordConsumptionDto {
   studentId: string;
   serviceType: string;
   quantity: number;
-  sessionId?: string;
+  relatedBookingId?: string;  // Related Booking ID (关联预约ID，通用字段，适用于 session、class、mock_interview 等)
   createdBy: string;
 }
 

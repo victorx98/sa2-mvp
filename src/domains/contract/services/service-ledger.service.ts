@@ -42,7 +42,7 @@ export class ServiceLedgerService {
       studentId,
       serviceType,
       quantity,
-      sessionId,
+      relatedBookingId,
       createdBy,
     } = dto;
 
@@ -90,7 +90,7 @@ export class ServiceLedgerService {
         type: "consumption",
         source: "booking_completed",
         balanceAfter: totalAvailable - quantity,
-        relatedBookingId: sessionId,
+        relatedBookingId,
         createdBy,
       })
       .returning();

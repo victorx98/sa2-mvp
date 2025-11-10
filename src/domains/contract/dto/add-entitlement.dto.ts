@@ -4,6 +4,7 @@ import {
   IsString,
   IsEnum,
   IsPositive,
+  IsOptional,
 } from "class-validator";
 
 /**
@@ -30,6 +31,10 @@ export class AddEntitlementDto {
   @IsNotEmpty()
   @IsString()
   addOnReason: string;
+
+  @IsOptional()
+  @IsUUID()
+  relatedBookingId?: string;  // 关联预约ID（如果权益添加与某次预约相关）
 
   @IsNotEmpty()
   @IsString()

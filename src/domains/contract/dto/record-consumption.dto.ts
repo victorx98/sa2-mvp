@@ -29,7 +29,7 @@ export class RecordConsumptionDto {
 
   @IsOptional()
   @IsUUID()
-  sessionId?: string;
+  relatedBookingId?: string;  // 关联预约ID（通用字段，适用于 session、class、mock_interview 等）
 
   @IsNotEmpty()
   @IsString()

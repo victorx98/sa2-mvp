@@ -5,7 +5,9 @@ import {
   IsNumber,
   IsDateString,
   IsOptional,
+  IsEnum,
 } from "class-validator";
+import { ServiceType } from "@domains/contract/common/types/enum.types";
 
 /**
  * BFF Layer - Book Session Request DTO
@@ -46,16 +48,17 @@ export class BookSessionDto {
   name: string;
 
   @ApiProperty({
-    description: "Service ID (optional, defaults to the contract service)",
+    description: "Service type (e.g., gap_analysis, individual_session, mock_interview)",
+    enum: ["gap_analysis", "resume_review", "recommendation_letter", "recommendation_letter_online", "session", "mock_interview", "class_session", "internal_referral", "contract_signing_assistance", "proxy_application", "other_service"],
     required: false,
   })
-  @IsString()
+  @IsEnum(ServiceType)
   @IsOptional()
-  serviceId?: string;
+  serviceType?: ServiceType;
 
   @ApiProperty({
     description: "Meeting provider (optional, defaults to zoom)",
-    enum: ["zoom", "teams", "google_meet"],
+    enum: ["zoom", "teams", "google_meet", "feishu"],
     required: false,
   })
   @IsString()
