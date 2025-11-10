@@ -3,6 +3,10 @@ import { eq, and, or, like, ne, count, sql, inArray } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
+import type {
+  DrizzleExecutor,
+  DrizzleTransaction,
+} from "@shared/types/database.types";
 import type { Service, ServicePackage } from "@infrastructure/database/schema";
 import {
   CatalogException,

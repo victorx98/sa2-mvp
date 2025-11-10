@@ -4,6 +4,7 @@ import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider"
 import * as schema from "@infrastructure/database/schema";
 import {
   DrizzleDatabase,
+  DrizzleExecutor,
   DrizzleTransaction,
 } from "@shared/types/database.types";
 import {
@@ -97,9 +98,15 @@ export class ServiceHoldService {
    * - Update status to released
    * - Trigger automatically updates held_quantity
    */
-  async releaseHold(id: string, reason: string): Promise<ServiceHold> {
+  async releaseHold(
+    id: string,
+    reason: string,
+    tx?: DrizzleTransaction,
+  ): Promise<ServiceHold> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
     // 1. Find hold
-    const [hold] = await this.db
+    const [hold] = await executor
       .select()
       .from(schema.serviceHolds)
       .where(eq(schema.serviceHolds.id, id))
@@ -115,7 +122,7 @@ export class ServiceHoldService {
     }
 
     // 3. Release hold (trigger will update held_quantity automatically)
-    const [releasedHold] = await this.db
+    const [releasedHold] = await executor
       .update(schema.serviceHolds)
       .set({
         status: "released",
@@ -135,10 +142,11 @@ export class ServiceHoldService {
    * - Trigger automatically updates held_quantity
    * - Returns count of expired holds
    */
-  async expireHolds(): Promise<number> {
+  async expireHolds(tx?: DrizzleTransaction): Promise<number> {
     const now = new Date();
+    const executor: DrizzleExecutor = tx ?? this.db;
 
-    const expiredHolds = await this.db
+    const expiredHolds = await executor
       .update(schema.serviceHolds)
       .set({
         status: "expired",
@@ -179,8 +187,14 @@ export class ServiceHoldService {
    * Cancel hold
    * - Similar to release but with 'cancelled' reason
    */
-  async cancelHold(id: string, reason: string): Promise<ServiceHold> {
-    const [hold] = await this.db
+  async cancelHold(
+    id: string,
+    reason: string,
+    tx?: DrizzleTransaction,
+  ): Promise<ServiceHold> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    const [hold] = await executor
       .select()
       .from(schema.serviceHolds)
       .where(eq(schema.serviceHolds.id, id))
@@ -194,7 +208,7 @@ export class ServiceHoldService {
       throw new ContractException("HOLD_NOT_ACTIVE");
     }
 
-    const [cancelledHold] = await this.db
+    const [cancelledHold] = await executor
       .update(schema.serviceHolds)
       .set({
         status: "released",

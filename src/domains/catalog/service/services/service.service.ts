@@ -3,6 +3,10 @@ import { eq, and, or, like, ne, count, sql } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
+import type {
+  DrizzleExecutor,
+  DrizzleTransaction,
+} from "@shared/types/database.types";
 import {
   CatalogException,
   CatalogNotFoundException,
@@ -39,9 +43,15 @@ export class ServiceService {
   /**
    * Create a new service
    */
-  async create(dto: CreateServiceDto, userId: string): Promise<IService> {
+  async create(
+    dto: CreateServiceDto,
+    userId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<IService> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
     // 1. Validate code uniqueness
-    const existingByCode = await this.db
+    const existingByCode = await executor
       .select()
       .from(schema.services)
       .where(eq(schema.services.code, dto.code))
@@ -52,7 +62,7 @@ export class ServiceService {
     }
 
     // 2. Validate serviceType uniqueness
-    const existingByType = await this.db
+    const existingByType = await executor
       .select()
       .from(schema.services)
       .where(eq(schema.services.serviceType, dto.serviceType))
@@ -63,7 +73,7 @@ export class ServiceService {
     }
 
     // 3. Create service
-    const [service] = await this.db
+    const [service] = await executor
       .insert(schema.services)
       .values({
         code: dto.code,
@@ -86,9 +96,15 @@ export class ServiceService {
   /**
    * Update service information
    */
-  async update(id: string, dto: UpdateServiceDto): Promise<IService> {
+  async update(
+    id: string,
+    dto: UpdateServiceDto,
+    tx?: DrizzleTransaction,
+  ): Promise<IService> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
     // 1. Check if service exists
-    const existing = await this.db
+    const existing = await executor
       .select()
       .from(schema.services)
       .where(eq(schema.services.id, id))
@@ -105,10 +121,10 @@ export class ServiceService {
     }
 
     // 2. Check if service is referenced (warning, but allow update)
-    await this.checkServiceReferences(id, true);
+    await this.checkServiceReferences(id, true, tx);
 
     // 3. Update service
-    const [updated] = await this.db
+    const [updated] = await executor
       .update(schema.services)
       .set({
         ...dto,
@@ -236,9 +252,12 @@ export class ServiceService {
   async updateStatus(
     id: string,
     status: "active" | "inactive",
+    tx?: DrizzleTransaction,
   ): Promise<IService> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
     // 1. Check if service exists
-    const existing = await this.db
+    const existing = await executor
       .select()
       .from(schema.services)
       .where(eq(schema.services.id, id))
@@ -256,11 +275,11 @@ export class ServiceService {
 
     // 2. Check if service is referenced when deactivating (warning)
     if (status === "inactive") {
-      await this.checkServiceReferences(id, true);
+      await this.checkServiceReferences(id, true, tx);
     }
 
     // 3. Update status
-    const [updated] = await this.db
+    const [updated] = await executor
       .update(schema.services)
       .set({
         status,
@@ -275,9 +294,11 @@ export class ServiceService {
   /**
    * Soft delete service
    */
-  async remove(id: string): Promise<IService> {
+  async remove(id: string, tx?: DrizzleTransaction): Promise<IService> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
     // 1. Check if service exists
-    const existing = await this.db
+    const existing = await executor
       .select()
       .from(schema.services)
       .where(eq(schema.services.id, id))
@@ -299,10 +320,10 @@ export class ServiceService {
     }
 
     // 3. Check if service is referenced (not allowed to delete)
-    await this.checkServiceReferences(id, false);
+    await this.checkServiceReferences(id, false, tx);
 
     // 4. Soft delete
-    const [deleted] = await this.db
+    const [deleted] = await executor
       .update(schema.services)
       .set({
         status: "deleted",
@@ -317,9 +338,11 @@ export class ServiceService {
   /**
    * Restore deleted service
    */
-  async restore(id: string): Promise<IService> {
+  async restore(id: string, tx?: DrizzleTransaction): Promise<IService> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
     // 1. Check if service exists and is deleted
-    const existing = await this.db
+    const existing = await executor
       .select()
       .from(schema.services)
       .where(eq(schema.services.id, id))
@@ -336,7 +359,7 @@ export class ServiceService {
     }
 
     // 2. Restore to inactive status
-    const [restored] = await this.db
+    const [restored] = await executor
       .update(schema.services)
       .set({
         status: "inactive",
@@ -394,16 +417,19 @@ export class ServiceService {
   private async checkServiceReferences(
     serviceId: string,
     allowWarning: boolean,
+    tx?: DrizzleTransaction,
   ): Promise<void> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
     // Check service package references
-    const packageRefs = await this.db
+    const packageRefs = await executor
       .select()
       .from(schema.servicePackageItems)
       .where(eq(schema.servicePackageItems.serviceId, serviceId))
       .limit(1);
 
     // Check product references
-    const productRefs = await this.db
+    const productRefs = await executor
       .select()
       .from(schema.productItems)
       .where(

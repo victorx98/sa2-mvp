@@ -2,7 +2,11 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import { eq, and, lt, sql } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
-import { DrizzleDatabase } from "@shared/types/database.types";
+import type {
+  DrizzleDatabase,
+  DrizzleExecutor,
+  DrizzleTransaction,
+} from "@shared/types/database.types";
 import { EVENT_RETENTION_DAYS } from "../common/constants/contract.constants";
 import type { DomainEvent } from "@infrastructure/database/schema";
 
@@ -56,13 +60,14 @@ export class EventPublisherService {
    *
    * Called by: Scheduled task every 30 seconds
    */
-  async processPendingEvents(): Promise<number> {
+  async processPendingEvents(tx?: DrizzleTransaction): Promise<number> {
     const LOCK_KEY = 999999; // Advisory lock key for event publishing
     let publishedCount = 0;
+    const executor: DrizzleExecutor = tx ?? this.db;
 
     try {
       // 1. Acquire advisory lock (non-blocking)
-      const lockResult = await this.db.execute(
+      const lockResult = await executor.execute(
         sql`SELECT pg_try_advisory_lock(${LOCK_KEY}) as locked`,
       );
       const locked = (lockResult.rows[0] as any).locked;
@@ -74,7 +79,7 @@ export class EventPublisherService {
 
       try {
         // 2. Query pending events (limit to 100 per batch)
-        const pendingEvents = await this.db
+        const pendingEvents = await executor
           .select()
           .from(schema.domainEvents)
           .where(
@@ -98,7 +103,7 @@ export class EventPublisherService {
             await this.eventPublisher.publish(event);
 
             // Update status to published
-            await this.db
+            await executor
               .update(schema.domainEvents)
               .set({
                 status: "published",
@@ -117,7 +122,7 @@ export class EventPublisherService {
             const newStatus =
               newRetryCount >= event.maxRetries ? "failed" : "pending";
 
-            await this.db
+            await executor
               .update(schema.domainEvents)
               .set({
                 status: newStatus,
@@ -136,7 +141,7 @@ export class EventPublisherService {
         return publishedCount;
       } finally {
         // 4. Release advisory lock
-        await this.db.execute(sql`SELECT pg_advisory_unlock(${LOCK_KEY})`);
+        await executor.execute(sql`SELECT pg_advisory_unlock(${LOCK_KEY})`);
       }
     } catch (error) {
       this.logger.error(`Error processing pending events: ${error}`);
@@ -152,11 +157,12 @@ export class EventPublisherService {
    *
    * Called by: Manual admin action or scheduled task
    */
-  async retryFailedEvents(): Promise<number> {
+  async retryFailedEvents(tx?: DrizzleTransaction): Promise<number> {
     const twentyFourHoursAgo = new Date();
     twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+    const executor: DrizzleExecutor = tx ?? this.db;
 
-    const retriedEvents = await this.db
+    const retriedEvents = await executor
       .update(schema.domainEvents)
       .set({
         status: "pending",
@@ -183,11 +189,12 @@ export class EventPublisherService {
    *
    * Called by: Scheduled task daily at 2 AM
    */
-  async cleanupOldEvents(): Promise<number> {
+  async cleanupOldEvents(tx?: DrizzleTransaction): Promise<number> {
     const retentionDate = new Date();
     retentionDate.setDate(retentionDate.getDate() - EVENT_RETENTION_DAYS);
+    const executor: DrizzleExecutor = tx ?? this.db;
 
-    const deletedEvents = await this.db
+    const deletedEvents = await executor
       .delete(schema.domainEvents)
       .where(
         and(

@@ -8,17 +8,17 @@ import {
   MeetingProviderFactory,
   MeetingProviderType,
 } from "@core/meeting-providers";
+import type { MeetingProvider } from "@domains/services/session/interfaces/session.interface";
 import { SessionService } from "@domains/services/session/services/session.service";
 import { ContractService } from "@domains/contract/contract.service";
 import { BookSessionInput } from "./dto/book-session-input.dto";
 import { BookSessionOutput } from "./dto/book-session-output.dto";
-import {
-  UnauthorizedException,
-  InsufficientBalanceException,
-  TimeConflictException,
-} from "@shared/exceptions";
+import { InsufficientBalanceException, TimeConflictException } from "@shared/exceptions";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
-import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import type {
+  DrizzleDatabase,
+  DrizzleTransaction,
+} from "@shared/types/database.types";
 
 /**
  * Application Layer - Book Session Command
@@ -42,7 +42,7 @@ export class BookSessionCommand {
 
   constructor(
     @Inject(DATABASE_CONNECTION)
-    private readonly db: NodePgDatabase,
+    private readonly db: DrizzleDatabase,
     private readonly contractService: ContractService,
     private readonly sessionService: SessionService,
     private readonly calendarService: CalendarService,
@@ -72,7 +72,7 @@ export class BookSessionCommand {
     // Step 2-7: 在事务中执行（包括创建会议链接）
     let sessionResult;
     try {
-      sessionResult = await this.db.transaction(async (tx) => {
+      sessionResult = await this.db.transaction(async (tx: DrizzleTransaction) => {
         this.logger.debug(
           "Starting database transaction, including meeting creation",
         );
@@ -98,12 +98,15 @@ export class BookSessionCommand {
         }
 
         // Step 4: 创建服务预占
-        const hold = await this.contractService.createServiceHold({
-          contractId: input.contractId,
-          serviceId: input.serviceId,
-          sessionId: "temp_session_id", // 临时ID，稍后会更新
-          quantity: 1,
-        });
+        const hold = await this.contractService.createServiceHold(
+          {
+            contractId: input.contractId,
+            serviceId: input.serviceId,
+            sessionId: "temp_session_id", // 临时ID，稍后会更新
+            quantity: 1,
+          },
+          tx,
+        );
 
         // Step 5: 创建会议链接（在事务内，先创建）
         let meetingInfo: {
@@ -137,15 +140,19 @@ export class BookSessionCommand {
         }
 
         // Step 6: 创建会话记录（包含会议URL）
-        const session = await this.sessionService.createSession({
-          studentId: input.studentId,
-          mentorId: input.mentorId,
-          contractId: input.contractId,
-          scheduledStartTime: input.scheduledStartTime.toISOString(),
-          scheduledDuration: input.duration,
-          sessionName: input.topic,
-          meetingProvider: input.meetingProvider as any,
-        });
+        const session = await this.sessionService.createSession(
+          {
+            studentId: input.studentId,
+            mentorId: input.mentorId,
+            contractId: input.contractId,
+            scheduledStartTime: input.scheduledStartTime.toISOString(),
+            scheduledDuration: input.duration,
+            sessionName: input.topic,
+            meetingProvider: input.meetingProvider as MeetingProvider,
+          },
+          tx,
+        );
+        console.warn('session.id = ', session.id);
 
         // Step 7: 占用日历时段
         const calendarSlot = await this.calendarService.createOccupiedSlot({
@@ -155,7 +162,8 @@ export class BookSessionCommand {
           durationMinutes: input.duration,
           sessionId: session.id,
           slotType: SlotType.SESSION,
-        });
+        }, tx);
+        throw new Error('test');
 
         return {
           session,

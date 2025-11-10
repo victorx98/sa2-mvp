@@ -4,6 +4,10 @@ import { eq, and, isNull } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
+import type {
+  DrizzleExecutor,
+  DrizzleTransaction,
+} from "@shared/types/database.types";
 import axios, { AxiosInstance } from "axios";
 import { SessionRecordingManager } from "./session-recording-manager";
 import { SessionService } from "../services/session.service";
@@ -75,7 +79,10 @@ export class AISummaryService {
    * @param sessionId - Session ID
    * @returns Generated AI summary
    */
-  async generateSummary(sessionId: string): Promise<IAISummary> {
+  async generateSummary(
+    sessionId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<IAISummary> {
     this.logger.log(`Generating AI summary for session: ${sessionId}`);
 
     if (!this.apiKey) {
@@ -83,7 +90,7 @@ export class AISummaryService {
     }
 
     // Get session
-    const session = await this.sessionService.getSessionById(sessionId);
+    const session = await this.sessionService.getSessionById(sessionId, tx);
     if (!session) {
       throw new SessionNotFoundException("SESSION_NOT_FOUND");
     }
@@ -114,7 +121,7 @@ export class AISummaryService {
     const summary = await this.callAIAPI(session, combinedTranscript);
 
     // Save summary to database
-    await this.saveSummary(sessionId, summary);
+    await this.saveSummary(sessionId, summary, tx);
 
     this.logger.log(`AI summary generated and saved for session: ${sessionId}`);
 
@@ -320,8 +327,11 @@ Please respond ONLY with the JSON object, no additional text.`;
   private async saveSummary(
     sessionId: string,
     summary: IAISummary,
+    tx?: DrizzleTransaction,
   ): Promise<void> {
-    await this.db
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    await executor
       .update(schema.sessions)
       .set({
         aiSummary: summary as never,
@@ -357,8 +367,11 @@ Please respond ONLY with the JSON object, no additional text.`;
    * @param sessionId - Session ID
    * @returns Generated AI summary
    */
-  async regenerateSummary(sessionId: string): Promise<IAISummary> {
+  async regenerateSummary(
+    sessionId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<IAISummary> {
     this.logger.log(`Regenerating AI summary for session: ${sessionId}`);
-    return this.generateSummary(sessionId);
+    return this.generateSummary(sessionId, tx);
   }
 }
