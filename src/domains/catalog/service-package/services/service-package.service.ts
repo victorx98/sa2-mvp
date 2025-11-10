@@ -3,6 +3,10 @@ import { eq, and, or, like, ne, count, sql, inArray } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
+import type {
+  DrizzleExecutor,
+  DrizzleTransaction,
+} from "@shared/types/database.types";
 import {
   CatalogException,
   CatalogNotFoundException,
@@ -45,9 +49,12 @@ export class ServicePackageService {
   async create(
     dto: CreateServicePackageDto,
     userId: string,
+    tx?: DrizzleTransaction,
   ): Promise<IServicePackage> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
     // 1. Validate code uniqueness
-    const existingByCode = await this.db
+    const existingByCode = await executor
       .select()
       .from(schema.servicePackages)
       .where(eq(schema.servicePackages.code, dto.code))
@@ -59,13 +66,16 @@ export class ServicePackageService {
 
     // 2. Validate service existence and status if items provided
     if (dto.items && dto.items.length > 0) {
-      await this.validateServices(dto.items.map((item) => item.serviceId));
+      await this.validateServices(
+        dto.items.map((item) => item.serviceId),
+        tx,
+      );
     }
 
     // 3. Use transaction to ensure atomicity
-    const servicePackage = await this.db.transaction(async (tx) => {
+    const run = async (executor: DrizzleExecutor) => {
       // 3.1 Create service package
-      const [newPackage] = await tx
+      const [newPackage] = await executor
         .insert(schema.servicePackages)
         .values({
           code: dto.code,
@@ -80,7 +90,7 @@ export class ServicePackageService {
 
       // 3.2 Create service items if provided
       if (dto.items && dto.items.length > 0) {
-        await tx.insert(schema.servicePackageItems).values(
+        await executor.insert(schema.servicePackageItems).values(
           dto.items.map((item, index) => ({
             packageId: newPackage.id,
             serviceId: item.serviceId,
@@ -91,7 +101,11 @@ export class ServicePackageService {
       }
 
       return newPackage;
-    });
+    };
+
+    const servicePackage = tx
+      ? await run(tx)
+      : await this.db.transaction(async (transaction) => run(transaction));
 
     return this.mapToServicePackageInterface(servicePackage);
   }
@@ -102,9 +116,12 @@ export class ServicePackageService {
   async update(
     id: string,
     dto: UpdateServicePackageDto,
+    tx?: DrizzleTransaction,
   ): Promise<IServicePackage> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
     // 1. Check if service package exists
-    const existing = await this.db
+    const existing = await executor
       .select()
       .from(schema.servicePackages)
       .where(eq(schema.servicePackages.id, id))
@@ -121,10 +138,10 @@ export class ServicePackageService {
     }
 
     // 2. Check if referenced (warning, but allow update)
-    await this.checkPackageReferences(id, true);
+    await this.checkPackageReferences(id, true, tx);
 
     // 3. Update service package
-    const [updated] = await this.db
+    const [updated] = await executor
       .update(schema.servicePackages)
       .set({
         ...dto,
@@ -139,9 +156,15 @@ export class ServicePackageService {
   /**
    * Add service to service package
    */
-  async addService(packageId: string, dto: AddServiceDto): Promise<void> {
+  async addService(
+    packageId: string,
+    dto: AddServiceDto,
+    tx?: DrizzleTransaction,
+  ): Promise<void> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
     // 1. Check if service package exists
-    const pkg = await this.db
+    const pkg = await executor
       .select()
       .from(schema.servicePackages)
       .where(eq(schema.servicePackages.id, packageId))
@@ -156,10 +179,10 @@ export class ServicePackageService {
     }
 
     // 2. Validate service exists and status is active
-    await this.validateServices([dto.serviceId]);
+    await this.validateServices([dto.serviceId], tx);
 
     // 3. Check if service already exists in package
-    const existingItem = await this.db
+    const existingItem = await executor
       .select()
       .from(schema.servicePackageItems)
       .where(
@@ -175,7 +198,7 @@ export class ServicePackageService {
     }
 
     // 4. Add service item
-    await this.db.insert(schema.servicePackageItems).values({
+    await executor.insert(schema.servicePackageItems).values({
       packageId,
       serviceId: dto.serviceId,
       quantity: dto.quantity,
@@ -186,9 +209,15 @@ export class ServicePackageService {
   /**
    * Remove service from service package
    */
-  async removeService(packageId: string, serviceId: string): Promise<void> {
+  async removeService(
+    packageId: string,
+    serviceId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<void> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
     // 1. Check if service package exists
-    const pkg = await this.db
+    const pkg = await executor
       .select()
       .from(schema.servicePackages)
       .where(eq(schema.servicePackages.id, packageId))
@@ -199,7 +228,7 @@ export class ServicePackageService {
     }
 
     // 2. Service package must contain at least 1 service
-    const items = await this.db
+    const items = await executor
       .select()
       .from(schema.servicePackageItems)
       .where(eq(schema.servicePackageItems.packageId, packageId));
@@ -209,7 +238,7 @@ export class ServicePackageService {
     }
 
     // 3. Delete service item
-    await this.db
+    await executor
       .delete(schema.servicePackageItems)
       .where(
         and(
@@ -225,9 +254,12 @@ export class ServicePackageService {
   async updateItemSortOrder(
     packageId: string,
     items: Array<{ itemId: string; sortOrder: number }>,
+    tx?: DrizzleTransaction,
   ): Promise<void> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
     // 1. Check if service package exists
-    const pkg = await this.db
+    const pkg = await executor
       .select()
       .from(schema.servicePackages)
       .where(eq(schema.servicePackages.id, packageId))
@@ -238,9 +270,9 @@ export class ServicePackageService {
     }
 
     // 2. Batch update sort order with transaction protection
-    await this.db.transaction(async (tx) => {
+    const run = async (runner: DrizzleExecutor) => {
       for (const item of items) {
-        await tx
+        await runner
           .update(schema.servicePackageItems)
           .set({ sortOrder: item.sortOrder })
           .where(
@@ -250,6 +282,15 @@ export class ServicePackageService {
             ),
           );
       }
+    };
+
+    if (tx) {
+      await run(tx);
+      return;
+    }
+
+    await this.db.transaction(async (transaction) => {
+      await run(transaction);
     });
   }
 
@@ -402,9 +443,12 @@ export class ServicePackageService {
   async updateStatus(
     id: string,
     status: "active" | "inactive",
+    tx?: DrizzleTransaction,
   ): Promise<IServicePackage> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
     // 1. Check if service package exists
-    const existing = await this.db
+    const existing = await executor
       .select()
       .from(schema.servicePackages)
       .where(eq(schema.servicePackages.id, id))
@@ -422,11 +466,11 @@ export class ServicePackageService {
 
     // 2. Check if referenced when deactivating (warning)
     if (status === "inactive") {
-      await this.checkPackageReferences(id, true);
+      await this.checkPackageReferences(id, true, tx);
     }
 
     // 3. Update status
-    const [updated] = await this.db
+    const [updated] = await executor
       .update(schema.servicePackages)
       .set({
         status,
@@ -441,9 +485,11 @@ export class ServicePackageService {
   /**
    * Soft delete service package
    */
-  async remove(id: string): Promise<IServicePackage> {
+  async remove(id: string, tx?: DrizzleTransaction): Promise<IServicePackage> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
     // 1. Check if service package exists
-    const existing = await this.db
+    const existing = await executor
       .select()
       .from(schema.servicePackages)
       .where(eq(schema.servicePackages.id, id))
@@ -465,10 +511,10 @@ export class ServicePackageService {
     }
 
     // 3. Check if referenced (not allowed to delete)
-    await this.checkPackageReferences(id, false);
+    await this.checkPackageReferences(id, false, tx);
 
     // 4. Soft delete
-    const [deleted] = await this.db
+    const [deleted] = await executor
       .update(schema.servicePackages)
       .set({
         status: "deleted",
@@ -483,9 +529,11 @@ export class ServicePackageService {
   /**
    * Restore deleted service package
    */
-  async restore(id: string): Promise<IServicePackage> {
+  async restore(id: string, tx?: DrizzleTransaction): Promise<IServicePackage> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
     // 1. Check if service package exists and is deleted
-    const existing = await this.db
+    const existing = await executor
       .select()
       .from(schema.servicePackages)
       .where(eq(schema.servicePackages.id, id))
@@ -502,7 +550,7 @@ export class ServicePackageService {
     }
 
     // 2. Restore to inactive status
-    const [restored] = await this.db
+    const [restored] = await executor
       .update(schema.servicePackages)
       .set({
         status: "inactive",
@@ -552,13 +600,18 @@ export class ServicePackageService {
   /**
    * Validate services exist and status is active (optimized to avoid N+1 queries)
    */
-  private async validateServices(serviceIds: string[]): Promise<void> {
+  private async validateServices(
+    serviceIds: string[],
+    tx?: DrizzleTransaction,
+  ): Promise<void> {
     if (serviceIds.length === 0) {
       return;
     }
 
     // Batch fetch all services at once
-    const servicesData = await this.db
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    const servicesData = await executor
       .select()
       .from(schema.services)
       .where(inArray(schema.services.id, serviceIds));
@@ -586,9 +639,12 @@ export class ServicePackageService {
   private async checkPackageReferences(
     packageId: string,
     allowWarning: boolean,
+    tx?: DrizzleTransaction,
   ): Promise<void> {
     // Check product references
-    const productRefs = await this.db
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    const productRefs = await executor
       .select()
       .from(schema.productItems)
       .where(

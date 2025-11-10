@@ -2,7 +2,11 @@ import { Inject, Injectable } from "@nestjs/common";
 import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
-import { DrizzleDatabase } from "@shared/types/database.types";
+import type {
+  DrizzleDatabase,
+  DrizzleExecutor,
+  DrizzleTransaction,
+} from "@shared/types/database.types";
 import {
   ContractException,
   ContractNotFoundException,
@@ -29,7 +33,10 @@ export class ServiceLedgerService {
    * - Create consumption ledger entry
    * - Trigger automatically updates consumed_quantity
    */
-  async recordConsumption(dto: IRecordConsumptionDto): Promise<ServiceLedger> {
+  async recordConsumption(
+    dto: IRecordConsumptionDto,
+    tx?: DrizzleTransaction,
+  ): Promise<ServiceLedger> {
     const {
       contractId,
       studentId,
@@ -43,7 +50,9 @@ export class ServiceLedgerService {
     validateLedgerQuantity("consumption", -quantity);
 
     // 2. Find entitlement to get current balance
-    const entitlements = await this.db
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    const entitlements = await executor
       .select()
       .from(schema.contractServiceEntitlements)
       .where(
@@ -71,7 +80,7 @@ export class ServiceLedgerService {
     }
 
     // 3. Create ledger record (trigger will update consumed_quantity)
-    const [ledger] = await this.db
+    const [ledger] = await executor
       .insert(schema.serviceLedgers)
       .values({
         contractId,
@@ -95,7 +104,10 @@ export class ServiceLedgerService {
    * - Reason is required
    * - Create adjustment ledger entry
    */
-  async recordAdjustment(dto: IRecordAdjustmentDto): Promise<ServiceLedger> {
+  async recordAdjustment(
+    dto: IRecordAdjustmentDto,
+    tx?: DrizzleTransaction,
+  ): Promise<ServiceLedger> {
     const { contractId, studentId, serviceType, quantity, reason, createdBy } =
       dto;
 
@@ -105,7 +117,9 @@ export class ServiceLedgerService {
     }
 
     // 2. Find entitlement
-    const entitlements = await this.db
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    const entitlements = await executor
       .select()
       .from(schema.contractServiceEntitlements)
       .where(
@@ -128,7 +142,7 @@ export class ServiceLedgerService {
     );
 
     // 3. Create ledger record
-    const [ledger] = await this.db
+    const [ledger] = await executor
       .insert(schema.serviceLedgers)
       .values({
         contractId,

@@ -2,7 +2,11 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import { eq, and, lt, sql } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
-import { DrizzleDatabase } from "@shared/types/database.types";
+import type {
+  DrizzleDatabase,
+  DrizzleExecutor,
+  DrizzleTransaction,
+} from "@shared/types/database.types";
 import {
   ContractException,
   ContractNotFoundException,
@@ -120,7 +124,9 @@ export class ServiceLedgerArchiveService {
     serviceType: string | null,
     cutoffDate: Date,
     deleteAfterArchive: boolean,
+    tx?: DrizzleTransaction,
   ): Promise<number> {
+    const executor: DrizzleExecutor = tx ?? this.db;
     const conditions: any[] = [lt(schema.serviceLedgers.createdAt, cutoffDate)];
 
     if (contractId) {
@@ -133,7 +139,7 @@ export class ServiceLedgerArchiveService {
     }
 
     // 1. Select ledgers to archive
-    const ledgersToArchive = await this.db
+    const ledgersToArchive = await executor
       .select()
       .from(schema.serviceLedgers)
       .where(and(...conditions));
@@ -143,12 +149,12 @@ export class ServiceLedgerArchiveService {
     }
 
     // 2. Insert into archive table
-    await this.db.insert(schema.serviceLedgersArchive).values(ledgersToArchive);
+    await executor.insert(schema.serviceLedgersArchive).values(ledgersToArchive);
 
     // 3. Optionally delete from main table
     if (deleteAfterArchive) {
       const ledgerIds = ledgersToArchive.map((l) => l.id);
-      await this.db
+      await executor
         .delete(schema.serviceLedgers)
         .where(sql`${schema.serviceLedgers.id} = ANY(${ledgerIds}::uuid[])`);
     }
@@ -230,13 +236,16 @@ export class ServiceLedgerArchiveService {
    * - Scope: global (both null), service_type (contractId=null), or contract-specific
    * - Validates no duplicate policy exists for same scope
    */
-  async createPolicy(dto: {
+  async createPolicy(
+    dto: {
     contractId?: string;
     serviceType?: string;
     archiveAfterDays: number;
     deleteAfterArchive: boolean;
     createdBy: string;
-  }): Promise<ServiceLedgerArchivePolicy> {
+    },
+    tx?: DrizzleTransaction,
+  ): Promise<ServiceLedgerArchivePolicy> {
     const {
       contractId,
       serviceType,
@@ -275,7 +284,9 @@ export class ServiceLedgerArchiveService {
       );
     }
 
-    const existingPolicies = await this.db
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    const existingPolicies = await executor
       .select()
       .from(schema.serviceLedgerArchivePolicies)
       .where(and(...conditions));
@@ -293,7 +304,7 @@ export class ServiceLedgerArchiveService {
     }
 
     // 4. Create policy
-    const [newPolicy] = await this.db
+    const [newPolicy] = await executor
       .insert(schema.serviceLedgerArchivePolicies)
       .values({
         scope,
@@ -324,9 +335,12 @@ export class ServiceLedgerArchiveService {
       deleteAfterArchive?: boolean;
       isActive?: boolean;
     },
+    tx?: DrizzleTransaction,
   ): Promise<ServiceLedgerArchivePolicy> {
     // 1. Find policy
-    const [policy] = await this.db
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    const [policy] = await executor
       .select()
       .from(schema.serviceLedgerArchivePolicies)
       .where(eq(schema.serviceLedgerArchivePolicies.id, id))
@@ -345,7 +359,7 @@ export class ServiceLedgerArchiveService {
     }
 
     // 3. Update policy
-    const [updatedPolicy] = await this.db
+    const [updatedPolicy] = await executor
       .update(schema.serviceLedgerArchivePolicies)
       .set(updates)
       .where(eq(schema.serviceLedgerArchivePolicies.id, id))

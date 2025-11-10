@@ -3,6 +3,10 @@ import { eq, and, isNull } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
+import type {
+  DrizzleExecutor,
+  DrizzleTransaction,
+} from "@shared/types/database.types";
 import { IRecording } from "../interfaces/session.interface";
 import { SessionNotFoundException } from "../exceptions/session.exception";
 
@@ -31,13 +35,15 @@ export class SessionRecordingManager {
   async appendRecording(
     sessionId: string,
     data: Omit<IRecording, "sequence">,
+    tx?: DrizzleTransaction,
   ): Promise<IRecording[]> {
     this.logger.debug(
       `Appending recording to session: ${sessionId}, recordingId: ${data.recordingId}`,
     );
+    const executor: DrizzleExecutor = tx ?? this.db;
 
     // Get current session
-    const [session] = await this.db
+    const [session] = await executor
       .select()
       .from(schema.sessions)
       .where(
@@ -69,7 +75,7 @@ export class SessionRecordingManager {
     const updatedRecordings = [...currentRecordings, newRecording];
 
     // Update database
-    await this.db
+    await executor
       .update(schema.sessions)
       .set({
         recordings: updatedRecordings as never,
@@ -95,13 +101,15 @@ export class SessionRecordingManager {
     sessionId: string,
     recordingId: string,
     transcriptUrl: string,
+    tx?: DrizzleTransaction,
   ): Promise<IRecording[]> {
     this.logger.debug(
       `Updating transcript URL for recording: ${recordingId} in session: ${sessionId}`,
     );
+    const executor: DrizzleExecutor = tx ?? this.db;
 
     // Get current session
-    const [session] = await this.db
+    const [session] = await executor
       .select()
       .from(schema.sessions)
       .where(
@@ -144,7 +152,7 @@ export class SessionRecordingManager {
     }
 
     // Update database
-    await this.db
+    await executor
       .update(schema.sessions)
       .set({
         recordings: updatedRecordings as never,
