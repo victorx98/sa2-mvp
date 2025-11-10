@@ -163,7 +163,6 @@ export class BookSessionCommand {
           sessionId: session.id,
           slotType: SlotType.SESSION,
         }, tx);
-        throw new Error('test');
 
         return {
           session,
@@ -173,7 +172,7 @@ export class BookSessionCommand {
         };
       });
     } catch (error) {
-      this.logger.error(`事务回滚: ${error.message}`, error.stack);
+      this.logger.error(`Book session transaction rollback: ${error.message}`, error.stack);
       throw error;
     }
 
