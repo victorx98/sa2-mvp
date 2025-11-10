@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { CalendarService } from "@core/calendar";
 import {
   ResourceType,
@@ -19,6 +20,10 @@ import type {
   DrizzleDatabase,
   DrizzleTransaction,
 } from "@shared/types/database.types";
+import {
+  SessionBookedEvent,
+  SESSION_BOOKED_EVENT,
+} from "@shared/events/session-booked.event";
 
 /**
  * Application Layer - Book Session Command
@@ -47,6 +52,7 @@ export class BookSessionCommand {
     private readonly sessionService: SessionService,
     private readonly calendarService: CalendarService,
     private readonly meetingProviderFactory: MeetingProviderFactory,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -152,7 +158,6 @@ export class BookSessionCommand {
           },
           tx,
         );
-        console.warn('session.id = ', session.id);
 
         // Step 7: 占用日历时段
         const calendarSlot = await this.calendarService.createOccupiedSlot({
@@ -176,21 +181,29 @@ export class BookSessionCommand {
       throw error;
     }
 
-    return {
+    const bookResult: SessionBookedEvent = {
       sessionId: sessionResult.session.id,
       studentId: input.studentId,
       mentorId: input.mentorId,
-      contractId: input.contractId,
+      counselorId: input.counselorId,
       serviceId: input.serviceId,
-      scheduledStartTime: input.scheduledStartTime,
-      scheduledEndTime: input.scheduledEndTime,
-      duration: input.duration,
-      status: sessionResult.session.status,
-      meetingUrl: sessionResult.meetingInfo.meetingUrl,
-      meetingPassword: sessionResult.meetingInfo.password,
-      meetingProvider: sessionResult.meetingInfo.provider,
       calendarSlotId: sessionResult.calendarSlot.id,
       serviceHoldId: sessionResult.hold.id,
+      scheduledStartTime: input.scheduledStartTime.toISOString(),
+      scheduledEndTime: input.scheduledEndTime.toISOString(),
+      duration: input.duration,
+      meetingUrl: sessionResult.meetingInfo.meetingUrl,
+      meetingProvider: sessionResult.meetingInfo.provider,
+      meetingPassword: sessionResult.meetingInfo.password,
+    };
+
+    this.logger.debug(
+      `Emitting session booked event for session ${sessionResult.session.id}`,
+    );
+    this.eventEmitter.emit(SESSION_BOOKED_EVENT, bookResult);
+    return {
+      ...bookResult,
+      status: sessionResult.session.status,
     };
   }
 }

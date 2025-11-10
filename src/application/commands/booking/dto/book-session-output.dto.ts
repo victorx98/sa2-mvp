@@ -2,28 +2,8 @@
  * Application Layer - Book Session Output DTO
  * BookSessionCommand 的返回结果
  */
-export interface BookSessionOutput {
-  // 会话信息
-  sessionId: string;
-  studentId: string;
-  mentorId: string;
-  contractId: string;
-  serviceId: string;
+import { SessionBookedEvent } from "@shared/events/session-booked.event";
 
-  // 时间信息
-  scheduledStartTime: Date;
-  scheduledEndTime: Date;
-  duration: number;
-
-  // 会议信息
-  meetingUrl?: string;
-  meetingPassword?: string;
-  meetingProvider?: string;
-
-  // 状态
+export type BookSessionOutput = Omit<SessionBookedEvent, "counselorId"> & {
   status: string;
-
-  // 关联ID
-  calendarSlotId?: string;
-  serviceHoldId?: string;
-}
+};
