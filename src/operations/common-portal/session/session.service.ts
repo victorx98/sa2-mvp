@@ -59,10 +59,9 @@ export class SessionBffService {
     sessionId: string;
     studentId: string;
     mentorId: string;
-    contractId: string;
     serviceId: string;
-    scheduledStartTime: Date;
-    scheduledEndTime: Date;
+    scheduledStartTime: string;
+    scheduledEndTime: string;
     duration: number;
     status: string;
     meetingUrl?: string;
@@ -76,8 +75,8 @@ export class SessionBffService {
       name: "Session", // TODO: 从result获取name
       mentorId: result.mentorId,
       studentId: result.studentId,
-      startTime: result.scheduledStartTime.toISOString(),
-      endTime: result.scheduledEndTime.toISOString(),
+      startTime: result.scheduledStartTime,
+      endTime: result.scheduledEndTime,
       duration: result.duration,
       status: result.status,
       statusText: this.getStatusText(result.status),
