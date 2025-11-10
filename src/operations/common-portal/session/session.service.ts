@@ -38,7 +38,7 @@ export class SessionBffService {
       studentId: bookSessionDto.studentId,
       contractId: bookSessionDto.contractId,
       mentorId: bookSessionDto.mentorId,
-      serviceId: bookSessionDto.serviceId || "default-service-id", // TODO: 从合同获取默认服务ID
+      serviceType: bookSessionDto.serviceType || "session",
       scheduledStartTime: startTime,
       scheduledEndTime: endTime,
       duration: bookSessionDto.duration,

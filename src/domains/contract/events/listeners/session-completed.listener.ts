@@ -84,13 +84,15 @@ export class SessionCompletedListener implements OnModuleInit {
       });
 
       // Prepare consume service DTO(准备消费服务DTO)
+      // Mapping external event fields (sessionId, holdId) to Contract Domain DTO fields (relatedBookingId, relatedHoldId)
+      // This maintains DDD anti-corruption layer - Contract Domain uses generic terms not coupled to Session Domain
       const consumeDto = {
         contractId,
         studentId,
         serviceType: serviceType as ServiceType,
         quantity: 1, // Each completed session consumes 1 entitlement(每个已完成的会话消耗1个权利)
-        sessionId,
-        holdId, // Optional: if provided, the hold will be released(可选：如果提供，将释放预留)
+        relatedBookingId: sessionId, // Mapping: external sessionId -> internal relatedBookingId
+        relatedHoldId: holdId,       // Mapping: external holdId -> internal relatedHoldId
         createdBy: mentorId || "system",
       };
 

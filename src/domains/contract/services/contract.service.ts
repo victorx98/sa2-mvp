@@ -242,7 +242,7 @@ export class ContractService {
             });
           } else {
             entitlementMap.set(serviceType, {
-              serviceType,
+              serviceType: serviceType as ServiceType,
               totalQuantity: item.quantity,
               serviceSnapshot: item.service,
               originItems: [
@@ -274,7 +274,7 @@ export class ContractService {
               });
             } else {
               entitlementMap.set(serviceType, {
-                serviceType,
+                serviceType: serviceType as ServiceType,
                 totalQuantity: quantity,
                 serviceSnapshot: pkgItem.service,
                 originItems: [
@@ -337,7 +337,7 @@ export class ContractService {
    * - Release associated hold if provided(- 如果提供则释放相关的预留)
    */
   async consumeService(dto: ConsumeServiceDto): Promise<void> {
-    const { contractId, serviceType, quantity, sessionId, holdId, createdBy } =
+    const { contractId, serviceType, quantity, relatedBookingId, relatedHoldId, createdBy } =
       dto;
 
     await this.db.transaction(async (tx) => {
@@ -399,8 +399,8 @@ export class ContractService {
           type: "consumption",
           source: "booking_completed",
           balanceAfter: entitlement.availableQuantity - deductAmount,
-          relatedHoldId: holdId,
-          relatedBookingId: sessionId,
+          relatedHoldId: relatedHoldId,
+          relatedBookingId: relatedBookingId,
           createdBy,
         });
 
@@ -413,7 +413,7 @@ export class ContractService {
       }
 
       // 5. Release hold if provided(5. 如果提供则释放预留)
-      if (holdId) {
+      if (relatedHoldId) {
         await tx
           .update(schema.serviceHolds)
           .set({
@@ -421,7 +421,7 @@ export class ContractService {
             releaseReason: "completed",
             releasedAt: new Date(),
           })
-          .where(eq(schema.serviceHolds.id, holdId));
+          .where(eq(schema.serviceHolds.id, relatedHoldId));
       }
 
       // 6. Publish event(6. 发布事件)
@@ -433,7 +433,7 @@ export class ContractService {
           contractId,
           serviceType,
           quantity,
-          sessionId,
+          relatedBookingId,
         },
         status: "pending",
       });

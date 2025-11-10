@@ -765,12 +765,15 @@ export const productItems = pgTable('product_items', {
 | 3 | addService              | `addService(packageId: string, dto: AddServiceDto): Promise<void>`                                                       | 向服务包添加服务                                |
 | 4 | removeService           | `removeService(packageId: string, serviceId: string): Promise<void>`                                                     | 从服务包移除服务                                |
 | 5 | updateItemSortOrder     | `updateItemSortOrder(packageId: string, items: Array<{itemId: string; sortOrder: number}>): Promise<void>`              | 更新服务包中服务项排序顺序                      |
-| 6 | search                  | `search(filter: PackageFilterDto, pagination?: PaginationDto, sort?: SortDto): Promise<PaginatedResult<ServicePackage>>` | 分页查询服务包（默认排除deleted）              |
+| 6 | search                  | `search(filter: PackageFilterDto, pagination?: PaginationDto, sort?: SortDto): Promise<PaginatedResult<ServicePackage>>` | 分页查询服务包（默认排除deleted，支持查询active服务包）              |
 | 7 | findOne                 | `findOne(where: FindOneServicePackageDto): Promise<ServicePackageDetail \| null>`                                        | 根据条件查询单条服务包详情（支持id、code等字段组合，包含已删除）|
-| 8 | updateStatus            | `updateStatus(id: string, status: 'active' \| 'inactive'): Promise<ServicePackage>`                                      | 更新服务包状态（active/inactive）               |
-| 9 | remove                  | `remove(id: string): Promise<ServicePackage>`                                                                            | 逻辑删除服务包（设置status='deleted'，需检查本域引用）|
+| 8 | updateStatus            | `updateStatus(id: string, status: 'active' \| 'inactive'): Promise<ServicePackage>`                                      | 更新服务包状态（active/inactive，禁用时会检查product引用）               |
+| 9 | remove                  | `remove(id: string): Promise<ServicePackage>`                                                                            | 逻辑删除服务包（设置status='deleted'，需检查product引用，不检查package间引用）|
 | 10| restore                 | `restore(id: string): Promise<ServicePackage>`                                                                           | 恢复已删除的服务包（deleted → inactive）        |
 | 11| generateSnapshot        | `generateSnapshot(id: string): Promise<ServicePackageSnapshot>`                                                          | 生成服务包快照（展开服务，用于合同快照）        |
+
+**特殊说明：**
+- 查询可用服务包请使用 `search({ status: 'active' })`
 
 **实现位置：** `src/domains/catalog/service-package/services/service-package.service.ts`
 
@@ -1493,9 +1496,11 @@ interface ProductSnapshot {
 | 规则       | 说明                                                    | 错误代码                      |
 | ---------- | ------------------------------------------------------- | ----------------------------- |
 | 状态转换   | 支持 active ↔ inactive, active/inactive → deleted     | -                             |
-| 禁用检查   | 禁用时检查引用，允许禁用但给出警告                      | `PACKAGE_IN_USE_WARNING`    |
-| 删除检查   | 删除前检查引用，不允许删除被引用的服务包                | `PACKAGE_IN_USE`            |
+| 禁用检查   | 禁用时检查product引用，允许禁用但给出警告             | `PACKAGE_IN_USE_WARNING`    |
+| 删除检查   | 删除前检查product引用，不检查service_package_items引用 | `PACKAGE_IN_USE`            |
 | 状态约束   | 只能删除 `status != 'active'` 的服务包                | `PACKAGE_ACTIVE_CANNOT_DELETE` |
+
+**特殊说明：** ServicePackage 删除时不检查是否被其他 ServicePackage 引用（通过 service_package_items），这是设计决策，避免 package 嵌套引用带来的复杂性。
 
 #### 6.2.5 恢复规则
 
@@ -1519,7 +1524,7 @@ interface ProductSnapshot {
 
 | 规则       | 说明                                                | 错误代码                      |
 | ---------- | --------------------------------------------------- | ----------------------------- |
-| 状态检查   | 只能更新未发布过的草稿产品（publishedAt IS NULL）  | `PRODUCT_ALREADY_PUBLISHED` |
+| 状态检查   | 只能更新草稿状态的产品（status='draft'）  | `PRODUCT_NOT_DRAFT` |
 | 不可变字段 | `code` 创建后不可修改                             | `PRODUCT_FIELD_IMMUTABLE`   |
 | 价格验证   | 如果更新 `price`，必须大于 0                      | `INVALID_PRICE`             |
 | 货币验证   | 如果更新 `currency`，只能是 'USD' 或 'CNY'        | `INVALID_CURRENCY`          |
@@ -1569,8 +1574,8 @@ interface ProductSnapshot {
 
 | 规则     | 说明                                       | 错误代码                      |
 | -------- | ------------------------------------------ | ----------------------------- |
-| 状态检查 | 只能删除未发布过的草稿产品                 | `PRODUCT_ALREADY_PUBLISHED` |
-| 引用检查 | 不跨域检查合同引用（Contract有快照）       | -                             |
+| 状态检查 | 只能删除未发布过的草稿产品（publishedAt IS NULL） | `PRODUCT_ALREADY_PUBLISHED` |
+| 删除效果 | 设置status='deleted'，实现逻辑删除       | -                             |
 
 #### 6.3.9 恢复已删除产品规则
 
@@ -1578,6 +1583,8 @@ interface ProductSnapshot {
 | -------- | ----------------------------------------- | ------------------------ |
 | 状态检查 | 只能恢复 `status='deleted'` 的产品      | `PRODUCT_NOT_DELETED` |
 | 恢复目标 | 恢复后状态为 `draft`                    | -                        |
+
+**特殊说明：** 删除产品时不跨域检查合同引用，因为合同创建时已生成产品快照，独立存储。
 
 ### 6.4 错误代码清单
 
@@ -1685,12 +1692,12 @@ interface ProductSnapshot {
 
 
 状态说明：
-- draft: 草稿状态
-  - 未发布过（publishedAt IS NULL）：可编辑、可删除、可上架
-  - 从inactive恢复（publishedAt NOT NULL）：可编辑、可再次上架
+- draft: 草稿状态（status='draft'），可编辑、可删除、可上架
+  - 未发布过（publishedAt IS NULL）：正常草稿
+  - 从inactive恢复（publishedAt NOT NULL）：已发布过的产品恢复为草稿，可重新编辑和上架
 - active: 上架状态，对客户可见，不可编辑、不可删除
-- inactive: 下架状态，不可见，保留publishedAt，不可编辑
-- deleted: 逻辑删除状态，仅限未发布过的草稿，可恢复
+- inactive: 下架状态，不可见，保留publishedAt，不可编辑（需先revertToDraft）
+- deleted: 逻辑删除状态，可恢复为draft
 ```
 
 **状态转换规则：**
@@ -1698,7 +1705,7 @@ interface ProductSnapshot {
 | 当前状态    | 允许操作          | 目标状态    | 备注                                     |
 | ----------- | ----------------- | ----------- | ---------------------------------------- |
 | `draft`   | `publish()`     | `active`  | scheduledPublishAt仅作备忘录             |
-| `draft`   | `update()`      | `draft`   | 允许更新                                 |
+| `draft`   | `update()`      | `draft`   | 只能更新status='draft'的产品             |
 | `draft`   | `remove()`      | `deleted` | 仅限publishedAt IS NULL的草稿            |
 | `active`  | `unpublish()`   | `inactive`| 保留publishedAt                          |
 | `inactive`| `revertToDraft()`| `draft`   | 可再次编辑和上架                         |
@@ -1708,7 +1715,7 @@ interface ProductSnapshot {
 
 | 状态        | 可编辑  | 可删除                        | 对客户可见 | sortOrder管理 |
 | ----------- | ------- | ----------------------------- | ---------- | ------------- |
-| `draft`   | ✅      | ✅ (仅未发布过)               | ❌         | 不参与排序    |
+| `draft`   | ✅ status='draft' | ✅ (仅未发布过)       | ❌         | 不参与排序    |
 | `active`  | ❌      | ❌                            | ✅         | 参与排序      |
 | `inactive`| ❌      | ❌                            | ❌         | 不参与排序    |
 | `deleted` | ❌      | ❌                            | ❌         | 不参与排序    |

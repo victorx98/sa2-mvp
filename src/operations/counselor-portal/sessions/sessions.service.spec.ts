@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { CounselorSessionsService } from "./sessions.service";
 import { BookSessionCommand } from "@application/commands/booking/book-session.command";
 import { SessionService } from "@domains/services/session/services/session.service";
-import { ContractService } from "@domains/contract/contract.service";
+import { ContractService } from "@domains/contract/services/contract.service";
 import { BookSessionRequestDto } from "./dto/book-session-request.dto";
 
 describe("CounselorSessionsService (BFF Layer)", () => {

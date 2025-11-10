@@ -25,11 +25,11 @@ export class ConsumeServiceDto {
 
   @IsOptional()
   @IsUUID()
-  sessionId?: string;
+  relatedBookingId?: string;  // 关联预约ID（通用字段，适用于 session、class、mock_interview 等）
 
   @IsOptional()
   @IsUUID()
-  holdId?: string;
+  relatedHoldId?: string;      // 关联预占ID
 
   @IsNotEmpty()
   @IsString()

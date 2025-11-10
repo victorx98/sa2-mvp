@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { BookSessionCommand } from "@application/commands/booking/book-session.command";
 import { SessionService } from "@domains/services/session/services/session.service";
-import { ContractService } from "@domains/contract/contract.service";
+import { ContractService } from "@domains/contract/services/contract.service";
 import { BookSessionRequestDto } from "./dto/book-session-request.dto";
 import { SessionDetailResponseDto } from "./dto/session-detail-response.dto";
 

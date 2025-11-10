@@ -29,7 +29,7 @@ import { MeetingProviderModule } from "@core/meeting-providers";
 // Domain Services
 import { SessionModule } from "@domains/services/session/session.module";
 import { ContractModule } from "@domains/contract/contract.module";
-import { ContractService as MockContractService } from "@domains/contract/contract.service";
+import { ContractService as MockContractService } from "@domains/contract/services/contract.service";
 
 // Shared
 import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";

@@ -2,6 +2,8 @@
  * Application Layer - Book Session Input DTO
  * 用于 BookSessionCommand 的输入参数
  */
+import type { ServiceType } from "@domains/contract/common/types/enum.types";
+
 export interface BookSessionInput {
   // 预约发起人
   counselorId: string;
@@ -12,7 +14,7 @@ export interface BookSessionInput {
 
   // 合同和服务
   contractId: string;
-  serviceId: string;
+  serviceType: ServiceType; // 服务类型（枚举值，如：individual_session, gap_analysis）
 
   // 时间安排
   scheduledStartTime: Date;

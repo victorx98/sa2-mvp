@@ -4,6 +4,8 @@
  * Design pattern: Anti-Corruption Layer (DDD)
  */
 
+import { ServiceType } from "./enum.types";
+
 // ============================================================================
 // Product Snapshot Types
 // ============================================================================
@@ -165,7 +167,7 @@ export interface IGenerateContractNumberResult {
  * Used when deriving entitlements from product snapshot
  */
 export interface IEntitlementAggregation {
-  serviceType: string;
+  serviceType: ServiceType;
   totalQuantity: number;
   serviceSnapshot: IServiceSnapshot;
   originItems: IOriginItem[];
