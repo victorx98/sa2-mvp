@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import type { DrizzleTransaction } from "@shared/types/database.types";
 
 export interface IServiceBalanceMock {
   contractId: string;
@@ -43,6 +44,7 @@ export class ContractService {
 
   async createServiceHold(
     input: ICreateServiceHoldInput,
+    _tx?: DrizzleTransaction,
   ): Promise<IServiceHoldMock> {
     const now = new Date();
     return {

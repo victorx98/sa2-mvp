@@ -3,6 +3,10 @@ import { sql } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
+import type {
+  DrizzleExecutor,
+  DrizzleTransaction,
+} from "@shared/types/database.types";
 import {
   CalendarException,
   CalendarNotFoundException,
@@ -94,7 +98,7 @@ export class CalendarService {
   /**
    * Create an occupied time slot
    */
-  async createOccupiedSlot(dto: CreateSlotDto): Promise<ICalendarSlotEntity> {
+  async createOccupiedSlot(dto: CreateSlotDto, tx?: DrizzleTransaction): Promise<ICalendarSlotEntity> {
     // Validate duration
     if (dto.durationMinutes < 30 || dto.durationMinutes > 180) {
       throw new CalendarException("INVALID_DURATION");
@@ -124,7 +128,8 @@ export class CalendarService {
     const timeRangeStr = `[${startTime.toISOString()}, ${endTime.toISOString()})`;
 
     // Insert slot
-    const result = await this.db.execute(sql`
+    const executor: DrizzleExecutor = tx ?? this.db;
+    const result = await executor.execute(sql`
       INSERT INTO calendar_slots (
         resource_type,
         resource_id,

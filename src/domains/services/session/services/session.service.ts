@@ -3,6 +3,10 @@ import { eq, and, isNull } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
+import type {
+  DrizzleExecutor,
+  DrizzleTransaction,
+} from "@shared/types/database.types";
 import {
   SessionException,
   SessionNotFoundException,
@@ -28,7 +32,10 @@ export class SessionService {
   /**
    * Create session record (atomic operation, no meeting creation or calendar blocking)
    */
-  async createSession(dto: CreateSessionDto): Promise<ISessionEntity> {
+  async createSession(
+    dto: CreateSessionDto,
+    tx?: DrizzleTransaction,
+  ): Promise<ISessionEntity> {
     // 1. Validate start time is in the future
     const startTime = new Date(dto.scheduledStartTime);
     if (startTime <= new Date()) {
@@ -56,7 +63,9 @@ export class SessionService {
       MeetingProvider.FEISHU;
 
     // 6. Create session record
-    const [session] = await this.db
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    const [session] = await executor
       .insert(schema.sessions)
       .values({
         studentId: dto.studentId,
@@ -80,9 +89,10 @@ export class SessionService {
   async updateSession(
     sessionId: string,
     dto: UpdateSessionDto,
+    tx?: DrizzleTransaction,
   ): Promise<ISessionEntity> {
     // 1. Check if session exists and not deleted
-    const existing = await this.getSessionById(sessionId);
+    const existing = await this.getSessionById(sessionId, tx);
     if (!existing) {
       throw new SessionNotFoundException("SESSION_NOT_FOUND");
     }
@@ -132,7 +142,9 @@ export class SessionService {
     }
 
     // 6. Update session
-    const [updated] = await this.db
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    const [updated] = await executor
       .update(schema.sessions)
       .set(updateValues)
       .where(eq(schema.sessions.id, sessionId))
@@ -147,15 +159,18 @@ export class SessionService {
   async updateMeetingInfo(
     sessionId: string,
     info: MeetingInfoDto,
+    tx?: DrizzleTransaction,
   ): Promise<ISessionEntity> {
     // 1. Check if session exists
-    const existing = await this.getSessionById(sessionId);
+    const existing = await this.getSessionById(sessionId, tx);
     if (!existing) {
       throw new SessionNotFoundException("SESSION_NOT_FOUND");
     }
 
     // 2. Update meeting info
-    const [updated] = await this.db
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    const [updated] = await executor
       .update(schema.sessions)
       .set({
         meetingProvider: info.meetingProvider,
@@ -176,9 +191,10 @@ export class SessionService {
   async cancelSession(
     sessionId: string,
     cancelReason: string,
+    tx?: DrizzleTransaction,
   ): Promise<ISessionEntity> {
     // 1. Check if session exists
-    const existing = await this.getSessionById(sessionId);
+    const existing = await this.getSessionById(sessionId, tx);
     if (!existing) {
       throw new SessionNotFoundException("SESSION_NOT_FOUND");
     }
@@ -202,7 +218,9 @@ export class SessionService {
       : `[Cancelled] ${cancelReason}`;
 
     // 5. Update status to cancelled
-    const [updated] = await this.db
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    const [updated] = await executor
       .update(schema.sessions)
       .set({
         status: SessionStatus.CANCELLED,
@@ -217,7 +235,10 @@ export class SessionService {
   /**
    * Soft delete session (set deleted_at timestamp)
    */
-  async softDeleteSession(sessionId: string): Promise<ISessionEntity> {
+  async softDeleteSession(
+    sessionId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<ISessionEntity> {
     // 1. Check if session exists
     const existing = await this.getSessionById(sessionId);
     if (!existing) {
@@ -225,7 +246,9 @@ export class SessionService {
     }
 
     // 2. Soft delete
-    const [deleted] = await this.db
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    const [deleted] = await executor
       .update(schema.sessions)
       .set({
         deletedAt: new Date(),
@@ -239,8 +262,13 @@ export class SessionService {
   /**
    * Get session by ID (excludes soft deleted records)
    */
-  async getSessionById(sessionId: string): Promise<ISessionEntity | null> {
-    const [session] = await this.db
+  async getSessionById(
+    sessionId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<ISessionEntity | null> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    const [session] = await executor
       .select()
       .from(schema.sessions)
       .where(
@@ -259,8 +287,11 @@ export class SessionService {
    */
   async getSessionByMeetingId(
     meetingId: string,
+    tx?: DrizzleTransaction,
   ): Promise<ISessionEntity | null> {
-    const [session] = await this.db
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    const [session] = await executor
       .select()
       .from(schema.sessions)
       .where(

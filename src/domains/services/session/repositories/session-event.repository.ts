@@ -3,6 +3,10 @@ import { eq, and, desc, asc } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
+import type {
+  DrizzleExecutor,
+  DrizzleTransaction,
+} from "@shared/types/database.types";
 import { ISessionEventEntity } from "../interfaces/session-event.interface";
 
 /**
@@ -24,14 +28,19 @@ export class SessionEventRepository {
    * @param data - Event data
    * @returns Created event entity
    */
-  async create(data: {
-    sessionId: string;
-    provider: string;
-    eventType: string;
-    eventData: unknown;
-    occurredAt: Date;
-  }): Promise<ISessionEventEntity> {
-    const [event] = await this.db
+  async create(
+    data: {
+      sessionId: string;
+      provider: string;
+      eventType: string;
+      eventData: unknown;
+      occurredAt: Date;
+    },
+    tx?: DrizzleTransaction,
+  ): Promise<ISessionEventEntity> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    const [event] = await executor
       .insert(schema.sessionEvents)
       .values({
         sessionId: data.sessionId,
@@ -155,8 +164,13 @@ export class SessionEventRepository {
    *
    * @param sessionId - Session ID
    */
-  async deleteBySessionId(sessionId: string): Promise<void> {
-    await this.db
+  async deleteBySessionId(
+    sessionId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<void> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    await executor
       .delete(schema.sessionEvents)
       .where(eq(schema.sessionEvents.sessionId, sessionId));
   }
