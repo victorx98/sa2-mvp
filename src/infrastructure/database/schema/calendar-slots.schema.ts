@@ -7,23 +7,38 @@ import {
   pgEnum,
   index,
   customType,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
-// Resource type enum
-export const resourceTypeEnum = pgEnum("resource_type", [
+/**
+ * Calendar user type enum - represents user roles in the calendar system
+ * Note: Different from products.schema userTypeEnum (which is for product categories)
+ * Values: mentor, student, counselor
+ */
+export const calendarUserTypeEnum = pgEnum("calendar_user_type", [
   "mentor",
   "student",
-  "room",
+  "counselor",
 ]);
 
-// Slot type enum
-export const slotTypeEnum = pgEnum("slot_type", ["session", "blocked"]);
+/**
+ * Slot type enum - represents the type of time slot
+ * Values: session, class_session
+ */
+export const slotTypeEnum = pgEnum("slot_type", ["session", "class_session"]);
 
-// Slot status enum
-export const slotStatusEnum = pgEnum("slot_status", ["occupied", "cancelled"]);
+/**
+ * Slot status enum - represents the booking status of a slot
+ * Values: booked, cancelled
+ */
+export const slotStatusEnum = pgEnum("slot_status", ["booked", "cancelled"]);
 
-// PostgreSQL TSTZRANGE custom type
-// Note: Drizzle doesn't natively support TSTZRANGE, so we use a custom type
+/**
+ * PostgreSQL TSTZRANGE custom type
+ * Note: Drizzle doesn't natively support TSTZRANGE, so we use a custom type
+ * TSTZRANGE is a PostgreSQL range type for time zones
+ */
 const tstzrange = customType<{
   data: { start: Date; end: Date };
   driverData: string;
@@ -48,81 +63,155 @@ const tstzrange = customType<{
   },
 });
 
+/**
+ * Calendar slots table schema
+ * Represents time slots in users' calendars
+ * 
+ * Key design:
+ * - Uses PostgreSQL EXCLUDE constraint with GIST index to prevent overlapping bookings
+ * - EXCLUDE constraint: (user_id WITH =, time_range WITH &&) WHERE (status = 'booked')
+ * - user_type is a denormalized field for query optimization, not part of the constraint
+ * - Each user_id has unique identity, no need to include user_type in constraint
+ */
 export const calendarSlots = pgTable(
   "calendar_slots",
   {
+    /**
+     * Primary key (UUID)
+     */
     id: uuid("id").defaultRandom().primaryKey(),
 
-    // Resource identification
-    resourceType: resourceTypeEnum("resource_type").notNull(),
-    resourceId: uuid("resource_id").notNull(),
+    /**
+     * User identification
+     * Foreign key to users table
+     */
+    userId: uuid("user_id").notNull(),
 
-    // Time range (PostgreSQL TSTZRANGE type)
-    // Note: Use start_time and end_time for Drizzle queries,
-    // but time_range column will be created in the database
+    /**
+     * User type (mentor/student/counselor)
+     * Denormalized field for query optimization
+     * Each user_id has unique identity in the system
+     */
+    userType: calendarUserTypeEnum("calendar_user_type").notNull(),
+
+    /**
+     * Time range (PostgreSQL TSTZRANGE type)
+     * Represents half-open interval [start, end)
+     * Adjacent slots like [10:00,10:30) and [10:30,11:00) do not overlap
+     */
     timeRange: tstzrange("time_range").notNull(),
 
-    // Duration in minutes (for convenience, calculated from time_range)
+    /**
+     * Duration in minutes (for convenience, calculated from time_range)
+     * Constraint: 30-180 minutes
+     */
     durationMinutes: integer("duration_minutes").notNull(),
 
-    // Associated session (nullable, only for session type slots)
-    sessionId: uuid("session_id"), // No FK constraint per design decision
+    /**
+     * Associated session ID (nullable)
+     * Links this slot to a session record
+     */
+    sessionId: uuid("session_id"),
 
-    // Slot type
+    /**
+     * Slot type (session/class_session)
+     */
     slotType: slotTypeEnum("slot_type").notNull(),
 
-    // Status
-    status: slotStatusEnum("status").notNull().default("occupied"),
+    /**
+     * Booking status (booked/cancelled)
+     * Default: booked
+     * Only 'booked' slots trigger the EXCLUDE constraint
+     */
+    status: slotStatusEnum("slot_status").notNull().default("booked"),
 
-    // Reason for blocking or cancellation
+    /**
+     * Reason or remarks (for blocking or cancellation)
+     * Max 255 characters
+     */
     reason: varchar("reason", { length: 255 }),
 
-    // Audit fields
+    /**
+     * Audit: creation timestamp
+     */
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+
+    /**
+     * Audit: last update timestamp
+     */
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .notNull()
       .$onUpdate(() => new Date()),
   },
   (table) => ({
-    // Composite index for resource queries
-    resourceIdx: index("idx_calendar_resource").on(
-      table.resourceType,
-      table.resourceId,
-      table.status,
-    ),
-    // Session index
+    /**
+     * Index for user-based queries
+     * Searches by user_id and user_type
+     */
+    userIdx: index("idx_calendar_user").on(table.userId, table.userType),
+
+    /**
+     * Session index for joining with sessions table
+     */
     sessionIdx: index("idx_calendar_session").on(table.sessionId),
-    // Note: GIST index and EXCLUDE constraint need to be added manually via migration
-    // See migration file for details
+
+    /**
+     * Check constraints for enum values
+     * Ensures data integrity at database level
+     */
+    userTypeCheck: check("user_type_check", sql`calendar_user_type IN ('mentor', 'student', 'counselor')`),
+    slotTypeCheck: check("slot_type_check", sql`slot_type IN ('session', 'class_session')`),
+    statusCheck: check("status_check", sql`slot_status IN ('booked', 'cancelled')`),
+    durationCheck: check("duration_check", sql`duration_minutes >= 30 AND duration_minutes <= 180`),
+
+    /**
+     * Note: GIST index and EXCLUDE constraint are created via migration
+     * See migration file for details on:
+     * - GIST index for time_range overlap detection
+     * - EXCLUDE constraint for preventing overlapping bookings
+     */
   }),
 );
 
-// Type inference
+/**
+ * Type inference for database operations
+ */
 export type CalendarSlot = typeof calendarSlots.$inferSelect;
 export type InsertCalendarSlot = typeof calendarSlots.$inferInsert;
 
-// Helper type for time range
+/**
+ * Helper type for time range
+ */
 export interface ITimeRange {
   start: Date;
   end: Date;
 }
 
-// Note: After running drizzle-kit generate, you need to manually add to the migration:
-//
-// -- Create GIST index for time_range overlap detection
-// CREATE INDEX idx_calendar_time_range ON calendar_slots USING GIST (
-//   resource_type,
-//   resource_id,
-//   time_range
-// );
-//
-// -- Add EXCLUDE constraint to prevent overlapping time slots
-// ALTER TABLE calendar_slots ADD CONSTRAINT calendar_slots_no_overlap
-// EXCLUDE USING GIST (
-//   resource_type WITH =,
-//   resource_id WITH =,
-//   time_range WITH &&
-// ) WHERE (status = 'occupied');
+/**
+ * IMPORTANT: GIST Index and EXCLUDE Constraint Configuration
+ * 
+ * These constraints are defined in the Drizzle migration file:
+ * @see src/infrastructure/database/migrations/0004_add_calendar_constraints.sql
+ * 
+ * The migration includes:
+ * 1. CHECK constraints for enums (user_type, slot_type, status)
+ * 2. CHECK constraint for duration (30-180 minutes)
+ * 3. GIST index for time_range overlap detection
+ * 4. EXCLUDE constraint to prevent overlapping bookings for the same user:
+ *    - Only user_id + time_range are in the constraint (not user_type)
+ *    - Reason: Each user_id has unique identity, user_type is denormalized
+ *    - Applies only to status = 'booked' slots
+ *    - Cancelled slots do not participate in overlap detection
+ * 5. Foreign key constraints to users and sessions tables
+ * 
+ * To execute the migration:
+ * 1. Make sure your database schema matches this table definition
+ * 2. Run: npm run db:migrate
+ *    or: drizzle-kit migrate
+ * 
+ * The migration uses "NOT VALID" constraints to ensure compatibility with
+ * existing data, and then validates each constraint after creation.
+ */

@@ -1,5 +1,12 @@
-CREATE TYPE "public"."notification_status" AS ENUM('pending', 'sent', 'failed', 'cancelled');--> statement-breakpoint
-CREATE TYPE "public"."notification_type" AS ENUM('email', 'feishu_bot');--> statement-breakpoint
+-- Create notification_status enum with idempotent guard
+DO $$ BEGIN
+  CREATE TYPE "public"."notification_status" AS ENUM('pending', 'sent', 'failed', 'cancelled');
+EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+
+-- Create notification_type enum with idempotent guard
+DO $$ BEGIN
+  CREATE TYPE "public"."notification_type" AS ENUM('email', 'feishu_bot');
+EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
 CREATE TABLE "notification_queue" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"session_id" uuid NOT NULL,

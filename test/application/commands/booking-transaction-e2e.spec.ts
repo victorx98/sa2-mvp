@@ -70,7 +70,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         // 按照依赖顺序删除
         await db
           .delete(schema.calendarSlots)
-          .where(eq(schema.calendarSlots.resourceId, testIds.mentor));
+          .where(eq(schema.calendarSlots.userId, testIds.mentor));
 
         await db
           .delete(schema.sessions)
@@ -115,7 +115,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
       const calendarSlotsBefore = await db
         .select()
         .from(schema.calendarSlots)
-        .where(eq(schema.calendarSlots.resourceId, testIds.mentor));
+        .where(eq(schema.calendarSlots.userId, testIds.mentor));
 
       expect(calendarSlotsBefore).toHaveLength(0);
       console.log("✓ Verified: No calendar slots exist before booking");
@@ -268,7 +268,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
       const calendarSlotsBefore = await db
         .select()
         .from(schema.calendarSlots)
-        .where(eq(schema.calendarSlots.resourceId, testInput.mentorId));
+        .where(eq(schema.calendarSlots.userId, testInput.mentorId));
 
       expect(calendarSlotsBefore).toHaveLength(0);
       console.log("✓ Verified: No calendar slots exist before failed booking");
@@ -291,7 +291,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
       const calendarSlotsAfter = await db
         .select()
         .from(schema.calendarSlots)
-        .where(eq(schema.calendarSlots.resourceId, testInput.mentorId));
+        .where(eq(schema.calendarSlots.userId, testInput.mentorId));
 
       expect(calendarSlotsAfter).toHaveLength(0);
       console.log(
@@ -367,7 +367,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
       // 清理测试数据
       await db
         .delete(schema.calendarSlots)
-        .where(eq(schema.calendarSlots.resourceId, firstMentorId));
+        .where(eq(schema.calendarSlots.userId, firstMentorId));
       await db
         .delete(schema.sessions)
         .where(eq(schema.sessions.mentorId, firstMentorId));

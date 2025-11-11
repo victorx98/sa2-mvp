@@ -1,13 +1,52 @@
-CREATE TYPE "public"."billing_mode" AS ENUM('one_time', 'per_session', 'staged', 'package');--> statement-breakpoint
-CREATE TYPE "public"."service_status" AS ENUM('active', 'inactive', 'deleted');--> statement-breakpoint
-CREATE TYPE "public"."service_type" AS ENUM('gap_analysis', 'resume_review', 'recommendation_letter', 'recommendation_letter_online', 'session', 'mock_interview', 'class_session', 'internal_referral', 'contract_signing_assistance', 'proxy_application', 'other_service');--> statement-breakpoint
-CREATE TYPE "public"."service_unit" AS ENUM('times', 'hours');--> statement-breakpoint
-CREATE TYPE "public"."currency" AS ENUM('USD', 'CNY', 'EUR', 'GBP', 'JPY');--> statement-breakpoint
-CREATE TYPE "public"."product_status" AS ENUM('draft', 'active', 'inactive', 'deleted');--> statement-breakpoint
-CREATE TYPE "public"."user_type" AS ENUM('undergraduate', 'graduate', 'working');--> statement-breakpoint
-CREATE TYPE "public"."product_item_type" AS ENUM('service', 'service_package');--> statement-breakpoint
-CREATE TYPE "public"."meeting_provider" AS ENUM('feishu', 'zoom');--> statement-breakpoint
-CREATE TYPE "public"."session_status" AS ENUM('scheduled', 'started', 'completed', 'cancelled');--> statement-breakpoint
+-- Create billing_mode enum with idempotent guard
+DO $$ BEGIN
+  CREATE TYPE "public"."billing_mode" AS ENUM('one_time', 'per_session', 'staged', 'package');
+EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+
+-- Create service_status enum with idempotent guard
+DO $$ BEGIN
+  CREATE TYPE "public"."service_status" AS ENUM('active', 'inactive', 'deleted');
+EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+
+-- Create service_type enum with idempotent guard
+DO $$ BEGIN
+  CREATE TYPE "public"."service_type" AS ENUM('gap_analysis', 'resume_review', 'recommendation_letter', 'recommendation_letter_online', 'session', 'mock_interview', 'class_session', 'internal_referral', 'contract_signing_assistance', 'proxy_application', 'other_service');
+EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+
+-- Create service_unit enum with idempotent guard
+DO $$ BEGIN
+  CREATE TYPE "public"."service_unit" AS ENUM('times', 'hours');
+EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+
+-- Create currency enum with idempotent guard
+DO $$ BEGIN
+  CREATE TYPE "public"."currency" AS ENUM('USD', 'CNY', 'EUR', 'GBP', 'JPY');
+EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+
+-- Create product_status enum with idempotent guard
+DO $$ BEGIN
+  CREATE TYPE "public"."product_status" AS ENUM('draft', 'active', 'inactive', 'deleted');
+EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+
+-- Create user_type enum with idempotent guard
+DO $$ BEGIN
+  CREATE TYPE "public"."user_type" AS ENUM('undergraduate', 'graduate', 'working');
+EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+
+-- Create product_item_type enum with idempotent guard
+DO $$ BEGIN
+  CREATE TYPE "public"."product_item_type" AS ENUM('service', 'service_package');
+EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+
+-- Create meeting_provider enum with idempotent guard
+DO $$ BEGIN
+  CREATE TYPE "public"."meeting_provider" AS ENUM('feishu', 'zoom');
+EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+
+-- Create session_status enum with idempotent guard
+DO $$ BEGIN
+  CREATE TYPE "public"."session_status" AS ENUM('scheduled', 'started', 'completed', 'cancelled');
+EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
 CREATE TABLE "user" (
 	"id" varchar(32) PRIMARY KEY NOT NULL,
 	"gender" varchar(10),

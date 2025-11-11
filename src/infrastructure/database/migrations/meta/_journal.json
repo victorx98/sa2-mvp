@@ -13,7 +13,7 @@
       "idx": 1,
       "version": "7",
       "when": 1762427317939,
-      "tag": "0001_slim_plazm",
+      "tag": "0001_add_catalog_indexes",
       "breakpoints": true
     },
     {
@@ -27,7 +27,14 @@
       "idx": 3,
       "version": "7",
       "when": 1762504785846,
-      "tag": "0000_new_maelstrom",
+      "tag": "0003_create_contract_domain",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1762768328194,
+      "tag": "0004_certain_anita_blake",
       "breakpoints": true
     }
   ]

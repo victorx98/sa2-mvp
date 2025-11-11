@@ -15,7 +15,7 @@ import {
   SessionStatus,
 } from "@domains/services/session/interfaces/session.interface";
 import {
-  ResourceType,
+  UserType,
   SlotType,
 } from "@core/calendar/interfaces/calendar-slot.interface";
 
@@ -51,8 +51,8 @@ describe("Session Creation Flow (e2e)", () => {
         {
           provide: CalendarService,
           useValue: {
-            isSlotAvailable: jest.fn(),
-            createOccupiedSlot: jest.fn(),
+            createSlotDirect: jest.fn(),
+            updateSlotSessionId: jest.fn(),
           },
         },
         {
@@ -162,13 +162,23 @@ describe("Session Creation Flow (e2e)", () => {
         mockUpdatedSession,
       );
 
-      // Step 5: Occupy calendar slot
-      (calendarService.createOccupiedSlot as jest.Mock).mockResolvedValue({
+      // Step 5: Create calendar slot directly (with atomic constraint)
+      (calendarService.createSlotDirect as jest.Mock).mockResolvedValue({
         id: "slot-001",
-        resourceType: ResourceType.MENTOR,
-        resourceId: createDto.mentorId,
+        userId: createDto.mentorId,
+        userType: UserType.MENTOR,
         startTime: new Date(createDto.scheduledStartTime),
-        duration: 60,
+        durationMinutes: 60,
+      });
+
+      // Step 5b: Update slot with session ID
+      (calendarService.updateSlotSessionId as jest.Mock).mockResolvedValue({
+        id: "slot-001",
+        userId: createDto.mentorId,
+        userType: UserType.MENTOR,
+        startTime: new Date(createDto.scheduledStartTime),
+        durationMinutes: 60,
+        sessionId: "session-001",
       });
 
       // Step 6: Enqueue notifications
@@ -183,15 +193,17 @@ describe("Session Creation Flow (e2e)", () => {
 
       // Act
       // Simulate BFF layer orchestration
-      // Step 1: Check calendar availability
-      const isAvailable = await calendarService.isSlotAvailable(
-        ResourceType.MENTOR,
-        createDto.mentorId,
-        new Date(createDto.scheduledStartTime),
-        createDto.scheduledDuration,
-      );
+      // Step 1: Create calendar slot directly (atomic with DB constraint)
+      const calendarSlot = await calendarService.createSlotDirect({
+        userId: createDto.mentorId,
+        userType: UserType.MENTOR,
+        startTime: createDto.scheduledStartTime,
+        durationMinutes: createDto.scheduledDuration,
+        slotType: SlotType.SESSION,
+      });
 
-      expect(isAvailable).toBe(true);
+      expect(calendarSlot).toBeDefined();
+      expect(calendarSlot.userId).toBe(createDto.mentorId);
 
       // Step 2: Create session
       const session = await sessionService.createSession(createDto);
@@ -227,15 +239,11 @@ describe("Session Creation Flow (e2e)", () => {
 
       expect(updatedSession.meetingUrl).toBe(mockMeetingInfo.meetingUrl);
 
-      // Step 5: Occupy calendar
-      await calendarService.createOccupiedSlot({
-        resourceType: ResourceType.MENTOR,
-        resourceId: createDto.mentorId,
-        startTime: new Date(createDto.scheduledStartTime).toISOString(),
-        durationMinutes: createDto.scheduledDuration,
-        sessionId: session.id,
-        slotType: SlotType.SESSION,
-      });
+      // Step 5: Update calendar slot with session ID
+      await calendarService.updateSlotSessionId(
+        calendarSlot.id,
+        session.id,
+      );
 
       // Step 6: Enqueue notifications
       const scheduledTime = new Date(createDto.scheduledStartTime);
@@ -275,7 +283,7 @@ describe("Session Creation Flow (e2e)", () => {
       expect(sessionService.createSession).toHaveBeenCalledTimes(1);
       expect(mockMeetingProvider.createMeeting).toHaveBeenCalledTimes(1);
       expect(sessionService.updateMeetingInfo).toHaveBeenCalledTimes(1);
-      expect(calendarService.createOccupiedSlot).toHaveBeenCalledTimes(1);
+      expect(calendarService.updateSlotSessionId).toHaveBeenCalledTimes(1);
       expect(notificationQueueService.enqueue).toHaveBeenCalledTimes(2);
       expect(notificationService.sendSessionCreatedEmail).toHaveBeenCalledTimes(
         1,
@@ -294,17 +302,18 @@ describe("Session Creation Flow (e2e)", () => {
         meetingProvider: MeetingProvider.FEISHU,
       };
 
-      // Calendar is not available
-      (calendarService.isSlotAvailable as jest.Mock).mockResolvedValue(false);
+      // Calendar slot creation fails due to conflict
+      (calendarService.createSlotDirect as jest.Mock).mockResolvedValue(null);
 
-      const isAvailable = await calendarService.isSlotAvailable(
-        ResourceType.MENTOR,
-        createDto.mentorId,
-        new Date(createDto.scheduledStartTime),
-        createDto.scheduledDuration,
-      );
+      const calendarSlot = await calendarService.createSlotDirect({
+        userId: createDto.mentorId,
+        userType: UserType.MENTOR,
+        startTime: createDto.scheduledStartTime,
+        durationMinutes: createDto.scheduledDuration,
+        slotType: SlotType.SESSION,
+      });
 
-      expect(isAvailable).toBe(false);
+      expect(calendarSlot).toBeNull();
 
       // Should not proceed with session creation
       expect(sessionService.createSession).not.toHaveBeenCalled();
@@ -329,7 +338,11 @@ describe("Session Creation Flow (e2e)", () => {
         status: SessionStatus.SCHEDULED,
       };
 
-      (calendarService.isSlotAvailable as jest.Mock).mockResolvedValue(true);
+      (calendarService.createSlotDirect as jest.Mock).mockResolvedValue({
+        id: "slot-001",
+        userId: createDto.mentorId,
+        userType: UserType.MENTOR,
+      });
       (sessionService.createSession as jest.Mock).mockResolvedValue(
         mockSession,
       );
@@ -339,12 +352,13 @@ describe("Session Creation Flow (e2e)", () => {
         new Error("Meeting API error"),
       );
 
-      await calendarService.isSlotAvailable(
-        ResourceType.MENTOR,
-        createDto.mentorId,
-        new Date(createDto.scheduledStartTime),
-        createDto.scheduledDuration,
-      );
+      const calendarSlot = await calendarService.createSlotDirect({
+        userId: createDto.mentorId,
+        userType: UserType.MENTOR,
+        startTime: createDto.scheduledStartTime,
+        durationMinutes: createDto.scheduledDuration,
+        slotType: SlotType.SESSION,
+      });
 
       await sessionService.createSession(createDto);
 

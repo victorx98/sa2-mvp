@@ -1,45 +1,50 @@
-// Resource type enum
-export enum ResourceType {
+/**
+ * User type enum - represents the role of users in the calendar system
+ */
+export enum UserType {
   MENTOR = "mentor",
   STUDENT = "student",
-  ROOM = "room",
+  COUNSELOR = "counselor",
 }
 
-// Slot type enum
+/**
+ * Slot type enum - represents the type of time slot
+ */
 export enum SlotType {
   SESSION = "session",
-  BLOCKED = "blocked",
+  CLASS_SESSION = "class_session",
 }
 
-// Slot status enum
+/**
+ * Slot status enum - represents the booking status of a slot
+ */
 export enum SlotStatus {
-  OCCUPIED = "occupied",
+  BOOKED = "booked",
   CANCELLED = "cancelled",
 }
 
-// Time range structure
+/**
+ * Time range structure for representing start and end times
+ */
 export interface ITimeRange {
-  start: Date;
-  end: Date;
+  start: Date; // Start time
+  end: Date; // End time
 }
 
-// Calendar slot entity interface (matches database table)
+/**
+ * Calendar slot entity interface - matches the database table structure
+ * Represents a time slot in a user's calendar
+ */
 export interface ICalendarSlotEntity {
   id: string; // UUID primary key
-  resourceType: ResourceType; // Resource type
-  resourceId: string; // Resource UUID
+  userId: string; // User ID (UUID)
+  userType: UserType; // User type (mentor/student/counselor)
   timeRange: ITimeRange; // Time range (PostgreSQL TSTZRANGE)
-  durationMinutes: number; // Duration in minutes
+  durationMinutes: number; // Duration in minutes (30-180)
   sessionId: string | null; // Associated session ID (nullable)
-  slotType: SlotType; // Slot type
-  status: SlotStatus; // Slot status
-  reason: string | null; // Reason for blocking/cancellation
+  slotType: SlotType; // Slot type (session/class_session)
+  status: SlotStatus; // Slot status (booked/cancelled)
+  reason: string | null; // Reason for blocking or cancellation
   createdAt: Date; // Created timestamp
   updatedAt: Date; // Updated timestamp
-}
-
-// Helper interface for availability check result
-export interface IAvailabilityResult {
-  available: boolean;
-  conflictingSlots?: ICalendarSlotEntity[];
 }
