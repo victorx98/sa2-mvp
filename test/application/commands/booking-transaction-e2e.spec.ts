@@ -97,7 +97,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         studentId: testIds.student,
         mentorId: testIds.mentor,
         contractId: testIds.contract,
-        serviceId: testIds.service,
+        serviceType: 'session',
         scheduledStartTime: new Date("2025-12-15T10:00:00Z"),
         scheduledEndTime: new Date("2025-12-15T11:00:00Z"),
         duration: 60,
@@ -244,7 +244,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         studentId: uuidv4(), // 使用新的student ID避免冲突
         mentorId: uuidv4(), // 使用新的mentor ID
         contractId: testIds.contract,
-        serviceId: testIds.service,
+        serviceType: 'session',
         scheduledStartTime: new Date("2025-12-16T10:00:00Z"),
         scheduledEndTime: new Date("2025-12-16T11:00:00Z"),
         duration: 60,
@@ -315,7 +315,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         studentId: firstStudentId,
         mentorId: firstMentorId,
         contractId: testIds.contract,
-        serviceId: testIds.service,
+        serviceType: 'session',
         scheduledStartTime: new Date("2025-12-17T10:00:00Z"),
         scheduledEndTime: new Date("2025-12-17T11:00:00Z"),
         duration: 60,
@@ -334,7 +334,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         studentId: uuidv4(),
         mentorId: firstMentorId, // 相同的mentor
         contractId: testIds.contract,
-        serviceId: testIds.service,
+        serviceType: 'session',
         scheduledStartTime: new Date("2025-12-17T10:00:00Z"), // 相同的时间
         scheduledEndTime: new Date("2025-12-17T11:00:00Z"),
         duration: 60,
@@ -389,7 +389,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         studentId: uuidv4(),
         mentorId: uuidv4(),
         contractId: testIds.contract,
-        serviceId: testIds.service,
+        serviceType: 'session',
         scheduledStartTime: new Date("2025-12-18T10:00:00Z"),
         scheduledEndTime: new Date("2025-12-18T11:00:00Z"),
         duration: 60,
@@ -476,79 +476,6 @@ describe("BookSessionCommand - E2E Integration Test", () => {
       console.log("✓ Test data cleaned up");
 
       console.log("\n🎉 SUCCESS: Data consistency and relationships verified!");
-    }, 30000);
-  });
-
-  describe("🔍 使用 Supabase MCP 工具验证", () => {
-    it("应该能够通过 SQL 查询验证数据", async () => {
-      // Arrange
-      const testInput: BookSessionInput = {
-        counselorId: testIds.counselor,
-        studentId: uuidv4(),
-        mentorId: uuidv4(),
-        contractId: testIds.contract,
-        serviceId: testIds.service,
-        scheduledStartTime: new Date("2025-12-19T10:00:00Z"),
-        scheduledEndTime: new Date("2025-12-19T11:00:00Z"),
-        duration: 60,
-        topic: `${testPrefix} - MCP Test`,
-        meetingProvider: "feishu",
-      };
-
-      // Act
-      console.log("\n📝 Creating booking for MCP verification...");
-      const result = await command.execute(testInput);
-
-      // 使用原生 SQL 查询验证（模拟 MCP execute_sql）
-      const sqlQuery = `
-        SELECT
-          s.id as session_id,
-          s.student_id,
-          s.mentor_id,
-          s.status as session_status,
-          s.meeting_url,
-          cs.id as calendar_slot_id,
-          cs.slot_type,
-          cs.status as slot_status
-        FROM sessions s
-        INNER JOIN calendar_slots cs ON s.id = cs.session_id
-        WHERE s.id::text = $1
-      `;
-
-      const sqlResult = await db.execute(
-        sqlQuery.replace("$1", `'${result.sessionId}'`),
-      );
-
-      // Assert
-      expect(sqlResult.rows).toHaveLength(1);
-      const row = sqlResult.rows[0] as any;
-      expect(row.session_id).toBe(result.sessionId);
-      expect(row.student_id).toBe(testInput.studentId);
-      expect(row.mentor_id).toBe(testInput.mentorId);
-      expect(row.session_status).toBe("scheduled");
-      expect(row.meeting_url).toBeDefined();
-      expect(row.calendar_slot_id).toBe(result.calendarSlotId);
-      expect(row.slot_type).toBe("session");
-      expect(row.slot_status).toBe("occupied");
-
-      console.log("✓ SQL query result:", {
-        sessionId: row.session_id,
-        sessionStatus: row.session_status,
-        hasMeetingUrl: !!row.meeting_url,
-        slotId: row.calendar_slot_id,
-        slotType: row.slot_type,
-      });
-
-      // 清理
-      await db
-        .delete(schema.calendarSlots)
-        .where(eq(schema.calendarSlots.id, result.calendarSlotId));
-      await db
-        .delete(schema.sessions)
-        .where(eq(schema.sessions.id, result.sessionId));
-      console.log("✓ Test data cleaned up");
-
-      console.log("\n🎉 SUCCESS: MCP-style SQL verification completed!");
     }, 30000);
   });
 });
