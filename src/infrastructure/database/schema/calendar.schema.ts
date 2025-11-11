@@ -26,13 +26,13 @@ export const calendarUserTypeEnum = pgEnum("calendar_user_type", [
  * Slot type enum - represents the type of time slot
  * Values: session, class_session
  */
-export const slotTypeEnum = pgEnum("slot_type", ["session", "class_session"]);
+export const calendarTypeEnum = pgEnum("calendar_type", ["session", "class_session"]);
 
 /**
  * Slot status enum - represents the booking status of a slot
  * Values: booked, cancelled
  */
-export const slotStatusEnum = pgEnum("slot_status", ["booked", "cancelled"]);
+export const calendarStatusEnum = pgEnum("calendar_status", ["booked", "cancelled"]);
 
 /**
  * PostgreSQL TSTZRANGE custom type
@@ -74,7 +74,7 @@ const tstzrange = customType<{
  * - Each user_id has unique identity, no need to include user_type in constraint
  */
 export const calendarSlots = pgTable(
-  "calendar_slots",
+  "calendar",
   {
     /**
      * Primary key (UUID)
@@ -116,14 +116,14 @@ export const calendarSlots = pgTable(
     /**
      * Slot type (session/class_session)
      */
-    slotType: slotTypeEnum("slot_type").notNull(),
+    type: calendarTypeEnum("type").notNull(),
 
     /**
      * Booking status (booked/cancelled)
      * Default: booked
      * Only 'booked' slots trigger the EXCLUDE constraint
      */
-    status: slotStatusEnum("slot_status").notNull().default("booked"),
+    status: calendarStatusEnum("status").notNull().default("booked"),
 
     /**
      * Reason or remarks (for blocking or cancellation)
@@ -163,8 +163,8 @@ export const calendarSlots = pgTable(
      * Ensures data integrity at database level
      */
     userTypeCheck: check("user_type_check", sql`calendar_user_type IN ('mentor', 'student', 'counselor')`),
-    slotTypeCheck: check("slot_type_check", sql`slot_type IN ('session', 'class_session')`),
-    statusCheck: check("status_check", sql`slot_status IN ('booked', 'cancelled')`),
+    typeCheck: check("type_check", sql`type IN ('session', 'class_session')`),
+    statusCheck: check("status_check", sql`status IN ('booked', 'cancelled')`),
     durationCheck: check("duration_check", sql`duration_minutes >= 30 AND duration_minutes <= 180`),
 
     /**
