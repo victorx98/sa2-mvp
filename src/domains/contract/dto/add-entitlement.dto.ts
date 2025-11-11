@@ -8,13 +8,20 @@ import {
 } from "class-validator";
 
 /**
- * DTO for adding service entitlement (添加服务权益的DTO)
- * Used when adding additional service entitlements to a contract (用于向合约添加额外的服务权益)
+ * DTO for adding service entitlement (v2.16.12 - 学生级权益累积制)
+ * Used when adding additional service entitlements
+ *
+ * @change {v2.16.12} Primary key changed from contractId to studentId
+ * @change {v2.16.12} Changed to insert into ledger table (trigger updates entitlement)
  */
 export class AddEntitlementDto {
   @IsNotEmpty()
+  @IsString()
+  studentId: string; // Student ID (学生ID) - NEW in v2.16.12
+
+  @IsOptional()
   @IsUUID()
-  contractId: string; // Contract ID (合约ID)
+  contractId?: string; // Contract ID (optional for reference) (合约ID - 仅作参考，可选)
 
   @IsNotEmpty()
   @IsString()
@@ -22,19 +29,25 @@ export class AddEntitlementDto {
 
   @IsNotEmpty()
   @IsEnum(["addon", "promotion", "compensation"])
-  source: "addon" | "promotion" | "compensation"; // Source type (来源类型)
+  ledgerType: "addon" | "promotion" | "compensation"; // Renamed from source (v2.16.12) - 从source重命名
 
   @IsNotEmpty()
   @IsPositive()
-  quantity: number; // Quantity of service entitlement (服务权益数量)
+  quantityChanged: number; // Renamed from quantity (v2.16.12) - 从quantity重命名
 
   @IsNotEmpty()
   @IsString()
-  addOnReason: string; // Reason for adding entitlement (添加权益的原因)
+  reason: string; // Renamed from addOnReason (v2.16.12) - 从addOnReason重命名
+
+  @IsOptional()
+  description?: string; // Optional detailed description (可选详细说明)
+
+  @IsOptional()
+  attachments?: string[]; // Optional array of attachment URLs (可选附件URL数组)
 
   @IsOptional()
   @IsUUID()
-  relatedBookingId?: string; // Associated booking ID (if entitlement relates to a booking) (关联预约ID(如果权益与预约相关))
+  relatedBookingId?: string; // Associated booking ID (关联预约ID)
 
   @IsNotEmpty()
   @IsString()

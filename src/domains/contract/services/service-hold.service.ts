@@ -23,36 +23,38 @@ export class ServiceHoldService {
   ) {}
 
   /**
-   * Create hold(创建预占)
+   * Create hold(v2.16.12 - 学生级权益累积制)
    * - Check available balance(检查可用余额)
-   * - Create hold record with TTL(创建带TTL的预占记录)
+   * - Create hold record (no expiry - manual release only in v2.16.12)(创建预占记录(v2.16.12仅支持手动释放, 无过期时间))
    * - Trigger automatically updates held_quantity(触发器自动更新预占数量)
    *
    * v2.16.11: relatedBookingId is always null on creation, updated via event (v2.16.11: relatedBookingId在创建时始终为null，通过事件更新)
+   * v2.16.12: Removed contractId, expiryHours, and expiryAt fields (v2.16.12: 移除contractId, expiryHours和expiryAt字段)
    *
    * Supports optional transaction parameter(支持可选的事务参数)
+   *
+   * @change {v2.16.12} Now queries by studentId + serviceType (aggregates across contracts)
+   * @change {v2.16.12} Removed expiryAt (holds no longer expire automatically - manual release only)
    */
   async createHold(
     dto: CreateHoldDto,
     tx?: DrizzleTransaction,
   ): Promise<ServiceHold> {
     const {
-      contractId,
       studentId,
       serviceType,
       quantity,
       createdBy,
-      expiryAt,
     } = dto;
     const executor = tx ?? this.db;
 
-    /* 1. Find entitlement and check balance (with pessimistic lock)(1. 查找权益并检查余额(使用悲观锁)) */
+    /* 1. Find entitlements for student and check balance (with pessimistic lock)(1. 查找学生权益并检查余额(使用悲观锁)) */
     const entitlements = await executor
       .select()
       .from(schema.contractServiceEntitlements)
       .where(
         and(
-          eq(schema.contractServiceEntitlements.contractId, contractId),
+          eq(schema.contractServiceEntitlements.studentId, studentId),
           eq(
             schema.contractServiceEntitlements.serviceType,
             serviceType as ServiceType,
@@ -62,7 +64,7 @@ export class ServiceHoldService {
       .for("update");
 
     if (entitlements.length === 0) {
-      throw new ContractNotFoundException("ENTITLEMENT_NOT_FOUND");
+      throw new ContractNotFoundException("NO_ENTITLEMENTS_FOUND");
     }
 
     /* Sum available quantity across all entitlements(汇总所有权益的可用数量) */
@@ -76,21 +78,16 @@ export class ServiceHoldService {
     }
 
     /* 2. Create hold (trigger will update held_quantity automatically)(2. 创建预占(触发器将自动更新预占数量)) */
-    /* v2.16.12: Use expiryAt only, removed expiryHours (v2.16.12: 仅使用expiryAt，移除expiryHours) */
-    /* ⚠️ Important: null or undefined = no expiry (永不过期); timestamp = specific expiry time (具体过期时间) */
-    const calculatedExpiryAt = expiryAt !== undefined ? expiryAt : null; // null or undefined means no expiry (null或undefined表示永不过期)
-
+    /* v2.16.12: Holds no longer expire - manual release only (v2.16.12: 预占不再自动过期 - 仅支持手动释放) */
     const [newHold] = await executor
       .insert(schema.serviceHolds)
       .values({
-        contractId,
         studentId,
         serviceType: serviceType as ServiceType,
         quantity,
         status: "active",
         relatedBookingId: null, // Always null on creation (v2.16.11)
         createdBy,
-        expiryAt: calculatedExpiryAt,
       })
       .returning();
 
@@ -140,7 +137,7 @@ export class ServiceHoldService {
   }
 
   /**
-   * Get long-unreleased holds for manual review(v2.16.9)
+   * Get long-unreleased holds for manual review(v2.16.12 - 学生级权益累积制)
    * - Returns list of active holds created more than 24 hours ago(返回超过24小时前创建的活跃预占列表)
    * - No automatic update - manual review and release only(无自动更新 - 仅人工审核和释放)
    * - Caller should manually review and use releaseHold() to process(调用者应手动审核并使用releaseHold()处理)
@@ -167,10 +164,13 @@ export class ServiceHoldService {
   }
 
   /**
-   * Get active holds for contract and service type(获取合同和服务类型的活跃预占)
+   * Get active holds for student and service type(v2.16.12 - 学生级权益累积制)
+   * - Returns all active holds across ALL contracts for the student and service type(返回学生和服务类型在所有合同中的活跃预占)
+   *
+   * @change {v2.16.12} Changed from contractId to studentId
    */
   async getActiveHolds(
-    contractId: string,
+    studentId: string,
     serviceType: string,
   ): Promise<ServiceHold[]> {
     return await this.db
@@ -178,7 +178,7 @@ export class ServiceHoldService {
       .from(schema.serviceHolds)
       .where(
         and(
-          eq(schema.serviceHolds.contractId, contractId),
+          eq(schema.serviceHolds.studentId, studentId),
           eq(schema.serviceHolds.serviceType, serviceType as ServiceType),
           eq(schema.serviceHolds.status, "active"),
         ),
@@ -224,95 +224,39 @@ export class ServiceHoldService {
   }
 
   /**
-   * Release expired holds (v2.16.10)
-   * - Query for holds that have expired (expiry_at <= now)
-   * - Release them in batches to avoid long-running transactions
-   * - Return statistics about the release operation
+   * Release expired holds (DEPRECATED) (v2.16.12 - 已弃用)
+   * v2.16.12: Removed expiryAt field from schema - holds no longer expire automatically
+   * This method is deprecated and should not be called.
    *
-   * Note: This method should be called by scheduled task or manual trigger
-   * Each hold release is processed in its own transaction to ensure isolation
+   * @deprecated {v2.16.12} Holds no longer expire automatically. Use manual releaseHold() or cancelHold() instead.
    */
   async releaseExpiredHolds(
-    batchSize = 100,
-    sessionId?: string,
+    _batchSize = 100,
+    _sessionId?: string,
   ): Promise<{
     releasedCount: number;
     failedCount: number;
     skippedCount: number;
   }> {
-    const now = new Date();
-
-    /* Query for expired holds (active status, expiry_at <= now, not null expiry_at) */
-    const expiredHolds = await this.db.query.serviceHolds.findMany({
-      where: (hold, { eq, and, lte, isNotNull, ne }) =>
-        and(
-          eq(hold.status, "active"),
-          isNotNull(hold.expiryAt),
-          lte(hold.expiryAt, now),
-          /* Skip holds related to the specified ongoing session */
-          sessionId ? ne(hold.relatedBookingId, sessionId) : undefined,
-        ),
-      limit: batchSize,
-    });
-
-    let releasedCount = 0;
-    let failedCount = 0;
-    let skippedCount = 0;
-
-    /* Process each hold in its own transaction for isolation */
-    for (const hold of expiredHolds) {
-      try {
-        await this.db.transaction(async (tx) => {
-          /* Double-check status and expiry in transaction to prevent race conditions */
-          const [currentHold] = await tx
-            .select()
-            .from(schema.serviceHolds)
-            .where(eq(schema.serviceHolds.id, hold.id))
-            .limit(1);
-
-          if (!currentHold || currentHold.status !== "active") {
-            skippedCount++;
-            return; // Skip if already released or cancelled
-          }
-
-          if (!currentHold.expiryAt || currentHold.expiryAt > now) {
-            skippedCount++;
-            return; // Skip if not yet expired
-          }
-
-          /* Release the hold with 'expired' reason */
-          await tx
-            .update(schema.serviceHolds)
-            .set({
-              status: "released",
-              releaseReason: "expired",
-              releasedAt: new Date(),
-            })
-            .where(eq(schema.serviceHolds.id, hold.id));
-
-          releasedCount++;
-        });
-      } catch (error) {
-        failedCount++;
-        /* Log error but continue processing other holds */
-        console.error(`Failed to release expired hold ${hold.id}:`, error);
-      }
-    }
-
-    return { releasedCount, failedCount, skippedCount };
+    throw new ContractException(
+      "METHOD_DEPRECATED",
+      "releaseExpiredHolds() is deprecated in v2.16.12. Holds no longer expire automatically. Use releaseHold() or cancelHold() instead.",
+    );
   }
 
   /**
-   * Manual trigger for immediate expired hold cleanup (v2.16.10)
-   * - Calls releaseExpiredHolds with specified batch size
-   * - Useful for admin manual intervention or testing
+   * Manual trigger for expired hold cleanup (DEPRECATED) (v2.16.12 - 已弃用)
+   * @deprecated {v2.16.12} Holds no longer expire automatically. Use manual releaseHold() or cancelHold() instead.
    */
-  async triggerExpiredHoldsRelease(batchSize = 100): Promise<{
+  async triggerExpiredHoldsRelease(_batchSize = 100): Promise<{
     releasedCount: number;
     failedCount: number;
     skippedCount: number;
   }> {
-    return await this.releaseExpiredHolds(batchSize);
+    throw new ContractException(
+      "METHOD_DEPRECATED",
+      "triggerExpiredHoldsRelease() is deprecated in v2.16.12. Holds no longer expire automatically. Use releaseHold() or cancelHold() instead.",
+    );
   }
 
   /**

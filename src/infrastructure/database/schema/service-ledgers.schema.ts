@@ -8,148 +8,118 @@ import {
   json,
   pgEnum,
 } from "drizzle-orm/pg-core";
-import { contracts } from "./contracts.schema";
 import { userTable } from "./user.schema";
-import { serviceTypeEnum } from "./services.schema";
+import { serviceTypeEnum } from "./service-type.enum";
 
-// Ledger type enum
+/**
+ * Service ledger type enum
+ * - consumption: Service consumption (quantity < 0)
+ * - refund: Refund (quantity > 0)
+ * - adjustment: Manual adjustment (quantity can be positive or negative)
+ */
 export const serviceLedgerTypeEnum = pgEnum("service_ledger_type", [
-  "consumption", // Service consumption (quantity < 0)
-  "refund", // Refund (quantity > 0)
-  "adjustment", // Manual adjustment (quantity can be positive or negative)
-  "initial", // Initialization (quantity > 0)
-  "expiration", // Expiration deduction (quantity < 0)
-]);
-
-// Ledger source enum
-export const serviceLedgerSourceEnum = pgEnum("service_ledger_source", [
-  "booking_completed", // Booking completed
-  "booking_cancelled", // Booking cancelled
-  "contract_signed", // Contract signed
-  "manual_adjustment", // Manual adjustment
-  "auto_expiration", // Auto expiration
+  "consumption", // 服务消费（quantity < 0）[Service consumption (quantity < 0)]
+  "refund", // 退款增加（quantity > 0）[Refund increase (quantity > 0)]
+  "adjustment", // 手动调整（quantity 可正可负）[Manual adjustment (quantity can be positive or negative)]
 ]);
 
 /**
- * Service ledgers table (Append-only)
- * Tracks every service consumption and adjustment
- *
- * Key features:
- * - Append-only: Only INSERT allowed, no UPDATE/DELETE
- * - Immutable audit trail for service consumption
- * - balanceAfter snapshot for reconciliation
- * - Supports multiple ledger types (consumption, refund, adjustment, initial, expiration)
- * - Related to service holds and bookings
- *
- * Design principles:
- * - Single source of truth for service consumption history
- * - Adjustments are recorded as new entries (never modify existing records)
- * - Each ledger entry includes balanceAfter for point-in-time balance tracking
+ * Service ledger source enum
+ * - booking_completed: Service session completed
+ * - booking_cancelled: Booking cancelled by user
+ * - manual_adjustment: Admin manual adjustment
  */
-export const serviceLedgers = pgTable("service_ledgers", {
-  // Primary key
-  id: uuid("id").defaultRandom().primaryKey(),
+export const serviceLedgerSourceEnum = pgEnum("service_ledger_source", [
+  "booking_completed", // 预约完成[Booking completed]
+  "booking_cancelled", // 预约取消[Booking cancelled]
+  "manual_adjustment", // 手动调整[Manual adjustment]
+]);
 
-  // Contract and student reference
-  contractId: uuid("contract_id")
-    .notNull()
-    .references(() => contracts.id),
-  studentId: varchar("student_id", { length: 32 })
-    .notNull()
-    .references(() => userTable.id),
+/**
+ * Service Ledgers Table (v2.16.12 - 服务消费流水表)
+ *
+ * Core Architecture: Append-only tracking of service consumption
+ *
+ * Design Principles:
+ * 1. **Append-only**: Only INSERT allowed, no UPDATE/DELETE permitted
+ * 2. **Balance snapshot**: Each entry records balanceAfter for reconciliation
+ * 3. **Full audit trail**: Immutable record of all service consumption and adjustments
+ * 4. **Trigger-driven**: INSERT automatically updates contract_service_entitlements.consumed_quantity
+ *
+ * Data Flow:
+ * 1. Service completed → INSERT into service_ledgers (quantity = -1)
+ * 2. Trigger automatically executes → UPDATE contract_service_entitlements.consumed_quantity += 1
+ * 3. Both operations in same transaction (atomic guarantee)
+ *
+ * Key Changes (v2.16.12):
+ * - ❌ Removed contract_id field (decoupled from contracts)
+ * - ✅ Only student_id association (student-level tracking)
+ * - ✅ Trigger updates contract_service_entitlements.consumed_quantity
+ */
+export const serviceLedgers = pgTable(
+  "service_ledgers",
+  {
+    // Primary key
+    id: uuid("id").defaultRandom().primaryKey(),
 
-  // Service type
-  serviceType: serviceTypeEnum("service_type").notNull(),
+    // 关联学生 (Associated student)
+    studentId: varchar("student_id", { length: 32 })
+      .notNull()
+      .references(() => userTable.id),
 
-  // Quantity change (negative = consumption, positive = increase)
-  quantity: integer("quantity").notNull(),
+    // 服务类型 (Service type)
+    serviceType: serviceTypeEnum("service_type").notNull(),
 
-  // Ledger type and source
-  type: serviceLedgerTypeEnum("type").notNull(),
-  source: serviceLedgerSourceEnum("source").notNull(),
+    // 数量变化（负数=消费，正数=退款/调整）(Quantity change - negative=consumption, positive=refund/adjustment)
+    quantity: integer("quantity").notNull(),
 
-  // Balance snapshot after this operation (must be >= 0)
-  balanceAfter: integer("balance_after").notNull(), // For reconciliation
+    // 流水类型 (Ledger type)
+    type: serviceLedgerTypeEnum("type").notNull(),
 
-  // Related business records
-  relatedHoldId: uuid("related_hold_id"), // Related hold record
-  relatedBookingId: uuid("related_booking_id"), // Related booking ID (sessions/classes, etc.)
+    // 来源 (Source)
+    source: serviceLedgerSourceEnum("source").notNull(),
 
-  // Audit fields
-  reason: text("reason"), // Required when type = 'adjustment'
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  createdBy: varchar("created_by", { length: 32 })
-    .notNull()
-    .references(() => userTable.id),
+    // 操作后余额（必须 >= 0，用于对账）[Balance after operation (must be >= 0, for reconciliation)]
+    balanceAfter: integer("balance_after").notNull(),
 
-  // Metadata
-  metadata: json("metadata").$type<{
-    originalBalance?: number; // Original balance before this operation
-    operatorIp?: string; // Operator IP address
-    approvedBy?: string; // Approver for manual adjustments
-    [key: string]: any;
-  }>(), // Additional information
-});
+    // 关联记录 (Related records)
+    relatedHoldId: uuid("related_hold_id"), // 关联预占 (Related hold)
+    relatedBookingId: uuid("related_booking_id"), // 关联预约 (Related booking)
 
-// Type inference
+    // 审计字段 (Audit fields)
+    reason: text("reason"), // 调整原因（adjustment必填）[Reason (required for adjustment)]
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    createdBy: varchar("created_by", { length: 32 })
+      .notNull()
+      .references(() => userTable.id),
+
+    // 元数据 (Metadata)
+    metadata: json("metadata").$type<{
+      originalBalance?: number; // 操作前余额[Original balance before operation]
+      operationIp?: string; // 操作IP[Operation IP]
+      device?: string; // 设备[Device]
+    }>(),
+  },
+);
+
+
 export type ServiceLedger = typeof serviceLedgers.$inferSelect;
 export type InsertServiceLedger = typeof serviceLedgers.$inferInsert;
 
 /*
- * Indexes (to be created in contract_indexes.sql):
- * - CREATE INDEX idx_service_ledgers_contract ON service_ledgers(contract_id);
- * - CREATE INDEX idx_service_ledgers_student ON service_ledgers(student_id);
- * - CREATE INDEX idx_service_ledgers_service_type ON service_ledgers(service_type);
- * - CREATE INDEX idx_service_ledgers_created_at ON service_ledgers(created_at);
- * - CREATE INDEX idx_service_ledgers_source ON service_ledgers(source);
- * - CREATE INDEX idx_service_ledgers_contract_created ON service_ledgers(contract_id, created_at DESC);
- *   (Composite index for contract history queries)
- * - CREATE INDEX idx_service_ledgers_student_created ON service_ledgers(student_id, created_at DESC);
- *   (Composite index for student history queries)
+ * Indexes (在 contract_indexes.sql 中创建):
  *
- * CHECK constraints (to be created in contract_constraints.sql):
- * - ALTER TABLE service_ledgers ADD CONSTRAINT chk_balance_after_non_negative
- *   CHECK (balance_after >= 0);
- *   (Ensures balance never goes negative)
+ * 1. 按学生 + 服务类型查询 (Query by student + service type)
+ *    CREATE INDEX idx_ledgers_by_student_service
+ *    ON service_ledgers(student_id, service_type, created_at DESC);
  *
- * - ALTER TABLE service_ledgers ADD CONSTRAINT chk_adjustment_reason CHECK (
- *     (type != 'adjustment') OR (reason IS NOT NULL AND length(reason) > 0)
- *   );
- *   (Ensures reason is provided for manual adjustments)
+ * 2. 按服务类型统计 (Statistics by service type)
+ *    CREATE INDEX idx_ledgers_by_service_type
+ *    ON service_ledgers(service_type, student_id, created_at DESC);
  *
- * - ALTER TABLE service_ledgers ADD CONSTRAINT chk_consumption_quantity_negative
- *   CHECK (type != 'consumption' OR quantity < 0);
- *   (Consumption must have negative quantity)
- *
- * - ALTER TABLE service_ledgers ADD CONSTRAINT chk_refund_quantity_positive
- *   CHECK (type != 'refund' OR quantity > 0);
- *   (Refund must have positive quantity)
- *
- * - ALTER TABLE service_ledgers ADD CONSTRAINT chk_initial_quantity_positive
- *   CHECK (type != 'initial' OR quantity > 0);
- *   (Initial must have positive quantity)
- *
- * - ALTER TABLE service_ledgers ADD CONSTRAINT chk_expiration_quantity_negative
- *   CHECK (type != 'expiration' OR quantity < 0);
- *   (Expiration must have negative quantity)
- *
- * Business rules:
- * 1. **Append-only**: Application layer must NOT perform UPDATE/DELETE operations
- * 2. **Balance non-negative**: balanceAfter >= 0 (enforced by CHECK constraint)
- * 3. **Quantity constraints**:
- *    - type='consumption' → quantity < 0
- *    - type='refund' → quantity > 0
- *    - type='initial' → quantity > 0
- *    - type='expiration' → quantity < 0
- *    - type='adjustment' → quantity can be positive or negative
- * 4. **Required fields**: When type='adjustment', reason must be provided
- * 5. **Reconciliation**: balanceAfter provides point-in-time balance snapshot for auditing
- *
- * Important notes:
- * - This table is APPEND-ONLY: no UPDATE or DELETE operations allowed
- * - To "reverse" a ledger entry, create a new adjustment entry with opposite quantity
- * - balanceAfter is used for reconciliation and audit purposes
- * - Related holds and bookings can be traced via relatedHoldId and relatedBookingId
+ * 3. 按创建时间查询 (Query by creation time)
+ *    CREATE INDEX idx_ledgers_created_at
+ *    ON service_ledgers(created_at DESC);
  */

@@ -11,13 +11,12 @@ import { CreateContractDto } from "../dto/create-contract.dto";
 import { FindOneContractDto } from "../dto/find-one-contract.dto";
 import { ConsumeServiceDto } from "../dto/consume-service.dto";
 import { AddEntitlementDto } from "../dto/add-entitlement.dto";
-import type { ContractEntitlementRevision } from "@infrastructure/database/schema";
+import type { ContractAmendmentLedger } from "@infrastructure/database/schema";
 import { calculateExpirationDate } from "../common/utils/date.utils";
 import {
   validatePrice,
   validatePriceOverride,
 } from "../common/utils/validation.utils";
-import { sortByConsumptionPriority } from "../common/constants/contract.constants";
 import type { Contract } from "@infrastructure/database/schema";
 import type {
   IProductSnapshot,
@@ -36,7 +35,7 @@ export class ContractService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-  ) {}
+  ) { }
 
   /**
    * Create contract(创建合约)
@@ -294,7 +293,7 @@ export class ContractService {
       // Insert entitlements(插入权利)
       const entitlements = Array.from(entitlementMap.values()).map(
         (entitlement) => ({
-          contractId: updatedContract.id,
+          studentId: updatedContract.studentId,
           serviceType: entitlement.serviceType as ServiceType,
           source: "product" as const,
           totalQuantity: entitlement.totalQuantity,
@@ -338,7 +337,7 @@ export class ContractService {
    */
   async consumeService(dto: ConsumeServiceDto): Promise<void> {
     const {
-      contractId,
+      studentId,
       serviceType,
       quantity,
       relatedBookingId,
@@ -347,46 +346,52 @@ export class ContractService {
     } = dto;
 
     await this.db.transaction(async (tx) => {
-      // 1. Find contract(1. 查找合约)
-      const [contract] = await tx
-        .select()
-        .from(schema.contracts)
-        .where(eq(schema.contracts.id, contractId))
+      // 1. Check student exists - v2.16.12: Query student instead of specific contract
+      const [student] = await tx
+        .select({ id: schema.user.id })
+        .from(schema.user)
+        .where(eq(schema.user.id, studentId))
         .limit(1);
 
-      if (!contract) {
-        throw new ContractNotFoundException("CONTRACT_NOT_FOUND");
+      if (!student) {
+        throw new ContractNotFoundException("STUDENT_NOT_FOUND");
       }
 
-      if (contract.status !== "active") {
-        throw new ContractException("CONTRACT_NOT_ACTIVE");
-      }
-
-      // 2. Find entitlements for this service type, sorted by priority(2. 查找此服务类型的权利，按优先级排序)
+      // 2. Find ALL entitlements for this student and service type across all contracts
+      // v2.16.12: Changed from contract-level to student-level query
       const entitlements = await tx
         .select()
         .from(schema.contractServiceEntitlements)
         .where(
           and(
-            eq(schema.contractServiceEntitlements.contractId, contractId),
+            eq(schema.contractServiceEntitlements.studentId, studentId),
             eq(
               schema.contractServiceEntitlements.serviceType,
               serviceType as ServiceType,
             ),
           ),
         )
-        .for("update"); // Pessimistic lock(悲观锁)
+        .for("update"); // Pessimistic lock for concurrency safety
 
       if (entitlements.length === 0) {
-        throw new ContractNotFoundException("ENTITLEMENT_NOT_FOUND");
+        throw new ContractNotFoundException("NO_ENTITLEMENTS_FOUND");
       }
 
-      // Sort by consumption priority(按消费优先级排序)
-      const sortedEntitlements = sortByConsumptionPriority(entitlements);
+      // 3. Calculate total available balance
+      const totalAvailable = entitlements.reduce(
+        (sum, ent) => sum + ent.availableQuantity,
+        0,
+      );
 
-      // 3. Deduct quantity by priority(3. 按优先级扣除数量)
+      if (totalAvailable < quantity) {
+        throw new ContractException("INSUFFICIENT_BALANCE");
+      }
+
+      // 4. Consume from entitlements (simple FIFO - consume from first entitlement)
+      // v2.16.12: For now using simple approach, can enhance with priority later
       let remainingQuantity = quantity;
-      for (const entitlement of sortedEntitlements) {
+
+      for (const entitlement of entitlements) {
         if (remainingQuantity <= 0) break;
         if (entitlement.availableQuantity <= 0) continue;
 
@@ -395,11 +400,10 @@ export class ContractService {
           entitlement.availableQuantity,
         );
 
-        // Update entitlement (consumed_quantity will be synced by trigger)(更新权利(consumed_quantity将由触发器同步))
-        // Just record the ledger, trigger handles balance update(只需记录台账，触发器处理余额更新)
+        // v2.16.12: Record consumption (trigger will update consumed_quantity automatically)
+        // Note: No contractId in service_ledgers anymore (student-level tracking)
         await tx.insert(schema.serviceLedgers).values({
-          contractId,
-          studentId: contract.studentId,
+          studentId: studentId,
           serviceType: serviceType as ServiceType,
           quantity: -deductAmount,
           type: "consumption",
@@ -413,12 +417,7 @@ export class ContractService {
         remainingQuantity -= deductAmount;
       }
 
-      // 4. Check if sufficient balance(4. 检查余额是否充足)
-      if (remainingQuantity > 0) {
-        throw new ContractException("INSUFFICIENT_BALANCE");
-      }
-
-      // 5. Release hold if provided(5. 如果提供则释放预留)
+      // 5. Release hold if provided
       if (relatedHoldId) {
         await tx
           .update(schema.serviceHolds)
@@ -1032,10 +1031,10 @@ export class ContractService {
       query: { contractId, studentId, serviceType },
       student: studentId
         ? {
-            id: studentId,
-            // Note: We would need to query user info if name/email is required
-            // For now, just return the ID
-          }
+          id: studentId,
+          // Note: We would need to query user info if name/email is required
+          // For now, just return the ID
+        }
         : undefined,
       contracts: resultContracts,
     };
@@ -1175,14 +1174,14 @@ export class ContractService {
     options?: {
       serviceType?: ServiceType;
       revisionType?:
-        | "initial"
-        | "addon"
-        | "promotion"
-        | "compensation"
-        | "increase"
-        | "decrease"
-        | "expiration"
-        | "termination";
+      | "initial"
+      | "addon"
+      | "promotion"
+      | "compensation"
+      | "increase"
+      | "decrease"
+      | "expiration"
+      | "termination";
       status?: "pending" | "approved" | "rejected" | "applied";
       page?: number;
       pageSize?: number;
