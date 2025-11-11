@@ -13,6 +13,7 @@ import { currencyEnum } from "./products.schema";
 
 // Contract status enum
 export const contractStatusEnum = pgEnum("contract_status", [
+  "draft", // Initial state (contract created but not signed)
   "signed", // Contract signed, pending activation
   "active", // Contract activated, can consume services
   "suspended", // Temporarily suspended
@@ -36,6 +37,7 @@ export const contracts = pgTable("contracts", {
 
   // Contract identification
   contractNumber: varchar("contract_number", { length: 50 }).notNull().unique(), // e.g., 'CONTRACT-2025-01-00001'
+  title: varchar("title", { length: 200 }), // Contract title (optional)
 
   // Student reference
   studentId: varchar("student_id", { length: 32 })
@@ -58,7 +60,7 @@ export const contracts = pgTable("contracts", {
   }>(),
 
   // Contract status
-  status: contractStatusEnum("status").notNull().default("signed"),
+  status: contractStatusEnum("status").notNull().default("draft"),
 
   // Pricing information
   totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).notNull(), // Contract total amount (from snapshot)

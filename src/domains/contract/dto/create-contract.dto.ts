@@ -11,41 +11,45 @@ import { Type } from "class-transformer";
 import { IProductSnapshot } from "../common/types/snapshot.types";
 
 /**
- * Create Contract DTO
- * Used when creating a new contract from a product
+ * DTO for creating contract (创建合约的DTO)
+ * Used when creating a new contract from a product (用于从产品创建新合约)
  */
 export class CreateContractDto {
   @IsNotEmpty()
   @IsString()
-  studentId: string;
+  studentId: string; // Student ID (学生ID)
 
   @IsNotEmpty()
   @IsUUID()
-  productId: string;
+  productId: string; // Product ID (产品ID)
 
   @IsNotEmpty()
   @IsObject()
   @ValidateNested()
   @Type(() => Object)
-  productSnapshot: IProductSnapshot;
+  productSnapshot: IProductSnapshot; // Product snapshot (产品快照)
 
   @IsOptional()
   @IsDateString()
-  signedAt?: Date;
+  signedAt?: Date; // Contract signing date (合约签署日期)
 
   @IsOptional()
   @IsString()
-  overrideAmount?: string;
+  overrideAmount?: string; // Price override amount (价格覆盖金额)
 
   @IsOptional()
   @IsString()
-  overrideReason?: string;
+  overrideReason?: string; // Reason for price override (价格覆盖原因)
 
   @IsOptional()
   @IsString()
-  overrideApprovedBy?: string;
+  overrideApprovedBy?: string; // Approver of price override (价格覆盖批准人)
 
   @IsNotEmpty()
   @IsString()
-  createdBy: string;
+  createdBy: string; // ID of creator (创建人ID)
+
+  @IsOptional()
+  @IsString()
+  title?: string; // Contract title (合约标题)
 }

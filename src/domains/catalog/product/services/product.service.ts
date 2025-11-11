@@ -3,10 +3,6 @@ import { eq, and, or, like, ne, count, sql, inArray } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
-import type {
-  DrizzleExecutor,
-  DrizzleTransaction,
-} from "@shared/types/database.types";
 import type { Service, ServicePackage } from "@infrastructure/database/schema";
 import {
   CatalogException,
@@ -29,11 +25,7 @@ import { IProductDetail } from "../interfaces/product-detail.interface";
 import { IProductSnapshot } from "../interfaces/product-snapshot.interface";
 import type { IService } from "../../service/interfaces/service.interface";
 import type { IServicePackage } from "../../service-package/interfaces/service-package.interface";
-import {
-  ProductStatus,
-  ProductItemType,
-  ServiceUnit,
-} from "../../common/interfaces/enums";
+import { ProductStatus, ProductItemType } from "../../common/interfaces/enums";
 import { ServiceService } from "../../service/services/service.service";
 import { ServicePackageService } from "../../service-package/services/service-package.service";
 import { buildLikePattern } from "../../common/utils/sql.utils";

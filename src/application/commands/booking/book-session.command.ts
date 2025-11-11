@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { CalendarService } from "@core/calendar";
 import {
   UserType,
@@ -10,8 +11,10 @@ import {
 } from "@core/meeting-providers";
 import type { MeetingProvider } from "@domains/services/session/interfaces/session.interface";
 import { SessionService } from "@domains/services/session/services/session.service";
-import { ContractService } from "@domains/contract/contract.service";
+import { ContractService } from "@domains/contract/services/contract.service";
+import { ServiceHoldService } from "@domains/contract/services/service-hold.service";
 import { BookSessionInput } from "./dto/book-session-input.dto";
+import { CreateHoldDto } from "@domains/contract/dto/create-hold.dto";
 import { BookSessionOutput } from "./dto/book-session-output.dto";
 import { InsufficientBalanceException, TimeConflictException } from "@shared/exceptions";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
@@ -19,6 +22,10 @@ import type {
   DrizzleDatabase,
   DrizzleTransaction,
 } from "@shared/types/database.types";
+import {
+  SessionBookedEvent,
+  SESSION_BOOKED_EVENT,
+} from "@shared/events/session-booked.event";
 
 /**
  * Application Layer - Book Session Command
@@ -47,6 +54,8 @@ export class BookSessionCommand {
     private readonly sessionService: SessionService,
     private readonly calendarService: CalendarService,
     private readonly meetingProviderFactory: MeetingProviderFactory,
+    private readonly eventEmitter: EventEmitter2,
+    private readonly serviceHoldService: ServiceHoldService,
   ) {}
 
   /**
@@ -78,11 +87,19 @@ export class BookSessionCommand {
         );
 
         // Step 2: 检查余额
-        const balance = await this.contractService.getServiceBalance(
-          input.contractId,
-          input.serviceId,
+        const balance = await this.contractService.getServiceBalance({
+          contractId: input.contractId,
+          serviceType: input.serviceType,
+        });
+
+        // Check if any contract has available balance for this service type
+        const hasAvailableBalance = balance.contracts.some(contract =>
+          contract.entitlements.some(entitlement =>
+            entitlement.serviceType === input.serviceType && entitlement.availableQuantity > 0
+          )
         );
-        if (balance.available < 1) {
+
+        if (!hasAvailableBalance) {
           throw new InsufficientBalanceException("Insufficient service balance");
         }
 
@@ -105,15 +122,15 @@ export class BookSessionCommand {
         }
 
         // Step 4: 创建服务预占
-        const hold = await this.contractService.createServiceHold(
-          {
-            contractId: input.contractId,
-            serviceId: input.serviceId,
-            sessionId: "temp_session_id", // 临时ID，稍后会更新
-            quantity: 1,
-          },
-          tx,
-        );
+        const holdDto: CreateHoldDto = {
+          contractId: input.contractId,
+          studentId: input.studentId,
+          serviceType: input.serviceType,
+          relatedBookingId: null,
+          quantity: 1,
+          createdBy: input.counselorId,
+        };
+        const hold = await this.serviceHoldService.createHold(holdDto, tx);
 
         // Step 5: 创建会议链接（在事务内，先创建）
         let meetingInfo: {
@@ -159,7 +176,6 @@ export class BookSessionCommand {
           },
           tx,
         );
-        console.warn('session.id = ', session.id);
 
         // Calendar slot is already created in Step 3, just update it with session ID
         const updatedCalendarSlot = await this.calendarService.updateSlotSessionId(
@@ -179,21 +195,29 @@ export class BookSessionCommand {
       throw error;
     }
 
-    return {
+    const bookResult: SessionBookedEvent = {
       sessionId: sessionResult.session.id,
       studentId: input.studentId,
       mentorId: input.mentorId,
-      contractId: input.contractId,
-      serviceId: input.serviceId,
-      scheduledStartTime: input.scheduledStartTime,
-      scheduledEndTime: input.scheduledEndTime,
-      duration: input.duration,
-      status: sessionResult.session.status,
-      meetingUrl: sessionResult.meetingInfo.meetingUrl,
-      meetingPassword: sessionResult.meetingInfo.password,
-      meetingProvider: sessionResult.meetingInfo.provider,
+      counselorId: input.counselorId,
+      serviceType: input.serviceType,
       calendarSlotId: sessionResult.calendarSlot.id,
       serviceHoldId: sessionResult.hold.id,
+      scheduledStartTime: input.scheduledStartTime.toISOString(),
+      scheduledEndTime: input.scheduledEndTime.toISOString(),
+      duration: input.duration,
+      meetingUrl: sessionResult.meetingInfo.meetingUrl,
+      meetingProvider: sessionResult.meetingInfo.provider,
+      meetingPassword: sessionResult.meetingInfo.password,
+    };
+
+    this.logger.debug(
+      `Emitting session booked event for session ${sessionResult.session.id}`,
+    );
+    this.eventEmitter.emit(SESSION_BOOKED_EVENT, bookResult);
+    return {
+      ...bookResult,
+      status: sessionResult.session.status,
     };
   }
 }

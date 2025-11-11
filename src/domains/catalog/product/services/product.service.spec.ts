@@ -19,7 +19,6 @@ import {
   Currency,
   UserType,
   ProductItemType,
-  ServiceUnit,
   ProductStatus,
 } from "../../common/interfaces/enums";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";

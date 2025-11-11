@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 import { ConfigModule } from "@nestjs/config";
 import { DatabaseModule } from "./infrastructure/database/database.module";
 import { ApiModule } from "./api/api.module";
@@ -21,6 +22,7 @@ import { ApiModule } from "./api/api.module";
       isGlobal: true,
       envFilePath: ".env",
     }),
+    EventEmitterModule.forRoot(),
 
     // 基础设施层
     DatabaseModule,

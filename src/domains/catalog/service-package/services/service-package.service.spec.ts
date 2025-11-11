@@ -14,11 +14,7 @@ import {
   CatalogConflictException,
   CatalogGoneException,
 } from "../../common/exceptions/catalog.exception";
-import {
-  ServiceUnit,
-  ServiceStatus,
-  ProductItemType,
-} from "../../common/interfaces/enums";
+import { ServiceStatus, ProductItemType } from "../../common/interfaces/enums";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "@infrastructure/database/schema";
 

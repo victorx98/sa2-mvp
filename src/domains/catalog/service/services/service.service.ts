@@ -26,7 +26,6 @@ import { IServiceSnapshot } from "../interfaces/service-snapshot.interface";
 import {
   ServiceType,
   BillingMode,
-  ServiceUnit,
   ServiceStatus,
 } from "../../common/interfaces/enums";
 import { buildLikePattern } from "../../common/utils/sql.utils";

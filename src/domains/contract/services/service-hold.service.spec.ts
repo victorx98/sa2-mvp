@@ -44,15 +44,17 @@ describe("ServiceHoldService", () => {
   });
 
   describe("createHold", () => {
-    it("should create hold successfully when sufficient balance", async () => {
+    it("should create hold with expiry when expiryAt is provided", async () => {
       // Arrange
+      const now = new Date();
+      const expiryAt = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours from now (2小时后)
       const createHoldDto = {
         contractId: "contract-123",
         studentId: "student-123",
         serviceType: "resume_review",
         quantity: 2,
-        relatedBookingId: "booking-123",
         createdBy: "counselor-123",
+        expiryAt,
       };
 
       const mockEntitlements = [
@@ -68,9 +70,10 @@ describe("ServiceHoldService", () => {
       const mockHold = {
         id: "hold-123",
         ...createHoldDto,
+        relatedBookingId: null, // Set to null internally
         status: "active",
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-        createdAt: new Date(),
+        createdAt: now,
+        expiryAt,
       };
 
       // Mock database queries
@@ -84,6 +87,97 @@ describe("ServiceHoldService", () => {
       expect(result).toBeDefined();
       expect(result.id).toBe("hold-123");
       expect(result.status).toBe("active");
+      expect(result.relatedBookingId).toBeNull();
+      expect(result.expiryAt).toEqual(expiryAt);
+      expect(mockDb.for).toHaveBeenCalled();
+      expect(mockDb.insert).toHaveBeenCalled();
+    });
+
+    it("should create hold with no expiry when expiryAt is null", async () => {
+      // Arrange
+      const createHoldDto = {
+        contractId: "contract-123",
+        studentId: "student-123",
+        serviceType: "resume_review",
+        quantity: 2,
+        createdBy: "counselor-123",
+        expiryAt: null, // Explicitly set to null (永不过期)
+      };
+
+      const mockEntitlements = [
+        {
+          id: "entitlement-1",
+          totalQuantity: 10,
+          consumedQuantity: 3,
+          heldQuantity: 0,
+          availableQuantity: 7,
+        },
+      ];
+
+      const mockHold = {
+        id: "hold-123",
+        ...createHoldDto,
+        relatedBookingId: null,
+        status: "active",
+      };
+
+      // Mock database queries
+      mockDb.for.mockResolvedValueOnce(mockEntitlements);
+      mockDb.returning.mockResolvedValueOnce([mockHold]);
+
+      // Act
+      const result = await service.createHold(createHoldDto);
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.id).toBe("hold-123");
+      expect(result.status).toBe("active");
+      expect(result.expiryAt).toBeNull(); // Should be null (永不过期)
+      expect(mockDb.for).toHaveBeenCalled();
+      expect(mockDb.insert).toHaveBeenCalled();
+    });
+
+    it("should create hold with no expiry when expiryAt is undefined", async () => {
+      // Arrange
+      const createHoldDto = {
+        contractId: "contract-123",
+        studentId: "student-123",
+        serviceType: "resume_review",
+        quantity: 2,
+        createdBy: "counselor-123",
+        // expiryAt is undefined (not provided)
+      };
+
+      const mockEntitlements = [
+        {
+          id: "entitlement-1",
+          totalQuantity: 10,
+          consumedQuantity: 3,
+          heldQuantity: 0,
+          availableQuantity: 7,
+        },
+      ];
+
+      const mockHold = {
+        id: "hold-123",
+        ...createHoldDto,
+        relatedBookingId: null,
+        status: "active",
+        expiryAt: null, // Should be null when expiryAt is undefined
+      } as any;
+
+      // Mock database queries
+      mockDb.for.mockResolvedValueOnce(mockEntitlements);
+      mockDb.returning.mockResolvedValueOnce([mockHold]);
+
+      // Act
+      const result = await service.createHold(createHoldDto);
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.id).toBe("hold-123");
+      expect(result.status).toBe("active");
+      expect(result.expiryAt).toBeNull(); // Should be null (永不过期)
       expect(mockDb.for).toHaveBeenCalled();
       expect(mockDb.insert).toHaveBeenCalled();
     });
@@ -136,12 +230,15 @@ describe("ServiceHoldService", () => {
 
     it("should support transaction parameter", async () => {
       // Arrange
+      const now = new Date();
+      const expiryAt = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours from now (2小时后)
       const createHoldDto = {
         contractId: "contract-123",
         studentId: "student-123",
         serviceType: "resume_review",
         quantity: 2,
         createdBy: "counselor-123",
+        expiryAt,
       };
 
       const mockTx = createMockDb() as any; // Type assertion to bypass strict typing
@@ -223,43 +320,6 @@ describe("ServiceHoldService", () => {
       await expect(service.releaseHold("hold-123", "test")).rejects.toThrow(
         ContractException,
       );
-    });
-  });
-
-  describe("expireHolds", () => {
-    it("should expire all active holds past expiration time", async () => {
-      // Arrange
-      const mockExpiredHolds = [
-        { id: "hold-1", status: "expired" },
-        { id: "hold-2", status: "expired" },
-        { id: "hold-3", status: "expired" },
-      ];
-
-      mockDb.returning.mockResolvedValueOnce(mockExpiredHolds);
-
-      // Act
-      const result = await service.expireHolds();
-
-      // Assert
-      expect(result).toBe(3);
-      expect(mockDb.update).toHaveBeenCalled();
-      expect(mockDb.set).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: "expired",
-          releaseReason: "expired",
-        }),
-      );
-    });
-
-    it("should return 0 when no holds to expire", async () => {
-      // Arrange
-      mockDb.returning.mockResolvedValueOnce([]);
-
-      // Act
-      const result = await service.expireHolds();
-
-      // Assert
-      expect(result).toBe(0);
     });
   });
 
@@ -350,6 +410,39 @@ describe("ServiceHoldService", () => {
       await expect(service.cancelHold("hold-123", "test")).rejects.toThrow(
         ContractException,
       );
+    });
+  });
+
+  describe("updateRelatedBooking", () => {
+    it("should update related booking ID successfully", async () => {
+      // Arrange
+      mockDb.where.mockResolvedValueOnce(undefined); // update returns undefined
+
+      // Act
+      await service.updateRelatedBooking("hold-123", "session-456");
+
+      // Assert
+      expect(mockDb.update).toHaveBeenCalledWith(expect.any(Object));
+      expect(mockDb.set).toHaveBeenCalledWith({
+        relatedBookingId: "session-456",
+        updatedAt: expect.any(Date),
+      });
+      expect(mockDb.where).toHaveBeenCalled();
+    });
+
+    it("should support transaction parameter", async () => {
+      // Arrange
+      const mockTx = createMockDb() as any;
+      mockTx.where = jest.fn().mockResolvedValueOnce(undefined);
+
+      // Act
+      await service.updateRelatedBooking("hold-123", "session-456", mockTx);
+
+      // Assert
+      expect(mockTx.update).toHaveBeenCalled();
+      expect(mockTx.set).toHaveBeenCalled();
+      expect(mockTx.where).toHaveBeenCalled();
+      expect(mockDb.update).not.toHaveBeenCalled(); // Should use transaction, not main db
     });
   });
 });

@@ -9,35 +9,43 @@ import type {
 } from "@shared/types/database.types";
 import { EVENT_RETENTION_DAYS } from "../common/constants/contract.constants";
 import type { DomainEvent } from "@infrastructure/database/schema";
+import type { IDomainEventData } from "../common/types/event.types";
 
 /**
- * Event Publisher Interface
- * - Abstraction for message broker integration
- * - Implementations: RabbitMQ, Kafka, AWS SNS, etc.
+ * Event Publisher Interface(事件发布器接口)
+ * - Abstraction for message broker integration(消息代理集成的抽象)
+ * - Implementations: RabbitMQ, Kafka, AWS SNS, etc.(实现：RabbitMQ、Kafka、AWS SNS等)
  */
 export interface IEventPublisher {
   /**
-   * Publish event to message broker
+   * Publish event to message broker(向消息代理发布事件)
    * @param event - Domain event to publish
-   * @returns Promise that resolves when event is published
-   * @throws Error if publishing fails
+   * @returns Promise that resolves when event is published(当事件发布时解决的Promise)
+   * @throws Error if publishing fails(如果发布失败则抛出错误)
    */
   publish(event: DomainEvent): Promise<void>;
+
+  /**
+   * Subscribe to event type(订阅事件类型)
+   * @param eventType - Event type to subscribe to(要订阅的事件类型)
+   * @param handler - Event handler function(事件处理函数)
+   */
+  subscribe(eventType: string, handler: (event: IDomainEventData) => void): void;
 }
 
 /**
- * Event Publisher Service
- * - Implements Outbox Pattern for reliable event publishing
- * - Polls domain_events table for pending events
- * - Publishes events via IEventPublisher abstraction
- * - Handles retries with exponential backoff
- * - Cleans up old published events
+ * Event Publisher Service(事件发布服务)
+ * - Implements Outbox Pattern for reliable event publishing(实现事件日发布的出站模式以提供可靠的事件发布)
+ * - Polls domain_events table for pending events(轮询域事件表中的待处理事件)
+ * - Publishes events via IEventPublisher abstraction(通过IEventPublisher抽象发布事件)
+ * - Handles retries with exponential backoff(使用指数退避处理重试)
+ * - Cleans up old published events(清理旧的已发布事件)
  *
- * Design Decisions:
- * - v2.16.8: Advisory lock prevents multi-instance conflicts
- * - v2.16.8: 30-second polling interval (configurable)
- * - v2.16.8: 7-day retention for published events
- * - v2.16.8: Max 3 retries with exponential backoff
+ * Design Decisions:(设计决策：)
+ * - v2.16.8: Advisory lock prevents multi-instance conflicts(咨询锁防止多实例冲突)
+ * - v2.16.8: 30-second polling interval (configurable)(30秒轮询间隔，可配置)
+ * - v2.16.8: 7-day retention for published events(已发布事件保留7天)
+ * - v2.16.8: Max 3 retries with exponential backoff(最多3次重试，指数退避)
  */
 @Injectable()
 export class EventPublisherService {
@@ -51,34 +59,39 @@ export class EventPublisherService {
   ) {}
 
   /**
-   * Process pending events
-   * - Query pending events (status = pending, retry_count < max_retries)
-   * - Use advisory lock to prevent concurrent processing
-   * - Publish via IEventPublisher
-   * - Update status to published or failed
-   * - Returns count of successfully published events
+   * Process pending events(处理待处理事件)
+   * - Query pending events (status = pending, retry_count < max_retries)(查询待处理事件（状态=待处理，重试次数<最大重试次数）)
+   * - Use advisory lock to prevent concurrent processing(使用咨询锁防止并发处理)
+   * - Publish via IEventPublisher(通过IEventPublisher发布)
+   * - Update status to published or failed(更新状态为已发布或失败)
+   * - Returns count of successfully published events(返回成功发布事件的数量)
    *
-   * Called by: Scheduled task every 30 seconds
+   * Called by: Scheduled task every 30 seconds(由每30秒的定时任务调用)
    */
   async processPendingEvents(tx?: DrizzleTransaction): Promise<number> {
-    const LOCK_KEY = 999999; // Advisory lock key for event publishing
+    const LOCK_KEY = 999999; // Advisory lock key for event publishing(事件发布的咨询锁键)
     let publishedCount = 0;
     const executor: DrizzleExecutor = tx ?? this.db;
 
     try {
-      // 1. Acquire advisory lock (non-blocking)
+      // 1. Acquire advisory lock (non-blocking)(获取咨询锁（非阻塞）)
       const lockResult = await executor.execute(
         sql`SELECT pg_try_advisory_lock(${LOCK_KEY}) as locked`,
       );
-      const locked = (lockResult.rows[0] as any).locked;
+      interface LockResult {
+        locked: boolean;
+      }
+      const locked = (lockResult.rows[0] as LockResult).locked;
 
       if (!locked) {
-        this.logger.debug("Another instance is processing events, skipping...");
+        this.logger.debug(
+          "Another instance is processing events, skipping...(另一个实例正在处理事件，跳过...)",
+        );
         return 0;
       }
 
       try {
-        // 2. Query pending events (limit to 100 per batch)
+        // 2. Query pending events (limit to 100 per batch)(查询待处理事件（每批次限制100个）)
         const pendingEvents = await executor
           .select()
           .from(schema.domainEvents)
@@ -96,7 +109,7 @@ export class EventPublisherService {
 
         this.logger.log(`Processing ${pendingEvents.length} pending events`);
 
-        // 3. Process each event
+        // 3. Process each event(处理每个事件)
         for (const event of pendingEvents) {
           try {
             // Publish event
@@ -140,7 +153,7 @@ export class EventPublisherService {
 
         return publishedCount;
       } finally {
-        // 4. Release advisory lock
+        // 4. Release advisory lock(释放咨询锁)
         await executor.execute(sql`SELECT pg_advisory_unlock(${LOCK_KEY})`);
       }
     } catch (error) {
@@ -150,12 +163,12 @@ export class EventPublisherService {
   }
 
   /**
-   * Retry failed events
-   * - Reset retry_count for failed events that are eligible for retry
-   * - Eligible: failed status AND created within last 24 hours
-   * - Returns count of events reset for retry
+   * Retry failed events(重试失败事件)
+   * - Reset retry_count for failed events that are eligible for retry(重置符合重试条件的失败事件的重试次数)
+   * - Eligible: failed status AND created within last 24 hours(符合条件：失败状态且在过去24小时内创建)
+   * - Returns count of events reset for retry(返回重置重试的事件数量)
    *
-   * Called by: Manual admin action or scheduled task
+   * Called by: Manual admin action or scheduled task(由管理员手动操作或定时任务调用)
    */
   async retryFailedEvents(tx?: DrizzleTransaction): Promise<number> {
     const twentyFourHoursAgo = new Date();
@@ -182,12 +195,12 @@ export class EventPublisherService {
   }
 
   /**
-   * Cleanup old published events
-   * - Delete published events older than retention period (default: 7 days)
-   * - Keeps failed events for troubleshooting
-   * - Returns count of deleted events
+   * Cleanup old published events(清理旧的已发布事件)
+   * - Delete published events older than retention period (default: 7 days)(删除超过保留期的已发布事件(默认：7天))
+   * - Keeps failed events for troubleshooting(保留失败事件用于故障排除)
+   * - Returns count of deleted events(返回删除事件的数量)
    *
-   * Called by: Scheduled task daily at 2 AM
+   * Called by: Scheduled task daily at 2 AM(由每日凌晨2点的定时任务调用)
    */
   async cleanupOldEvents(tx?: DrizzleTransaction): Promise<number> {
     const retentionDate = new Date();
@@ -203,7 +216,6 @@ export class EventPublisherService {
         ),
       )
       .returning();
-
     this.logger.log(
       `Cleaned up ${deletedEvents.length} old published events (older than ${EVENT_RETENTION_DAYS} days)`,
     );
@@ -211,9 +223,9 @@ export class EventPublisherService {
   }
 
   /**
-   * Get event statistics
-   * - Count events by status
-   * - Returns event counts for monitoring
+   * Get event statistics(获取事件统计)
+   * - Count events by status(按状态统计事件)
+   * - Returns event counts for monitoring(返回用于监控的事件计数)
    */
   async getEventStats(): Promise<{
     pending: number;
