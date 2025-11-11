@@ -21,22 +21,28 @@ export const holdStatusEnum = pgEnum("hold_status", [
  * Service holds table
  * Service reservation mechanism to prevent over-booking
  *
- * Key features (v2.16.9):
- * - Manual release only: All holds must be explicitly released or cancelled
- * - No expiration: Holds do not expire automatically (removed TTL mechanism)
+ * Key features (v2.16.12):
+ * - Optional expiry: Supports per-hold expiry configuration using expiry_at
+ * - Automatic release: Scheduled task releases expired holds every hour
+ * - Manual trigger: Service interface for manual expired hold release
  * - Triggers automatically sync held_quantity in contract_service_entitlements (v2.16.5)
  * - Only active holds count toward held_quantity
  *
  * Use cases:
- * - Booking flow: Create hold → Create booking → Release hold on completion/cancellation
- * - If user cancels: Cancel hold with reason 'cancelled'
- * - All releases require explicit manual operation
+ * - Booking flow: Create hold with expiry → Create booking → Release hold on completion/cancellation
+ * - Automatic cleanup: Expired holds released by scheduled task or manual trigger
+ * - Flexible expiry: Different holds can have different expiry times (e.g., urgent bookings = 2 hours)
  *
- * Design decision (v2.16.9): No expiration
- * - Removed automatic expiration and TTL mechanism
- * - Removes expiresAt field from schema
- * - Simplifies state management and business logic
- * - Administrator/developer must manually review and release holds
+ * Design decision (v2.16.12): Use expiryAt only
+ * - Removed expiry_hours, use expiry_at exclusively for time-based expiration
+ * - Simpler, more precise control over expiry time
+ * - Scheduled task runs hourly to release expired holds (batch size: 100)
+ * - Service interface allows manual trigger for immediate cleanup
+ *
+ * Design decision (v2.16.9): Removed permanent expiration
+ * - Changed from "no expiration" to "optional expiration"
+ * - Maintains backward compatibility (existing holds have no expiry)
+ * - Simplifies state management with explicit expiry configuration
  *
  * Design decision (v2.16.5 C-NEW-2): Trigger-based sync
  * - held_quantity in contract_service_entitlements is automatically maintained by trigger
@@ -58,6 +64,9 @@ export const serviceHolds = pgTable("service_holds", {
   // Service type and quantity
   serviceType: serviceTypeEnum("service_type").notNull(),
   quantity: integer("quantity").notNull().default(1), // Default: hold 1 unit
+
+  // Expiry configuration (v2.16.12: Use expiryAt only, expiryHours removed)
+  expiryAt: timestamp("expiry_at", { withTimezone: true }), // Exact expiry timestamp
 
   // Status management
   status: holdStatusEnum("status").notNull().default("active"),
@@ -158,18 +167,22 @@ export type InsertServiceHold = typeof serviceHolds.$inferInsert;
  * - active → cancelled (user cancelled the booking)
  * - No automatic state changes
  *
- * Application layer code (v2.16.9: no TTL, manual release only):
+ * Application layer code (v2.16.12: use expiryAt exclusively):
  * ```typescript
- * // Create hold (trigger automatically syncs held_quantity)
- * // Supports optional transaction parameter
+ * // Create hold with expiry (trigger automatically syncs held_quantity)
+ * // expiryAt: specific timestamp or null for no expiry
  * async createHold(dto: CreateHoldDto, tx?: DrizzleTransaction): Promise<ServiceHold> {
  *   const executor = tx ?? db;
+ *   const expiryAt = dto.expiryAt !== undefined
+ *     ? dto.expiryAt
+ *     : new Date(Date.now() + 24 * 60 * 60 * 1000); // Default 24 hours
  *
  *   return await executor.insert(serviceHolds).values({
  *     contractId: dto.contractId,
  *     studentId: dto.studentId,
  *     serviceType: dto.serviceType,
  *     quantity: dto.quantity ?? 1,
+ *     expiryAt: expiryAt,
  *     createdBy: dto.createdBy,
  *   }).returning();
  * }
@@ -197,20 +210,65 @@ export type InsertServiceHold = typeof serviceHolds.$inferInsert;
  *     .where(eq(serviceHolds.id, id))
  *     .returning();
  * }
+ *
+ * // Automatic release of expired holds (v2.16.10)
+ * async releaseExpiredHolds(batchSize = 100): Promise<{
+ *   releasedCount: number;
+ *   failedCount: number;
+ * }> {
+ *   const expiredHolds = await db.query.serviceHolds.findMany({
+ *     where: and(
+ *       eq(serviceHolds.status, 'active'),
+ *       isNotNull(serviceHolds.expiryAt),
+ *       lte(serviceHolds.expiryAt, new Date()),
+ *     ),
+ *     limit: batchSize,
+ *   });
+ *
+ *   let releasedCount = 0;
+ *   let failedCount = 0;
+ *
+ *   for (const hold of expiredHolds) {
+ *     try {
+ *       await this.releaseHold(hold.id, 'expired');
+ *       releasedCount++;
+ *     } catch (error) {
+ *       failedCount++;
+ *       console.error(`Failed to release expired hold ${hold.id}:`, error);
+ *     }
+ *   }
+ *
+ *   return { releasedCount, failedCount };
+ * }
+ *
+ * // Manual trigger for immediate cleanup
+ * async triggerExpiredHoldsRelease(batchSize = 100): Promise<void> {
+ *   return await this.releaseExpiredHolds(batchSize);
+ * }
  * ```
  *
- * Monitoring long-unreleased holds:
+ * Monitoring expired and long-unreleased holds:
  * ```typescript
- * // Query for holds created > 24 hours ago that are still active
+ * // Query for holds that have expired but are still active
+ * const expiredHolds = await db.query.serviceHolds.findMany({
+ *   where: and(
+ *     eq(serviceHolds.status, 'active'),
+ *     isNotNull(serviceHolds.expiryAt),
+ *     lte(serviceHolds.expiryAt, new Date())
+ *   )
+ * });
+ *
+ * // Query for holds created > 24 hours ago without expiry set
  * const oldHolds = await db.query.serviceHolds.findMany({
  *   where: and(
  *     eq(serviceHolds.status, 'active'),
+ *     isNull(serviceHolds.expiryAt),
  *     lt(
  *       serviceHolds.createdAt,
- *       new Date(Date.now() - 24 * 60 * 60 * 1000) // 24 hours ago
+ *       new Date(Date.now() - 24 * 60 * 60 * 1000)
  *     )
  *   )
  * });
- * // Manual review and release if needed
+ * // Manual review and configure expiry if needed
  * ```
  */

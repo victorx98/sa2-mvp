@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { EventEmitter } from "events";
 import type { DomainEvent } from "@infrastructure/database/schema";
+import type { IDomainEventData } from "../common/types/event.types";
 
 /**
  * Event Bus Service (本地事件总线)
@@ -32,7 +33,7 @@ export class EventBusService {
    * @param eventType 事件类型 (如: "payment.succeeded")
    * @param handler 事件处理函数
    */
-  subscribe(eventType: string, handler: (event: any) => void): void {
+  subscribe(eventType: string, handler: (event: IDomainEventData) => void): void {
     this.logger.log(`[EventBus] Subscribing to: ${eventType}`);
     this.emitter.on(eventType, handler);
   }
@@ -42,7 +43,7 @@ export class EventBusService {
    * @param eventType 事件类型
    * @param handler 事件处理函数
    */
-  unsubscribe(eventType: string, handler: (event: any) => void): void {
+  unsubscribe(eventType: string, handler: (event: IDomainEventData) => void): void {
     this.logger.log(`[EventBus] Unsubscribing from: ${eventType}`);
     this.emitter.off(eventType, handler);
   }

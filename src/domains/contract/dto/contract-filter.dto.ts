@@ -1,19 +1,19 @@
 import { IsOptional, IsString, IsUUID, IsEnum } from "class-validator";
 
 /**
- * Contract Filter DTO
- * Used for filtering contracts in search queries
+ * DTO for filtering contracts (筛选合约的DTO)
+ * Used for filtering contracts in search queries (用于在搜索查询中筛选合约)
  */
 export class ContractFilterDto {
   @IsOptional()
   @IsString()
-  studentId?: string;
+  studentId?: string; // Student ID (学生ID)
 
   @IsOptional()
   @IsEnum(["signed", "active", "suspended", "completed", "terminated"])
-  status?: string;
+  status?: string; // Contract status (合约状态)
 
   @IsOptional()
   @IsUUID()
-  productId?: string;
+  productId?: string; // Product ID (产品ID)
 }

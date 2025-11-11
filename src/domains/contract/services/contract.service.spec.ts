@@ -620,16 +620,22 @@ describe("ContractService", () => {
 
       // Mock count query (first select call)
       const countWhereMock = jest.fn().mockResolvedValue([{ count: 2 }]);
-      const countFromMock = jest.fn().mockReturnValue({ where: countWhereMock });
-      const countSelectMock = jest.fn().mockReturnValue({ from: countFromMock });
+      const countFromMock = jest
+        .fn()
+        .mockReturnValue({ where: countWhereMock });
 
       // Mock data query (second select call)
       const dataOffsetMock = jest.fn().mockResolvedValue(mockContracts);
-      const dataLimitMock = jest.fn().mockReturnValue({ offset: dataOffsetMock });
-      const dataOrderByMock = jest.fn().mockReturnValue({ limit: dataLimitMock });
-      const dataWhereMock = jest.fn().mockReturnValue({ orderBy: dataOrderByMock });
+      const dataLimitMock = jest
+        .fn()
+        .mockReturnValue({ offset: dataOffsetMock });
+      const dataOrderByMock = jest
+        .fn()
+        .mockReturnValue({ limit: dataLimitMock });
+      const dataWhereMock = jest
+        .fn()
+        .mockReturnValue({ orderBy: dataOrderByMock });
       const dataFromMock = jest.fn().mockReturnValue({ where: dataWhereMock });
-      const dataSelectMock = jest.fn().mockReturnValue({ from: dataFromMock });
 
       // Setup sequential mock returns for select
       mockDb.select
@@ -655,13 +661,21 @@ describe("ContractService", () => {
       // Arrange
       // Mock count query
       const countWhereMock = jest.fn().mockResolvedValue([{ count: 0 }]);
-      const countFromMock = jest.fn().mockReturnValue({ where: countWhereMock });
+      const countFromMock = jest
+        .fn()
+        .mockReturnValue({ where: countWhereMock });
 
       // Mock data query
       const dataOffsetMock = jest.fn().mockResolvedValue([]);
-      const dataLimitMock = jest.fn().mockReturnValue({ offset: dataOffsetMock });
-      const dataOrderByMock = jest.fn().mockReturnValue({ limit: dataLimitMock });
-      const dataWhereMock = jest.fn().mockReturnValue({ orderBy: dataOrderByMock });
+      const dataLimitMock = jest
+        .fn()
+        .mockReturnValue({ offset: dataOffsetMock });
+      const dataOrderByMock = jest
+        .fn()
+        .mockReturnValue({ limit: dataLimitMock });
+      const dataWhereMock = jest
+        .fn()
+        .mockReturnValue({ orderBy: dataOrderByMock });
       const dataFromMock = jest.fn().mockReturnValue({ where: dataWhereMock });
 
       mockDb.select
@@ -686,13 +700,23 @@ describe("ContractService", () => {
 
       // Mock count query
       const countWhereMock = jest.fn().mockResolvedValue([{ count: 25 }]);
-      const countFromMock = jest.fn().mockReturnValue({ where: countWhereMock });
+      const countFromMock = jest
+        .fn()
+        .mockReturnValue({ where: countWhereMock });
 
       // Mock data query
-      const dataOffsetMock = jest.fn().mockResolvedValue(mockContracts.slice(0, 20));
-      const dataLimitMock = jest.fn().mockReturnValue({ offset: dataOffsetMock });
-      const dataOrderByMock = jest.fn().mockReturnValue({ limit: dataLimitMock });
-      const dataWhereMock = jest.fn().mockReturnValue({ orderBy: dataOrderByMock });
+      const dataOffsetMock = jest
+        .fn()
+        .mockResolvedValue(mockContracts.slice(0, 20));
+      const dataLimitMock = jest
+        .fn()
+        .mockReturnValue({ offset: dataOffsetMock });
+      const dataOrderByMock = jest
+        .fn()
+        .mockReturnValue({ limit: dataLimitMock });
+      const dataWhereMock = jest
+        .fn()
+        .mockReturnValue({ orderBy: dataOrderByMock });
       const dataFromMock = jest.fn().mockReturnValue({ where: dataWhereMock });
 
       mockDb.select
@@ -717,13 +741,21 @@ describe("ContractService", () => {
 
       // Mock count query
       const countWhereMock = jest.fn().mockResolvedValue([{ count: 1 }]);
-      const countFromMock = jest.fn().mockReturnValue({ where: countWhereMock });
+      const countFromMock = jest
+        .fn()
+        .mockReturnValue({ where: countWhereMock });
 
       // Mock data query
       const dataOffsetMock = jest.fn().mockResolvedValue(mockContracts);
-      const dataLimitMock = jest.fn().mockReturnValue({ offset: dataOffsetMock });
-      const dataOrderByMock = jest.fn().mockReturnValue({ limit: dataLimitMock });
-      const dataWhereMock = jest.fn().mockReturnValue({ orderBy: dataOrderByMock });
+      const dataLimitMock = jest
+        .fn()
+        .mockReturnValue({ offset: dataOffsetMock });
+      const dataOrderByMock = jest
+        .fn()
+        .mockReturnValue({ limit: dataLimitMock });
+      const dataWhereMock = jest
+        .fn()
+        .mockReturnValue({ orderBy: dataOrderByMock });
       const dataFromMock = jest.fn().mockReturnValue({ where: dataWhereMock });
 
       mockDb.select

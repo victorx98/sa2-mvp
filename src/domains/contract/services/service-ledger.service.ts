@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { eq, and, gte, lte, sql } from "drizzle-orm";
+import { eq, and, gte, lte, sql, SQL } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import type {
@@ -262,7 +262,7 @@ export class ServiceLedgerService {
     }
 
     // Build WHERE conditions(构建WHERE条件)
-    const conditions: any[] = [];
+    const conditions: SQL[] = [];
     if (contractId) {
       conditions.push(eq(schema.serviceLedgers.contractId, contractId));
     }
@@ -297,7 +297,7 @@ export class ServiceLedgerService {
 
     // includeArchive = true: Use UNION ALL to query both main and archive tables(includeArchive = true: 使用UNION ALL查询主表和归档表)
     // Build SQL conditions for UNION ALL query(为UNION ALL查询构建SQL条件)
-    const sqlConditions: any[] = [];
+    const sqlConditions: SQL[] = [];
     if (contractId) {
       sqlConditions.push(sql`contract_id = ${contractId}`);
     }

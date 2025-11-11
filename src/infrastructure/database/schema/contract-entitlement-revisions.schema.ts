@@ -8,10 +8,10 @@ import {
   json,
   boolean,
   pgEnum,
-} from 'drizzle-orm/pg-core';
-import { contracts } from './contracts.schema';
-import { contractServiceEntitlements } from './contract-service-entitlements.schema';
-import { userTable } from './user.schema';
+} from "drizzle-orm/pg-core";
+import { contracts } from "./contracts.schema";
+import { contractServiceEntitlements } from "./contract-service-entitlements.schema";
+import { userTable } from "./user.schema";
 
 /**
  * 权益修订类型枚举
@@ -24,19 +24,16 @@ import { userTable } from './user.schema';
  * - expiration: 过期调整
  * - termination: 合同终止时的权益处理
  */
-export const entitlementRevisionTypeEnum = pgEnum(
-  'entitlement_revision_type',
-  [
-    'initial',
-    'addon',
-    'promotion',
-    'compensation',
-    'increase',
-    'decrease',
-    'expiration',
-    'termination',
-  ]
-);
+export const entitlementRevisionTypeEnum = pgEnum("entitlement_revision_type", [
+  "initial",
+  "addon",
+  "promotion",
+  "compensation",
+  "increase",
+  "decrease",
+  "expiration",
+  "termination",
+]);
 
 /**
  * 修订状态枚举（审核流程）
@@ -45,11 +42,11 @@ export const entitlementRevisionTypeEnum = pgEnum(
  * - rejected: 已拒绝
  * - applied: 已应用
  */
-export const revisionStatusEnum = pgEnum('revision_status', [
-  'pending',
-  'approved',
-  'rejected',
-  'applied',
+export const revisionStatusEnum = pgEnum("revision_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "applied",
 ]);
 
 /**
@@ -64,85 +61,89 @@ export const revisionStatusEnum = pgEnum('revision_status', [
  * - 创建合同时记录初始权益（revisionType='initial'）
  */
 export const contractEntitlementRevisions = pgTable(
-  'contract_entitlement_revisions',
+  "contract_entitlement_revisions",
   {
-    id: uuid('id').defaultRandom().primaryKey(),
+    id: uuid("id").defaultRandom().primaryKey(),
 
     // 关联合同
-    contractId: uuid('contract_id')
+    contractId: uuid("contract_id")
       .notNull()
-      .references(() => contracts.id, { onDelete: 'cascade' }),
+      .references(() => contracts.id, { onDelete: "cascade" }),
 
     // 关联权益记录
-    entitlementId: uuid('entitlement_id').references(
+    entitlementId: uuid("entitlement_id").references(
       () => contractServiceEntitlements.id,
-      { onDelete: 'set null' }
+      { onDelete: "set null" },
     ),
 
     // 服务类型
-    serviceType: varchar('service_type', { length: 100 }).notNull(),
+    serviceType: varchar("service_type", { length: 100 }).notNull(),
 
     // 服务名称快照
-    serviceName: varchar('service_name', { length: 500 }).notNull(),
+    serviceName: varchar("service_name", { length: 500 }).notNull(),
 
     // 修订版本号（合同内全局递增）
-    revisionNumber: integer('revision_number').notNull(),
+    revisionNumber: integer("revision_number").notNull(),
 
     // 修订类型
-    revisionType: entitlementRevisionTypeEnum('revision_type').notNull(),
+    revisionType: entitlementRevisionTypeEnum("revision_type").notNull(),
 
     // 权益来源
-    source: varchar('source', { length: 50 }).notNull(),
+    source: varchar("source", { length: 50 }).notNull(),
 
     // 变更数量（正数=增加，负数=减少）
-    quantityChanged: integer('quantity_changed').notNull(),
+    quantityChanged: integer("quantity_changed").notNull(),
 
     // 变更后的总量
-    totalQuantity: integer('total_quantity').notNull(),
+    totalQuantity: integer("total_quantity").notNull(),
 
     // 变更后的可用量
-    availableQuantity: integer('available_quantity').notNull(),
+    availableQuantity: integer("available_quantity").notNull(),
 
     // 审核状态
-    status: revisionStatusEnum('status').notNull().default('pending'),
+    status: revisionStatusEnum("status").notNull().default("pending"),
 
     // 需要审批
-    requiresApproval: boolean('requires_approval').notNull().default(false),
+    requiresApproval: boolean("requires_approval").notNull().default(false),
 
     // 审批信息
-    approvedBy: varchar('approved_by', { length: 32 }).references(() => userTable.id),
-    approvedAt: timestamp('approved_at', { withTimezone: true }),
-    approvalNotes: text('approval_notes'),
+    approvedBy: varchar("approved_by", { length: 32 }).references(
+      () => userTable.id,
+    ),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvalNotes: text("approval_notes"),
 
     // 变更原因（addon/promotion/compensation 时必填）
-    addOnReason: text('add_on_reason'),
+    addOnReason: text("add_on_reason"),
 
     // 详细说明
-    description: text('description'),
+    description: text("description"),
 
     // 附件（如：审批文件、客户确认邮件等）
-    attachments: json('attachments').$type<string[]>(),
+    attachments: json("attachments").$type<string[]>(),
 
     // 操作人（创建人）
-    createdBy: varchar('created_by', { length: 32 }).references(() => userTable.id),
+    createdBy: varchar("created_by", { length: 32 }).references(
+      () => userTable.id,
+    ),
 
     // 关联的业务ID
-    relatedBookingId: uuid('related_booking_id'),
-    relatedHoldId: uuid('related_hold_id'),
-    relatedProductId: uuid('related_product_id'),
+    relatedBookingId: uuid("related_booking_id"),
+    relatedHoldId: uuid("related_hold_id"),
+    relatedProductId: uuid("related_product_id"),
 
     // 快照信息
-    snapshot: json('snapshot').$type<{
+    snapshot: json("snapshot").$type<{
       serviceSnapshot?: any;
       productSnapshot?: any;
       originItems?: any[];
     }>(),
 
     // 审计字段
-    createdAt: timestamp('created_at', { withTimezone: true })
+    createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
-  }
+  },
 );
 
 // 索引定义（用于查询优化）

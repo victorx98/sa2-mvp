@@ -1,47 +1,47 @@
 import { IsOptional, IsString, IsDateString } from "class-validator";
 
 /**
- * Update Contract DTO
- * Used when updating contract fields
+ * DTO for updating contract (更新合约的DTO)
+ * Used when updating contract fields (用于更新合约字段)
  */
 export class UpdateContractDto {
   @IsOptional()
   @IsString()
-  overrideAmount?: string;
+  overrideAmount?: string; // Price override amount (价格覆盖金额)
 
   @IsOptional()
   @IsString()
-  overrideReason?: string;
+  overrideReason?: string; // Reason for price override (价格覆盖原因)
 
   @IsOptional()
   @IsString()
-  overrideApprovedBy?: string;
+  overrideApprovedBy?: string; // Approver of price override (价格覆盖批准人)
 
   @IsOptional()
   @IsDateString()
-  suspendedAt?: Date;
+  suspendedAt?: Date; // Contract suspension date (合约暂停日期)
 
   @IsOptional()
   @IsString()
-  suspendedReason?: string;
+  suspendedReason?: string; // Reason for suspension (暂停原因)
 
   @IsOptional()
   @IsDateString()
-  resumedAt?: Date;
+  resumedAt?: Date; // Contract resumption date (合约恢复日期)
 
   @IsOptional()
   @IsDateString()
-  terminatedAt?: Date;
+  terminatedAt?: Date; // Contract termination date (合约终止日期)
 
   @IsOptional()
   @IsString()
-  terminatedReason?: string;
+  terminatedReason?: string; // Reason for termination (终止原因)
 
   @IsOptional()
   @IsDateString()
-  completedAt?: Date;
+  completedAt?: Date; // Contract completion date (合约完成日期)
 
   @IsOptional()
   @IsString()
-  updatedBy?: string;
+  updatedBy?: string; // Updater ID (更新人ID)
 }
