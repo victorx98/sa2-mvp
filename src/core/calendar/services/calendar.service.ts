@@ -63,14 +63,15 @@ export class CalendarService {
       const executor: DrizzleExecutor = tx ?? this.db;
 
       // Perform direct INSERT - let PostgreSQL EXCLUDE constraint handle conflicts
+      // NOTE: Table name is 'calendar' (not 'calendar_slots'), column 'type' (not 'slot_type')
       const result = await executor.execute(sql`
-        INSERT INTO calendar_slots (
+        INSERT INTO calendar (
           user_id,
           user_type,
           time_range,
           duration_minutes,
           session_id,
-          slot_type,
+          type,
           status,
           reason
         ) VALUES (
@@ -134,9 +135,10 @@ export class CalendarService {
     const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
 
     // Query for overlapping booked slots (user_type not needed, only user_id + time_range)
+    // NOTE: Table name is 'calendar' (not 'calendar_slots')
     const result = await this.db.execute(sql`
       SELECT COUNT(*) as count
-      FROM calendar_slots
+      FROM calendar
       WHERE user_id = ${userId}
         AND status = ${SlotStatus.BOOKED}
         AND time_range && tstzrange(${startTime.toISOString()}, ${endTime.toISOString()}, '[)')
@@ -169,8 +171,9 @@ export class CalendarService {
     }
 
     // Update status to cancelled
+    // NOTE: Table name is 'calendar' (not 'calendar_slots')
     const result = await this.db.execute(sql`
-      UPDATE calendar_slots
+      UPDATE calendar
       SET status = ${SlotStatus.CANCELLED}, updated_at = NOW()
       WHERE id = ${slotId}
       RETURNING *
@@ -204,9 +207,10 @@ export class CalendarService {
       throw new CalendarException("Date range cannot exceed 90 days");
     }
 
+    // NOTE: Table name is 'calendar' (not 'calendar_slots'), column is 'user_type' (not 'calendar_user_type')
     const result = await this.db.execute(sql`
       SELECT *
-      FROM calendar_slots
+      FROM calendar
       WHERE user_id = ${dto.userId}
         AND user_type = ${dto.userType}
         AND status = ${SlotStatus.BOOKED}
@@ -242,8 +246,9 @@ export class CalendarService {
     // Use transaction to ensure atomicity: release old + create new
     return await this.db.transaction(async (tx) => {
       // Step 1: Release old slot
+      // NOTE: Table name is 'calendar' (not 'calendar_slots')
       await tx.execute(sql`
-        UPDATE calendar_slots
+        UPDATE calendar
         SET status = ${SlotStatus.CANCELLED}, updated_at = NOW()
         WHERE id = ${oldSlotId}
       `);
@@ -254,14 +259,15 @@ export class CalendarService {
       );
 
       try {
+        // NOTE: Table name is 'calendar' (not 'calendar_slots'), column 'user_type' (not 'calendar_user_type'), 'type' (not 'slot_type')
         const result = await tx.execute(sql`
-          INSERT INTO calendar_slots (
+          INSERT INTO calendar (
             user_id,
             user_type,
             time_range,
             duration_minutes,
             session_id,
-            slot_type,
+            type,
             status,
             reason
           ) VALUES (
@@ -297,9 +303,10 @@ export class CalendarService {
   async getSlotBySessionId(
     sessionId: string,
   ): Promise<ICalendarSlotEntity | null> {
+    // NOTE: Table name is 'calendar' (not 'calendar_slots')
     const result = await this.db.execute(sql`
       SELECT *
-      FROM calendar_slots
+      FROM calendar
       WHERE session_id = ${sessionId}
         AND status = ${SlotStatus.BOOKED}
       LIMIT 1
@@ -319,9 +326,10 @@ export class CalendarService {
    * @returns ICalendarSlotEntity if found, null otherwise
    */
   async getSlotById(slotId: string): Promise<ICalendarSlotEntity | null> {
+    // NOTE: Table name is 'calendar' (not 'calendar_slots')
     const result = await this.db.execute(sql`
       SELECT *
-      FROM calendar_slots
+      FROM calendar
       WHERE id = ${slotId}
       LIMIT 1
     `);
@@ -346,8 +354,9 @@ export class CalendarService {
     slotId: string,
     sessionId: string,
   ): Promise<ICalendarSlotEntity> {
+    // NOTE: Table name is 'calendar' (not 'calendar_slots')
     const result = await this.db.execute(sql`
-      UPDATE calendar_slots
+      UPDATE calendar
       SET session_id = ${sessionId}, updated_at = NOW()
       WHERE id = ${slotId}
       RETURNING *
@@ -400,11 +409,11 @@ export class CalendarService {
     const record = row as {
       id: string;
       user_id: string;
-      user_type: string;
+      user_type: string; // NOTE: Column name changed from 'calendar_user_type' to 'user_type'
       time_range: string;
       duration_minutes: number;
       session_id: string | null;
-      slot_type: string;
+      type: string; // NOTE: Database column is 'type' (not 'slot_type')
       status: string;
       reason: string | null;
       created_at: Date;
@@ -412,6 +421,7 @@ export class CalendarService {
     };
 
     // Parse PostgreSQL tstzrange format: "[start, end)"
+    // The custom type converts tstzrange to ITimeRange with start and end dates
     const timeRangeMatch = record.time_range.match(/\[(.*?), (.*?)\)/);
     let timeRange: ITimeRange;
 
@@ -421,7 +431,7 @@ export class CalendarService {
         end: new Date(timeRangeMatch[2]),
       };
     } else {
-      // Fallback if format is unexpected
+      // Fallback if format is unexpected - calculate end time from duration
       const now = new Date();
       timeRange = {
         start: now,
@@ -432,11 +442,11 @@ export class CalendarService {
     return {
       id: record.id,
       userId: record.user_id,
-      userType: record.user_type as UserType,
+      userType: record.user_type as UserType, // NOTE: Column name is now 'user_type'
       timeRange,
       durationMinutes: record.duration_minutes,
       sessionId: record.session_id,
-      slotType: record.slot_type as SlotType,
+      slotType: record.type as SlotType, // NOTE: Column is 'type' (not 'slot_type')
       status: record.status as SlotStatus,
       reason: record.reason,
       createdAt: record.created_at,

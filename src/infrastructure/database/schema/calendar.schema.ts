@@ -26,7 +26,7 @@ export const calendarUserTypeEnum = pgEnum("calendar_user_type", [
  * Slot type enum - represents the type of time slot
  * Values: session, class_session
  */
-export const calendarTypeEnum = pgEnum("calendar_type", ["session", "class_session"]);
+export const calendarTypeEnum = pgEnum("calendar_type", ["session", "class_session", "comm_session"]);
 
 /**
  * Slot status enum - represents the booking status of a slot
@@ -92,7 +92,7 @@ export const calendarSlots = pgTable(
      * Denormalized field for query optimization
      * Each user_id has unique identity in the system
      */
-    userType: calendarUserTypeEnum("calendar_user_type").notNull(),
+    userType: calendarUserTypeEnum("user_type").notNull(),
 
     /**
      * Time range (PostgreSQL TSTZRANGE type)
@@ -162,8 +162,8 @@ export const calendarSlots = pgTable(
      * Check constraints for enum values
      * Ensures data integrity at database level
      */
-    userTypeCheck: check("user_type_check", sql`calendar_user_type IN ('mentor', 'student', 'counselor')`),
-    typeCheck: check("type_check", sql`type IN ('session', 'class_session')`),
+    userTypeCheck: check("user_type_check", sql`user_type IN ('mentor', 'student', 'counselor')`),
+    typeCheck: check("type_check", sql`type IN ('session', 'class_session', 'comm_session')`),
     statusCheck: check("status_check", sql`status IN ('booked', 'cancelled')`),
     durationCheck: check("duration_check", sql`duration_minutes >= 30 AND duration_minutes <= 180`),
 

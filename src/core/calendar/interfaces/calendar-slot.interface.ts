@@ -13,6 +13,8 @@ export enum UserType {
 export enum SlotType {
   SESSION = "session",
   CLASS_SESSION = "class_session",
+  // New slot type for communication sessions
+  COMM_SESSION = "comm_session",
 }
 
 /**
@@ -42,7 +44,7 @@ export interface ICalendarSlotEntity {
   timeRange: ITimeRange; // Time range (PostgreSQL TSTZRANGE)
   durationMinutes: number; // Duration in minutes (30-180)
   sessionId: string | null; // Associated session ID (nullable)
-  slotType: SlotType; // Slot type (session/class_session)
+  slotType: SlotType; // Slot type (session/class_session/comm_session)
   status: SlotStatus; // Slot status (booked/cancelled)
   reason: string | null; // Reason for blocking or cancellation
   createdAt: Date; // Created timestamp

@@ -50,7 +50,7 @@ export class CreateSlotDto {
   sessionId?: string;
 
   /**
-   * Slot type (session/class_session)
+   * Slot type (session/class_session/comm_session)
    */
   @IsEnum(SlotType)
   slotType: SlotType;
