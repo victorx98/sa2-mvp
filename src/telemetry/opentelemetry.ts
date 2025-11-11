@@ -1,4 +1,4 @@
-import { diag, DiagConsoleLogger, DiagLogLevel } from "@opentelemetry/api";
+import { diag, DiagConsoleLogger, DiagLogLevel, trace } from "@opentelemetry/api";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
@@ -23,29 +23,34 @@ let sdkStarted = false;
 let sdk: NodeSDK | null = null;
 let sdkStarting = false;
 
-const serviceName =
-  process.env.OTEL_SERVICE_NAME ??
-  process.env.SERVICE_NAME ??
-  process.env.npm_package_name ??
-  "sa2-ddd";
+const serviceName = process.env.SERVICE_NAME ?? "sa2-ddd";
+console.log('serviceName', serviceName);
 
 const resource = resourceFromAttributes({
   [ATTR_SERVICE_NAME]: serviceName,
-  [ATTR_SERVICE_VERSION]:
-    process.env.OTEL_SERVICE_VERSION ??
-    process.env.SERVICE_VERSION ??
-    process.env.npm_package_version ??
-    "0.0.1",
+  // [ATTR_SERVICE_VERSION]:
+  //   process.env.OTEL_SERVICE_VERSION ??
+  //   process.env.SERVICE_VERSION ??
+  //   process.env.npm_package_version ??
+  //   "0.0.1",
   // [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]:
   //   process.env.NODE_ENV ??
   //   "development",
 });
 
 function buildSdk(): NodeSDK {
+  console.log('endpoint: ', 
+    process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ??
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+  );
   const traceExporter = new OTLPTraceExporter({
-    url:
-      process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ??
-      process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+    // url:
+    //   process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ??
+    //   process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+    url: 'https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/metrics',
+    headers: {
+      Authorization: `Basic ${process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN}`,
+    },
   });
 
   const metricReader = new PeriodicExportingMetricReader({
@@ -53,6 +58,9 @@ function buildSdk(): NodeSDK {
       url:
         process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT ??
         process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+      headers: {
+        Authorization: `Basic ${process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN}`,
+      },
     }),
   });
 
@@ -61,6 +69,9 @@ function buildSdk(): NodeSDK {
       url:
         process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT ??
         process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+      headers: {
+        Authorization: `Basic ${process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN}`,
+      },
     }),
   );
 
@@ -83,8 +94,8 @@ function buildSdk(): NodeSDK {
   return new NodeSDK({
     resource,
     traceExporter,
-    metricReader,
-    logRecordProcessor,
+    // metricReader,
+    // logRecordProcessor,
     instrumentations,
   });
 }
@@ -105,6 +116,7 @@ export async function ensureTelemetryStarted(): Promise<void> {
   sdkStarting = true;
   try {
     sdk.start();
+    console.log('OTEL SDK started');
     sdkStarted = true;
   } catch (error) {
     // eslint-disable-next-line no-console
@@ -114,6 +126,10 @@ export async function ensureTelemetryStarted(): Promise<void> {
   } finally {
     sdkStarting = false;
   }
+  const tracer = trace.getTracer('test');
+  const span = tracer.startSpan('test-span');
+  span.end();
+  console.log('Trace sent!');
 }
 
 export async function shutdownTelemetry(): Promise<void> {

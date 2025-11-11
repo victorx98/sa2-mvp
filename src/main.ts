@@ -1,11 +1,15 @@
-import "./telemetry/opentelemetry";
 
 import { Logger, ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import * as dotenv from 'dotenv';
 
 import { AppModule } from "./app.module";
 import { OtelLoggerService } from "./shared/logging/otel-logger.service";
 import { ensureTelemetryStarted, shutdownTelemetry } from "./telemetry/opentelemetry";
+
+dotenv.config();
+
+// import "./telemetry/opentelemetry";
 
 async function bootstrap() {
   await ensureTelemetryStarted();
@@ -22,7 +26,7 @@ async function bootstrap() {
   const originalClose = app.close.bind(app);
   app.close = async () => {
     await originalClose();
-    await shutdownTelemetry();
+    // await shutdownTelemetry();
   };
 
   const signalHandler = (signal: NodeJS.Signals) => {
