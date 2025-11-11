@@ -23,5 +23,5 @@ export * from "./sessions.schema";
 export * from "./session-events.schema";
 
 // Shared
-export * from "./calendar-slots.schema";
+export * from "./calendar.schema";
 export * from "./notification-queue.schema";

@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { CalendarService } from "@core/calendar";
 import {
-  ResourceType,
+  UserType,
   SlotType,
 } from "@core/calendar/interfaces/calendar-slot.interface";
 import {
@@ -103,14 +103,21 @@ export class BookSessionCommand {
           throw new InsufficientBalanceException("Insufficient service balance");
         }
 
-        // Step 3: 检查时间冲突
-        const isAvailable = await this.calendarService.isSlotAvailable(
-          ResourceType.MENTOR,
-          input.mentorId,
-          input.scheduledStartTime,
-          input.duration,
+        // Step 3: Try to create calendar slot directly (atomic with DB constraint)
+        // Let the database EXCLUDE constraint handle conflicts
+        const calendarSlot = await this.calendarService.createSlotDirect(
+          {
+            userId: input.mentorId,
+            userType: UserType.MENTOR,
+            startTime: input.scheduledStartTime.toISOString(),
+            durationMinutes: input.duration,
+            slotType: SlotType.SESSION,
+            sessionId: undefined, // Will be updated after session creation
+          },
+          tx,
         );
-        if (!isAvailable) {
+        
+        if (!calendarSlot) {
           throw new TimeConflictException("The mentor already has a conflict");
         }
 
@@ -170,20 +177,16 @@ export class BookSessionCommand {
           tx,
         );
 
-        // Step 7: 占用日历时段
-        const calendarSlot = await this.calendarService.createOccupiedSlot({
-          resourceType: ResourceType.MENTOR,
-          resourceId: input.mentorId,
-          startTime: input.scheduledStartTime.toISOString(),
-          durationMinutes: input.duration,
-          sessionId: session.id,
-          slotType: SlotType.SESSION,
-        }, tx);
+        // Calendar slot is already created in Step 3, just update it with session ID
+        const updatedCalendarSlot = await this.calendarService.updateSlotSessionId(
+          calendarSlot.id,
+          session.id,
+        );
 
         return {
           session,
           hold,
-          calendarSlot,
+          calendarSlot: updatedCalendarSlot,
           meetingInfo,
         };
       });

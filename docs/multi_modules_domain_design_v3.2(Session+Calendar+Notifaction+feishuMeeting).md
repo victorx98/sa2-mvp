@@ -365,7 +365,8 @@ calendar/
 │   └── calendar-slot.repository.ts      # 数据访问层
 ├── dto/
 │   ├── create-slot.dto.ts               # 创建时间段DTO
-│   └── query-slot.dto.ts                # 查询时间段DTO
+│   ├── query-slot.dto.ts                # 查询时间段DTO
+│   └── create-service-hold-result.dto.ts # 服务冻结结果DTO
 └── interfaces/
     └── calendar-slot.interface.ts       # CalendarSlot接口定义
 ```
@@ -385,9 +386,34 @@ calendar/
 | getOccupiedSlots(...)    | resourceType, resourceId, dateRange           | CalendarSlotEntity[] | 批量查询占用时段                 | BFF层 |
 | blockTimeSlot(...)       | resourceType, resourceId, timeRange, reason   | CalendarSlotEntity | 导师主动设置不可用时间              | BFF层 |
 | rescheduleSlot(...)      | oldSlotId, newStartTime, newDuration          | CalendarSlotEntity | 改期（释放旧+占用新）              | BFF层 |
+| createServiceHold(...)   | CreateSlotDto, tx?                            | CreateServiceHoldResultDto | 原子操作：检查可用性并创建占用，返回结果对象 | BFF层 |
 | getSlotBySessionId(...)  | sessionId: UUID                               | CalendarSlotEntity\|null | 根据session_id查询时间段        | BFF层 |
 
-#### 4.2.2 CreateSlotDto 定义
+#### 4.2.2 CreateServiceHoldResultDto 定义
+
+**文件路径**: `src/core/calendar/dto/create-service-hold-result.dto.ts`
+
+**功能说明**: 返回服务冻结操作的结果，包含成功/失败标志、消息说明和可选的槽位信息
+
+| 字段名  | 类型                | 说明                                          | 示例值                      |
+|--------|-------------------|----------------------------------------------|--------------------------|
+| success | boolean           | 指示服务冻结是否创建成功                            | true / false              |
+| message | String            | 描述结果的消息（成功或失败原因）                        | "Service hold created successfully" |
+| slot    | ICalendarSlotEntity/undefined | 创建的日历槽位实体（仅在success为true时填充） | `{ id, resourceType, ... }` |
+
+**工厂方法**：
+- `CreateServiceHoldResultDto.success(message, slot)` - 创建成功结果
+- `CreateServiceHoldResultDto.failure(message)` - 创建失败结果
+
+**说明**：
+- 该DTO是 `createServiceHold` 函数的返回值
+- 结合了 `isSlotAvailable` 和 `createOccupiedSlot` 的功能为单一原子操作
+- 提供了成功/失败的明确标志和详细的错误消息
+- 仅当 `success` 为 true 时，`slot` 字段才被填充
+
+---
+
+#### 4.2.3 CreateSlotDto 定义
 
 **文件路径**: `src/core/calendar/dto/create-slot.dto.ts`
 

@@ -8,7 +8,7 @@ import { NotificationQueueService } from "@core/notification/queue/notification-
 import { NotificationService } from "@core/notification/services/notification.service";
 import { UpdateSessionDto } from "@domains/services/session/dto/update-session.dto";
 import { SessionStatus } from "@domains/services/session/interfaces/session.interface";
-import { ResourceType } from "@core/calendar/interfaces/calendar-slot.interface";
+import { UserType } from "@core/calendar/interfaces/calendar-slot.interface";
 
 describe("Session Reschedule Flow (e2e)", () => {
   let app: INestApplication;
@@ -144,14 +144,15 @@ describe("Session Reschedule Flow (e2e)", () => {
       // Step 1: Check new time slot availability
       (calendarService.isSlotAvailable as jest.Mock).mockResolvedValue(true);
 
-      const isAvailable = await calendarService.isSlotAvailable(
-        ResourceType.MENTOR,
-        mockSession.mentorId,
-        newScheduledStartTime,
-        newScheduledDuration,
-      );
+      const calendarSlot = await calendarService.createSlotDirect({
+        userId: mockSession.mentorId,
+        userType: UserType.MENTOR,
+        startTime: newScheduledStartTime.toISOString(),
+        durationMinutes: newScheduledDuration,
+        slotType: "session" as any,
+      });
 
-      expect(isAvailable).toBe(true);
+      expect(calendarSlot).toBeDefined();
 
       // Step 2: Update session record
       (sessionService.getSessionById as jest.Mock).mockResolvedValue(
@@ -255,17 +256,18 @@ describe("Session Reschedule Flow (e2e)", () => {
       const newScheduledStartTime = new Date("2025-11-11T14:00:00Z");
       const newScheduledDuration = 60;
 
-      // New time slot is occupied
-      (calendarService.isSlotAvailable as jest.Mock).mockResolvedValue(false);
+      // New time slot is occupied, createSlotDirect returns null
+      (calendarService.createSlotDirect as jest.Mock).mockResolvedValue(null);
 
-      const isAvailable = await calendarService.isSlotAvailable(
-        ResourceType.MENTOR,
-        mockSession.mentorId,
-        newScheduledStartTime,
-        newScheduledDuration,
-      );
+      const calendarSlot = await calendarService.createSlotDirect({
+        userId: mockSession.mentorId,
+        userType: UserType.MENTOR,
+        startTime: newScheduledStartTime.toISOString(),
+        durationMinutes: newScheduledDuration,
+        slotType: "session" as any,
+      });
 
-      expect(isAvailable).toBe(false);
+      expect(calendarSlot).toBeNull();
 
       // Should not proceed with reschedule
       expect(sessionService.updateSession).not.toHaveBeenCalled();
@@ -291,12 +293,13 @@ describe("Session Reschedule Flow (e2e)", () => {
         scheduledDuration: newScheduledDuration,
       });
 
-      await calendarService.isSlotAvailable(
-        ResourceType.MENTOR,
-        mockSession.mentorId,
-        newScheduledStartTime,
-        newScheduledDuration,
-      );
+      await calendarService.createSlotDirect({
+        userId: mockSession.mentorId,
+        userType: UserType.MENTOR,
+        startTime: newScheduledStartTime.toISOString(),
+        durationMinutes: newScheduledDuration,
+        slotType: "session" as any,
+      });
 
       await sessionService.updateSession(mockSession.id, updateDto);
 
@@ -359,12 +362,13 @@ describe("Session Reschedule Flow (e2e)", () => {
         scheduledStartTime: newTime,
       });
 
-      await calendarService.isSlotAvailable(
-        ResourceType.MENTOR,
-        mockSession.mentorId,
-        newTime,
-        mockSession.scheduledDuration,
-      );
+      await calendarService.createSlotDirect({
+        userId: mockSession.mentorId,
+        userType: UserType.MENTOR,
+        startTime: newTime.toISOString(),
+        durationMinutes: mockSession.scheduledDuration,
+        slotType: "session" as any,
+      });
 
       const updated = await sessionService.updateSession(
         mockSession.id,
