@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { IEventPublisher } from "./event-publisher.service";
 import { EventBusService } from "../events/event-bus.service";
 import type { DomainEvent } from "@infrastructure/database/schema";
+import type { IDomainEventData } from "../common/types/event.types";
 
 /**
  * Mock Event Publisher
@@ -29,7 +30,9 @@ export class MockEventPublisher implements IEventPublisher {
    * @param event - Domain event to publish
    */
   async publish(event: DomainEvent): Promise<void> {
-    this.logger.log(`[MOCK] Publishing event: ${event.eventType}, ID: ${event.id}`);
+    this.logger.log(
+      `[MOCK] Publishing event: ${event.eventType}, ID: ${event.id}`,
+    );
     this.logger.debug(
       `[MOCK] Event payload:`,
       JSON.stringify(event.payload, null, 2),
@@ -56,7 +59,7 @@ export class MockEventPublisher implements IEventPublisher {
    * @param eventType - Event type to subscribe to
    * @param handler - Event handler function
    */
-  subscribe(eventType: string, handler: (event: any) => void): void {
+  subscribe(eventType: string, handler: (event: IDomainEventData) => void): void {
     this.logger.log(`[MOCK] Subscribing to event type: ${eventType}`);
     this.eventBus.subscribe(eventType, handler);
   }

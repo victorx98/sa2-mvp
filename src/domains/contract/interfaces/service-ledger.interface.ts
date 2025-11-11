@@ -6,53 +6,53 @@ import { ServiceLedger } from "@infrastructure/database/schema";
 import { IPaginatedResult } from "./contract.interface";
 
 export interface IServiceLedgerService {
-  recordConsumption(dto: IRecordConsumptionDto): Promise<ServiceLedger>;
-  recordAdjustment(dto: IRecordAdjustmentDto): Promise<ServiceLedger>;
+  recordConsumption(dto: IRecordConsumptionDto): Promise<ServiceLedger>; // Record consumption (记录消费)
+  recordAdjustment(dto: IRecordAdjustmentDto): Promise<ServiceLedger>; // Record adjustment (记录调整)
   calculateAvailableBalance(
     contractId: string,
     serviceType: string,
-  ): Promise<IBalanceInfo>;
+  ): Promise<IBalanceInfo>; // Calculate available balance (计算可用余额)
   queryLedgers(
     filter: ILedgerFilterDto,
     options?: ILedgerQueryOptions,
-  ): Promise<IPaginatedResult<ServiceLedger>>;
-  reconcileBalance(contractId: string, serviceType: string): Promise<boolean>;
+  ): Promise<IPaginatedResult<ServiceLedger>>; // Query ledgers (查询台账)
+  reconcileBalance(contractId: string, serviceType: string): Promise<boolean>; // Reconcile balance (对账)
 }
 
 export interface IRecordConsumptionDto {
-  contractId: string;
-  studentId: string;
-  serviceType: string;
-  quantity: number;
-  relatedBookingId?: string;  // Related Booking ID (关联预约ID，通用字段，适用于 session、class、mock_interview 等)
-  createdBy: string;
+  contractId: string; // Contract ID (合约ID)
+  studentId: string; // Student ID (学生ID)
+  serviceType: string; // Service type (服务类型)
+  quantity: number; // Quantity to consume (消费数量)
+  relatedBookingId?: string; // Associated booking ID (generic field for session, class, mock_interview, etc.) (关联预约ID(通用字段，适用于session、class、mock_interview等))
+  createdBy: string; // ID of creator (创建人ID)
 }
 
 export interface IRecordAdjustmentDto {
-  contractId: string;
-  studentId: string;
-  serviceType: string;
-  quantity: number;
-  reason: string;
-  createdBy: string;
+  contractId: string; // Contract ID (合约ID)
+  studentId: string; // Student ID (学生ID)
+  serviceType: string; // Service type (服务类型)
+  quantity: number; // Quantity adjustment (can be positive or negative) (数量调整(可以为正或负))
+  reason: string; // Reason for adjustment (调整原因)
+  createdBy: string; // ID of creator (创建人ID)
 }
 
 export interface IBalanceInfo {
-  totalQuantity: number;
-  consumedQuantity: number;
-  heldQuantity: number;
-  availableQuantity: number;
+  totalQuantity: number; // Total quantity (总数量)
+  consumedQuantity: number; // Consumed quantity (已消费数量)
+  heldQuantity: number; // Held quantity (预留数量)
+  availableQuantity: number; // Available quantity (可用数量)
 }
 
 export interface ILedgerFilterDto {
-  contractId?: string;
-  studentId?: string;
-  serviceType?: string;
-  startDate?: Date;
-  endDate?: Date;
+  contractId?: string; // Contract ID (合约ID)
+  studentId?: string; // Student ID (学生ID)
+  serviceType?: string; // Service type (服务类型)
+  startDate?: Date; // Filter start date (筛选开始日期)
+  endDate?: Date; // Filter end date (筛选结束日期)
 }
 
 export interface ILedgerQueryOptions {
-  includeArchive?: boolean;
-  pagination?: { page: number; pageSize: number };
+  includeArchive?: boolean; // Whether to include archived records (是否包含已归档记录)
+  pagination?: { page: number; pageSize: number }; // Pagination parameters (分页参数)
 }

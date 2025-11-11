@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit, Inject } from "@nestjs/common";
 import { IEventPublisher } from "../../services/event-publisher.service";
 import { ServiceHoldService } from "../../services/service-hold.service";
+import type { ISessionCancelledEvent } from "../../common/types/event.types";
 
 /**
  * Session Cancelled Event Listener
@@ -18,12 +19,12 @@ export class SessionCancelledListener implements OnModuleInit {
 
   constructor(
     private readonly holdService: ServiceHoldService,
-    @Inject('EVENT_PUBLISHER') private readonly eventPublisher: IEventPublisher,
+    @Inject("EVENT_PUBLISHER") private readonly eventPublisher: IEventPublisher,
   ) {}
 
   onModuleInit() {
     // Subscribe to session.cancelled events
-    this.eventPublisher.subscribe("session.cancelled", (event) =>
+    this.eventPublisher.subscribe("session.cancelled", (event: any) =>
       this.handleSessionCancelled(event),
     );
 
@@ -34,7 +35,7 @@ export class SessionCancelledListener implements OnModuleInit {
    * Handle session.cancelled event
    * @param event The session cancelled event
    */
-  private async handleSessionCancelled(event: any): Promise<void> {
+  private async handleSessionCancelled(event: ISessionCancelledEvent): Promise<void> {
     try {
       const { payload } = event;
 
@@ -57,7 +58,7 @@ export class SessionCancelledListener implements OnModuleInit {
         return;
       }
 
-      const { sessionId, holdId, cancelledBy } = payload;
+      const { sessionId, holdId } = payload;
 
       this.logger.log(`Processing cancelled session: ${sessionId}`, {
         eventId: event.id,
@@ -77,14 +78,10 @@ export class SessionCancelledListener implements OnModuleInit {
         },
       );
     } catch (error) {
-      this.logger.error(
-        "Error handling session.cancelled event",
-        error.stack,
-        {
-          eventId: event.id,
-          eventType: event.eventType,
-        },
-      );
+      this.logger.error("Error handling session.cancelled event", error.stack, {
+        eventId: event.id,
+        eventType: event.eventType,
+      });
 
       // Re-throw to allow retry mechanism to handle
       throw error;

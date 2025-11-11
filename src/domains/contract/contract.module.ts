@@ -12,6 +12,7 @@ import { EventPublisherTask } from "./tasks/event-publisher.task";
 import { PaymentSucceededListener } from "./events/listeners/payment-succeeded.listener";
 import { SessionCompletedListener } from "./events/listeners/session-completed.listener";
 import { SessionCancelledListener } from "./events/listeners/session-cancelled.listener";
+import { SessionCreatedListener } from "./events/listeners/session-created.listener";
 
 /**
  * Contract Domain Module(合约领域模块)
@@ -72,6 +73,7 @@ import { SessionCancelledListener } from "./events/listeners/session-cancelled.l
     PaymentSucceededListener,
     SessionCompletedListener,
     SessionCancelledListener,
+    SessionCreatedListener,
     // Scheduled tasks
     EventPublisherTask,
   ],

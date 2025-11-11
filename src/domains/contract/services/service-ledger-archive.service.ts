@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { eq, and, lt, sql } from "drizzle-orm";
+import { eq, and, lt, sql, SQL, inArray } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import type {
@@ -21,6 +21,7 @@ import type {
   ServiceLedgerArchivePolicy,
   ServiceLedger,
 } from "@infrastructure/database/schema";
+import type { ServiceType } from "../common/types/enum.types";
 
 /**
  * Service Ledger Archive Service(服务台账归档服务)
@@ -127,14 +128,15 @@ export class ServiceLedgerArchiveService {
     tx?: DrizzleTransaction,
   ): Promise<number> {
     const executor: DrizzleExecutor = tx ?? this.db;
-    const conditions: any[] = [lt(schema.serviceLedgers.createdAt, cutoffDate)];
+    const conditions: SQL[] = [lt(schema.serviceLedgers.createdAt, cutoffDate)];
 
     if (contractId) {
       conditions.push(eq(schema.serviceLedgers.contractId, contractId));
     }
     if (serviceType) {
+      const serviceTypeTyped = serviceType as ServiceType;
       conditions.push(
-        eq(schema.serviceLedgers.serviceType, serviceType as any),
+        eq(schema.serviceLedgers.serviceType, serviceTypeTyped),
       );
     }
 
@@ -149,14 +151,18 @@ export class ServiceLedgerArchiveService {
     }
 
     // 2. Insert into archive table(插入到归档表)
-    await executor.insert(schema.serviceLedgersArchive).values(ledgersToArchive);
+    await executor
+      .insert(schema.serviceLedgersArchive)
+      .values(ledgersToArchive);
 
     // 3. Optionally delete from main table(可选择从主表删除)
+    // NOTE: Using inArray instead of ANY syntax for better Drizzle ORM compatibility
+    // (注意: 使用 inArray 而非 ANY 语法，以获得更好的 Drizzle ORM 兼容性)
     if (deleteAfterArchive) {
       const ledgerIds = ledgersToArchive.map((l) => l.id);
       await executor
         .delete(schema.serviceLedgers)
-        .where(sql`${schema.serviceLedgers.id} = ANY(${ledgerIds}::uuid[])`);
+        .where(inArray(schema.serviceLedgers.id, ledgerIds));
     }
 
     this.logger.log(
@@ -195,6 +201,7 @@ export class ServiceLedgerArchiveService {
 
     // 2. Try service-type-specific policy(尝试服务类型特定策略)
     if (serviceType) {
+      const serviceTypeTyped = serviceType as ServiceType;
       const [serviceTypePolicy] = await this.db
         .select()
         .from(schema.serviceLedgerArchivePolicies)
@@ -202,7 +209,7 @@ export class ServiceLedgerArchiveService {
           and(
             eq(
               schema.serviceLedgerArchivePolicies.serviceType,
-              serviceType as any,
+              serviceTypeTyped,
             ),
             sql`${schema.serviceLedgerArchivePolicies.contractId} IS NULL`,
             eq(schema.serviceLedgerArchivePolicies.enabled, true),
@@ -238,11 +245,11 @@ export class ServiceLedgerArchiveService {
    */
   async createPolicy(
     dto: {
-    contractId?: string;
-    serviceType?: string;
-    archiveAfterDays: number;
-    deleteAfterArchive: boolean;
-    createdBy: string;
+      contractId?: string;
+      serviceType?: string;
+      archiveAfterDays: number;
+      deleteAfterArchive: boolean;
+      createdBy: string;
     },
     tx?: DrizzleTransaction,
   ): Promise<ServiceLedgerArchivePolicy> {
@@ -260,7 +267,7 @@ export class ServiceLedgerArchiveService {
     }
 
     // 2. Check for duplicate policy(检查重复策略)
-    const conditions: any[] = [
+    const conditions: SQL[] = [
       eq(schema.serviceLedgerArchivePolicies.enabled, true),
     ];
 
@@ -275,8 +282,9 @@ export class ServiceLedgerArchiveService {
     }
 
     if (serviceType) {
+      const serviceTypeTyped = serviceType as ServiceType;
       conditions.push(
-        eq(schema.serviceLedgerArchivePolicies.serviceType, serviceType as any),
+        eq(schema.serviceLedgerArchivePolicies.serviceType, serviceTypeTyped),
       );
     } else {
       conditions.push(
@@ -309,11 +317,11 @@ export class ServiceLedgerArchiveService {
       .values({
         scope,
         contractId: contractId || null,
-        serviceType: (serviceType as any) || null,
+        serviceType: (serviceType as ServiceType | null) || null,
         archiveAfterDays,
         deleteAfterArchive,
         enabled: true,
-        createdBy: createdBy as any, // UUID type(UUID类型)
+        createdBy: createdBy || null,
       })
       .returning();
 
@@ -403,7 +411,7 @@ export class ServiceLedgerArchiveService {
     }
 
     // 2. Build conditions(构建条件)
-    const conditions: any[] = [
+    const conditions: SQL[] = [
       sql`created_at >= ${startDate}`,
       sql`created_at <= ${endDate}`,
     ];
@@ -434,6 +442,6 @@ export class ServiceLedgerArchiveService {
     `;
 
     const result = await this.db.execute(query);
-    return result.rows as ServiceLedger[];
+    return result.rows as unknown as ServiceLedger[];
   }
 }

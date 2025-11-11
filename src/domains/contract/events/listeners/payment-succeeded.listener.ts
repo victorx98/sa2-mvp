@@ -17,7 +17,7 @@ export class PaymentSucceededListener implements OnModuleInit {
 
   constructor(
     private readonly contractService: ContractService,
-    @Inject('EVENT_PUBLISHER') private readonly eventPublisher: IEventPublisher,
+    @Inject("EVENT_PUBLISHER") private readonly eventPublisher: IEventPublisher,
   ) {}
 
   onModuleInit() {
@@ -39,9 +39,12 @@ export class PaymentSucceededListener implements OnModuleInit {
 
       // Validate required fields(验证必填字段)
       if (!payload?.contractId) {
-        this.logger.warn("Invalid payment event: missing contractId(无效的支付事件：缺少contractId)", {
-          eventId: event.id,
-        });
+        this.logger.warn(
+          "Invalid payment event: missing contractId(无效的支付事件：缺少contractId)",
+          {
+            eventId: event.id,
+          },
+        );
         return;
       }
 
@@ -49,11 +52,14 @@ export class PaymentSucceededListener implements OnModuleInit {
       const paymentAmount = payload.amount;
       const paymentCurrency = payload.currency;
 
-      this.logger.log(`Processing payment for contract: ${contractId}(处理合同${contractId}的付款)`, {
-        eventId: event.id,
-        paymentAmount,
-        paymentCurrency,
-      });
+      this.logger.log(
+        `Processing payment for contract: ${contractId}(处理合同${contractId}的付款)`,
+        {
+          eventId: event.id,
+          paymentAmount,
+          paymentCurrency,
+        },
+      );
 
       // Find the contract(查找合同)
       const contract = await this.contractService.findOne({
@@ -61,9 +67,12 @@ export class PaymentSucceededListener implements OnModuleInit {
       });
 
       if (!contract) {
-        this.logger.error(`Contract not found: ${contractId}(合同未找到：${contractId})`, {
-          eventId: event.id,
-        });
+        this.logger.error(
+          `Contract not found: ${contractId}(合同未找到：${contractId})`,
+          {
+            eventId: event.id,
+          },
+        );
         return;
       }
 
@@ -80,16 +89,22 @@ export class PaymentSucceededListener implements OnModuleInit {
       }
 
       // Activate the contract(激活合同)
-      this.logger.log(`Activating contract ${contractId}(正在激活合同${contractId})`, {
-        eventId: event.id,
-      });
+      this.logger.log(
+        `Activating contract ${contractId}(正在激活合同${contractId})`,
+        {
+          eventId: event.id,
+        },
+      );
 
       await this.contractService.activate(contractId);
 
-      this.logger.log(`Contract ${contractId} activated successfully(合同${contractId}成功激活)`, {
-        eventId: event.id,
-        contractId,
-      });
+      this.logger.log(
+        `Contract ${contractId} activated successfully(合同${contractId}成功激活)`,
+        {
+          eventId: event.id,
+          contractId,
+        },
+      );
     } catch (error) {
       this.logger.error(
         "Error handling payment.succeeded event(处理payment.succeeded事件时出错)",

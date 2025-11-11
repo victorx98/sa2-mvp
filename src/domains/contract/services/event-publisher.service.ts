@@ -9,6 +9,7 @@ import type {
 } from "@shared/types/database.types";
 import { EVENT_RETENTION_DAYS } from "../common/constants/contract.constants";
 import type { DomainEvent } from "@infrastructure/database/schema";
+import type { IDomainEventData } from "../common/types/event.types";
 
 /**
  * Event Publisher Interface(事件发布器接口)
@@ -29,7 +30,7 @@ export interface IEventPublisher {
    * @param eventType - Event type to subscribe to(要订阅的事件类型)
    * @param handler - Event handler function(事件处理函数)
    */
-  subscribe(eventType: string, handler: (event: any) => void): void;
+  subscribe(eventType: string, handler: (event: IDomainEventData) => void): void;
 }
 
 /**
@@ -77,10 +78,15 @@ export class EventPublisherService {
       const lockResult = await executor.execute(
         sql`SELECT pg_try_advisory_lock(${LOCK_KEY}) as locked`,
       );
-      const locked = (lockResult.rows[0] as any).locked;
+      interface LockResult {
+        locked: boolean;
+      }
+      const locked = (lockResult.rows[0] as LockResult).locked;
 
       if (!locked) {
-        this.logger.debug("Another instance is processing events, skipping...(另一个实例正在处理事件，跳过...)");
+        this.logger.debug(
+          "Another instance is processing events, skipping...(另一个实例正在处理事件，跳过...)",
+        );
         return 0;
       }
 

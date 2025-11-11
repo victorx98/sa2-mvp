@@ -337,8 +337,14 @@ export class ContractService {
    * - Release associated hold if provided(- 如果提供则释放相关的预留)
    */
   async consumeService(dto: ConsumeServiceDto): Promise<void> {
-    const { contractId, serviceType, quantity, relatedBookingId, relatedHoldId, createdBy } =
-      dto;
+    const {
+      contractId,
+      serviceType,
+      quantity,
+      relatedBookingId,
+      relatedHoldId,
+      createdBy,
+    } = dto;
 
     await this.db.transaction(async (tx) => {
       // 1. Find contract(1. 查找合约)
@@ -662,10 +668,7 @@ export class ContractService {
    * - Set signedAt timestamp(- 设置签署时间戳)
    * - Allowed from: draft(- 允许从: 草稿状态)
    */
-  async sign(
-    id: string,
-    signedBy: string,
-  ): Promise<Contract> {
+  async sign(id: string, signedBy: string): Promise<Contract> {
     // 1. Find contract(1. 查找合约)
     const contract = await this.findOne({ contractId: id });
     if (!contract) {
@@ -734,7 +737,8 @@ export class ContractService {
     }
 
     // 3. Validate price override if provided(3. 如果提供价格覆盖则验证)
-    const { overrideAmount, overrideReason, overrideApprovedBy, updatedBy } = dto;
+    const { overrideAmount, overrideReason, overrideApprovedBy, updatedBy } =
+      dto;
     const updateData: {
       updatedAt: Date;
       overrideAmount?: string | null;
@@ -833,11 +837,19 @@ export class ContractService {
       }>;
     }>;
   }> {
-    const { contractId, studentId, serviceType, includeExpired = false } = query;
+    const {
+      contractId,
+      studentId,
+      serviceType,
+      includeExpired = false,
+    } = query;
 
     // Validate: at least one of contractId or studentId must be provided
     if (!contractId && !studentId) {
-      throw new ContractException("INVALID_QUERY", "contractId or studentId is required");
+      throw new ContractException(
+        "INVALID_QUERY",
+        "contractId or studentId is required",
+      );
     }
 
     // Query contracts
@@ -877,7 +889,12 @@ export class ContractService {
       sql`${schema.contractServiceEntitlements.contractId} IN ${contractIds}`,
     ];
     if (serviceType) {
-      entitlementConditions.push(eq(schema.contractServiceEntitlements.serviceType, serviceType as ServiceType));
+      entitlementConditions.push(
+        eq(
+          schema.contractServiceEntitlements.serviceType,
+          serviceType as ServiceType,
+        ),
+      );
     }
     if (!includeExpired) {
       // Filter out expired entitlements
@@ -958,7 +975,9 @@ export class ContractService {
       if (entitlement.serviceSnapshot) {
         serviceGroup.serviceSnapshots.push(entitlement.serviceSnapshot);
         if (entitlement.serviceSnapshot.serviceName) {
-          serviceGroup.serviceNames.add(entitlement.serviceSnapshot.serviceName);
+          serviceGroup.serviceNames.add(
+            entitlement.serviceSnapshot.serviceName,
+          );
         }
       }
     }
@@ -967,27 +986,34 @@ export class ContractService {
     const now = new Date();
     const resultContracts = contracts.map((contract) => {
       const contractGroup = groupedByContract.get(contract.id) || new Map();
-      const isContractExpired = contract.expiresAt ? contract.expiresAt < now : false;
+      const isContractExpired = contract.expiresAt
+        ? contract.expiresAt < now
+        : false;
 
-      const contractEntitlements = Array.from(contractGroup.values()).map((serviceGroup) => {
-        const isExpired = serviceGroup.expiresAt ? serviceGroup.expiresAt < now : isContractExpired;
+      const contractEntitlements = Array.from(contractGroup.values()).map(
+        (serviceGroup) => {
+          const isExpired = serviceGroup.expiresAt
+            ? serviceGroup.expiresAt < now
+            : isContractExpired;
 
-        // Use first available name, or serviceType as fallback(使用第一个可用的名称，或使用serviceType作为回退)
-        const serviceName = serviceGroup.serviceNames.size > 0
-          ? Array.from(serviceGroup.serviceNames)[0]
-          : serviceGroup.serviceType;
+          // Use first available name, or serviceType as fallback(使用第一个可用的名称，或使用serviceType作为回退)
+          const serviceName =
+            serviceGroup.serviceNames.size > 0
+              ? Array.from(serviceGroup.serviceNames)[0]
+              : serviceGroup.serviceType;
 
-        return {
-          serviceType: serviceGroup.serviceType,
-          serviceName,
-          totalQuantity: serviceGroup.totalQuantity,
-          consumedQuantity: serviceGroup.consumedQuantity,
-          heldQuantity: serviceGroup.heldQuantity,
-          availableQuantity: serviceGroup.availableQuantity,
-          expiresAt: serviceGroup.expiresAt,
-          isExpired,
-        };
-      });
+          return {
+            serviceType: serviceGroup.serviceType,
+            serviceName,
+            totalQuantity: serviceGroup.totalQuantity,
+            consumedQuantity: serviceGroup.consumedQuantity,
+            heldQuantity: serviceGroup.heldQuantity,
+            availableQuantity: serviceGroup.availableQuantity,
+            expiresAt: serviceGroup.expiresAt,
+            isExpired,
+          };
+        },
+      );
 
       return {
         contractId: contract.id,
@@ -1025,8 +1051,14 @@ export class ContractService {
   async addEntitlement(
     dto: AddEntitlementDto,
   ): Promise<ContractServiceEntitlement> {
-    const { contractId, serviceType, quantity, source, addOnReason, createdBy } =
-      dto;
+    const {
+      contractId,
+      serviceType,
+      quantity,
+      source,
+      addOnReason,
+      createdBy,
+    } = dto;
 
     // 1. Validate contract exists and is active(1. 验证合约存在且处于激活状态)
     const contract = await this.findOne({ contractId });
@@ -1044,8 +1076,7 @@ export class ContractService {
       .from(schema.contractEntitlementRevisions)
       .where(eq(schema.contractEntitlementRevisions.contractId, contractId));
 
-    const lastRevision =
-      (lastRevisionResult[0]?.maxRevision as number) || 0;
+    const lastRevision = (lastRevisionResult[0]?.maxRevision as number) || 0;
     const nextRevisionNumber = lastRevision + 1;
 
     // 3. Create entitlement and revision in transaction(3. 在事务中创建权利和修订)
@@ -1100,10 +1131,7 @@ export class ContractService {
         serviceType: serviceType as ServiceType,
         serviceName: serviceType,
         revisionNumber: nextRevisionNumber,
-        revisionType: source as
-          | "addon"
-          | "promotion"
-          | "compensation",
+        revisionType: source as "addon" | "promotion" | "compensation",
         source,
         quantityChanged: quantity,
         totalQuantity: quantity,
@@ -1146,7 +1174,15 @@ export class ContractService {
     contractId: string,
     options?: {
       serviceType?: ServiceType;
-      revisionType?: "initial" | "addon" | "promotion" | "compensation" | "increase" | "decrease" | "expiration" | "termination";
+      revisionType?:
+        | "initial"
+        | "addon"
+        | "promotion"
+        | "compensation"
+        | "increase"
+        | "decrease"
+        | "expiration"
+        | "termination";
       status?: "pending" | "approved" | "rejected" | "applied";
       page?: number;
       pageSize?: number;
@@ -1220,9 +1256,7 @@ export class ContractService {
       const [revision] = await tx
         .select()
         .from(schema.contractEntitlementRevisions)
-        .where(
-          eq(schema.contractEntitlementRevisions.id, revisionId),
-        );
+        .where(eq(schema.contractEntitlementRevisions.id, revisionId));
 
       if (!revision) {
         throw new ContractNotFoundException("REVISION_NOT_FOUND");
@@ -1266,10 +1300,7 @@ export class ContractService {
           updatedAt: new Date(),
         })
         .where(
-          eq(
-            schema.contractServiceEntitlements.id,
-            revision.entitlementId!,
-          ),
+          eq(schema.contractServiceEntitlements.id, revision.entitlementId!),
         );
 
       // 5. Create adjustment ledger (increase balance)(5. 创建调整台账(增加余额))
@@ -1306,9 +1337,7 @@ export class ContractService {
       const [revision] = await tx
         .select()
         .from(schema.contractEntitlementRevisions)
-        .where(
-          eq(schema.contractEntitlementRevisions.id, revisionId),
-        );
+        .where(eq(schema.contractEntitlementRevisions.id, revisionId));
 
       if (!revision) {
         throw new ContractNotFoundException("REVISION_NOT_FOUND");
@@ -1377,7 +1406,9 @@ export class ContractService {
       conditions.push(eq(schema.contracts.studentId, studentId));
     }
     if (status) {
-      conditions.push(eq(schema.contracts.status, status as ContractStatusEnum));
+      conditions.push(
+        eq(schema.contracts.status, status as ContractStatusEnum),
+      );
     }
     if (productId) {
       conditions.push(eq(schema.contracts.productId, productId));
