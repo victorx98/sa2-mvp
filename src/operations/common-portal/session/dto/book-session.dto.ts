@@ -8,6 +8,7 @@ import {
   IsEnum,
 } from "class-validator";
 import { ServiceType } from "@domains/contract/common/types/enum.types";
+import { serviceTypeEnum } from "@infrastructure/database/schema/services.schema";
 
 /**
  * BFF Layer - Book Session Request DTO
@@ -65,7 +66,7 @@ export class BookSessionDto {
     ],
     required: false,
   })
-  @IsEnum(ServiceType)
+  @IsEnum(serviceTypeEnum.enumValues)
   @IsOptional()
   serviceType?: ServiceType;
 

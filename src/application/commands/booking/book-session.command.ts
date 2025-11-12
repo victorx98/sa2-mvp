@@ -11,8 +11,6 @@ import {
 } from "@core/meeting-providers";
 import type { MeetingProvider } from "@domains/services/session/interfaces/session.interface";
 import { SessionService } from "@domains/services/session/services/session.service";
-// import { ContractService } from "@domains/contract/services/contract.service";
-import { ContractService } from "@domains/contract/contract.service";
 import { ServiceHoldService } from "@domains/contract/services/service-hold.service";
 import { BookSessionInput } from "./dto/book-session-input.dto";
 import { BookSessionOutput } from "./dto/book-session-output.dto";
@@ -50,7 +48,6 @@ export class BookSessionCommand {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-    private readonly contractService: ContractService,
     private readonly sessionService: SessionService,
     private readonly calendarService: CalendarService,
     private readonly meetingProviderFactory: MeetingProviderFactory,
@@ -87,11 +84,11 @@ export class BookSessionCommand {
         );
 
         // Step 2: 创建服务预占
-        const hold = await this.contractService.createServiceHold({
-          contractId: input.contractId,
-          serviceId: input.serviceType,
-          sessionId: undefined,
+        const hold = await this.serviceHoldService.createHold({
+          studentId: input.studentId,
+          serviceType: input.serviceType,
           quantity: 1,
+          createdBy: input.counselorId,
         }, tx);
 
 
