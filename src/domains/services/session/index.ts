@@ -3,9 +3,11 @@ export * from "./session.module";
 
 // Services
 export * from "./services/session.service";
-export * from "./services/session-lifecycle.service";
 export * from "./services/session-duration-calculator";
 export * from "./services/session-query.service";
+
+// Subscribers
+export * from "./subscribers/session-event.subscriber";
 
 // Repositories
 export * from "./repositories/session-event.repository";

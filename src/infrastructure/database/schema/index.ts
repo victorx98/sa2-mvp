@@ -20,7 +20,8 @@ export * from "./service-ledgers.schema";
 
 // Services domain
 export * from "./sessions.schema";
-export * from "./session-events.schema";
+export * from "./session-events.schema"; // Legacy, kept for backward compatibility
+export * from "./meeting-events.schema";
 
 // Shared
 export * from "./calendar.schema";
