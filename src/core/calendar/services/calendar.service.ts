@@ -353,9 +353,11 @@ export class CalendarService {
   async updateSlotSessionId(
     slotId: string,
     sessionId: string,
+    tx?: DrizzleTransaction,
   ): Promise<ICalendarSlotEntity> {
+    const executor: DrizzleExecutor = tx ?? this.db;
     // NOTE: Table name is 'calendar' (not 'calendar_slots')
-    const result = await this.db.execute(sql`
+    const result = await executor.execute(sql`
       UPDATE calendar
       SET session_id = ${sessionId}, updated_at = NOW()
       WHERE id = ${slotId}

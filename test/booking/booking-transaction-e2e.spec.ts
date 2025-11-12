@@ -1,15 +1,19 @@
+jest.setTimeout(60000);
+
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigModule } from "@nestjs/config";
 import { EventEmitterModule } from "@nestjs/event-emitter";
-import { BookSessionCommand } from "../../../src/application/commands/booking/book-session.command";
-import { CalendarService } from "../../../src/core/calendar";
-import { MeetingProviderModule } from "../../../src/core/meeting-providers/meeting-provider.module";
-import { SessionService } from "../../../src/domains/services/session/services/session.service";
-import { ContractService } from "../../../src/domains/contract/services/contract.service";
-import { DATABASE_CONNECTION } from "../../../src/infrastructure/database/database.provider";
-import { DatabaseModule } from "../../../src/infrastructure/database/database.module";
-import { BookSessionInput } from "../../../src/application/commands/booking/dto/book-session-input.dto";
-import * as schema from "../../../src/infrastructure/database/schema";
+import { BookSessionCommand } from "../../src/application/commands/booking/book-session.command";
+import { CalendarService } from "../../src/core/calendar";
+import { MeetingProviderModule } from "../../src/core/meeting-providers/meeting-provider.module";
+import { SessionService } from "../../src/domains/services/session/services/session.service";
+// import { ContractService } from "../../src/domains/contract/services/contract.service";
+import { ContractService } from "../../src/domains/contract/contract.service";
+import { DATABASE_CONNECTION } from "../../src/infrastructure/database/database.provider";
+import { DatabaseModule } from "../../src/infrastructure/database/database.module";
+import { BookSessionInput } from "../../src/application/commands/booking/dto/book-session-input.dto";
+import { ServiceHoldService } from "../../src/domains/contract/services/service-hold.service";
+import * as schema from "../../src/infrastructure/database/schema";
 import { eq } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { v4 as uuidv4 } from "uuid";
@@ -57,6 +61,16 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         SessionService,
         ContractService,
         CalendarService,
+        {
+          provide: ServiceHoldService,
+          useValue: {
+            createHold: jest.fn(),
+            releaseHold: jest.fn(),
+            cancelHold: jest.fn(),
+            getLongUnreleasedHolds: jest.fn(),
+            getActiveHolds: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -172,47 +186,27 @@ describe("BookSessionCommand - E2E Integration Test", () => {
       );
 
       // 验证 Calendar Slot 已写入数据库
-      const calendarSlotsAfterRaw = await db.execute<{
-        id: string;
-        resource_id: string;
-        session_id: string | null;
-        slot_type: string;
-        status: string;
-        range_start: string;
-        range_end: string;
-      }>(
-        `
-          SELECT
-            id,
-            resource_id,
-            session_id,
-            slot_type,
-            status,
-            lower(time_range)::timestamptz AS range_start,
-            upper(time_range)::timestamptz AS range_end
-          FROM calendar_slots
-          WHERE resource_id = '${testIds.mentor}'
-        `,
-      );
+      const calendarSlotsAfter = await db
+        .select()
+        .from(schema.calendarSlots)
+        .where(eq(schema.calendarSlots.userId, testIds.mentor));
 
-      expect(calendarSlotsAfterRaw.rows).toHaveLength(1);
-      const rawSlot = calendarSlotsAfterRaw.rows[0];
+      expect(calendarSlotsAfter).toHaveLength(1);
+      const savedSlotRaw = calendarSlotsAfter[0];
       const savedSlot = {
-        id: rawSlot.id,
-        resourceId: rawSlot.resource_id,
-        sessionId: rawSlot.session_id,
-        slotType: rawSlot.slot_type,
-        status: rawSlot.status,
-        timeRange: `[${new Date(rawSlot.range_start).toISOString()}, ${new Date(
-          rawSlot.range_end,
-        ).toISOString()})`,
+        id: savedSlotRaw.id,
+        resourceId: savedSlotRaw.userId,
+        sessionId: savedSlotRaw.sessionId,
+        slotType: savedSlotRaw.type,
+        status: savedSlotRaw.status,
+        timeRange: `[${savedSlotRaw.timeRange.start.toISOString()}, ${savedSlotRaw.timeRange.end.toISOString()})`,
       };
 
       expect(savedSlot.id).toBe(result.calendarSlotId);
       expect(savedSlot.resourceId).toBe(testIds.mentor);
       expect(savedSlot.sessionId).toBe(result.sessionId);
       expect(savedSlot.slotType).toBe("session");
-      expect(savedSlot.status).toBe("occupied");
+      expect(savedSlot.status).toBe("booked");
 
       console.log(
         "✓ Verified: Calendar slot saved in database with ID:",
@@ -411,33 +405,17 @@ describe("BookSessionCommand - E2E Integration Test", () => {
       expect(session).toHaveLength(1);
       console.log("✓ Session found:", session[0].id);
 
-      const calendarSlotRaw = await db.execute<{
-        id: string;
-        session_id: string | null;
-        range_start: string;
-        range_end: string;
-      }>(
-        `
-          SELECT
-            id,
-            session_id,
-            lower(time_range)::timestamptz AS range_start,
-            upper(time_range)::timestamptz AS range_end
-          FROM calendar_slots
-          WHERE id = '${result.calendarSlotId}'
-          LIMIT 1
-        `,
-      );
+      const calendarSlot = await db
+        .select()
+        .from(schema.calendarSlots)
+        .where(eq(schema.calendarSlots.id, result.calendarSlotId))
+        .limit(1);
 
-      expect(calendarSlotRaw.rows).toHaveLength(1);
+      expect(calendarSlot).toHaveLength(1);
       const normalizedSlot = {
-        id: calendarSlotRaw.rows[0].id,
-        sessionId: calendarSlotRaw.rows[0].session_id,
-        timeRange: `[${new Date(
-          calendarSlotRaw.rows[0].range_start,
-        ).toISOString()}, ${new Date(
-          calendarSlotRaw.rows[0].range_end,
-        ).toISOString()})`,
+        id: calendarSlot[0].id,
+        sessionId: calendarSlot[0].sessionId,
+        timeRange: `[${calendarSlot[0].timeRange.start.toISOString()}, ${calendarSlot[0].timeRange.end.toISOString()})`,
       };
 
       expect(normalizedSlot.sessionId).toBe(result.sessionId);

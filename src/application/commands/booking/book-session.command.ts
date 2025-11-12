@@ -11,12 +11,12 @@ import {
 } from "@core/meeting-providers";
 import type { MeetingProvider } from "@domains/services/session/interfaces/session.interface";
 import { SessionService } from "@domains/services/session/services/session.service";
-import { ContractService } from "@domains/contract/services/contract.service";
+// import { ContractService } from "@domains/contract/services/contract.service";
+import { ContractService } from "@domains/contract/contract.service";
 import { ServiceHoldService } from "@domains/contract/services/service-hold.service";
 import { BookSessionInput } from "./dto/book-session-input.dto";
-import { CreateHoldDto } from "@domains/contract/dto/create-hold.dto";
 import { BookSessionOutput } from "./dto/book-session-output.dto";
-import { InsufficientBalanceException, TimeConflictException } from "@shared/exceptions";
+import { TimeConflictException } from "@shared/exceptions";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import type {
   DrizzleDatabase,
@@ -86,22 +86,14 @@ export class BookSessionCommand {
           "Starting database transaction, including meeting creation",
         );
 
-        // Step 2: 检查余额
-        const balance = await this.contractService.getServiceBalance({
+        // Step 2: 创建服务预占
+        const hold = await this.contractService.createServiceHold({
           contractId: input.contractId,
-          serviceType: input.serviceType,
-        });
+          serviceId: input.serviceType,
+          sessionId: undefined,
+          quantity: 1,
+        }, tx);
 
-        // Check if any contract has available balance for this service type
-        const hasAvailableBalance = balance.contracts.some(contract =>
-          contract.entitlements.some(entitlement =>
-            entitlement.serviceType === input.serviceType && entitlement.availableQuantity > 0
-          )
-        );
-
-        if (!hasAvailableBalance) {
-          throw new InsufficientBalanceException("Insufficient service balance");
-        }
 
         // Step 3: Try to create calendar slot directly (atomic with DB constraint)
         // Let the database EXCLUDE constraint handle conflicts
@@ -120,17 +112,6 @@ export class BookSessionCommand {
         if (!calendarSlot) {
           throw new TimeConflictException("The mentor already has a conflict");
         }
-
-        // Step 4: 创建服务预占
-        const holdDto: CreateHoldDto = {
-          contractId: input.contractId,
-          studentId: input.studentId,
-          serviceType: input.serviceType,
-          relatedBookingId: null,
-          quantity: 1,
-          createdBy: input.counselorId,
-        };
-        const hold = await this.serviceHoldService.createHold(holdDto, tx);
 
         // Step 5: 创建会议链接（在事务内，先创建）
         let meetingInfo: {
@@ -178,10 +159,12 @@ export class BookSessionCommand {
         );
 
         // Calendar slot is already created in Step 3, just update it with session ID
-        const updatedCalendarSlot = await this.calendarService.updateSlotSessionId(
-          calendarSlot.id,
-          session.id,
-        );
+        const updatedCalendarSlot =
+          await this.calendarService.updateSlotSessionId(
+            calendarSlot.id,
+            session.id,
+            tx,
+          );
 
         return {
           session,

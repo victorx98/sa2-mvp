@@ -52,13 +52,13 @@ const tstzrange = customType<{
   },
   fromDriver(value: string): { start: Date; end: Date } {
     // Parse PostgreSQL tstzrange format
-    const match = value.match(/\[(.*?), (.*?)\)/);
+    const match = value.match(/\[(.*?),(.*?)\)/);
     if (!match) {
       throw new Error("Invalid tstzrange format");
     }
     return {
-      start: new Date(match[1]),
-      end: new Date(match[2]),
+      start: new Date(match[1].trim()),
+      end: new Date(match[2].trim()),
     };
   },
 });

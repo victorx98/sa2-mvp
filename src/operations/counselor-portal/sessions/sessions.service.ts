@@ -45,7 +45,7 @@ export class CounselorSessionsService {
       studentId: dto.studentId,
       mentorId: dto.mentorId,
       contractId: dto.contractId,
-      serviceId: dto.serviceId,
+      serviceType: 'session',
       scheduledStartTime: new Date(dto.scheduledStartTime),
       scheduledEndTime: new Date(dto.scheduledEndTime),
       duration: dto.duration,

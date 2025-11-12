@@ -4,6 +4,7 @@ import { BookSessionCommand } from "@application/commands/booking/book-session.c
 import { SessionService } from "@domains/services/session/services/session.service";
 import { ContractService } from "@domains/contract/services/contract.service";
 import { BookSessionRequestDto } from "./dto/book-session-request.dto";
+import type { BookSessionOutput } from "@application/commands/booking/dto/book-session-output.dto";
 
 describe("CounselorSessionsService (BFF Layer)", () => {
   let service: CounselorSessionsService;
@@ -69,12 +70,11 @@ describe("CounselorSessionsService (BFF Layer)", () => {
   describe("bookSession - success cases", () => {
     it("should book a session and return simplified response", async () => {
       // Arrange
-      const mockUseCaseResult = {
+      const mockUseCaseResult: BookSessionOutput = {
         sessionId: "session-123",
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
-        contractId: validDto.contractId,
-        serviceId: validDto.serviceId,
+        serviceType: "session" as const,
         scheduledStartTime: validDto.scheduledStartTime,
         scheduledEndTime: validDto.scheduledEndTime,
         duration: validDto.duration,
@@ -103,28 +103,30 @@ describe("CounselorSessionsService (BFF Layer)", () => {
       });
 
       // Verify Command was called with correct parameters
-      expect(mockBookSessionCommand.execute).toHaveBeenCalledWith({
+      const expectedPayload = {
         counselorId,
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
         contractId: validDto.contractId,
-        serviceId: validDto.serviceId,
-        scheduledStartTime: validDto.scheduledStartTime,
-        scheduledEndTime: validDto.scheduledEndTime,
+        serviceType: "session" as const,
+        scheduledStartTime: new Date(validDto.scheduledStartTime),
+        scheduledEndTime: new Date(validDto.scheduledEndTime),
         duration: validDto.duration,
         topic: validDto.topic,
         meetingProvider: validDto.meetingProvider,
-      });
+      };
+      expect(mockBookSessionCommand.execute).toHaveBeenCalledWith(
+        expectedPayload,
+      );
     });
 
     it("should handle missing meeting URL", async () => {
       // Arrange
-      const mockUseCaseResult = {
+      const mockUseCaseResult: BookSessionOutput = {
         sessionId: "session-123",
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
-        contractId: validDto.contractId,
-        serviceId: validDto.serviceId,
+        serviceType: "session" as const,
         scheduledStartTime: validDto.scheduledStartTime,
         scheduledEndTime: validDto.scheduledEndTime,
         duration: validDto.duration,
@@ -151,12 +153,11 @@ describe("CounselorSessionsService (BFF Layer)", () => {
 
     it("should map meeting provider correctly", async () => {
       // Arrange
-      const mockUseCaseResult = {
+      const mockUseCaseResult: BookSessionOutput = {
         sessionId: "session-123",
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
-        contractId: validDto.contractId,
-        serviceId: validDto.serviceId,
+        serviceType: "session" as const,
         scheduledStartTime: validDto.scheduledStartTime,
         scheduledEndTime: validDto.scheduledEndTime,
         duration: validDto.duration,
@@ -246,12 +247,11 @@ describe("CounselorSessionsService (BFF Layer)", () => {
   describe("bookSession - input validation", () => {
     it("should convert ISO strings into Date objects", async () => {
       // Arrange
-      const mockUseCaseResult = {
+      const mockUseCaseResult: BookSessionOutput = {
         sessionId: "session-123",
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
-        contractId: validDto.contractId,
-        serviceId: validDto.serviceId,
+        serviceType: "session" as const,
         scheduledStartTime: validDto.scheduledStartTime,
         scheduledEndTime: validDto.scheduledEndTime,
         duration: validDto.duration,
@@ -269,22 +269,25 @@ describe("CounselorSessionsService (BFF Layer)", () => {
       await service.bookSession(counselorId, validDto);
 
       // Assert - Verify dates were converted correctly
-      expect(mockBookSessionCommand.execute).toHaveBeenCalledWith(
-        expect.objectContaining({
-          scheduledStartTime: validDto.scheduledStartTime,
-          scheduledEndTime: validDto.scheduledEndTime,
-        }),
+      const [commandCall] = mockBookSessionCommand.execute.mock.calls;
+      const payload = commandCall[0];
+      expect(payload.scheduledStartTime).toBeInstanceOf(Date);
+      expect(payload.scheduledStartTime.toISOString()).toBe(
+        new Date(validDto.scheduledStartTime).toISOString(),
+      );
+      expect(payload.scheduledEndTime).toBeInstanceOf(Date);
+      expect(payload.scheduledEndTime.toISOString()).toBe(
+        new Date(validDto.scheduledEndTime).toISOString(),
       );
     });
 
     it("should pass every DTO field to the command", async () => {
       // Arrange
-      const mockUseCaseResult = {
+      const mockUseCaseResult: BookSessionOutput = {
         sessionId: "session-123",
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
-        contractId: validDto.contractId,
-        serviceId: validDto.serviceId,
+        serviceType: "session" as const,
         scheduledStartTime: validDto.scheduledStartTime,
         scheduledEndTime: validDto.scheduledEndTime,
         duration: validDto.duration,
@@ -302,30 +305,37 @@ describe("CounselorSessionsService (BFF Layer)", () => {
       await service.bookSession(counselorId, validDto);
 
       // Assert - Verify all fields are passed
-      expect(mockBookSessionCommand.execute).toHaveBeenCalledWith({
+      const [allFieldsCall] = mockBookSessionCommand.execute.mock.calls;
+      const fullPayload = allFieldsCall[0];
+      expect(fullPayload).toMatchObject({
         counselorId,
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
         contractId: validDto.contractId,
-        serviceId: validDto.serviceId,
-        scheduledStartTime: validDto.scheduledStartTime,
-        scheduledEndTime: validDto.scheduledEndTime,
+        serviceType: "session" as const,
         duration: validDto.duration,
         topic: validDto.topic,
         meetingProvider: validDto.meetingProvider,
       });
+      expect(fullPayload.scheduledStartTime).toBeInstanceOf(Date);
+      expect(fullPayload.scheduledStartTime.toISOString()).toBe(
+        new Date(validDto.scheduledStartTime).toISOString(),
+      );
+      expect(fullPayload.scheduledEndTime).toBeInstanceOf(Date);
+      expect(fullPayload.scheduledEndTime.toISOString()).toBe(
+        new Date(validDto.scheduledEndTime).toISOString(),
+      );
     });
   });
 
   describe("bookSession - response mapping", () => {
     it("should map sessionId to bookingId", async () => {
       // Arrange
-      const mockUseCaseResult = {
+      const mockUseCaseResult: BookSessionOutput = {
         sessionId: "unique-session-id-12345",
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
-        contractId: validDto.contractId,
-        serviceId: validDto.serviceId,
+        serviceType: "session" as const,
         scheduledStartTime: validDto.scheduledStartTime,
         scheduledEndTime: validDto.scheduledEndTime,
         duration: validDto.duration,
@@ -348,12 +358,11 @@ describe("CounselorSessionsService (BFF Layer)", () => {
 
     it("should preserve the original status value", async () => {
       // Arrange
-      const mockUseCaseResult = {
+      const mockUseCaseResult: BookSessionOutput = {
         sessionId: "session-123",
         studentId: validDto.studentId,
         mentorId: validDto.mentorId,
-        contractId: validDto.contractId,
-        serviceId: validDto.serviceId,
+        serviceType: "session" as const,
         scheduledStartTime: validDto.scheduledStartTime,
         scheduledEndTime: validDto.scheduledEndTime,
         duration: validDto.duration,

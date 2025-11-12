@@ -82,7 +82,7 @@ export class ContractService {
       sql`SELECT generate_contract_number_v2() as contract_number`,
     );
     const contractNumber = (
-      contractNumberResult.rows[0] as IGenerateContractNumberResult
+      contractNumberResult.rows[0] as unknown as IGenerateContractNumberResult
     ).contract_number;
 
     // 5. Create contract in transaction(5. 在事务中创建合约)
