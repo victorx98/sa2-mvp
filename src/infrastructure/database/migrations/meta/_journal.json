@@ -29,6 +29,27 @@
       "when": 1762877716777,
       "tag": "0003_serious_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1762915431021,
+      "tag": "0004_fantastic_namor",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1762916944654,
+      "tag": "0005_sloppy_bruce_banner",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1762924250976,
+      "tag": "0006_sparkling_rafael_vega",
+      "breakpoints": true
     }
   ]
 }

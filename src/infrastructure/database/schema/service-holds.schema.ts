@@ -7,7 +7,7 @@ import {
   pgEnum,
 } from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
-import { serviceTypeEnum } from "./service-type.enum";
+import { serviceTypeEnum } from "./services.schema";
 
 /**
  * 预占状态枚举 (Hold status enum)
@@ -91,8 +91,7 @@ export const serviceHolds = pgTable("service_holds", {
   createdBy: varchar("created_by", { length: 32 })
     .notNull()
     .references(() => userTable.id),
-},
-);
+});
 
 // Type inference
 export type ServiceHold = typeof serviceHolds.$inferSelect;

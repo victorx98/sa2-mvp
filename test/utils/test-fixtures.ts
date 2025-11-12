@@ -237,11 +237,31 @@ export class TestFixtures {
    * WARNING: This will delete ALL data from catalog tables!
    */
   async cleanupAllCatalogData(): Promise<void> {
-    await this.db.delete(schema.productItems);
-    await this.db.delete(schema.products);
-    await this.db.delete(schema.servicePackageItems);
-    await this.db.delete(schema.servicePackages);
-    await this.db.delete(schema.services);
+    // Clean up tables in reverse dependency order
+    // Use try-catch to handle tables that might not exist yet
+    const tables = [
+      schema.productItems,
+      schema.products,
+      schema.servicePackageItems,
+      schema.servicePackages,
+      schema.services,
+    ];
+
+    for (const table of tables) {
+      try {
+        await this.db.delete(table);
+      } catch (error: any) {
+        // Ignore "relation does not exist" errors
+        const errorMsg = error.message || error.toString() || "";
+        const causeMsg = error.cause?.message || "";
+        const fullError = errorMsg + " " + causeMsg;
+
+        if (!fullError.includes("does not exist")) {
+          throw error;
+        }
+        // Silently ignore table-does-not-exist errors
+      }
+    }
   }
 
   /**

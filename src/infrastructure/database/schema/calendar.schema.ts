@@ -26,13 +26,20 @@ export const calendarUserTypeEnum = pgEnum("calendar_user_type", [
  * Slot type enum - represents the type of time slot
  * Values: session, class_session
  */
-export const calendarTypeEnum = pgEnum("calendar_type", ["session", "class_session", "comm_session"]);
+export const calendarTypeEnum = pgEnum("calendar_type", [
+  "session",
+  "class_session",
+  "comm_session",
+]);
 
 /**
  * Slot status enum - represents the booking status of a slot
  * Values: booked, cancelled
  */
-export const calendarStatusEnum = pgEnum("calendar_status", ["booked", "cancelled"]);
+export const calendarStatusEnum = pgEnum("calendar_status", [
+  "booked",
+  "cancelled",
+]);
 
 /**
  * PostgreSQL TSTZRANGE custom type
@@ -66,7 +73,7 @@ const tstzrange = customType<{
 /**
  * Calendar slots table schema
  * Represents time slots in users' calendars
- * 
+ *
  * Key design:
  * - Uses PostgreSQL EXCLUDE constraint with GIST index to prevent overlapping bookings
  * - EXCLUDE constraint: (user_id WITH =, time_range WITH &&) WHERE (status = 'booked')
@@ -162,10 +169,19 @@ export const calendarSlots = pgTable(
      * Check constraints for enum values
      * Ensures data integrity at database level
      */
-    userTypeCheck: check("user_type_check", sql`user_type IN ('mentor', 'student', 'counselor')`),
-    typeCheck: check("type_check", sql`type IN ('session', 'class_session', 'comm_session')`),
+    userTypeCheck: check(
+      "user_type_check",
+      sql`user_type IN ('mentor', 'student', 'counselor')`,
+    ),
+    typeCheck: check(
+      "type_check",
+      sql`type IN ('session', 'class_session', 'comm_session')`,
+    ),
     statusCheck: check("status_check", sql`status IN ('booked', 'cancelled')`),
-    durationCheck: check("duration_check", sql`duration_minutes >= 30 AND duration_minutes <= 180`),
+    durationCheck: check(
+      "duration_check",
+      sql`duration_minutes >= 30 AND duration_minutes <= 180`,
+    ),
 
     /**
      * Note: GIST index and EXCLUDE constraint are created via migration
@@ -192,10 +208,10 @@ export interface ITimeRange {
 
 /**
  * IMPORTANT: GIST Index and EXCLUDE Constraint Configuration
- * 
+ *
  * These constraints are defined in the Drizzle migration file:
  * @see src/infrastructure/database/migrations/0004_add_calendar_constraints.sql
- * 
+ *
  * The migration includes:
  * 1. CHECK constraints for enums (user_type, slot_type, status)
  * 2. CHECK constraint for duration (30-180 minutes)
@@ -206,12 +222,12 @@ export interface ITimeRange {
  *    - Applies only to status = 'booked' slots
  *    - Cancelled slots do not participate in overlap detection
  * 5. Foreign key constraints to users and sessions tables
- * 
+ *
  * To execute the migration:
  * 1. Make sure your database schema matches this table definition
  * 2. Run: npm run db:migrate
  *    or: drizzle-kit migrate
- * 
+ *
  * The migration uses "NOT VALID" constraints to ensure compatibility with
  * existing data, and then validates each constraint after creation.
  */

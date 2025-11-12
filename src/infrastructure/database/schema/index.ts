@@ -17,7 +17,8 @@ export * from "./service-holds.schema";
 export * from "./service-ledger-archive-policies.schema";
 export * from "./service-ledgers-archive.schema";
 export * from "./service-ledgers.schema";
-export * from "./service-type.enum";
+
+export * from "./user.schema";
 
 // Services domain
 export * from "./sessions.schema";

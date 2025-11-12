@@ -8,13 +8,12 @@ import {
 } from "class-validator";
 
 /**
- * DTO for adding service entitlement (v2.16.12 - 学生级权益累积制)
- * Used when adding additional service entitlements
  *
  * @change {v2.16.12} Primary key changed from contractId to studentId
  * @change {v2.16.12} Changed to insert into ledger table (trigger updates entitlement)
+ * @change {v2.16.13} Renamed from entitlement to amendment ledger
  */
-export class AddEntitlementDto {
+export class AddAmendmentLedgerDto {
   @IsNotEmpty()
   @IsString()
   studentId: string; // Student ID (学生ID) - NEW in v2.16.12

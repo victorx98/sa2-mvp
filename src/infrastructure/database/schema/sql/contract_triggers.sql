@@ -5,7 +5,7 @@
 -- ==============================================================================
 -- 触发器 1: contract_amendment_ledgers → contract_service_entitlements
 -- 功能: 合同修正时，自动累加 total_quantity
--- 触发时机: AFTER INSERT
+-- 触发时机: AFTER UPDATE
 -- 版本: v2.16.12
 -- 决策: D-NEW-1 方案A - 仅执行 UPDATE，记录不存在时抛异常
 -- 注意: v2.16.13 表名从 contract_entitlement_ledgers 更名为 contract_amendment_ledgers
@@ -14,26 +14,31 @@
 CREATE OR REPLACE FUNCTION sync_ledger_to_entitlement()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- 仅处理 INSERT 操作
-  IF TG_OP = 'INSERT' THEN
-    -- ⚠️ D-NEW-1 决策: 只执行 UPDATE，不执行 INSERT
-    -- 如果记录不存在，抛异常（确保初始权益已存在）
-    UPDATE contract_service_entitlements AS cse
-    SET
-      total_quantity = cse.total_quantity + NEW.quantity_changed,
-      available_quantity = cse.total_quantity + NEW.quantity_changed
-                         - cse.consumed_quantity
-                         - cse.held_quantity,
-      updated_at = NOW()
-    WHERE cse.student_id = NEW.student_id
-      AND cse.service_type = NEW.service_type;
+  -- 仅处理 UPDATE 操作
+  IF TG_OP = 'UPDATE' THEN
+    -- 计算变更量（新旧quantity_changed之差）
+    DECLARE
+      quantity_diff INTEGER := NEW.quantity_changed - OLD.quantity_changed;
+    BEGIN
+      -- ⚠️ D-NEW-1 决策: 只执行 UPDATE，不执行 INSERT
+      -- 如果记录不存在，抛异常（确保初始权益已存在）
+      UPDATE contract_service_entitlements AS cse
+      SET
+        total_quantity = cse.total_quantity + quantity_diff,
+        available_quantity = cse.total_quantity + quantity_diff
+                           - cse.consumed_quantity
+                           - cse.held_quantity,
+        updated_at = NOW()
+      WHERE cse.student_id = NEW.student_id
+        AND cse.service_type = NEW.service_type;
 
-    -- 验证更新成功（记录必须存在）
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'Entitlement not found for student_id=%, service_type=%. '
-                      'Initial entitlement must be created before adding ledger entries.',
-        NEW.student_id, NEW.service_type;
-    END IF;
+      -- 验证更新成功（记录必须存在）
+      IF NOT FOUND THEN
+        RAISE EXCEPTION 'Entitlement not found for student_id=%, service_type=%. '
+                        'Initial entitlement must be created before adding ledger entries.',
+          NEW.student_id, NEW.service_type;
+      END IF;
+    END;
 
     RETURN NEW;
   END IF;
@@ -45,8 +50,8 @@ $$ LANGUAGE plpgsql;
 -- 绑定触发器到 contract_amendment_ledgers 表
 DROP TRIGGER IF EXISTS trigger_ledger_insert ON contract_amendment_ledgers;
 
-CREATE TRIGGER trigger_ledger_insert
-  AFTER INSERT
+CREATE TRIGGER trigger_ledger_update
+  AFTER UPDATE
   ON contract_amendment_ledgers
   FOR EACH ROW
   EXECUTE FUNCTION sync_ledger_to_entitlement();

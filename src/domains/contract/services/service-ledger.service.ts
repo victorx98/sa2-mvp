@@ -39,13 +39,8 @@ export class ServiceLedgerService {
     dto: IRecordConsumptionDto,
     tx?: DrizzleTransaction,
   ): Promise<ServiceLedger> {
-    const {
-      studentId,
-      serviceType,
-      quantity,
-      relatedBookingId,
-      createdBy,
-    } = dto;
+    const { studentId, serviceType, quantity, relatedBookingId, createdBy } =
+      dto;
 
     // 1. Validate quantity (must be negative for consumption)(1. 验证数量(必须为负值表示消耗))
     validateLedgerQuantity("consumption", -quantity);
@@ -344,29 +339,13 @@ export class ServiceLedgerService {
   }
 
   /**
-   * Reconcile balance at contract level (DEPRECATED) (对账余额 - 合同级别[已弃用])
-   * @deprecated {v2.16.12} Use reconcileBalanceByStudent() instead. Contract-level reconciliation is no longer meaningful in student-level accumulation system.
-   * - Verify consumed_quantity matches ledger sum(验证已消耗数量与账本总和匹配)
-   * - Returns true if balanced(如果平衡则返回true)
-   */
-  async reconcileBalance(
-    _contractId: string,
-    _serviceType: string,
-  ): Promise<boolean> {
-    throw new ContractException(
-      "METHOD_DEPRECATED",
-      "reconcileBalance() is deprecated in v2.16.12. Use reconcileBalanceByStudent() for student-level reconciliation.",
-    );
-  }
-
-  /**
    * Reconcile balance at student level (v2.16.12 - 学生级权益累积制)
    * - Verify consumed_quantity matches ledger sum across ALL contracts(验证所有合同的已消耗数量与账本总和匹配)
    * - Returns true if balanced(如果平衡则返回true)
    *
    * @change {v2.16.12} New method for student-level reconciliation
    */
-  async reconcileBalanceByStudent(
+  async reconcileBalance(
     studentId: string,
     serviceType: string,
   ): Promise<boolean> {

@@ -7,8 +7,6 @@ import {
   MAX_CONTRACT_AMOUNT,
   MIN_SERVICE_QUANTITY,
   MAX_SERVICE_QUANTITY,
-  MIN_OVERRIDE_PERCENTAGE,
-  MAX_OVERRIDE_PERCENTAGE,
 } from "../constants/contract.constants";
 
 /**
@@ -48,34 +46,6 @@ export function validateQuantity(quantity: number): boolean {
 
   if (!Number.isInteger(quantity)) {
     throw new Error("Quantity must be an integer");
-  }
-
-  return true;
-}
-
-/**
- * Validate price override
- * @param originalPrice Original price in cents
- * @param overridePrice Override price in cents
- * @returns True if valid, throws error otherwise
- */
-export function validatePriceOverride(
-  originalPrice: number,
-  overridePrice: number,
-): boolean {
-  const minAllowed = (originalPrice * MIN_OVERRIDE_PERCENTAGE) / 100;
-  const maxAllowed = (originalPrice * MAX_OVERRIDE_PERCENTAGE) / 100;
-
-  if (overridePrice < minAllowed) {
-    throw new Error(
-      `Override price must be at least ${MIN_OVERRIDE_PERCENTAGE}% of original price`,
-    );
-  }
-
-  if (overridePrice > maxAllowed) {
-    throw new Error(
-      `Override price cannot exceed ${MAX_OVERRIDE_PERCENTAGE}% of original price`,
-    );
   }
 
   return true;

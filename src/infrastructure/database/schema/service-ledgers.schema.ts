@@ -9,7 +9,7 @@ import {
   pgEnum,
 } from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
-import { serviceTypeEnum } from "./service-type.enum";
+import { serviceTypeEnum } from "./services.schema";
 
 /**
  * Service ledger type enum
@@ -56,54 +56,50 @@ export const serviceLedgerSourceEnum = pgEnum("service_ledger_source", [
  * - ✅ Only student_id association (student-level tracking)
  * - ✅ Trigger updates contract_service_entitlements.consumed_quantity
  */
-export const serviceLedgers = pgTable(
-  "service_ledgers",
-  {
-    // Primary key
-    id: uuid("id").defaultRandom().primaryKey(),
+export const serviceLedgers = pgTable("service_ledgers", {
+  // Primary key
+  id: uuid("id").defaultRandom().primaryKey(),
 
-    // 关联学生 (Associated student)
-    studentId: varchar("student_id", { length: 32 })
-      .notNull()
-      .references(() => userTable.id),
+  // 关联学生 (Associated student)
+  studentId: varchar("student_id", { length: 32 })
+    .notNull()
+    .references(() => userTable.id),
 
-    // 服务类型 (Service type)
-    serviceType: serviceTypeEnum("service_type").notNull(),
+  // 服务类型 (Service type)
+  serviceType: serviceTypeEnum("service_type").notNull(),
 
-    // 数量变化（负数=消费，正数=退款/调整）(Quantity change - negative=consumption, positive=refund/adjustment)
-    quantity: integer("quantity").notNull(),
+  // 数量变化（负数=消费，正数=退款/调整）(Quantity change - negative=consumption, positive=refund/adjustment)
+  quantity: integer("quantity").notNull(),
 
-    // 流水类型 (Ledger type)
-    type: serviceLedgerTypeEnum("type").notNull(),
+  // 流水类型 (Ledger type)
+  type: serviceLedgerTypeEnum("type").notNull(),
 
-    // 来源 (Source)
-    source: serviceLedgerSourceEnum("source").notNull(),
+  // 来源 (Source)
+  source: serviceLedgerSourceEnum("source").notNull(),
 
-    // 操作后余额（必须 >= 0，用于对账）[Balance after operation (must be >= 0, for reconciliation)]
-    balanceAfter: integer("balance_after").notNull(),
+  // 操作后余额（必须 >= 0，用于对账）[Balance after operation (must be >= 0, for reconciliation)]
+  balanceAfter: integer("balance_after").notNull(),
 
-    // 关联记录 (Related records)
-    relatedHoldId: uuid("related_hold_id"), // 关联预占 (Related hold)
-    relatedBookingId: uuid("related_booking_id"), // 关联预约 (Related booking)
+  // 关联记录 (Related records)
+  relatedHoldId: uuid("related_hold_id"), // 关联预占 (Related hold)
+  relatedBookingId: uuid("related_booking_id"), // 关联预约 (Related booking)
 
-    // 审计字段 (Audit fields)
-    reason: text("reason"), // 调整原因（adjustment必填）[Reason (required for adjustment)]
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    createdBy: varchar("created_by", { length: 32 })
-      .notNull()
-      .references(() => userTable.id),
+  // 审计字段 (Audit fields)
+  reason: text("reason"), // 调整原因（adjustment必填）[Reason (required for adjustment)]
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  createdBy: varchar("created_by", { length: 32 })
+    .notNull()
+    .references(() => userTable.id),
 
-    // 元数据 (Metadata)
-    metadata: json("metadata").$type<{
-      originalBalance?: number; // 操作前余额[Original balance before operation]
-      operationIp?: string; // 操作IP[Operation IP]
-      device?: string; // 设备[Device]
-    }>(),
-  },
-);
-
+  // 元数据 (Metadata)
+  metadata: json("metadata").$type<{
+    originalBalance?: number; // 操作前余额[Original balance before operation]
+    operationIp?: string; // 操作IP[Operation IP]
+    device?: string; // 设备[Device]
+  }>(),
+});
 
 export type ServiceLedger = typeof serviceLedgers.$inferSelect;
 export type InsertServiceLedger = typeof serviceLedgers.$inferInsert;

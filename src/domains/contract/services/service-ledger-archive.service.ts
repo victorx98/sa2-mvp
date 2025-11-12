@@ -130,14 +130,14 @@ export class ServiceLedgerArchiveService {
     const executor: DrizzleExecutor = tx ?? this.db;
     const conditions: SQL[] = [lt(schema.serviceLedgers.createdAt, cutoffDate)];
 
-    if (contractId) {
-      conditions.push(eq(schema.serviceLedgers.contractId, contractId));
-    }
+    // Note: serviceLedgers table doesn't have contractId field (removed in v2.16.12)
+    // We'll filter by contractId later after fetching contract entitlements
+    // (注意：serviceLedgers表没有contractId字段（在v2.16.12中移除）
+    // 我们将在获取合同权益后通过contractId进行过滤)
+    
     if (serviceType) {
       const serviceTypeTyped = serviceType as ServiceType;
-      conditions.push(
-        eq(schema.serviceLedgers.serviceType, serviceTypeTyped),
-      );
+      conditions.push(eq(schema.serviceLedgers.serviceType, serviceTypeTyped));
     }
 
     // 1. Select ledgers to archive(选择要归档的台账)
@@ -150,26 +150,75 @@ export class ServiceLedgerArchiveService {
       return 0;
     }
 
-    // 2. Insert into archive table(插入到归档表)
+    // 2. Get contract IDs for the ledgers(获取台账的合同ID)
+    const studentIds = [...new Set(ledgersToArchive.map(l => l.studentId))];
+    const serviceTypes = [...new Set(ledgersToArchive.map(l => l.serviceType))];
+    
+    // Query contract amendment ledgers to get contract IDs from snapshot
+    const contractAmendmentData = await executor
+      .select()
+      .from(schema.contractAmendmentLedgers)
+      .where(
+        and(
+          inArray(schema.contractAmendmentLedgers.studentId, studentIds),
+          inArray(schema.contractAmendmentLedgers.serviceType, serviceTypes)
+        )
+      );
+    
+    // Create a map of studentId+serviceType to contractId
+    const contractMap = new Map<string, string>();
+    contractAmendmentData.forEach(amendment => {
+      const key = `${amendment.studentId}-${amendment.serviceType}`;
+      if (amendment.snapshot?.contractId) {
+        contractMap.set(key, amendment.snapshot.contractId);
+      }
+    });
+
+    // 3. Filter by contractId if specified and add contractId to ledgers(如果指定了contractId则过滤，并添加合同ID)
+    let ledgersToArchiveWithContractId = ledgersToArchive.map(ledger => {
+      const key = `${ledger.studentId}-${ledger.serviceType}`;
+      const contractIdForLedger = contractMap.get(key);
+      if (!contractIdForLedger) {
+        throw new Error(`Contract not found for student ${ledger.studentId} and service ${ledger.serviceType}`);
+      }
+      return {
+        ...ledger,
+        contractId: contractIdForLedger
+      };
+    });
+
+    // If contractId is specified, filter ledgers by that contractId
+    // (如果指定了contractId，则按该contractId过滤台账)
+    if (contractId) {
+      ledgersToArchiveWithContractId = ledgersToArchiveWithContractId.filter(
+        ledger => ledger.contractId === contractId
+      );
+    }
+
+    if (ledgersToArchiveWithContractId.length === 0) {
+      return 0;
+    }
+
+    // 4. Insert into archive table(插入到归档表)
     await executor
       .insert(schema.serviceLedgersArchive)
-      .values(ledgersToArchive);
+      .values(ledgersToArchiveWithContractId);
 
-    // 3. Optionally delete from main table(可选择从主表删除)
+    // 5. Optionally delete from main table(可选择从主表删除)
     // NOTE: Using inArray instead of ANY syntax for better Drizzle ORM compatibility
     // (注意: 使用 inArray 而非 ANY 语法，以获得更好的 Drizzle ORM 兼容性)
     if (deleteAfterArchive) {
-      const ledgerIds = ledgersToArchive.map((l) => l.id);
+      const ledgerIds = ledgersToArchiveWithContractId.map((l) => l.id);
       await executor
         .delete(schema.serviceLedgers)
         .where(inArray(schema.serviceLedgers.id, ledgerIds));
     }
 
     this.logger.log(
-      `Archived ${ledgersToArchive.length} ledgers (contractId=${contractId}, serviceType=${serviceType}, delete=${deleteAfterArchive})`,
+      `Archived ${ledgersToArchiveWithContractId.length} ledgers (contractId=${contractId}, serviceType=${serviceType}, delete=${deleteAfterArchive})`,
     );
 
-    return ledgersToArchive.length;
+    return ledgersToArchiveWithContractId.length;
   }
 
   /**

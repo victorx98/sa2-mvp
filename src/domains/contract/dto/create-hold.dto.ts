@@ -1,8 +1,4 @@
-import {
-  IsNotEmpty,
-  IsString,
-  IsPositive,
-} from "class-validator";
+import { IsNotEmpty, IsString, IsPositive } from "class-validator";
 
 /**
  * DTO for creating service hold (v2.16.12 - 学生级权益累积制)

@@ -301,7 +301,7 @@ describe("ServiceLedgerService", () => {
 
       // Act
       const result = await service.queryLedgers(
-        { contractId: "contract-123" },
+        { studentId: "student-123", serviceType: "resume_review" },
         { includeArchive: false, limit: 50, offset: 0 },
       );
 
@@ -323,7 +323,7 @@ describe("ServiceLedgerService", () => {
       const startDate = new Date("2025-01-01");
       const endDate = new Date("2025-01-31");
       const result = await service.queryLedgers(
-        { contractId: "contract-123", startDate, endDate },
+        { studentId: "student-123", serviceType: "resume_review", startDate, endDate },
         { includeArchive: true, limit: 50, offset: 0 },
       );
 
@@ -344,70 +344,12 @@ describe("ServiceLedgerService", () => {
 
       // Act
       const result = await service.queryLedgers(
-        { contractId: "contract-123", startDate, endDate },
+        { studentId: "student-123", serviceType: "resume_review", startDate, endDate },
         { includeArchive: false },
       );
 
       // Assert
       expect(result).toEqual(mockLedgers);
-    });
-  });
-
-  describe("reconcileBalance", () => {
-    it("should return true when balance is reconciled", async () => {
-      // Arrange
-      const mockEntitlements = [
-        {
-          consumedQuantity: 5,
-        },
-      ];
-
-      const mockLedgers = [{ quantity: -2 }, { quantity: -3 }];
-
-      mockDb.where.mockResolvedValueOnce(mockEntitlements);
-      mockDb.where.mockResolvedValueOnce(mockLedgers);
-
-      // Act
-      const result = await service.reconcileBalance(
-        "contract-123",
-        "resume_review",
-      );
-
-      // Assert
-      expect(result).toBe(true); // |-2 + -3| = 5
-    });
-
-    it("should return false when balance does not match", async () => {
-      // Arrange
-      const mockEntitlements = [
-        {
-          consumedQuantity: 5,
-        },
-      ];
-
-      const mockLedgers = [{ quantity: -2 }, { quantity: -2 }];
-
-      mockDb.where.mockResolvedValueOnce(mockEntitlements);
-      mockDb.where.mockResolvedValueOnce(mockLedgers);
-
-      // Act
-      const result = await service.reconcileBalance(
-        "contract-123",
-        "resume_review",
-      );
-
-      // Assert
-      expect(result).toBe(false); // |-2 + -2| = 4 !== 5
-    });
-
-    it("should throw exception when entitlement not found", async () => {
-      // Arrange
-      mockDb.where.mockResolvedValueOnce([]);
-
-      // Act & Assert
-      await expect(
-        service.reconcileBalance("contract-123", "resume_review"),
-      ).rejects.toThrow(ContractNotFoundException);
     });
   });
 });

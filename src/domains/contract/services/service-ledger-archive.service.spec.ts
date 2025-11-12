@@ -6,7 +6,10 @@ import {
   ContractNotFoundException,
   ContractConflictException,
 } from "../common/exceptions/contract.exception";
-import type { ServiceLedgerArchivePolicy, ServiceLedger } from "@infrastructure/database/schema";
+import type {
+  ServiceLedgerArchivePolicy,
+  ServiceLedger,
+} from "@infrastructure/database/schema";
 
 describe("ServiceLedgerArchiveService", () => {
   let service: ServiceLedgerArchiveService;
@@ -54,7 +57,9 @@ describe("ServiceLedgerArchiveService", () => {
       ],
     }).compile();
 
-    service = module.get<ServiceLedgerArchiveService>(ServiceLedgerArchiveService);
+    service = module.get<ServiceLedgerArchiveService>(
+      ServiceLedgerArchiveService,
+    );
   });
 
   afterEach(() => {
@@ -67,8 +72,16 @@ describe("ServiceLedgerArchiveService", () => {
       mockDb.where.mockResolvedValueOnce([]); // No policies
 
       const mockLedgers = [
-        { id: "ledger-1", contractId: "contract-123", createdAt: new Date("2024-01-01") },
-        { id: "ledger-2", contractId: "contract-123", createdAt: new Date("2024-01-02") },
+        {
+          id: "ledger-1",
+          contractId: "contract-123",
+          createdAt: new Date("2024-01-01"),
+        },
+        {
+          id: "ledger-2",
+          contractId: "contract-123",
+          createdAt: new Date("2024-01-02"),
+        },
       ];
 
       mockDb.where.mockResolvedValueOnce(mockLedgers); // First archiveLedgers call
@@ -117,17 +130,37 @@ describe("ServiceLedgerArchiveService", () => {
 
       // First policy archives 3 records
       const mockLedgers1 = [
-        { id: "ledger-1", contractId: "contract-123", createdAt: new Date("2024-01-01") },
-        { id: "ledger-2", contractId: "contract-123", createdAt: new Date("2024-01-02") },
-        { id: "ledger-3", contractId: "contract-123", createdAt: new Date("2024-01-03") },
+        {
+          id: "ledger-1",
+          contractId: "contract-123",
+          createdAt: new Date("2024-01-01"),
+        },
+        {
+          id: "ledger-2",
+          contractId: "contract-123",
+          createdAt: new Date("2024-01-02"),
+        },
+        {
+          id: "ledger-3",
+          contractId: "contract-123",
+          createdAt: new Date("2024-01-03"),
+        },
       ];
       mockDb.where.mockResolvedValueOnce(mockLedgers1);
       mockDb.returning.mockResolvedValueOnce([]);
 
       // Second policy archives 2 records
       const mockLedgers2 = [
-        { id: "ledger-4", contractId: "contract-456", createdAt: new Date("2024-02-01") },
-        { id: "ledger-5", contractId: "contract-456", createdAt: new Date("2024-02-02") },
+        {
+          id: "ledger-4",
+          contractId: "contract-456",
+          createdAt: new Date("2024-02-01"),
+        },
+        {
+          id: "ledger-5",
+          contractId: "contract-456",
+          createdAt: new Date("2024-02-02"),
+        },
       ];
       mockDb.where.mockResolvedValueOnce(mockLedgers2);
       mockDb.returning.mockResolvedValueOnce([]);
@@ -156,10 +189,14 @@ describe("ServiceLedgerArchiveService", () => {
 
     it("should handle errors gracefully", async () => {
       // Arrange
-      mockDb.where.mockRejectedValueOnce(new Error("Database connection failed"));
+      mockDb.where.mockRejectedValueOnce(
+        new Error("Database connection failed"),
+      );
 
       // Act & Assert
-      await expect(service.archiveOldLedgers()).rejects.toThrow("Database connection failed");
+      await expect(service.archiveOldLedgers()).rejects.toThrow(
+        "Database connection failed",
+      );
     });
   });
 
@@ -183,7 +220,10 @@ describe("ServiceLedgerArchiveService", () => {
       mockDb.where.mockResolvedValueOnce([mockPolicy]);
 
       // Act
-      const result = await service.getArchivePolicy("contract-123", "resume_review");
+      const result = await service.getArchivePolicy(
+        "contract-123",
+        "resume_review",
+      );
 
       // Assert
       expect(result).toEqual(mockPolicy);
@@ -210,7 +250,10 @@ describe("ServiceLedgerArchiveService", () => {
       mockDb.where.mockResolvedValueOnce([mockPolicy]); // Service type policy
 
       // Act
-      const result = await service.getArchivePolicy("contract-456", "resume_review");
+      const result = await service.getArchivePolicy(
+        "contract-456",
+        "resume_review",
+      );
 
       // Assert
       expect(result).toEqual(mockPolicy);
@@ -238,7 +281,10 @@ describe("ServiceLedgerArchiveService", () => {
       mockDb.where.mockResolvedValueOnce([mockPolicy]); // Global policy
 
       // Act
-      const result = await service.getArchivePolicy("contract-789", "mock_interview");
+      const result = await service.getArchivePolicy(
+        "contract-789",
+        "mock_interview",
+      );
 
       // Assert
       expect(result).toEqual(mockPolicy);
@@ -252,7 +298,10 @@ describe("ServiceLedgerArchiveService", () => {
       mockDb.where.mockResolvedValueOnce([]); // No global policy
 
       // Act
-      const result = await service.getArchivePolicy("contract-999", "other_service");
+      const result = await service.getArchivePolicy(
+        "contract-999",
+        "other_service",
+      );
 
       // Assert
       expect(result).toBeNull();
@@ -277,7 +326,10 @@ describe("ServiceLedgerArchiveService", () => {
       mockDb.where.mockResolvedValueOnce([contractPolicy]); // Contract policy found
 
       // Act
-      const result = await service.getArchivePolicy("contract-123", "resume_review");
+      const result = await service.getArchivePolicy(
+        "contract-123",
+        "resume_review",
+      );
 
       // Assert
       expect(result).toEqual(contractPolicy);
@@ -399,8 +451,12 @@ describe("ServiceLedgerArchiveService", () => {
       };
 
       // Act & Assert
-      await expect(service.createPolicy(dto)).rejects.toThrow(ContractException);
-      await expect(service.createPolicy(dto)).rejects.toThrow("ARCHIVE_AFTER_DAYS_TOO_SMALL");
+      await expect(service.createPolicy(dto)).rejects.toThrow(
+        ContractException,
+      );
+      await expect(service.createPolicy(dto)).rejects.toThrow(
+        "ARCHIVE_AFTER_DAYS_TOO_SMALL",
+      );
     });
 
     it("should throw error when duplicate policy exists", async () => {
@@ -429,8 +485,12 @@ describe("ServiceLedgerArchiveService", () => {
       mockDb.where.mockResolvedValueOnce([existingPolicy]); // Duplicate found
 
       // Act & Assert
-      await expect(service.createPolicy(dto)).rejects.toThrow(ContractConflictException);
-      await expect(service.createPolicy(dto)).rejects.toThrow("ARCHIVE_POLICY_ALREADY_EXISTS");
+      await expect(service.createPolicy(dto)).rejects.toThrow(
+        ContractConflictException,
+      );
+      await expect(service.createPolicy(dto)).rejects.toThrow(
+        "ARCHIVE_POLICY_ALREADY_EXISTS",
+      );
     });
 
     it("should work with transaction", async () => {
@@ -589,7 +649,11 @@ describe("ServiceLedgerArchiveService", () => {
       mockTx.returning.mockResolvedValueOnce([updatedPolicy]);
 
       // Act
-      const result = await service.updatePolicy(policyId, updates, mockTx as any);
+      const result = await service.updatePolicy(
+        policyId,
+        updates,
+        mockTx as any,
+      );
 
       // Assert
       expect(result).toEqual(updatedPolicy);
@@ -653,7 +717,9 @@ describe("ServiceLedgerArchiveService", () => {
       // Assert
       expect(result).toEqual(mockLedgers);
       expect(result).toHaveLength(2);
-      expect(result[0].createdAt.getTime()).toBeGreaterThan(result[1].createdAt.getTime()); // Ordered by createdAt DESC
+      expect(result[0].createdAt.getTime()).toBeGreaterThan(
+        result[1].createdAt.getTime(),
+      ); // Ordered by createdAt DESC
     });
 
     it("should throw error when date range exceeds 1 year", async () => {
@@ -667,8 +733,12 @@ describe("ServiceLedgerArchiveService", () => {
       };
 
       // Act & Assert
-      await expect(service.queryWithArchive(filter)).rejects.toThrow(ContractException);
-      await expect(service.queryWithArchive(filter)).rejects.toThrow("ARCHIVE_DATE_RANGE_TOO_LARGE");
+      await expect(service.queryWithArchive(filter)).rejects.toThrow(
+        ContractException,
+      );
+      await expect(service.queryWithArchive(filter)).rejects.toThrow(
+        "ARCHIVE_DATE_RANGE_TOO_LARGE",
+      );
     });
 
     it("should filter by studentId", async () => {
@@ -760,22 +830,25 @@ describe("ServiceLedgerArchiveService", () => {
         limit: 10,
       };
 
-      const mockLedgers: ServiceLedger[] = Array.from({ length: 10 }, (_, i) => ({
-        id: `ledger-${i}`,
-        contractId: "contract-123",
-        studentId: "student-456",
-        serviceType: "resume_review",
-        quantity: -1,
-        type: "consumption",
-        source: "booking_completed",
-        balanceAfter: 10 - i,
-        relatedBookingId: `session-${i}`,
-        reason: null,
-        createdAt: new Date(`2024-01-${i + 1}`),
-        createdBy: "user-001",
-        metadata: null,
-        relatedHoldId: null,
-      }));
+      const mockLedgers: ServiceLedger[] = Array.from(
+        { length: 10 },
+        (_, i) => ({
+          id: `ledger-${i}`,
+          contractId: "contract-123",
+          studentId: "student-456",
+          serviceType: "resume_review",
+          quantity: -1,
+          type: "consumption",
+          source: "booking_completed",
+          balanceAfter: 10 - i,
+          relatedBookingId: `session-${i}`,
+          reason: null,
+          createdAt: new Date(`2024-01-${i + 1}`),
+          createdBy: "user-001",
+          metadata: null,
+          relatedHoldId: null,
+        }),
+      );
 
       mockDb.execute.mockResolvedValueOnce({ rows: mockLedgers });
 

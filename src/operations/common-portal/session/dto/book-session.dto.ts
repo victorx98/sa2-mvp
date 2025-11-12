@@ -48,8 +48,21 @@ export class BookSessionDto {
   name: string;
 
   @ApiProperty({
-    description: "Service type (e.g., gap_analysis, individual_session, mock_interview)",
-    enum: ["gap_analysis", "resume_review", "recommendation_letter", "recommendation_letter_online", "session", "mock_interview", "class_session", "internal_referral", "contract_signing_assistance", "proxy_application", "other_service"],
+    description:
+      "Service type (e.g., gap_analysis, individual_session, mock_interview)",
+    enum: [
+      "gap_analysis",
+      "resume_review",
+      "recommendation_letter",
+      "recommendation_letter_online",
+      "session",
+      "mock_interview",
+      "class_session",
+      "internal_referral",
+      "contract_signing_assistance",
+      "proxy_application",
+      "other_service",
+    ],
     required: false,
   })
   @IsEnum(ServiceType)

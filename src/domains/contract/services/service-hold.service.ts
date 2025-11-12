@@ -40,12 +40,7 @@ export class ServiceHoldService {
     dto: CreateHoldDto,
     tx?: DrizzleTransaction,
   ): Promise<ServiceHold> {
-    const {
-      studentId,
-      serviceType,
-      quantity,
-      createdBy,
-    } = dto;
+    const { studentId, serviceType, quantity, createdBy } = dto;
     const executor = tx ?? this.db;
 
     /* 1. Find entitlements for student and check balance (with pessimistic lock)(1. 查找学生权益并检查余额(使用悲观锁)) */

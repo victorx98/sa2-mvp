@@ -84,7 +84,10 @@ describe("SessionCancelledListener", () => {
       await listener["handleSessionCancelled"](event);
 
       // Assert
-      expect(mockHoldService.cancelHold).toHaveBeenCalledWith("hold-789", "cancelled");
+      expect(mockHoldService.cancelHold).toHaveBeenCalledWith(
+        "hold-789",
+        "cancelled",
+      );
     });
 
     it("should handle missing sessionId", async () => {
@@ -171,7 +174,10 @@ describe("SessionCancelledListener", () => {
       await listener["handleSessionCancelled"](event);
 
       // Assert
-      expect(mockHoldService.cancelHold).toHaveBeenCalledWith("hold-789", "cancelled");
+      expect(mockHoldService.cancelHold).toHaveBeenCalledWith(
+        "hold-789",
+        "cancelled",
+      );
       expect(mockHoldService.cancelHold).toHaveBeenCalledTimes(1);
     });
 
@@ -191,7 +197,9 @@ describe("SessionCancelledListener", () => {
       mockHoldService.cancelHold.mockRejectedValue(new Error("Database error"));
 
       // Act & Assert
-      await expect(listener["handleSessionCancelled"](event)).rejects.toThrow("Database error");
+      await expect(listener["handleSessionCancelled"](event)).rejects.toThrow(
+        "Database error",
+      );
     });
 
     it("should release service entitlement back to available balance", async () => {
@@ -222,7 +230,10 @@ describe("SessionCancelledListener", () => {
 
       // Assert
       // The hold is cancelled, which releases the entitlement back to available balance
-      expect(mockHoldService.cancelHold).toHaveBeenCalledWith("hold-789", "cancelled");
+      expect(mockHoldService.cancelHold).toHaveBeenCalledWith(
+        "hold-789",
+        "cancelled",
+      );
     });
 
     it("should handle multiple cancellations of the same session", async () => {
@@ -253,7 +264,10 @@ describe("SessionCancelledListener", () => {
 
       // Assert - Should attempt to cancel both times (idempotency should be handled at service level)
       expect(mockHoldService.cancelHold).toHaveBeenCalledTimes(2);
-      expect(mockHoldService.cancelHold).toHaveBeenCalledWith("hold-789", "cancelled");
+      expect(mockHoldService.cancelHold).toHaveBeenCalledWith(
+        "hold-789",
+        "cancelled",
+      );
     });
   });
 });

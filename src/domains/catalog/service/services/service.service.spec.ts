@@ -1,6 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigModule } from "@nestjs/config";
-import { ServiceService } from "./service.service";
 import { DatabaseModule } from "@infrastructure/database/database.module";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import {
@@ -13,14 +12,15 @@ import {
   CatalogConflictException,
   CatalogGoneException,
 } from "../../common/exceptions/catalog.exception";
+import { ServiceService } from "./service.service";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "@infrastructure/database/schema";
 import {
   ServiceType,
   BillingMode,
-  ServiceUnit,
   ServiceStatus,
+  ServiceUnit,
 } from "../../common/interfaces/enums";
-import { NodePgDatabase } from "drizzle-orm/node-postgres";
-import * as schema from "@infrastructure/database/schema";
 
 describe("ServiceService (Integration with Real Database)", () => {
   let moduleRef: TestingModule;
@@ -76,15 +76,10 @@ describe("ServiceService (Integration with Real Database)", () => {
         defaultUnit: ServiceUnit.TIMES,
         requiresEvaluation: false,
         requiresMentorAssignment: true,
-        metadata: {
-          features: ["1-on-1 service", "Delivered within 72 hours"],
-          deliverables: ["Updated resume document"],
-        },
       };
 
       const result = await service.create(createDto, testUserId);
 
-      expect(result).toBeDefined();
       expect(result.id).toBeDefined();
       expect(result.code).toBe(createDto.code);
       expect(result.status).toBe(ServiceStatus.ACTIVE);
@@ -104,7 +99,6 @@ describe("ServiceService (Integration with Real Database)", () => {
         serviceType: ServiceType.MOCK_INTERVIEW,
         name: "Another Service",
         billingMode: BillingMode.ONE_TIME,
-        defaultUnit: ServiceUnit.TIMES,
       };
 
       await expect(service.create(createDto, testUserId)).rejects.toThrow(
@@ -166,9 +160,9 @@ describe("ServiceService (Integration with Real Database)", () => {
 
       const updateDto = { name: "Updated Name" };
 
-      await expect(
-        service.update(deletedService.id, updateDto),
-      ).rejects.toThrow(CatalogGoneException);
+      await expect(service.update(deletedService.id, updateDto)).rejects.toThrow(
+        CatalogGoneException,
+      );
     });
   });
 
@@ -194,7 +188,7 @@ describe("ServiceService (Integration with Real Database)", () => {
       expect(result?.code).toBe(code);
     });
 
-    it("should return null when service not found", async () => {
+    it("should return null for non-existent service", async () => {
       const result = await service.findOne({
         id: "00000000-0000-0000-0000-000000000000",
       });
@@ -227,6 +221,22 @@ describe("ServiceService (Integration with Real Database)", () => {
 
       expect(result.status).toBe(ServiceStatus.ACTIVE);
     });
+
+    it("should reject updating status of non-existent service", async () => {
+      await expect(
+        service.updateStatus("00000000-0000-0000-0000-000000000000", "inactive"),
+      ).rejects.toThrow(CatalogNotFoundException);
+    });
+
+    it("should reject updating status of deleted service", async () => {
+      const deletedService = await fixtures.createService(testUserId, {
+        status: "deleted",
+      });
+
+      await expect(
+        service.updateStatus(deletedService.id, "active"),
+      ).rejects.toThrow(CatalogGoneException);
+    });
   });
 
   describe("remove", () => {
@@ -240,7 +250,17 @@ describe("ServiceService (Integration with Real Database)", () => {
       );
     });
 
-    it("should reject deleting referenced service", async () => {
+    it("should successfully delete inactive service", async () => {
+      const inactiveService = await fixtures.createService(testUserId, {
+        status: "inactive",
+      });
+
+      const result = await service.remove(inactiveService.id);
+
+      expect(result.status).toBe(ServiceStatus.DELETED);
+    });
+
+    it("should reject deleting service that is referenced", async () => {
       const inactiveService = await fixtures.createService(testUserId, {
         status: "inactive",
       });
@@ -251,16 +271,6 @@ describe("ServiceService (Integration with Real Database)", () => {
       await expect(service.remove(inactiveService.id)).rejects.toThrow(
         CatalogException,
       );
-    });
-
-    it("should successfully delete unreferenced inactive service", async () => {
-      const inactiveService = await fixtures.createService(testUserId, {
-        status: "inactive",
-      });
-
-      const result = await service.remove(inactiveService.id);
-
-      expect(result.status).toBe(ServiceStatus.DELETED);
     });
   });
 
@@ -290,14 +300,10 @@ describe("ServiceService (Integration with Real Database)", () => {
     it("should successfully generate service snapshot", async () => {
       const existingService = await fixtures.createService(testUserId, {
         name: "Test Service",
-        metadata: {
-          features: ["Feature 1"],
-        },
       });
 
       const snapshot = await service.generateSnapshot(existingService.id);
 
-      expect(snapshot).toBeDefined();
       expect(snapshot.serviceId).toBe(existingService.id);
       expect(snapshot.serviceName).toBe(existingService.name);
       expect(snapshot.serviceCode).toBe(existingService.code);
@@ -312,30 +318,27 @@ describe("ServiceService (Integration with Real Database)", () => {
   });
 
   describe("search", () => {
-    beforeAll(async () => {
-      // Clean up existing services to avoid unique constraint violations
-      await db.delete(schema.servicePackageItems);
-      await db.delete(schema.servicePackages);
-      await db.delete(schema.services);
-
+    it("should search services with pagination", async () => {
       // Create multiple services for search testing
       await fixtures.createServices(testUserId, 5, { status: "active" });
-    });
 
-    it("should search services with pagination", async () => {
       const filters = {};
-      const pagination = { page: 1, pageSize: 2 };
-
+      const pagination = { page: 1, pageSize: 10 };
       const result = await service.search(filters, pagination);
 
+      expect(result.data).toBeDefined();
+      expect(result.total).toBeGreaterThan(0);
       expect(result.page).toBe(1);
-      expect(result.pageSize).toBe(2);
-      expect(result.data.length).toBeLessThanOrEqual(2);
+      expect(result.pageSize).toBe(10);
+      expect(result.totalPages).toBeGreaterThan(0);
     });
 
     it("should filter services by status", async () => {
-      const filters = { status: ServiceStatus.ACTIVE };
+      // Create services with different statuses
+      await fixtures.createService(testUserId, { status: "active" });
+      await fixtures.createService(testUserId, { status: "inactive" });
 
+      const filters = { status: ServiceStatus.ACTIVE };
       const result = await service.search(filters);
 
       expect(result.data.every((s) => s.status === ServiceStatus.ACTIVE)).toBe(
@@ -344,8 +347,15 @@ describe("ServiceService (Integration with Real Database)", () => {
     });
 
     it("should filter services by billing mode", async () => {
-      const filters = { billingMode: BillingMode.ONE_TIME };
+      // Create services with different billing modes
+      await fixtures.createService(testUserId, {
+        billingMode: BillingMode.ONE_TIME,
+      });
+      await fixtures.createService(testUserId, {
+        billingMode: BillingMode.PER_SESSION,
+      });
 
+      const filters = { billingMode: BillingMode.ONE_TIME };
       const result = await service.search(filters);
 
       expect(
@@ -356,6 +366,11 @@ describe("ServiceService (Integration with Real Database)", () => {
 
   describe("findAvailableServices", () => {
     it("should return only active services", async () => {
+      // Create services with different statuses
+      await fixtures.createService(testUserId, { status: "active" });
+      await fixtures.createService(testUserId, { status: "inactive" });
+      await fixtures.createService(testUserId, { status: "deleted" });
+
       const result = await service.findAvailableServices();
 
       expect(Array.isArray(result)).toBe(true);

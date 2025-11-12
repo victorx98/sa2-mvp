@@ -33,18 +33,6 @@ export class CreateContractDto {
   @IsDateString()
   signedAt?: Date; // Contract signing date (合约签署日期)
 
-  @IsOptional()
-  @IsString()
-  overrideAmount?: string; // Price override amount (价格覆盖金额)
-
-  @IsOptional()
-  @IsString()
-  overrideReason?: string; // Reason for price override (价格覆盖原因)
-
-  @IsOptional()
-  @IsString()
-  overrideApprovedBy?: string; // Approver of price override (价格覆盖批准人)
-
   @IsNotEmpty()
   @IsString()
   createdBy: string; // ID of creator (创建人ID)

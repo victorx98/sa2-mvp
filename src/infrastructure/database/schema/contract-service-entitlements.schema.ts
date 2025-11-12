@@ -4,9 +4,18 @@ import {
   integer,
   timestamp,
   primaryKey,
+  pgEnum,
 } from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
-import { serviceTypeEnum } from "./service-type.enum";
+import { serviceTypeEnum } from "./services.schema";
+
+// 权益来源枚举 (Entitlement source enum)
+export const entitlementSourceEnum = pgEnum("entitlement_source", [
+  "product", // 产品[Product]
+  "addon", // 附加[Addon]
+  "promotion", // 促销[Promotion]
+  "compensation", // 补偿[Compensation]
+]);
 
 /**
  * Contract service entitlements table (v2.16.12 - 学生级权益累积制)
@@ -18,7 +27,7 @@ import { serviceTypeEnum } from "./service-type.enum";
  * - 合同终止后权益继续保留
  *
  * Data Consistency: 触发器自动维护（应用层禁止直接 UPDATE/DELETE）
- * - total_quantity: 触发器从 contract_entitlement_ledgers 累加
+ * - total_quantity: 触发器从 contract_amendment_ledgers 累加
  * - consumed_quantity: 触发器从 service_ledgers 累加
  * - held_quantity: 触发器从 service_holds 更新
  * - available_quantity: 自动计算 (CHECK 约束)
@@ -46,24 +55,19 @@ export const contractServiceEntitlements = pgTable(
     serviceType: serviceTypeEnum("service_type").notNull(),
 
     // 权益数量（触发器自动维护）[Entitlement quantities (maintained by triggers automatically)]
-    totalQuantity: integer("total_quantity")
-      .notNull()
-      .default(0), // 总权益（初始 + 额外）[Total entitlement (initial + additional)]
+    totalQuantity: integer("total_quantity").notNull().default(0), // 总权益（初始 + 额外）[Total entitlement (initial + additional)]
 
-    consumedQuantity: integer("consumed_quantity")
-      .notNull()
-      .default(0), // 已消费[Consumed]
+    consumedQuantity: integer("consumed_quantity").notNull().default(0), // 已消费[Consumed]
 
-    heldQuantity: integer("held_quantity")
-      .notNull()
-      .default(0), // 预占[Held]
+    heldQuantity: integer("held_quantity").notNull().default(0), // 预占[Held]
 
-    availableQuantity: integer("available_quantity")
-      .notNull()
-      .default(0), // 可用 = total - consumed - held[Available = total - consumed - held]
+    availableQuantity: integer("available_quantity").notNull().default(0), // 可用 = total - consumed - held[Available = total - consumed - held]
 
     // 过期时间（继承自合同，null = 永久有效）[Expiration time (inherited from contract, null = permanent)]
     expiresAt: timestamp("expires_at", { withTimezone: true }),
+
+    // 权益来源[Entitlement source]
+    source: entitlementSourceEnum("source").notNull().default("product"),
 
     // 审计字段[Audit fields]
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -74,8 +78,9 @@ export const contractServiceEntitlements = pgTable(
       .defaultNow()
       .notNull(),
 
-    createdBy: varchar("created_by", { length: 32 })
-      .references(() => userTable.id),
+    createdBy: varchar("created_by", { length: 32 }).references(
+      () => userTable.id,
+    ),
   },
   (table) => {
     return {
@@ -85,7 +90,7 @@ export const contractServiceEntitlements = pgTable(
         name: "pk_contract_service_entitlements",
       }),
     };
-  }
+  },
 );
 
 export type ContractServiceEntitlement =
