@@ -59,7 +59,7 @@ export class SessionBffService {
     sessionId: string;
     studentId: string;
     mentorId: string;
-    serviceId: string;
+    serviceType: string;
     scheduledStartTime: string;
     scheduledEndTime: string;
     duration: number;
