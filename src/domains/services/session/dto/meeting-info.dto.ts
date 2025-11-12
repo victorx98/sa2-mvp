@@ -12,15 +12,10 @@ export class MeetingInfoDto {
   @IsEnum(MeetingProvider)
   meetingProvider: MeetingProvider; // Meeting platform
 
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(255)
-  meetingId: string; // Third-party meeting ID
-
   @IsOptional()
   @IsString()
   @MaxLength(20)
-  meetingNo?: string; // Feishu meeting number (9 digits, Zoom does not have this)
+  meetingNo?: string; // Feishu meeting number (9 digits) - key field for webhook association
 
   @IsUrl()
   @IsNotEmpty()

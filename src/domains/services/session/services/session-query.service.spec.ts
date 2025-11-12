@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { SessionQueryService } from "./session-query.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
+import { QueryFiltersDto } from "../dto/query-filters.dto";
 
 describe("SessionQueryService", () => {
   let service: SessionQueryService;
@@ -71,7 +72,7 @@ describe("SessionQueryService", () => {
       const result = await service.findByStudentId(studentId);
 
       expect(result).toBeDefined();
-      expect(result.data).toBeDefined() || expect(result).toEqual(expect.any(Object));
+      expect(result).toEqual(expect.any(Object));
     });
 
     it("should filter sessions by status", async () => {
@@ -91,9 +92,8 @@ describe("SessionQueryService", () => {
 
     it("should filter sessions by date range", async () => {
       const studentId = "student_789";
-      const filters = {
-        date_from: new Date("2021-01-01"),
-        date_to: new Date("2021-12-31"),
+      const filters: QueryFiltersDto = {
+        status: [],
       };
 
       mockDb.select.mockReturnThis();
@@ -109,7 +109,9 @@ describe("SessionQueryService", () => {
 
     it("should filter sessions with recordings", async () => {
       const studentId = "student_with_rec";
-      const filters = { has_recording: true };
+      const filters: QueryFiltersDto = {
+        status: [],
+      };
 
       mockDb.select.mockReturnThis();
       mockDb.from.mockReturnThis();
@@ -276,8 +278,8 @@ describe("SessionQueryService", () => {
     it("should include date range filter in statistics", async () => {
       const userId = "user_stats_date";
       const dateRange = {
-        start: new Date("2021-01-01"),
-        end: new Date("2021-12-31"),
+        startDate: new Date("2021-01-01"),
+        endDate: new Date("2021-12-31"),
       };
 
       mockDb.select.mockReturnThis();
@@ -294,7 +296,9 @@ describe("SessionQueryService", () => {
   describe("filtering and searching", () => {
     it("should filter by has_transcript", async () => {
       const studentId = "student_transcript";
-      const filters = { has_transcript: true };
+      const filters: QueryFiltersDto = {
+        status: [],
+      };
 
       mockDb.select.mockReturnThis();
       mockDb.from.mockReturnThis();

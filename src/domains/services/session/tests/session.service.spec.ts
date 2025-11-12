@@ -38,7 +38,7 @@ describe("SessionService", () => {
       const sessionId = "123e4567-e89b-12d3-a456-426614174000";
       const studentId = "223e4567-e89b-12d3-a456-426614174000";
       const mentorId = "323e4567-e89b-12d3-a456-426614174000";
-      const meetingId = "6911188411934433028";
+      const meetingNo = "123456789";
 
       const dto: CreateSessionDto = {
         studentId,
@@ -47,7 +47,7 @@ describe("SessionService", () => {
         scheduledDuration: 60,
         sessionName: "Test Session",
         meetingProvider: MeetingProvider.FEISHU,
-        meetingId,
+        meetingNo,
         meetingUrl: "https://vc.feishu.cn/j/123456789",
       };
 
@@ -57,8 +57,7 @@ describe("SessionService", () => {
         mentorId,
         contractId: null,
         meetingProvider: MeetingProvider.FEISHU,
-        meetingId,
-        meetingNo: "123456789",
+        meetingNo,
         meetingUrl: "https://vc.feishu.cn/j/123456789",
         meetingPassword: null,
         scheduledStartTime: new Date(dto.scheduledStartTime),
@@ -87,7 +86,7 @@ describe("SessionService", () => {
       expect(result).toBeDefined();
       expect(result.studentId).toBe(studentId);
       expect(result.mentorId).toBe(mentorId);
-      expect(result.meetingId).toBe(meetingId);
+      expect(result.meetingNo).toBe(meetingNo);
       expect(result.status).toBe("scheduled");
     });
 
@@ -140,7 +139,6 @@ describe("SessionService", () => {
         scheduledDuration: 60,
         // Meeting information from MeetingProvider.createMeeting()
         meetingProvider: MeetingProvider.FEISHU,
-        meetingId: "6911188411934433028",
         meetingNo: "235812466",
         meetingUrl: "https://vc.feishu.cn/j/235812466",
         meetingPassword: null,
@@ -152,7 +150,6 @@ describe("SessionService", () => {
         mentorId: dto.mentorId,
         contractId: null,
         meetingProvider: dto.meetingProvider,
-        meetingId: dto.meetingId,
         meetingNo: dto.meetingNo,
         meetingUrl: dto.meetingUrl,
         meetingPassword: dto.meetingPassword,
@@ -179,7 +176,6 @@ describe("SessionService", () => {
 
       const result = await service.createSession(dto);
 
-      expect(result.meetingId).toBe(dto.meetingId);
       expect(result.meetingNo).toBe(dto.meetingNo);
       expect(result.meetingUrl).toBe(dto.meetingUrl);
     });

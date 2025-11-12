@@ -118,7 +118,6 @@ describe("Session Creation Flow (e2e)", () => {
         ...createDto,
         scheduledStartTime: new Date(createDto.scheduledStartTime),
         status: SessionStatus.SCHEDULED,
-        meetingId: null,
         meetingUrl: null,
         recordings: [],
         aiSummary: null,
@@ -130,7 +129,7 @@ describe("Session Creation Flow (e2e)", () => {
 
       const mockMeetingInfo = {
         provider: MeetingProviderType.FEISHU,
-        meetingId: "6892847362938471942",
+        meetingId: "6911188411934433028", // Third-party meeting ID from Feishu
         meetingNo: "123456789",
         meetingUrl: "https://vc.feishu.cn/j/123456789",
         meetingPassword: null,
@@ -141,7 +140,6 @@ describe("Session Creation Flow (e2e)", () => {
 
       const mockUpdatedSession = {
         ...mockSession,
-        meetingId: mockMeetingInfo.meetingId,
         meetingNo: mockMeetingInfo.meetingNo,
         meetingUrl: mockMeetingInfo.meetingUrl,
       };
@@ -223,14 +221,13 @@ describe("Session Creation Flow (e2e)", () => {
       });
 
       expect(meetingInfo).toBeDefined();
-      expect(meetingInfo.meetingId).toBe(mockMeetingInfo.meetingId);
+      expect(meetingInfo.meetingNo).toBe(mockMeetingInfo.meetingNo);
 
       // Step 4: Update session with meeting info
       const updatedSession = await sessionService.updateMeetingInfo(
         session.id,
         {
           meetingProvider: meetingInfo.provider as unknown as MeetingProvider,
-          meetingId: meetingInfo.meetingId,
           meetingNo: meetingInfo.meetingNo,
           meetingUrl: meetingInfo.meetingUrl,
           meetingPassword: meetingInfo.meetingPassword,
