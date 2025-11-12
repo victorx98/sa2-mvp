@@ -21,10 +21,7 @@ export interface IServiceLedgerService {
     filter: ILedgerFilterDto,
     options?: ILedgerQueryOptions,
   ): Promise<IPaginatedResult<ServiceLedger>>; // Query ledgers (查询台账)
-  reconcileBalance(
-    studentId: string,
-    serviceType: string,
-  ): Promise<boolean>; // New in v2.16.12 (v2.16.12新增)
+  reconcileBalance(studentId: string, serviceType: string): Promise<boolean>; // New in v2.16.12 (v2.16.12新增)
 }
 
 /**

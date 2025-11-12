@@ -5,6 +5,7 @@ import {
   ContractException,
   ContractNotFoundException,
   ContractConflictException,
+  CONTRACT_ERROR_MESSAGES,
 } from "../common/exceptions/contract.exception";
 import type {
   ServiceLedgerArchivePolicy,
@@ -21,6 +22,7 @@ describe("ServiceLedgerArchiveService", () => {
     where: jest.fn().mockReturnThis(),
     and: jest.fn().mockReturnThis(),
     or: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockReturnThis(),
     execute: jest.fn(),
     insert: jest.fn().mockReturnThis(),
     values: jest.fn().mockReturnThis(),
@@ -36,6 +38,7 @@ describe("ServiceLedgerArchiveService", () => {
     from: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     and: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockReturnThis(),
     insert: jest.fn().mockReturnThis(),
     values: jest.fn().mockReturnThis(),
     returning: jest.fn(),
@@ -74,17 +77,34 @@ describe("ServiceLedgerArchiveService", () => {
       const mockLedgers = [
         {
           id: "ledger-1",
-          contractId: "contract-123",
+          studentId: "student-1",
+          serviceType: "resume_review",
           createdAt: new Date("2024-01-01"),
         },
         {
           id: "ledger-2",
-          contractId: "contract-123",
+          studentId: "student-2",
+          serviceType: "resume_review",
           createdAt: new Date("2024-01-02"),
         },
       ];
 
+      // Mock contract amendment ledgers to provide contract IDs
+      const mockContractAmendments = [
+        {
+          studentId: "student-1",
+          serviceType: "resume_review",
+          snapshot: { contractId: "contract-123" },
+        },
+        {
+          studentId: "student-2",
+          serviceType: "resume_review",
+          snapshot: { contractId: "contract-123" },
+        },
+      ];
+
       mockDb.where.mockResolvedValueOnce(mockLedgers); // First archiveLedgers call
+      mockDb.where.mockResolvedValueOnce(mockContractAmendments); // Contract amendment data
       mockDb.returning.mockResolvedValueOnce([]); // Insert result
 
       // Act
@@ -132,37 +152,79 @@ describe("ServiceLedgerArchiveService", () => {
       const mockLedgers1 = [
         {
           id: "ledger-1",
-          contractId: "contract-123",
+          studentId: "student-1",
+          serviceType: "resume_review",
           createdAt: new Date("2024-01-01"),
         },
         {
           id: "ledger-2",
-          contractId: "contract-123",
+          studentId: "student-2",
+          serviceType: "resume_review",
           createdAt: new Date("2024-01-02"),
         },
         {
           id: "ledger-3",
-          contractId: "contract-123",
+          studentId: "student-3",
+          serviceType: "resume_review",
           createdAt: new Date("2024-01-03"),
         },
       ];
+
+      // Mock contract amendment ledgers for first policy
+      const mockContractAmendments1 = [
+        {
+          studentId: "student-1",
+          serviceType: "resume_review",
+          snapshot: { contractId: "contract-123" },
+        },
+        {
+          studentId: "student-2",
+          serviceType: "resume_review",
+          snapshot: { contractId: "contract-123" },
+        },
+        {
+          studentId: "student-3",
+          serviceType: "resume_review",
+          snapshot: { contractId: "contract-123" },
+        },
+      ];
+
       mockDb.where.mockResolvedValueOnce(mockLedgers1);
+      mockDb.where.mockResolvedValueOnce(mockContractAmendments1);
       mockDb.returning.mockResolvedValueOnce([]);
 
       // Second policy archives 2 records
       const mockLedgers2 = [
         {
           id: "ledger-4",
-          contractId: "contract-456",
+          studentId: "student-4",
+          serviceType: "resume_review",
           createdAt: new Date("2024-02-01"),
         },
         {
           id: "ledger-5",
-          contractId: "contract-456",
+          studentId: "student-5",
+          serviceType: "resume_review",
           createdAt: new Date("2024-02-02"),
         },
       ];
+
+      // Mock contract amendment ledgers for second policy
+      const mockContractAmendments2 = [
+        {
+          studentId: "student-4",
+          serviceType: "resume_review",
+          snapshot: { contractId: "contract-456" },
+        },
+        {
+          studentId: "student-5",
+          serviceType: "resume_review",
+          snapshot: { contractId: "contract-456" },
+        },
+      ];
+
       mockDb.where.mockResolvedValueOnce(mockLedgers2);
+      mockDb.where.mockResolvedValueOnce(mockContractAmendments2);
       mockDb.returning.mockResolvedValueOnce([]);
 
       // Act
@@ -217,7 +279,13 @@ describe("ServiceLedgerArchiveService", () => {
         notes: "Contract policy test",
       };
 
-      mockDb.where.mockResolvedValueOnce([mockPolicy]);
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([mockPolicy]),
+      };
+      
+      mockDb.select.mockReturnValueOnce(mockSelectChain);
 
       // Act
       const result = await service.getArchivePolicy(
@@ -246,8 +314,21 @@ describe("ServiceLedgerArchiveService", () => {
         notes: "Service type policy",
       };
 
-      mockDb.where.mockResolvedValueOnce([]); // No contract policy
-      mockDb.where.mockResolvedValueOnce([mockPolicy]); // Service type policy
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([]),
+      };
+      
+      const mockSelectChain2 = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([mockPolicy]),
+      };
+      
+      mockDb.select
+        .mockReturnValueOnce(mockSelectChain)
+        .mockReturnValueOnce(mockSelectChain2);
 
       // Act
       const result = await service.getArchivePolicy(
@@ -276,9 +357,32 @@ describe("ServiceLedgerArchiveService", () => {
         createdAt: new Date(),
       };
 
-      mockDb.where.mockResolvedValueOnce([]); // No contract policy
-      mockDb.where.mockResolvedValueOnce([]); // No service type policy
-      mockDb.where.mockResolvedValueOnce([mockPolicy]); // Global policy
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([]),
+      };
+      
+      mockDb.select.mockReturnValue(mockSelectChain);
+      
+      // Set up second call for service type policy
+      const mockSelectChain2 = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([]),
+      };
+      
+      // Set up third call for global policy
+      const mockSelectChain3 = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([mockPolicy]),
+      };
+      
+      mockDb.select
+        .mockReturnValueOnce(mockSelectChain)
+        .mockReturnValueOnce(mockSelectChain2)
+        .mockReturnValueOnce(mockSelectChain3);
 
       // Act
       const result = await service.getArchivePolicy(
@@ -293,9 +397,28 @@ describe("ServiceLedgerArchiveService", () => {
 
     it("should return null when no policies exist", async () => {
       // Arrange
-      mockDb.where.mockResolvedValueOnce([]); // No contract policy
-      mockDb.where.mockResolvedValueOnce([]); // No service type policy
-      mockDb.where.mockResolvedValueOnce([]); // No global policy
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([]),
+      };
+      
+      const mockSelectChain2 = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([]),
+      };
+      
+      const mockSelectChain3 = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([]),
+      };
+      
+      mockDb.select
+        .mockReturnValueOnce(mockSelectChain)
+        .mockReturnValueOnce(mockSelectChain2)
+        .mockReturnValueOnce(mockSelectChain3);
 
       // Act
       const result = await service.getArchivePolicy(
@@ -323,7 +446,13 @@ describe("ServiceLedgerArchiveService", () => {
         createdAt: new Date(),
       };
 
-      mockDb.where.mockResolvedValueOnce([contractPolicy]); // Contract policy found
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([contractPolicy]),
+      };
+      
+      mockDb.select.mockReturnValueOnce(mockSelectChain);
 
       // Act
       const result = await service.getArchivePolicy(
@@ -334,7 +463,7 @@ describe("ServiceLedgerArchiveService", () => {
       // Assert
       expect(result).toEqual(contractPolicy);
       // Should not query for service type or global policies
-      expect(mockDb.where).toHaveBeenCalledTimes(1);
+      expect(mockDb.select).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -361,7 +490,13 @@ describe("ServiceLedgerArchiveService", () => {
         createdAt: new Date(),
       };
 
-      mockDb.where.mockResolvedValueOnce([]); // No duplicate
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockResolvedValue([]), // No duplicate
+        limit: jest.fn().mockReturnThis(),
+      };
+      
+      mockDb.select.mockReturnValue(mockSelectChain);
       mockDb.returning.mockResolvedValueOnce([mockPolicy]);
 
       // Act
@@ -395,7 +530,13 @@ describe("ServiceLedgerArchiveService", () => {
         createdAt: new Date(),
       };
 
-      mockDb.where.mockResolvedValueOnce([]); // No duplicate
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockResolvedValue([]), // No duplicate
+        limit: jest.fn().mockReturnThis(),
+      };
+      
+      mockDb.select.mockReturnValue(mockSelectChain);
       mockDb.returning.mockResolvedValueOnce([mockPolicy]);
 
       // Act
@@ -430,7 +571,13 @@ describe("ServiceLedgerArchiveService", () => {
         createdAt: new Date(),
       };
 
-      mockDb.where.mockResolvedValueOnce([]); // No duplicate
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockResolvedValue([]), // No duplicate
+        limit: jest.fn().mockReturnThis(),
+      };
+      
+      mockDb.select.mockReturnValue(mockSelectChain);
       mockDb.returning.mockResolvedValueOnce([mockPolicy]);
 
       // Act
@@ -455,7 +602,7 @@ describe("ServiceLedgerArchiveService", () => {
         ContractException,
       );
       await expect(service.createPolicy(dto)).rejects.toThrow(
-        "ARCHIVE_AFTER_DAYS_TOO_SMALL",
+        CONTRACT_ERROR_MESSAGES.ARCHIVE_AFTER_DAYS_TOO_SMALL,
       );
     });
 
@@ -482,14 +629,20 @@ describe("ServiceLedgerArchiveService", () => {
         createdAt: new Date(),
       };
 
-      mockDb.where.mockResolvedValueOnce([existingPolicy]); // Duplicate found
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockResolvedValue([existingPolicy]), // Duplicate found
+        limit: jest.fn().mockReturnThis(),
+      };
+      
+      mockDb.select.mockReturnValue(mockSelectChain);
 
       // Act & Assert
       await expect(service.createPolicy(dto)).rejects.toThrow(
         ContractConflictException,
       );
       await expect(service.createPolicy(dto)).rejects.toThrow(
-        "ARCHIVE_POLICY_ALREADY_EXISTS",
+        CONTRACT_ERROR_MESSAGES.ARCHIVE_POLICY_ALREADY_EXISTS,
       );
     });
 
@@ -515,7 +668,13 @@ describe("ServiceLedgerArchiveService", () => {
         createdAt: new Date(),
       };
 
-      mockTx.where.mockResolvedValueOnce([]); // No duplicate
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockResolvedValue([]), // No duplicate
+        limit: jest.fn().mockReturnThis(),
+      };
+      
+      mockTx.select.mockReturnValue(mockSelectChain);
       mockTx.returning.mockResolvedValueOnce([mockPolicy]);
 
       // Act
@@ -557,7 +716,13 @@ describe("ServiceLedgerArchiveService", () => {
         deleteAfterArchive: true,
       };
 
-      mockDb.where.mockResolvedValueOnce([existingPolicy]);
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([existingPolicy]),
+      };
+      
+      mockDb.select.mockReturnValue(mockSelectChain);
       mockDb.returning.mockResolvedValueOnce([updatedPolicy]);
 
       // Act
@@ -576,14 +741,20 @@ describe("ServiceLedgerArchiveService", () => {
         archiveAfterDays: 120,
       };
 
-      mockDb.where.mockResolvedValueOnce([]);
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([]),
+      };
+      
+      mockDb.select.mockReturnValue(mockSelectChain);
 
       // Act & Assert
       await expect(service.updatePolicy(policyId, updates)).rejects.toThrow(
         ContractNotFoundException,
       );
       await expect(service.updatePolicy(policyId, updates)).rejects.toThrow(
-        "ARCHIVE_POLICY_NOT_FOUND",
+        CONTRACT_ERROR_MESSAGES.ARCHIVE_POLICY_NOT_FOUND
       );
     });
 
@@ -608,14 +779,20 @@ describe("ServiceLedgerArchiveService", () => {
         createdAt: new Date(),
       };
 
-      mockDb.where.mockResolvedValueOnce([existingPolicy]);
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([existingPolicy]),
+      };
+      
+      mockDb.select.mockReturnValue(mockSelectChain);
 
       // Act & Assert
       await expect(service.updatePolicy(policyId, updates)).rejects.toThrow(
         ContractException,
       );
       await expect(service.updatePolicy(policyId, updates)).rejects.toThrow(
-        "ARCHIVE_AFTER_DAYS_TOO_SMALL",
+        CONTRACT_ERROR_MESSAGES.ARCHIVE_AFTER_DAYS_TOO_SMALL,
       );
     });
 
@@ -645,7 +822,14 @@ describe("ServiceLedgerArchiveService", () => {
         enabled: false,
       };
 
-      mockTx.where.mockResolvedValueOnce([existingPolicy]);
+      // Set up the mock chain for transaction
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([existingPolicy]),
+      };
+      
+      mockTx.select.mockReturnValue(mockSelectChain);
       mockTx.returning.mockResolvedValueOnce([updatedPolicy]);
 
       // Act
@@ -677,7 +861,6 @@ describe("ServiceLedgerArchiveService", () => {
       const mockLedgers: ServiceLedger[] = [
         {
           id: "ledger-1",
-          contractId: "contract-123",
           studentId: "student-456",
           serviceType: "resume_review",
           quantity: -1,
@@ -693,7 +876,6 @@ describe("ServiceLedgerArchiveService", () => {
         },
         {
           id: "ledger-archive-1",
-          contractId: "contract-123",
           studentId: "student-456",
           serviceType: "resume_review",
           quantity: -1,
@@ -737,7 +919,7 @@ describe("ServiceLedgerArchiveService", () => {
         ContractException,
       );
       await expect(service.queryWithArchive(filter)).rejects.toThrow(
-        "ARCHIVE_DATE_RANGE_TOO_LARGE",
+        CONTRACT_ERROR_MESSAGES.ARCHIVE_DATE_RANGE_TOO_LARGE,
       );
     });
 
@@ -754,7 +936,6 @@ describe("ServiceLedgerArchiveService", () => {
       const mockLedgers: ServiceLedger[] = [
         {
           id: "ledger-1",
-          contractId: "contract-123",
           studentId: "student-456",
           serviceType: "resume_review",
           quantity: -1,
@@ -793,7 +974,6 @@ describe("ServiceLedgerArchiveService", () => {
       const mockLedgers: ServiceLedger[] = [
         {
           id: "ledger-1",
-          contractId: "contract-123",
           studentId: "student-456",
           serviceType: "mock_interview",
           quantity: -1,
@@ -834,7 +1014,6 @@ describe("ServiceLedgerArchiveService", () => {
         { length: 10 },
         (_, i) => ({
           id: `ledger-${i}`,
-          contractId: "contract-123",
           studentId: "student-456",
           serviceType: "resume_review",
           quantity: -1,

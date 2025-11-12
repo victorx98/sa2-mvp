@@ -323,7 +323,12 @@ describe("ServiceLedgerService", () => {
       const startDate = new Date("2025-01-01");
       const endDate = new Date("2025-01-31");
       const result = await service.queryLedgers(
-        { studentId: "student-123", serviceType: "resume_review", startDate, endDate },
+        {
+          studentId: "student-123",
+          serviceType: "resume_review",
+          startDate,
+          endDate,
+        },
         { includeArchive: true, limit: 50, offset: 0 },
       );
 
@@ -344,7 +349,12 @@ describe("ServiceLedgerService", () => {
 
       // Act
       const result = await service.queryLedgers(
-        { studentId: "student-123", serviceType: "resume_review", startDate, endDate },
+        {
+          studentId: "student-123",
+          serviceType: "resume_review",
+          startDate,
+          endDate,
+        },
         { includeArchive: false },
       );
 

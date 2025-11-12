@@ -14,19 +14,26 @@ import { serviceTypeEnum } from "./services.schema";
  * - active: 生效中（未释放）[Active (not released)]
  * - released: 已释放（服务完成）[Released (service completed)]
  * - cancelled: 已取消（用户取消）[Cancelled (user cancelled)]
+ * - expired: 已过期（自动过期）[Expired (automatic expiration)]
  */
 export const holdStatusEnum = pgEnum("hold_status", [
   "active", // 生效中[Active]
   "released", // 已释放[Released]
   "cancelled", // 已取消[Cancelled]
+  "expired", // 已过期[Expired]
 ]);
 
 /**
- * Service Holds Table (v2.16.12 - 服务预占表)
+ * Service Holds Table (v2.16.13 - 服务预占表)
  *
  * Core Architecture: 防止超额预约的服务预占机制 (Service reservation to prevent over-booking)
  *
  * Key Design Decisions:
+ *
+ * v2.16.13 重新引入过期机制 (Re-introduced expiration mechanism):
+ * - ✅ 添加 expiryAt 字段 (Added expiryAt field)
+ * - ✅ 支持自动过期和手动释放 (Supports both automatic expiration and manual release)
+ * - ✅ 状态管理：active → released/cancelled/expired (Status management)
  *
  * v2.16.9 重大简化 (Major simplification):
  * - ❌ 移除 TTL 过期机制 (Removed TTL expiration)
@@ -44,10 +51,12 @@ export const holdStatusEnum = pgEnum("hold_status", [
  * - 学生预约服务时创建预占 (Create hold when student books service)
  * - 服务完成后释放预占并生成消费流水 (Release hold and create consumption ledger after service completion)
  * - 用户取消预约时取消预占 (Cancel hold when user cancels booking)
+ * - 预占过期时自动释放 (Automatic release when hold expires)
  *
  * State Transitions:
  * active → released (service completed or admin manual release)
  * active → cancelled (user cancelled the booking)
+ * active → expired (hold expired automatically)
  *
  * Data Flow:
  * 1. Create hold → INSERT into service_holds (status = 'active')
@@ -55,6 +64,8 @@ export const holdStatusEnum = pgEnum("hold_status", [
  * 3. Service completed → UPDATE service_holds (status = 'released')
  * 4. Trigger executes → UPDATE contract_service_entitlements.held_quantity -= quantity
  * 5. Create service ledger → INSERT into service_ledgers (consumption record)
+ * 6. Hold expired → UPDATE service_holds (status = 'expired')
+ * 7. Trigger executes → UPDATE contract_service_entitlements.held_quantity -= quantity
  */
 export const serviceHolds = pgTable("service_holds", {
   // Primary key
@@ -76,10 +87,13 @@ export const serviceHolds = pgTable("service_holds", {
 
   // 关联预约 (Related booking)
   relatedBookingId: uuid("related_booking_id"),
+  
+  // 过期时间 (Expiration time)
+  expiryAt: timestamp("expiry_at", { withTimezone: true }), // null表示永不过期 [null means never expires]
 
   // 释放信息 (Release information)
   releasedAt: timestamp("released_at", { withTimezone: true }),
-  releaseReason: varchar("release_reason", { length: 100 }), // 'completed' | 'cancelled' | 'admin_manual'
+  releaseReason: varchar("release_reason", { length: 100 }), // 'completed' | 'cancelled' | 'admin_manual' | 'expired'
 
   // 审计字段 (Audit fields)
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -114,9 +128,15 @@ export type InsertServiceHold = typeof serviceHolds.$inferInsert;
  *    ON service_holds(created_at)
  *    WHERE status = 'active';
  *
+ * 4. 查询过期的预占 (Query expired holds)
+ *    CREATE INDEX idx_holds_expiry
+ *    ON service_holds(expiry_at, status)
+ *    WHERE status = 'active' AND expiry_at IS NOT NULL;
+ *
  * CHECK 约束 (在 contract_constraints.sql 中创建):
  * - quantity > 0 (预占数量必须为正)
  * - released 状态必须设置时间 (released status must have timestamp)
+ * - expired 状态必须设置时间 (expired status must have timestamp)
  */
 
 // Trigger function (在 contract_triggers.sql 中创建):

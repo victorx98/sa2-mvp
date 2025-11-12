@@ -501,56 +501,45 @@ describe("ContractService", () => {
       mockTx.returning.mockResolvedValueOnce([
         {
           ...mockContract,
-          overrideAmount: "900.00",
-          overrideReason: "Student discount",
-          overrideApprovedBy: "manager-123",
+          totalAmount: "900.00",
         },
       ]);
 
       // Act
       const result = await service.update("contract-123", {
-        overrideAmount: "900.00",
-        overrideReason: "Student discount",
-        overrideApprovedBy: "manager-123",
+        totalAmount: 900.00,
         updatedBy: "admin-123",
       });
 
       // Assert
       expect(result).toBeDefined();
-      expect(result.overrideAmount).toBe("900.00");
-      expect(result.overrideReason).toBe("Student discount");
+      expect(result.totalAmount).toBe("900.00");
     });
 
-    it("should clear price override when overrideAmount is empty string", async () => {
+    it("should update contract with empty string values", async () => {
       // Arrange
       const mockContract = {
         id: "contract-123",
         status: "draft",
         totalAmount: "1000.00",
-        overrideAmount: "900.00",
-        overrideReason: "Discount",
-        overrideApprovedBy: "manager-123",
       };
 
       jest.spyOn(service, "findOne").mockResolvedValueOnce(mockContract as any);
       mockTx.returning.mockResolvedValueOnce([
         {
           ...mockContract,
-          overrideAmount: null,
-          overrideReason: null,
-          overrideApprovedBy: null,
+          title: "Updated Title",
         },
       ]);
 
       // Act
       const result = await service.update("contract-123", {
-        overrideAmount: "",
+        title: "Updated Title",
       });
 
       // Assert
       expect(result).toBeDefined();
-      expect(result.overrideAmount).toBeNull();
-      expect(result.overrideReason).toBeNull();
+      expect(result.title).toBe("Updated Title");
     });
 
     it("should throw exception when contract not found", async () => {
@@ -560,7 +549,7 @@ describe("ContractService", () => {
       // Act & Assert
       await expect(
         service.update("contract-123", {
-          overrideAmount: "900.00",
+          totalAmount: 900.00,
         }),
       ).rejects.toThrow(ContractNotFoundException);
     });
@@ -577,28 +566,58 @@ describe("ContractService", () => {
       // Act & Assert
       await expect(
         service.update("contract-123", {
-          overrideAmount: "900.00",
+          totalAmount: 900.00,
         }),
       ).rejects.toThrow(ContractException);
     });
 
-    it("should throw exception when price override reason not provided", async () => {
+    it("should update contract successfully", async () => {
       // Arrange
       const mockContract = {
         id: "contract-123",
+        contractNumber: "C-2023-001",
+        studentId: "student-123",
         status: "draft",
         totalAmount: "1000.00",
+        currency: "CNY",
+        title: "Original Contract Title",
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
       jest.spyOn(service, "findOne").mockResolvedValueOnce(mockContract as any);
+      
+      // Mock the database update operation
+      const mockUpdatedContract = {
+        ...mockContract,
+        totalAmount: "900.00",
+        title: "Updated Contract Title",
+        updatedAt: new Date(),
+      };
+      
+      mockDb.transaction.mockImplementation(async (callback) => {
+        const mockTx = {
+          update: jest.fn().mockReturnValue({
+            set: jest.fn().mockReturnValue({
+              where: jest.fn().mockReturnValue({
+                returning: jest.fn().mockResolvedValue([mockUpdatedContract]),
+              }),
+            }),
+          }),
+          insert: jest.fn().mockReturnValue({
+            values: jest.fn().mockResolvedValue(undefined),
+          }),
+        };
+        return await callback(mockTx);
+      });
 
       // Act & Assert
       await expect(
         service.update("contract-123", {
-          overrideAmount: "900.00",
-          // missing overrideReason and overrideApprovedBy
+          totalAmount: 900.00,
+          title: "Updated Contract Title",
         }),
-      ).rejects.toThrow(ContractException);
+      ).resolves.toBeDefined();
     });
   });
 

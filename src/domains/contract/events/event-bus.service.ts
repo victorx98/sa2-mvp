@@ -16,15 +16,16 @@ import type { IDomainEventData } from "../common/types/event.types";
  */
 @Injectable()
 export class EventBusService {
-  private readonly logger = new Logger(EventBusService.name);
   private readonly emitter = new EventEmitter();
+
+  constructor(private readonly logger: Logger) {}
 
   /**
    * 发布事件到本地总线
    * @param event 领域事件
    */
   publish(event: DomainEvent): void {
-    this.logger.log(`[EventBus] Publishing: ${event.eventType}`);
+    this.logger.debug(`[EventBus] Publishing: ${event.eventType}`);
     this.emitter.emit(event.eventType, event);
   }
 

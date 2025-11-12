@@ -11,7 +11,7 @@ import {
 
 // Define currency options as an array for validation
 const CURRENCY_OPTIONS = ["USD", "CNY", "EUR", "GBP", "JPY"] as const;
-type CurrencyType = typeof CURRENCY_OPTIONS[number];
+type CurrencyType = (typeof CURRENCY_OPTIONS)[number];
 
 /**
  * DTO for updating contract (更新合约的DTO)

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { eq, and, lt } from "drizzle-orm";
+import { eq, and, lt, isNotNull } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import {
@@ -23,24 +23,26 @@ export class ServiceHoldService {
   ) {}
 
   /**
-   * Create hold(v2.16.12 - 学生级权益累积制)
+   * Create hold(v2.16.13 - 重新引入过期机制)
    * - Check available balance(检查可用余额)
-   * - Create hold record (no expiry - manual release only in v2.16.12)(创建预占记录(v2.16.12仅支持手动释放, 无过期时间))
+   * - Create hold record (supports both automatic expiration and manual release)(创建预占记录(支持自动过期和手动释放))
    * - Trigger automatically updates held_quantity(触发器自动更新预占数量)
    *
    * v2.16.11: relatedBookingId is always null on creation, updated via event (v2.16.11: relatedBookingId在创建时始终为null，通过事件更新)
    * v2.16.12: Removed contractId, expiryHours, and expiryAt fields (v2.16.12: 移除contractId, expiryHours和expiryAt字段)
+   * v2.16.13: Re-introduced expiryAt field (v2.16.13: 重新引入expiryAt字段)
    *
    * Supports optional transaction parameter(支持可选的事务参数)
    *
    * @change {v2.16.12} Now queries by studentId + serviceType (aggregates across contracts)
    * @change {v2.16.12} Removed expiryAt (holds no longer expire automatically - manual release only)
+   * @change {v2.16.13} Re-introduced expiryAt - supports both automatic expiration and manual release
    */
   async createHold(
     dto: CreateHoldDto,
     tx?: DrizzleTransaction,
   ): Promise<ServiceHold> {
-    const { studentId, serviceType, quantity, createdBy } = dto;
+    const { studentId, serviceType, quantity, expiryAt, createdBy } = dto;
     const executor = tx ?? this.db;
 
     /* 1. Find entitlements for student and check balance (with pessimistic lock)(1. 查找学生权益并检查余额(使用悲观锁)) */
@@ -73,7 +75,7 @@ export class ServiceHoldService {
     }
 
     /* 2. Create hold (trigger will update held_quantity automatically)(2. 创建预占(触发器将自动更新预占数量)) */
-    /* v2.16.12: Holds no longer expire - manual release only (v2.16.12: 预占不再自动过期 - 仅支持手动释放) */
+    /* v2.16.13: Supports both automatic expiration and manual release (v2.16.13: 支持自动过期和手动释放) */
     const [newHold] = await executor
       .insert(schema.serviceHolds)
       .values({
@@ -82,6 +84,7 @@ export class ServiceHoldService {
         quantity,
         status: "active",
         relatedBookingId: null, // Always null on creation (v2.16.11)
+        expiryAt: expiryAt || null, // Set expiryAt if provided, otherwise null (永不过期)
         createdBy,
       })
       .returning();
@@ -219,39 +222,92 @@ export class ServiceHoldService {
   }
 
   /**
-   * Release expired holds (DEPRECATED) (v2.16.12 - 已弃用)
-   * v2.16.12: Removed expiryAt field from schema - holds no longer expire automatically
-   * This method is deprecated and should not be called.
+   * Release expired holds (v2.16.13 - 重新引入过期机制)
+   * - Find and release holds that have passed their expiry time(查找并释放已过期的预占)
+   * - Update status to 'expired'(更新状态为'expired')
+   * - Trigger automatically updates held_quantity(触发器自动更新预占数量)
    *
-   * @deprecated {v2.16.12} Holds no longer expire automatically. Use manual releaseHold() or cancelHold() instead.
+   * @param batchSize - Number of holds to process in one batch (一次处理的预占数量)
+   * @param sessionId - Optional session ID for tracking (可选的会话ID用于跟踪)
+   * @returns Object with counts of processed holds (处理结果计数)
    */
   async releaseExpiredHolds(
-    _batchSize = 100,
+    batchSize = 100,
     _sessionId?: string,
   ): Promise<{
     releasedCount: number;
     failedCount: number;
     skippedCount: number;
   }> {
-    throw new ContractException(
-      "METHOD_DEPRECATED",
-      "releaseExpiredHolds() is deprecated in v2.16.12. Holds no longer expire automatically. Use releaseHold() or cancelHold() instead.",
-    );
+    const now = new Date();
+    let releasedCount = 0;
+    let failedCount = 0;
+    let skippedCount = 0;
+
+    try {
+      // Find expired holds (查找过期的预占)
+      const expiredHolds = await this.db
+        .select()
+        .from(schema.serviceHolds)
+        .where(
+          and(
+            eq(schema.serviceHolds.status, "active"),
+            isNotNull(schema.serviceHolds.expiryAt),
+            lt(schema.serviceHolds.expiryAt, now),
+          ),
+        )
+        .limit(batchSize);
+
+      // Process each expired hold (处理每个过期预占)
+      for (const hold of expiredHolds) {
+        try {
+          // Update status to expired (更新状态为过期)
+          await this.db
+            .update(schema.serviceHolds)
+            .set({
+              status: "expired",
+              releaseReason: "expired",
+              releasedAt: now,
+            })
+            .where(eq(schema.serviceHolds.id, hold.id));
+
+          releasedCount++;
+        } catch (error) {
+          console.error(`Failed to release expired hold ${hold.id}:`, error);
+          failedCount++;
+        }
+      }
+
+      // If no expired holds found, increment skipped count (如果没有找到过期预占，增加跳过计数)
+      if (expiredHolds.length === 0) {
+        skippedCount = 1;
+      }
+    } catch (error) {
+      console.error("Error in releaseExpiredHolds:", error);
+      failedCount++;
+    }
+
+    return {
+      releasedCount,
+      failedCount,
+      skippedCount,
+    };
   }
 
   /**
-   * Manual trigger for expired hold cleanup (DEPRECATED) (v2.16.12 - 已弃用)
-   * @deprecated {v2.16.12} Holds no longer expire automatically. Use manual releaseHold() or cancelHold() instead.
+   * Manual trigger for expired hold cleanup (v2.16.13 - 重新引入过期机制)
+   * - Can be called manually to clean up expired holds(可以手动调用来清理过期预占)
+   * - Useful for testing or manual cleanup(适用于测试或手动清理)
+   *
+   * @param batchSize - Number of holds to process in one batch (一次处理的预占数量)
+   * @returns Object with counts of processed holds (处理结果计数)
    */
-  async triggerExpiredHoldsRelease(_batchSize = 100): Promise<{
+  async triggerExpiredHoldsRelease(batchSize = 100): Promise<{
     releasedCount: number;
     failedCount: number;
     skippedCount: number;
   }> {
-    throw new ContractException(
-      "METHOD_DEPRECATED",
-      "triggerExpiredHoldsRelease() is deprecated in v2.16.12. Holds no longer expire automatically. Use releaseHold() or cancelHold() instead.",
-    );
+    return await this.releaseExpiredHolds(batchSize, "manual-trigger");
   }
 
   /**
