@@ -16,9 +16,10 @@ import { ServiceHoldService } from "@domains/contract/services/service-hold.serv
  */
 @Injectable()
 export class ServiceHoldExpiryTask {
-  private readonly logger = new Logger(ServiceHoldExpiryTask.name);
-
-  constructor(private readonly serviceHoldService: ServiceHoldService) {}
+  constructor(
+    private readonly serviceHoldService: ServiceHoldService,
+    private readonly logger: Logger,
+  ) {}
 
   /**
    * Scheduled task: Release expired holds every hour

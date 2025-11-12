@@ -35,7 +35,9 @@ export class SessionCancelledListener implements OnModuleInit {
    * Handle session.cancelled event
    * @param event The session cancelled event
    */
-  private async handleSessionCancelled(event: ISessionCancelledEvent): Promise<void> {
+  private async handleSessionCancelled(
+    event: ISessionCancelledEvent,
+  ): Promise<void> {
     try {
       const { payload } = event;
 

@@ -11,12 +11,14 @@ export * from "./product-items.schema";
 // Contract domain
 export * from "./contracts.schema";
 export * from "./contract-service-entitlements.schema";
-export * from "./contract-entitlement-revisions.schema";
+export * from "./contract-amendment-ledgers.schema";
 export * from "./domain-events.schema";
 export * from "./service-holds.schema";
 export * from "./service-ledger-archive-policies.schema";
 export * from "./service-ledgers-archive.schema";
 export * from "./service-ledgers.schema";
+
+export * from "./user.schema";
 
 // Services domain
 export * from "./sessions.schema";

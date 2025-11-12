@@ -176,10 +176,14 @@ describe("PaymentSucceededListener", () => {
         },
       };
 
-      mockContractService.findOne.mockRejectedValue(new Error("Database error"));
+      mockContractService.findOne.mockRejectedValue(
+        new Error("Database error"),
+      );
 
       // Act & Assert
-      await expect(listener["handlePaymentSucceeded"](event)).rejects.toThrow("Database error");
+      await expect(listener["handlePaymentSucceeded"](event)).rejects.toThrow(
+        "Database error",
+      );
     });
   });
 });

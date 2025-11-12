@@ -41,12 +41,11 @@ describe("SessionCreatedListener", () => {
   describe("handleSessionCreated", () => {
     it("should update related booking ID when event received", async () => {
       // Arrange
-      const event: SessionCreatedEvent = {
+      const event: ISessionCreatedEvent = {
         sessionId: "session-123",
         holdId: "hold-456",
         contractId: "contract-789",
         studentId: "student-999",
-        mentorId: "mentor-888",
         serviceType: "resume_review",
       };
 
@@ -63,12 +62,11 @@ describe("SessionCreatedListener", () => {
 
     it("should handle errors and re-throw", async () => {
       // Arrange
-      const event: SessionCreatedEvent = {
+      const event: ISessionCreatedEvent = {
         sessionId: "session-123",
         holdId: "hold-456",
         contractId: "contract-789",
         studentId: "student-999",
-        mentorId: "mentor-888",
         serviceType: "resume_review",
       };
 

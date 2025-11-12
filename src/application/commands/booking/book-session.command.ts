@@ -56,7 +56,7 @@ export class BookSessionCommand {
     private readonly meetingProviderFactory: MeetingProviderFactory,
     private readonly eventEmitter: EventEmitter2,
     private readonly serviceHoldService: ServiceHoldService,
-  ) {}
+  ) { }
 
   /**
    * 执行预约会话用例
@@ -86,20 +86,13 @@ export class BookSessionCommand {
           "Starting database transaction, including meeting creation",
         );
 
-        // Step 2: 检查余额
+        // Step 2: 检查余额(可以不检查)
         const balance = await this.contractService.getServiceBalance({
-          contractId: input.contractId,
+          studentId: input.studentId,
           serviceType: input.serviceType,
         });
 
-        // Check if any contract has available balance for this service type
-        const hasAvailableBalance = balance.contracts.some(contract =>
-          contract.entitlements.some(entitlement =>
-            entitlement.serviceType === input.serviceType && entitlement.availableQuantity > 0
-          )
-        );
-
-        if (!hasAvailableBalance) {
+        if (!balance || balance.length < 1 || balance[0].availableQuantity < 1) {
           throw new InsufficientBalanceException("Insufficient service balance");
         }
 
@@ -116,19 +109,18 @@ export class BookSessionCommand {
           },
           tx,
         );
-        
+
         if (!calendarSlot) {
           throw new TimeConflictException("The mentor already has a conflict");
         }
 
         // Step 4: 创建服务预占
         const holdDto: CreateHoldDto = {
-          contractId: input.contractId,
           studentId: input.studentId,
           serviceType: input.serviceType,
-          relatedBookingId: null,
           quantity: 1,
-          createdBy: input.counselorId,
+          expiryAt: calendarSlot.timeRange.end,
+          createdBy: input.contractId, // NOTE: currentUser.name
         };
         const hold = await this.serviceHoldService.createHold(holdDto, tx);
 
@@ -142,7 +134,7 @@ export class BookSessionCommand {
           const meeting = await this.meetingProviderFactory
             .getProvider(
               (input.meetingProvider as MeetingProviderType) ||
-                MeetingProviderType.FEISHU,
+              MeetingProviderType.FEISHU,
             )
             .createMeeting({
               topic: input.topic,

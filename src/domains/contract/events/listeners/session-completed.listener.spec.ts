@@ -193,7 +193,6 @@ describe("SessionCompletedListener", () => {
       expect(mockContractService.consumeService).not.toHaveBeenCalled();
     });
 
-
     it("should throw error for unexpected failures", async () => {
       // Arrange
       const event: ISessionCompletedEvent = {
@@ -208,10 +207,14 @@ describe("SessionCompletedListener", () => {
         },
       };
 
-      mockContractService.consumeService.mockRejectedValue(new Error("Database error"));
+      mockContractService.consumeService.mockRejectedValue(
+        new Error("Database error"),
+      );
 
       // Act & Assert
-      await expect(listener["handleSessionCompleted"](event)).rejects.toThrow("Database error");
+      await expect(listener["handleSessionCompleted"](event)).rejects.toThrow(
+        "Database error",
+      );
     });
   });
 });

@@ -11,6 +11,7 @@ import {
   ContractException,
   ContractNotFoundException,
   ContractConflictException,
+  CONTRACT_ERROR_MESSAGES,
 } from "../common/exceptions/contract.exception";
 import {
   ARCHIVE_AFTER_DAYS,
@@ -43,7 +44,7 @@ export class ServiceLedgerArchiveService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-  ) {}
+  ) { }
 
   /**
    * Archive old ledgers(归档旧台账)
@@ -130,14 +131,14 @@ export class ServiceLedgerArchiveService {
     const executor: DrizzleExecutor = tx ?? this.db;
     const conditions: SQL[] = [lt(schema.serviceLedgers.createdAt, cutoffDate)];
 
-    if (contractId) {
-      conditions.push(eq(schema.serviceLedgers.contractId, contractId));
-    }
+    // Note: serviceLedgers table doesn't have contractId field (removed in v2.16.12)
+    // We'll filter by contractId later after fetching contract entitlements
+    // (注意：serviceLedgers表没有contractId字段（在v2.16.12中移除）
+    // 我们将在获取合同权益后通过contractId进行过滤)
+
     if (serviceType) {
       const serviceTypeTyped = serviceType as ServiceType;
-      conditions.push(
-        eq(schema.serviceLedgers.serviceType, serviceTypeTyped),
-      );
+      conditions.push(eq(schema.serviceLedgers.serviceType, serviceTypeTyped));
     }
 
     // 1. Select ledgers to archive(选择要归档的台账)
@@ -150,26 +151,79 @@ export class ServiceLedgerArchiveService {
       return 0;
     }
 
-    // 2. Insert into archive table(插入到归档表)
+    // 2. Get contract IDs for the ledgers(获取台账的合同ID)
+    const studentIds = [...new Set(ledgersToArchive.map((l) => l.studentId))];
+    const serviceTypes = [
+      ...new Set(ledgersToArchive.map((l) => l.serviceType)),
+    ];
+
+    // Query contract amendment ledgers to get contract IDs from snapshot
+    const contractAmendmentData = await executor
+      .select()
+      .from(schema.contractAmendmentLedgers)
+      .where(
+        and(
+          inArray(schema.contractAmendmentLedgers.studentId, studentIds),
+          inArray(schema.contractAmendmentLedgers.serviceType, serviceTypes),
+        ),
+      );
+
+    // Create a map of studentId+serviceType to contractId
+    const contractMap = new Map<string, string>();
+    contractAmendmentData.forEach((amendment) => {
+      const key = `${amendment.studentId}-${amendment.serviceType}`;
+      if (amendment.snapshot?.contractId) {
+        contractMap.set(key, amendment.snapshot.contractId);
+      }
+    });
+
+    // 3. Filter by contractId if specified and add contractId to ledgers(如果指定了contractId则过滤，并添加合同ID)
+    let ledgersToArchiveWithContractId = ledgersToArchive.map((ledger) => {
+      const key = `${ledger.studentId}-${ledger.serviceType}`;
+      const contractIdForLedger = contractMap.get(key);
+      if (!contractIdForLedger) {
+        throw new Error(
+          `Contract not found for student ${ledger.studentId} and service ${ledger.serviceType}`,
+        );
+      }
+      return {
+        ...ledger,
+        contractId: contractIdForLedger,
+      };
+    });
+
+    // If contractId is specified, filter ledgers by that contractId
+    // (如果指定了contractId，则按该contractId过滤台账)
+    if (contractId) {
+      ledgersToArchiveWithContractId = ledgersToArchiveWithContractId.filter(
+        (ledger) => ledger.contractId === contractId,
+      );
+    }
+
+    if (ledgersToArchiveWithContractId.length === 0) {
+      return 0;
+    }
+
+    // 4. Insert into archive table(插入到归档表)
     await executor
       .insert(schema.serviceLedgersArchive)
-      .values(ledgersToArchive);
+      .values(ledgersToArchiveWithContractId);
 
-    // 3. Optionally delete from main table(可选择从主表删除)
+    // 5. Optionally delete from main table(可选择从主表删除)
     // NOTE: Using inArray instead of ANY syntax for better Drizzle ORM compatibility
     // (注意: 使用 inArray 而非 ANY 语法，以获得更好的 Drizzle ORM 兼容性)
     if (deleteAfterArchive) {
-      const ledgerIds = ledgersToArchive.map((l) => l.id);
+      const ledgerIds = ledgersToArchiveWithContractId.map((l) => l.id);
       await executor
         .delete(schema.serviceLedgers)
         .where(inArray(schema.serviceLedgers.id, ledgerIds));
     }
 
     this.logger.log(
-      `Archived ${ledgersToArchive.length} ledgers (contractId=${contractId}, serviceType=${serviceType}, delete=${deleteAfterArchive})`,
+      `Archived ${ledgersToArchiveWithContractId.length} ledgers (contractId=${contractId}, serviceType=${serviceType}, delete=${deleteAfterArchive})`,
     );
 
-    return ledgersToArchive.length;
+    return ledgersToArchiveWithContractId.length;
   }
 
   /**
@@ -183,7 +237,7 @@ export class ServiceLedgerArchiveService {
   ): Promise<ServiceLedgerArchivePolicy | null> {
     // 1. Try contract-specific policy(尝试合同特定策略)
     if (contractId) {
-      const [contractPolicy] = await this.db
+      const contractPolicyResult = await this.db
         .select()
         .from(schema.serviceLedgerArchivePolicies)
         .where(
@@ -194,6 +248,8 @@ export class ServiceLedgerArchiveService {
         )
         .limit(1);
 
+      const [contractPolicy] = contractPolicyResult;
+
       if (contractPolicy) {
         return contractPolicy;
       }
@@ -202,7 +258,7 @@ export class ServiceLedgerArchiveService {
     // 2. Try service-type-specific policy(尝试服务类型特定策略)
     if (serviceType) {
       const serviceTypeTyped = serviceType as ServiceType;
-      const [serviceTypePolicy] = await this.db
+      const serviceTypePolicyResult = await this.db
         .select()
         .from(schema.serviceLedgerArchivePolicies)
         .where(
@@ -217,13 +273,15 @@ export class ServiceLedgerArchiveService {
         )
         .limit(1);
 
+      const [serviceTypePolicy] = serviceTypePolicyResult;
+
       if (serviceTypePolicy) {
         return serviceTypePolicy;
       }
     }
 
     // 3. Try global policy(尝试全局策略)
-    const [globalPolicy] = await this.db
+    const globalPolicyResult = await this.db
       .select()
       .from(schema.serviceLedgerArchivePolicies)
       .where(
@@ -234,6 +292,8 @@ export class ServiceLedgerArchiveService {
         ),
       )
       .limit(1);
+
+    const [globalPolicy] = globalPolicyResult;
 
     return globalPolicy || null;
   }
@@ -263,7 +323,9 @@ export class ServiceLedgerArchiveService {
 
     // 1. Validate archiveAfterDays(验证归档天数)
     if (archiveAfterDays < 1) {
-      throw new ContractException("ARCHIVE_AFTER_DAYS_TOO_SMALL");
+      throw new ContractException(
+        "ARCHIVE_AFTER_DAYS_TOO_SMALL",
+      );
     }
 
     // 2. Check for duplicate policy(检查重复策略)
@@ -300,7 +362,9 @@ export class ServiceLedgerArchiveService {
       .where(and(...conditions));
 
     if (existingPolicies.length > 0) {
-      throw new ContractConflictException("ARCHIVE_POLICY_ALREADY_EXISTS");
+      throw new ContractConflictException(
+        "ARCHIVE_POLICY_ALREADY_EXISTS",
+      );
     }
 
     // 3. Determine scope(确定范围)
@@ -348,14 +412,18 @@ export class ServiceLedgerArchiveService {
     // 1. Find policy(查找策略)
     const executor: DrizzleExecutor = tx ?? this.db;
 
-    const [policy] = await executor
+    const policyResult = await executor
       .select()
       .from(schema.serviceLedgerArchivePolicies)
       .where(eq(schema.serviceLedgerArchivePolicies.id, id))
       .limit(1);
 
+    const [policy] = policyResult;
+
     if (!policy) {
-      throw new ContractNotFoundException("ARCHIVE_POLICY_NOT_FOUND");
+      throw new ContractNotFoundException(
+        "ARCHIVE_POLICY_NOT_FOUND",
+      );
     }
 
     // 2. Validate updates(验证更新)
@@ -363,13 +431,22 @@ export class ServiceLedgerArchiveService {
       updates.archiveAfterDays !== undefined &&
       updates.archiveAfterDays < 1
     ) {
-      throw new ContractException("ARCHIVE_AFTER_DAYS_TOO_SMALL");
+      throw new ContractException(
+        "ARCHIVE_AFTER_DAYS_TOO_SMALL",
+      );
     }
 
-    // 3. Update policy(更新策略)
+    // 3. Map isActive to enabled field(将isActive映射到enabled字段)
+    const dbUpdates: any = { ...updates };
+    if (updates.isActive !== undefined) {
+      dbUpdates.enabled = updates.isActive;
+      delete dbUpdates.isActive;
+    }
+
+    // 4. Update policy(更新策略)
     const [updatedPolicy] = await executor
       .update(schema.serviceLedgerArchivePolicies)
-      .set(updates)
+      .set(dbUpdates)
       .where(eq(schema.serviceLedgerArchivePolicies.id, id))
       .returning();
 
@@ -402,12 +479,20 @@ export class ServiceLedgerArchiveService {
     } = filter;
 
     // 1. Validate date range(验证日期范围)
+    if (!startDate || !endDate) {
+      throw new ContractException(
+        "ARCHIVE_QUERY_REQUIRES_DATE_RANGE",
+      );
+    }
+
     const daysDiff = Math.floor(
       (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
     );
 
     if (daysDiff > ARCHIVE_MAX_DATE_RANGE_DAYS) {
-      throw new ContractException("ARCHIVE_DATE_RANGE_TOO_LARGE");
+      throw new ContractException(
+        "ARCHIVE_DATE_RANGE_TOO_LARGE",
+      );
     }
 
     // 2. Build conditions(构建条件)

@@ -59,7 +59,10 @@ export class MockEventPublisher implements IEventPublisher {
    * @param eventType - Event type to subscribe to
    * @param handler - Event handler function
    */
-  subscribe(eventType: string, handler: (event: IDomainEventData) => void): void {
+  subscribe(
+    eventType: string,
+    handler: (event: IDomainEventData) => void,
+  ): void {
     this.logger.log(`[MOCK] Subscribing to event type: ${eventType}`);
     this.eventBus.subscribe(eventType, handler);
   }
