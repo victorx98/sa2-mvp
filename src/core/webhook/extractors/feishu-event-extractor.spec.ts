@@ -26,6 +26,7 @@ describe("FeishuEventExtractor", () => {
           tenant_key: "2ca1d211f64f6438",
         },
         event: {
+          type: "vc.meeting.join_meeting_v1",
           meeting: {
             id: "6911188411934433028",
             topic: "my meeting",
@@ -94,6 +95,7 @@ describe("FeishuEventExtractor", () => {
           tenant_key: "tenant_key",
         },
         event: {
+          type: "vc.meeting.join_meeting_v1",
           meeting: {
             id: "meeting_123",
             topic: "test meeting",
@@ -127,6 +129,7 @@ describe("FeishuEventExtractor", () => {
           tenant_key: "tenant_key",
         },
         event: {
+          type: "vc.meeting.join_meeting_v1",
           meeting: {
             id: "meeting_456",
             meeting_no: "987654321",
@@ -161,6 +164,7 @@ describe("FeishuEventExtractor", () => {
           tenant_key: "tenant_key",
         },
         event: {
+          type: "vc.meeting.join_meeting_v1",
           meeting: {
             id: "meeting_789",
             meeting_no: "555555555",
@@ -193,6 +197,7 @@ describe("FeishuEventExtractor", () => {
           tenant_key: "tenant_key",
         },
         event: {
+          type: "vc.meeting.join_meeting_v1",
           meeting: {
             id: "meeting_with_id_only",
             // meeting_no not provided
@@ -218,6 +223,7 @@ describe("FeishuEventExtractor", () => {
           tenant_key: "tenant_key",
         },
         event: {
+          type: "vc.meeting.join_meeting_v1",
           meeting: {
             id: "meeting_time_test",
           },
@@ -243,6 +249,7 @@ describe("FeishuEventExtractor", () => {
           tenant_key: "tenant_key",
         },
         event: {
+          type: "vc.meeting.join_meeting_v1",
           meeting: {
             id: "meeting_invalid_time",
             start_time: "invalid", // Invalid
@@ -271,6 +278,7 @@ describe("FeishuEventExtractor", () => {
           tenant_key: "tenant_key",
         },
         event: {
+          type: "vc.meeting.join_meeting_v1",
           meeting: {
             id: "meeting_data_test",
             meeting_no: "111111111",
@@ -309,6 +317,7 @@ describe("FeishuEventExtractor", () => {
             tenant_key: "tenant_key",
           },
           event: {
+          type: "vc.meeting.join_meeting_v1",
             meeting: {
               id: "meeting_test",
               meeting_no: testCase.input as any,

@@ -49,13 +49,8 @@ export class CreateSessionDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(255)
-  meetingId?: string; // Third-party meeting ID (from MeetingProvider.createMeeting())
-
-  @IsOptional()
-  @IsString()
   @MaxLength(20)
-  meetingNo?: string; // Feishu meeting number (9 digits, Feishu only)
+  meetingNo?: string; // Feishu meeting number (9 digits) - key field for webhook association
 
   @IsOptional()
   @IsUrl()
