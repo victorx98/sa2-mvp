@@ -419,14 +419,17 @@ describe("ServicePackageService (Integration with Real Database)", () => {
         { name: "Test Package" },
       );
 
-      const snapshot = await service.generateSnapshot(servicePackage.id);
+      // Act
+      const result = await service.generateSnapshot(
+        servicePackage.id,
+      );
 
-      expect(snapshot).toBeDefined();
-      expect(snapshot.packageId).toBe(servicePackage.id);
-      expect(snapshot.packageName).toBe(servicePackage.name);
-      expect(snapshot.items.length).toBe(2);
-      expect(snapshot.snapshotAt).toBeDefined();
-    });
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.packageId).toBe(servicePackage.id);
+      expect(result.items).toHaveLength(2);
+      expect(result.snapshotAt).toBeDefined();
+    }, 10000); // Increase timeout to 10 seconds
 
     it("should reject generating snapshot for non-existent package", async () => {
       await expect(

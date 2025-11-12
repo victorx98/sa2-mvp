@@ -35,7 +35,9 @@ export class SessionCompletedListener implements OnModuleInit {
    * Handle session.completed event(处理session.completed事件)
    * @param event The session completed event(会话完成事件)
    */
-  private async handleSessionCompleted(event: ISessionCompletedEvent): Promise<void> {
+  private async handleSessionCompleted(
+    event: ISessionCompletedEvent,
+  ): Promise<void> {
     try {
       const { payload } = event;
 

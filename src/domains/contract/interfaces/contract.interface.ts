@@ -30,9 +30,11 @@ export interface IContractService {
   resume(id: string): Promise<Contract>;
 
   // Service Entitlement Management (3 methods) (服务权益管理(3个方法))
-  getServiceBalance(query: IServiceBalanceQuery): Promise<IServiceBalance>;
+  getServiceBalance(query: IServiceBalanceQuery): Promise<IServiceBalance[]>;
   consumeService(dto: IConsumeServiceDto): Promise<void>;
-  addEntitlement(dto: IAddEntitlementDto): Promise<ContractServiceEntitlement>;
+  addAmendmentLedger(
+    dto: IAddAmendmentLedgerDto,
+  ): Promise<ContractServiceEntitlement>;
 }
 
 // DTO placeholder types (to be defined in dto/ directory) (DTO占位符类型(在dto/目录中定义))
@@ -41,17 +43,11 @@ export interface ICreateContractDto {
   productId: string; // Product ID (产品ID)
   productSnapshot: IProductSnapshot; // Product snapshot (产品快照)
   signedAt?: Date; // Contract signing date (合约签署日期)
-  overrideAmount?: string; // Price override amount (价格覆盖金额)
-  overrideReason?: string; // Reason for price override (价格覆盖原因)
-  overrideApprovedBy?: string; // Approver of price override (价格覆盖批准人)
   createdBy: string; // ID of creator (创建人ID)
   title?: string; // Contract title (合约标题)
 }
 
 export interface IUpdateContractDto {
-  overrideAmount?: string; // Price override amount (价格覆盖金额)
-  overrideReason?: string; // Reason for price override (价格覆盖原因)
-  overrideApprovedBy?: string; // Approver of price override (价格覆盖批准人)
   suspendedAt?: Date; // Contract suspension date (合约暂停日期)
   suspendedReason?: string; // Reason for suspension (暂停原因)
   resumedAt?: Date; // Contract resumption date (合约恢复日期)
@@ -97,43 +93,17 @@ export interface IPaginatedResult<T> {
 }
 
 export interface IServiceBalanceQuery {
-  contractId?: string; // Contract ID (合约ID)
-  studentId?: string; // Student ID (学生ID)
-  serviceType?: string; // Service type (服务类型)
-  includeExpired?: boolean; // Whether to include expired entitlements (是否包含过期的权益)
+  studentId: string; // Student ID (学生ID) - Required parameter
+  serviceType?: string; // Service type (服务类型) - Optional filter
 }
 
 export interface IServiceBalance {
-  query: {
-    contractId?: string; // Contract ID (合约ID)
-    studentId?: string; // Student ID (学生ID)
-    serviceType?: string; // Service type (服务类型)
-  };
-  student?: {
-    id: string; // Student ID (学生ID)
-    name?: string; // Student name (学生姓名)
-    email?: string; // Student email (学生邮箱)
-  };
-  contracts: Array<{
-    contractId: string; // Contract ID (合约ID)
-    contractNumber: string; // Contract number (合约编号)
-    contractTitle?: string; // Contract title (合约标题)
-    contractStatus: string; // Contract status (合约状态)
-    studentId: string; // Student ID (学生ID)
-    signedAt?: Date; // Contract signing date (合约签署日期)
-    expiresAt?: Date; // Contract expiration date (合约到期日期)
-    isExpired: boolean; // Whether contract is expired (合约是否已过期)
-    entitlements: Array<{
-      serviceType: string; // Service type (服务类型)
-      serviceName: string; // Service name (服务名称)
-      totalQuantity: number; // Total quantity (总数量)
-      consumedQuantity: number; // Consumed quantity (已消费数量)
-      heldQuantity: number; // Held quantity (预留数量)
-      availableQuantity: number; // Available quantity (可用数量)
-      expiresAt?: Date; // Expiration date (到期日期)
-      isExpired: boolean; // Whether entitlement is expired (权益是否已过期)
-    }>;
-  }>;
+  studentId: string; // Student ID (学生ID)
+  serviceType: string; // Service type (服务类型)
+  totalQuantity: number; // Total quantity (总数量)
+  consumedQuantity: number; // Consumed quantity (已消费数量)
+  heldQuantity: number; // Held quantity (预留数量)
+  availableQuantity: number; // Available quantity (可用数量)
 }
 
 export interface IConsumeServiceDto {
@@ -144,11 +114,15 @@ export interface IConsumeServiceDto {
   createdBy: string; // ID of creator (创建人ID)
 }
 
-export interface IAddEntitlementDto {
-  contractId: string; // Contract ID (合约ID)
+export interface IAddAmendmentLedgerDto {
+  studentId: string; // Student ID (学生ID) - NEW in v2.16.12
+  contractId?: string; // Contract ID (optional for reference) (合约ID - 仅作参考，可选)
   serviceType: string; // Service type (服务类型)
-  source: "addon" | "promotion" | "compensation"; // Source type (来源类型)
-  quantity: number; // Quantity of service entitlement (服务权益数量)
-  reason: string; // Reason for adding entitlement (添加权益的原因)
+  ledgerType: "addon" | "promotion" | "compensation"; // Renamed from source (v2.16.12) - 从source重命名
+  quantityChanged: number; // Renamed from quantity (v2.16.12) - 从quantity重命名
+  reason: string; // Renamed from addOnReason (v2.16.12) - 从addOnReason重命名
+  description?: string; // Optional detailed description (可选详细说明)
+  attachments?: string[]; // Optional array of attachment URLs (可选附件URL数组)
+  relatedBookingId?: string; // Associated booking ID (关联预约ID)
   createdBy: string; // ID of creator (创建人ID)
 }

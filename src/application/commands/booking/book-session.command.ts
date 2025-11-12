@@ -56,7 +56,7 @@ export class BookSessionCommand {
     private readonly meetingProviderFactory: MeetingProviderFactory,
     private readonly eventEmitter: EventEmitter2,
     private readonly serviceHoldService: ServiceHoldService,
-  ) {}
+  ) { }
 
   /**
    * 执行预约会话用例
@@ -108,7 +108,7 @@ export class BookSessionCommand {
           },
           tx,
         );
-        
+
         if (!calendarSlot) {
           throw new TimeConflictException("The mentor already has a conflict");
         }
@@ -124,7 +124,7 @@ export class BookSessionCommand {
           const meeting = await this.meetingProviderFactory
             .getProvider(
               (input.meetingProvider as MeetingProviderType) ||
-                MeetingProviderType.FEISHU,
+              MeetingProviderType.FEISHU,
             )
             .createMeeting({
               topic: input.topic,

@@ -66,13 +66,6 @@ export const contracts = pgTable("contracts", {
   totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).notNull(), // Contract total amount (from snapshot)
   currency: currencyEnum("currency").notNull().default("USD"),
 
-  // Price override (for discounts/promotions)
-  overrideAmount: numeric("override_amount", { precision: 12, scale: 2 }), // Overridden price (if applicable)
-  overrideReason: varchar("override_reason", { length: 500 }), // Reason for price override
-  overrideApprovedBy: varchar("override_approved_by", {
-    length: 32,
-  }).references(() => userTable.id), // Who approved the override
-
   // Validity period
   validityDays: integer("validity_days"), // Validity period in days (null = permanent)
   signedAt: timestamp("signed_at", { withTimezone: true }).notNull(), // Contract signing time

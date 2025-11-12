@@ -30,7 +30,10 @@ export interface IEventPublisher {
    * @param eventType - Event type to subscribe to(要订阅的事件类型)
    * @param handler - Event handler function(事件处理函数)
    */
-  subscribe(eventType: string, handler: (event: IDomainEventData) => void): void;
+  subscribe(
+    eventType: string,
+    handler: (event: IDomainEventData) => void,
+  ): void;
 }
 
 /**

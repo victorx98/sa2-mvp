@@ -42,7 +42,11 @@ export class SessionResponseDto {
   @ApiProperty({ description: "Success message", required: false })
   message?: string;
 
-  @ApiProperty({ description: "Action hints list", required: false, type: [String] })
+  @ApiProperty({
+    description: "Action hints list",
+    required: false,
+    type: [String],
+  })
   hints?: string[];
 
   @ApiProperty({

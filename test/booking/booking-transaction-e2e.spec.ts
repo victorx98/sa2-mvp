@@ -111,7 +111,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         studentId: testIds.student,
         mentorId: testIds.mentor,
         contractId: testIds.contract,
-        serviceType: 'session',
+        serviceType: "session",
         scheduledStartTime: new Date("2025-12-15T10:00:00Z"),
         scheduledEndTime: new Date("2025-12-15T11:00:00Z"),
         duration: 60,
@@ -238,7 +238,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         studentId: uuidv4(), // 使用新的student ID避免冲突
         mentorId: uuidv4(), // 使用新的mentor ID
         contractId: testIds.contract,
-        serviceType: 'session',
+        serviceType: "session",
         scheduledStartTime: new Date("2025-12-16T10:00:00Z"),
         scheduledEndTime: new Date("2025-12-16T11:00:00Z"),
         duration: 60,
@@ -309,7 +309,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         studentId: firstStudentId,
         mentorId: firstMentorId,
         contractId: testIds.contract,
-        serviceType: 'session',
+        serviceType: "session",
         scheduledStartTime: new Date("2025-12-17T10:00:00Z"),
         scheduledEndTime: new Date("2025-12-17T11:00:00Z"),
         duration: 60,
@@ -328,7 +328,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         studentId: uuidv4(),
         mentorId: firstMentorId, // 相同的mentor
         contractId: testIds.contract,
-        serviceType: 'session',
+        serviceType: "session",
         scheduledStartTime: new Date("2025-12-17T10:00:00Z"), // 相同的时间
         scheduledEndTime: new Date("2025-12-17T11:00:00Z"),
         duration: 60,
@@ -383,7 +383,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         studentId: uuidv4(),
         mentorId: uuidv4(),
         contractId: testIds.contract,
-        serviceType: 'session',
+        serviceType: "session",
         scheduledStartTime: new Date("2025-12-18T10:00:00Z"),
         scheduledEndTime: new Date("2025-12-18T11:00:00Z"),
         duration: 60,

@@ -8,16 +8,13 @@ import {
   ContractNotFoundException,
 } from "../common/exceptions/contract.exception";
 import { CreateContractDto } from "../dto/create-contract.dto";
+import { UpdateContractDto } from "../dto/update-contract.dto";
 import { FindOneContractDto } from "../dto/find-one-contract.dto";
 import { ConsumeServiceDto } from "../dto/consume-service.dto";
-import { AddEntitlementDto } from "../dto/add-entitlement.dto";
-import type { ContractEntitlementRevision } from "@infrastructure/database/schema";
+import { AddAmendmentLedgerDto } from "../dto/add-amendment-ledger.dto";
+import type { ContractAmendmentLedger } from "@infrastructure/database/schema";
 import { calculateExpirationDate } from "../common/utils/date.utils";
-import {
-  validatePrice,
-  validatePriceOverride,
-} from "../common/utils/validation.utils";
-import { sortByConsumptionPriority } from "../common/constants/contract.constants";
+import { validatePrice } from "../common/utils/validation.utils";
 import type { Contract } from "@infrastructure/database/schema";
 import type {
   IProductSnapshot,
@@ -30,6 +27,9 @@ import type {
   CurrencyEnum,
 } from "../common/types/enum.types";
 import type { ContractServiceEntitlement } from "@infrastructure/database/schema";
+
+// Type alias for backward compatibility - ContractEntitlementRevision now maps to contract_amendment_ledgers table
+type ContractEntitlementRevision = ContractAmendmentLedger;
 
 @Injectable()
 export class ContractService {
@@ -46,38 +46,20 @@ export class ContractService {
    * - Publish contract.signed event(发布合约签署事件)
    */
   async create(dto: CreateContractDto): Promise<Contract> {
-    const {
-      productSnapshot,
-      studentId,
-      overrideAmount,
-      overrideReason,
-      overrideApprovedBy,
-      createdBy,
-      title,
-    } = dto;
+    const { productSnapshot, studentId, createdBy, title } = dto;
 
     // 1. Validate price(1. 验证价格)
     const originalPrice = parseFloat(productSnapshot.price);
     validatePrice(originalPrice * 100); // Convert to cents(转换为分)
 
-    // 2. Validate price override if provided(2. 如果提供价格覆盖则验证价格覆盖)
-    if (overrideAmount) {
-      const overridePriceValue = parseFloat(overrideAmount);
-      validatePriceOverride(originalPrice * 100, overridePriceValue * 100);
-
-      if (!overrideReason || !overrideApprovedBy) {
-        throw new ContractException("PRICE_OVERRIDE_REQUIRES_REASON");
-      }
-    }
-
-    // 3. Calculate validity period(3. 计算有效期)
+    // 2. Calculate validity period(2. 计算有效期)
     const signedAt = dto.signedAt ? new Date(dto.signedAt) : new Date();
     const expiresAt = calculateExpirationDate(
       signedAt,
       productSnapshot.validityDays || null,
     );
 
-    // 4. Generate contract number using database function(4. 使用数据库函数生成合约编号)
+    // 3. Generate contract number using database function(3. 使用数据库函数生成合约编号)
     const contractNumberResult = await this.db.execute(
       sql`SELECT generate_contract_number_v2() as contract_number`,
     );
@@ -85,7 +67,7 @@ export class ContractService {
       contractNumberResult.rows[0] as unknown as IGenerateContractNumberResult
     ).contract_number;
 
-    // 5. Create contract in transaction(5. 在事务中创建合约)
+    // 4. Create contract in transaction(4. 在事务中创建合约)
     return await this.db.transaction(async (tx) => {
       // Insert contract(插入合约)
       const [newContract] = await tx
@@ -96,20 +78,17 @@ export class ContractService {
           studentId,
           productId: dto.productId,
           productSnapshot: productSnapshot as never,
-          status: "draft",
+          status: "signed",
           totalAmount: productSnapshot.price,
           currency: productSnapshot.currency as CurrencyEnum,
           validityDays: productSnapshot.validityDays,
           signedAt,
           expiresAt,
-          overrideAmount,
-          overrideReason,
-          overrideApprovedBy,
           createdBy,
         })
         .returning();
 
-      // 6. Publish domain event (entitlements will be created on activation)(6. 发布领域事件(激活时创建权利))
+      // 5. Publish domain event (entitlements will be created on activation)(5. 发布领域事件(激活时创建权利))
       await tx.insert(schema.domainEvents).values({
         eventType: "contract.signed",
         aggregateId: newContract.id,
@@ -294,7 +273,7 @@ export class ContractService {
       // Insert entitlements(插入权利)
       const entitlements = Array.from(entitlementMap.values()).map(
         (entitlement) => ({
-          contractId: updatedContract.id,
+          studentId: updatedContract.studentId,
           serviceType: entitlement.serviceType as ServiceType,
           source: "product" as const,
           totalQuantity: entitlement.totalQuantity,
@@ -338,7 +317,7 @@ export class ContractService {
    */
   async consumeService(dto: ConsumeServiceDto): Promise<void> {
     const {
-      contractId,
+      studentId,
       serviceType,
       quantity,
       relatedBookingId,
@@ -347,46 +326,52 @@ export class ContractService {
     } = dto;
 
     await this.db.transaction(async (tx) => {
-      // 1. Find contract(1. 查找合约)
-      const [contract] = await tx
-        .select()
-        .from(schema.contracts)
-        .where(eq(schema.contracts.id, contractId))
+      // 1. Check student exists - v2.16.12: Query student instead of specific contract
+      const [student] = await tx
+        .select({ id: schema.userTable.id })
+        .from(schema.userTable)
+        .where(eq(schema.userTable.id, studentId))
         .limit(1);
 
-      if (!contract) {
-        throw new ContractNotFoundException("CONTRACT_NOT_FOUND");
+      if (!student) {
+        throw new ContractNotFoundException("STUDENT_NOT_FOUND");
       }
 
-      if (contract.status !== "active") {
-        throw new ContractException("CONTRACT_NOT_ACTIVE");
-      }
-
-      // 2. Find entitlements for this service type, sorted by priority(2. 查找此服务类型的权利，按优先级排序)
+      // 2. Find ALL entitlements for this student and service type across all contracts
+      // v2.16.12: Changed from contract-level to student-level query
       const entitlements = await tx
         .select()
         .from(schema.contractServiceEntitlements)
         .where(
           and(
-            eq(schema.contractServiceEntitlements.contractId, contractId),
+            eq(schema.contractServiceEntitlements.studentId, studentId),
             eq(
               schema.contractServiceEntitlements.serviceType,
               serviceType as ServiceType,
             ),
           ),
         )
-        .for("update"); // Pessimistic lock(悲观锁)
+        .for("update"); // Pessimistic lock for concurrency safety
 
       if (entitlements.length === 0) {
-        throw new ContractNotFoundException("ENTITLEMENT_NOT_FOUND");
+        throw new ContractNotFoundException("NO_ENTITLEMENTS_FOUND");
       }
 
-      // Sort by consumption priority(按消费优先级排序)
-      const sortedEntitlements = sortByConsumptionPriority(entitlements);
+      // 3. Calculate total available balance
+      const totalAvailable = entitlements.reduce(
+        (sum, ent) => sum + ent.availableQuantity,
+        0,
+      );
 
-      // 3. Deduct quantity by priority(3. 按优先级扣除数量)
+      if (totalAvailable < quantity) {
+        throw new ContractException("INSUFFICIENT_BALANCE");
+      }
+
+      // 4. Consume from entitlements (simple FIFO - consume from first entitlement)
+      // v2.16.12: For now using simple approach, can enhance with priority later
       let remainingQuantity = quantity;
-      for (const entitlement of sortedEntitlements) {
+
+      for (const entitlement of entitlements) {
         if (remainingQuantity <= 0) break;
         if (entitlement.availableQuantity <= 0) continue;
 
@@ -395,11 +380,10 @@ export class ContractService {
           entitlement.availableQuantity,
         );
 
-        // Update entitlement (consumed_quantity will be synced by trigger)(更新权利(consumed_quantity将由触发器同步))
-        // Just record the ledger, trigger handles balance update(只需记录台账，触发器处理余额更新)
+        // v2.16.12: Record consumption (trigger will update consumed_quantity automatically)
+        // Note: No contractId in service_ledgers anymore (student-level tracking)
         await tx.insert(schema.serviceLedgers).values({
-          contractId,
-          studentId: contract.studentId,
+          studentId: studentId,
           serviceType: serviceType as ServiceType,
           quantity: -deductAmount,
           type: "consumption",
@@ -413,12 +397,7 @@ export class ContractService {
         remainingQuantity -= deductAmount;
       }
 
-      // 4. Check if sufficient balance(4. 检查余额是否充足)
-      if (remainingQuantity > 0) {
-        throw new ContractException("INSUFFICIENT_BALANCE");
-      }
-
-      // 5. Release hold if provided(5. 如果提供则释放预留)
+      // 5. Release hold if provided
       if (relatedHoldId) {
         await tx
           .update(schema.serviceHolds)
@@ -433,10 +412,10 @@ export class ContractService {
       // 6. Publish event(6. 发布事件)
       await tx.insert(schema.domainEvents).values({
         eventType: "service.consumed",
-        aggregateId: contractId,
-        aggregateType: "Contract",
+        aggregateId: studentId, // Use studentId as aggregateId since we're tracking at student level
+        aggregateType: "Student", // Changed from Contract to Student to reflect new entity
         payload: {
-          contractId,
+          studentId,
           serviceType,
           quantity,
           relatedBookingId,
@@ -712,65 +691,74 @@ export class ContractService {
 
   /**
    * Update contract(更新合同)
-   * - Only allowed for draft status contracts(- 仅允许草稿状态的合同)
-   * - Can update price override with validation(- 可以更新价格覆盖并进行验证)
-   * - Publishes contract.updated event(- 发布合同更新事件)
+   - Supports updating core contract fields for draft contracts(支持草稿合同的核心字段更新)
+   - Supports updating lifecycle fields for any contract(支持任何合同的生命周期字段更新)
+   - Publishes contract.updated event(发布合同更新事件)
    */
-  async update(
-    id: string,
-    dto: {
-      overrideAmount?: string;
-      overrideReason?: string;
-      overrideApprovedBy?: string;
-      updatedBy?: string;
-    },
-  ): Promise<Contract> {
+  async update(id: string, dto: UpdateContractDto): Promise<Contract> {
+    // Validate input parameters(验证输入参数)
+    if (!dto) {
+      throw new ContractException("INVALID_DTO", "Update data is required");
+    }
+
     // 1. Find contract(1. 查找合同)
     const contract = await this.findOne({ contractId: id });
     if (!contract) {
       throw new ContractNotFoundException("CONTRACT_NOT_FOUND");
     }
 
-    // 2. Validate status(2. 验证状态)
-    if (contract.status !== "draft") {
-      throw new ContractException("CONTRACT_NOT_DRAFT");
-    }
-
-    // 3. Validate price override if provided(3. 如果提供价格覆盖则验证)
-    const { overrideAmount, overrideReason, overrideApprovedBy, updatedBy } =
-      dto;
-    const updateData: {
-      updatedAt: Date;
-      overrideAmount?: string | null;
-      overrideReason?: string | null;
-      overrideApprovedBy?: string | null;
-    } = {
-      updatedAt: new Date(),
+    // 2. Separate core fields from lifecycle fields(2. 分离核心字段和生命周期字段)
+    const coreFields = {
+      title: dto.title,
+      totalAmount: dto.totalAmount,
+      currency: dto.currency,
+      validityDays: dto.validityDays,
     };
 
-    if (overrideAmount !== undefined) {
-      if (!overrideAmount) {
-        // If overrideAmount is empty string, clear the override(如果overrideAmount为空字符串，清除覆盖)
-        updateData.overrideAmount = null;
-        updateData.overrideReason = null;
-        updateData.overrideApprovedBy = null;
-      } else {
-        // Validate override(验证覆盖)
-        const originalPrice = parseFloat(contract.totalAmount);
-        const overridePriceValue = parseFloat(overrideAmount);
-        validatePriceOverride(originalPrice * 100, overridePriceValue * 100);
+    const lifecycleFields = {
+      suspendedAt: dto.suspendedAt,
+      suspendedReason: dto.suspendedReason,
+      resumedAt: dto.resumedAt,
+      terminatedAt: dto.terminatedAt,
+      terminatedReason: dto.terminatedReason,
+      completedAt: dto.completedAt,
+    };
 
-        if (!overrideReason || !overrideApprovedBy) {
-          throw new ContractException("PRICE_OVERRIDE_REQUIRES_REASON");
-        }
+    // 3. Validate core field updates(3. 验证核心字段更新)
+    const hasCoreFieldUpdates = Object.values(coreFields).some(
+      (value) => value !== undefined,
+    );
+    if (hasCoreFieldUpdates && contract.status !== "draft") {
+      throw new ContractException("CONTRACT_NOT_DRAFT_CORE_FIELDS");
+    }
 
-        updateData.overrideAmount = overrideAmount;
-        updateData.overrideReason = overrideReason;
-        updateData.overrideApprovedBy = overrideApprovedBy;
+    // 4. Validate currency consistency(4. 验证货币一致性)
+    if (dto.currency && dto.totalAmount === undefined) {
+      // If currency is updated but amount is not, keep the original amount
+      coreFields.totalAmount = parseFloat(contract.totalAmount.toString());
+    }
+
+    // 5. Prepare update data(5. 准备更新数据)
+    const updateData: any = {
+      updatedAt: new Date(),
+      ...lifecycleFields,
+    };
+
+    // Add core fields only if contract is in draft status(仅在草稿状态下添加核心字段)
+    if (contract.status === "draft") {
+      Object.assign(updateData, coreFields);
+
+      // Recalculate expiration date if validityDays is updated(如果更新了有效期，重新计算到期日期)
+      if (dto.validityDays !== undefined) {
+        const signedAt = contract.signedAt || new Date();
+        updateData.expiresAt = calculateExpirationDate(
+          signedAt,
+          dto.validityDays,
+        );
       }
     }
 
-    // 4. Update contract(4. 更新合同)
+    // 6. Update contract(6. 更新合同)
     return await this.db.transaction(async (tx) => {
       const [updatedContract] = await tx
         .update(schema.contracts)
@@ -778,7 +766,7 @@ export class ContractService {
         .where(eq(schema.contracts.id, id))
         .returning();
 
-      // 5. Publish event(5. 发布事件)
+      // 7. Publish event(7. 发布事件)
       await tx.insert(schema.domainEvents).values({
         eventType: "contract.updated",
         aggregateId: updatedContract.id,
@@ -786,10 +774,13 @@ export class ContractService {
         payload: {
           contractId: updatedContract.id,
           contractNumber: updatedContract.contractNumber,
-          overrideAmount: updatedContract.overrideAmount,
-          overrideReason: updatedContract.overrideReason,
-          updatedBy: updatedBy || "system",
+          updatedBy: dto.updatedBy || "system",
+          updateReason: dto.updateReason || "Contract updated",
           updatedAt: new Date(),
+          updatedFields: {
+            ...coreFields,
+            ...lifecycleFields,
+          },
         },
         status: "pending",
       });
@@ -799,264 +790,98 @@ export class ContractService {
   }
 
   /**
-   * Get service balance(获取服务余额)
-   * - Query service entitlements by contractId or studentId(- 根据合同ID或学生ID查询服务权利)
-   * - Aggregates by contract and service type(- 按合同和服务类型汇总)
-   * - Returns detailed balance information with expiration status(- 返回详细的余额信息和过期状态)
+   * Get service balance(获取服务余额) - v2.16.12: 学生级权益累积制
+   * - Query service entitlements by studentId(- 根据学生ID查询服务权利)
+   * - Aggregates by student and service type(- 按学生和服务类型汇总)
+   * - Returns detailed balance information(- 返回详细的余额信息)
    */
   async getServiceBalance(query: {
-    contractId?: string;
-    studentId?: string;
+    studentId: string;
     serviceType?: string;
-    includeExpired?: boolean;
-  }): Promise<{
-    query: {
-      contractId?: string;
-      studentId?: string;
-      serviceType?: string;
-    };
-    student?: { id: string; name?: string; email?: string };
-    contracts: Array<{
-      contractId: string;
-      contractNumber: string;
-      contractTitle?: string;
-      contractStatus: string;
+  }): Promise<
+    Array<{
       studentId: string;
-      signedAt?: Date;
-      expiresAt?: Date;
-      isExpired: boolean;
-      entitlements: Array<{
-        serviceType: string;
-        serviceName: string;
-        totalQuantity: number;
-        consumedQuantity: number;
-        heldQuantity: number;
-        availableQuantity: number;
-        expiresAt?: Date;
-        isExpired: boolean;
-      }>;
-    }>;
-  }> {
-    const {
-      contractId,
-      studentId,
-      serviceType,
-      includeExpired = false,
-    } = query;
+      serviceType: string;
+      totalQuantity: number;
+      consumedQuantity: number;
+      heldQuantity: number;
+      availableQuantity: number;
+    }>
+  > {
+    const { studentId, serviceType } = query;
 
-    // Validate: at least one of contractId or studentId must be provided
-    if (!contractId && !studentId) {
-      throw new ContractException(
-        "INVALID_QUERY",
-        "contractId or studentId is required",
-      );
+    // Validate input parameters(验证输入参数)
+    if (!studentId) {
+      throw new ContractException("INVALID_QUERY", "Student ID is required");
     }
 
-    // Query contracts
-    const contractConditions: SQL<unknown>[] = [];
-    if (contractId) {
-      contractConditions.push(eq(schema.contracts.id, contractId));
-    }
-    if (studentId) {
-      contractConditions.push(eq(schema.contracts.studentId, studentId));
-    }
-
-    const contracts = await this.db
-      .select({
-        id: schema.contracts.id,
-        contractNumber: schema.contracts.contractNumber,
-        title: schema.contracts.title,
-        status: schema.contracts.status,
-        studentId: schema.contracts.studentId,
-        signedAt: schema.contracts.signedAt,
-        expiresAt: schema.contracts.expiresAt,
-      })
-      .from(schema.contracts)
-      .where(and(...contractConditions));
-
-    if (contracts.length === 0) {
-      return {
-        query: { contractId, studentId, serviceType },
-        contracts: [],
-      };
-    }
-
-    // Get all contract IDs
-    const contractIds = contracts.map((c) => c.id);
-
-    // Query entitlements
-    const entitlementConditions: SQL<unknown>[] = [
-      sql`${schema.contractServiceEntitlements.contractId} IN ${contractIds}`,
+    // Build query conditions(构建查询条件)
+    const conditions: SQL<unknown>[] = [
+      eq(schema.contractServiceEntitlements.studentId, studentId),
     ];
+
     if (serviceType) {
-      entitlementConditions.push(
+      conditions.push(
         eq(
           schema.contractServiceEntitlements.serviceType,
           serviceType as ServiceType,
         ),
       );
     }
-    if (!includeExpired) {
-      // Filter out expired entitlements
-      entitlementConditions.push(
-        sql`${schema.contractServiceEntitlements.expiresAt} IS NULL OR ${schema.contractServiceEntitlements.expiresAt} > NOW()`,
-      );
-    }
 
-    const entitlements = await this.db
-      .select()
+    // Query entitlements directly from contract_service_entitlements table
+    // v2.16.12: Direct query at student level, no need to join with contracts table
+    const entitlementsResult = await this.db
+      .select({
+        studentId: schema.contractServiceEntitlements.studentId,
+        serviceType: schema.contractServiceEntitlements.serviceType,
+        totalQuantity: schema.contractServiceEntitlements.totalQuantity,
+        consumedQuantity: schema.contractServiceEntitlements.consumedQuantity,
+        heldQuantity: schema.contractServiceEntitlements.heldQuantity,
+        availableQuantity: schema.contractServiceEntitlements.availableQuantity,
+      })
       .from(schema.contractServiceEntitlements)
-      .where(and(...entitlementConditions));
+      .where(and(...conditions));
 
-    // Group entitlements by contractId and serviceType
-    const groupedByContract = new Map<
-      string,
-      Map<
-        string,
-        {
-          serviceType: string;
-          serviceSnapshots: Array<{
-            serviceId: string;
-            serviceName: string;
-            serviceCode: string;
-            serviceType: string;
-            billingMode: string;
-            requiresEvaluation: boolean;
-            requiresMentorAssignment: boolean;
-            metadata?: {
-              features?: string[];
-              deliverables?: string[];
-              duration?: number;
-            };
-            snapshotAt: Date;
-          }>;
-          serviceNames: Set<string>;
-          totalQuantity: number;
-          consumedQuantity: number;
-          heldQuantity: number;
-          availableQuantity: number;
-          expiresAt?: Date;
-        }
-      >
-    >();
+    // Ensure we have an array to work with
+    const entitlements = Array.isArray(entitlementsResult)
+      ? entitlementsResult
+      : [];
 
-    for (const entitlement of entitlements) {
-      const contractId = entitlement.contractId;
-      const serviceType = entitlement.serviceType;
-
-      if (!groupedByContract.has(contractId)) {
-        groupedByContract.set(contractId, new Map());
-      }
-
-      const contractGroup = groupedByContract.get(contractId)!;
-
-      if (!contractGroup.has(serviceType)) {
-        contractGroup.set(serviceType, {
-          serviceType,
-          serviceSnapshots: [],
-          serviceNames: new Set<string>(),
-          totalQuantity: 0,
-          consumedQuantity: 0,
-          heldQuantity: 0,
-          availableQuantity: 0,
-          expiresAt: entitlement.expiresAt || undefined,
-        });
-      }
-
-      const serviceGroup = contractGroup.get(serviceType)!;
-
-      // Aggregate quantities
-      serviceGroup.totalQuantity += entitlement.totalQuantity;
-      serviceGroup.consumedQuantity += entitlement.consumedQuantity;
-      serviceGroup.heldQuantity += entitlement.heldQuantity;
-      serviceGroup.availableQuantity += entitlement.availableQuantity;
-
-      // Collect service snapshot info for names
-      if (entitlement.serviceSnapshot) {
-        serviceGroup.serviceSnapshots.push(entitlement.serviceSnapshot);
-        if (entitlement.serviceSnapshot.serviceName) {
-          serviceGroup.serviceNames.add(
-            entitlement.serviceSnapshot.serviceName,
-          );
-        }
-      }
-    }
-
-    // Build result structure
-    const now = new Date();
-    const resultContracts = contracts.map((contract) => {
-      const contractGroup = groupedByContract.get(contract.id) || new Map();
-      const isContractExpired = contract.expiresAt
-        ? contract.expiresAt < now
-        : false;
-
-      const contractEntitlements = Array.from(contractGroup.values()).map(
-        (serviceGroup) => {
-          const isExpired = serviceGroup.expiresAt
-            ? serviceGroup.expiresAt < now
-            : isContractExpired;
-
-          // Use first available name, or serviceType as fallback(使用第一个可用的名称，或使用serviceType作为回退)
-          const serviceName =
-            serviceGroup.serviceNames.size > 0
-              ? Array.from(serviceGroup.serviceNames)[0]
-              : serviceGroup.serviceType;
-
-          return {
-            serviceType: serviceGroup.serviceType,
-            serviceName,
-            totalQuantity: serviceGroup.totalQuantity,
-            consumedQuantity: serviceGroup.consumedQuantity,
-            heldQuantity: serviceGroup.heldQuantity,
-            availableQuantity: serviceGroup.availableQuantity,
-            expiresAt: serviceGroup.expiresAt,
-            isExpired,
-          };
-        },
-      );
-
-      return {
-        contractId: contract.id,
-        contractNumber: contract.contractNumber,
-        contractTitle: contract.title || undefined,
-        contractStatus: contract.status,
-        studentId: contract.studentId,
-        signedAt: contract.signedAt || undefined,
-        expiresAt: contract.expiresAt || undefined,
-        isExpired: isContractExpired,
-        entitlements: contractEntitlements,
-      };
-    });
-
-    return {
-      query: { contractId, studentId, serviceType },
-      student: studentId
-        ? {
-            id: studentId,
-            // Note: We would need to query user info if name/email is required
-            // For now, just return the ID
-          }
-        : undefined,
-      contracts: resultContracts,
-    };
+    // Return the results in the expected format
+    // v2.16.12: Each student has one record per service type (cumulative system)
+    return entitlements.map((entitlement) => ({
+      studentId: entitlement.studentId,
+      serviceType: entitlement.serviceType,
+      totalQuantity: entitlement.totalQuantity,
+      consumedQuantity: entitlement.consumedQuantity,
+      heldQuantity: entitlement.heldQuantity,
+      availableQuantity: entitlement.availableQuantity,
+    }));
   }
 
   /**
    * Add additional entitlement(添加额外权益)
-   * - All additional entitlements require approval (Decision R6)(- 所有额外权利都需要审批(决策R6))
-   * - Creates entitlement record with status='pending' and availableQuantity=0(- 创建状态为'pending'且availableQuantity=0的权利记录)
-   * - Creates revision record with status='pending' and requiresApproval=true(- 创建状态为'pending'且requiresApproval=true的修订记录)
-   * - Administrator must call approveRevision() to activate(- 管理员必须调用approveRevision()来激活)
+   * - v2.16.10: 移除审批流程，所有权益变更直接生效
+   * - v2.16.12: Primary key changed from contractId to studentId
+   * - v2.16.12: Changed to insert into ledger table (trigger updates entitlement)
+   * - v2.16.13: Renamed from entitlement to amendment ledger
+   * - Creates entitlement record with availableQuantity=quantity(创建权益记录，可用数量等于添加数量)
+   * - Creates amendment ledger record(创建权益变更台账记录)
+   * - Creates service ledger entry for audit trail(创建服务流水记录用于审计跟踪)
    */
-  async addEntitlement(
-    dto: AddEntitlementDto,
+  async addAmendmentLedger(
+    dto: AddAmendmentLedgerDto,
   ): Promise<ContractServiceEntitlement> {
     const {
+      studentId,
       contractId,
       serviceType,
-      quantity,
-      source,
-      addOnReason,
+      ledgerType,
+      quantityChanged,
+      reason,
+      description,
+      attachments,
       createdBy,
     } = dto;
 
@@ -1071,50 +896,41 @@ export class ContractService {
     }
 
     // 2. Get next revision number(2. 获取下一个修订号)
-    const lastRevisionResult = await this.db
-      .select({ maxRevision: sql`MAX(revision_number)` })
-      .from(schema.contractEntitlementRevisions)
-      .where(eq(schema.contractEntitlementRevisions.contractId, contractId));
+    // const lastRevisionResult = await this.db
+    //   .select({ maxRevision: sql`MAX(revision_number)` })
+    //   .from(schema.contractAmendmentLedgers)
+    //   .where(eq(schema.contractAmendmentLedgers.contractId, contractId));
 
-    const lastRevision = (lastRevisionResult[0]?.maxRevision as number) || 0;
-    const nextRevisionNumber = lastRevision + 1;
+    // const lastRevision = (lastRevisionResult[0]?.maxRevision as number) || 0;
+    // const nextRevisionNumber = lastRevision + 1; // Reserved for future use
 
     // 3. Create entitlement and revision in transaction(3. 在事务中创建权利和修订)
     return await this.db.transaction(async (tx) => {
-      // Create minimal service snapshot for addon entitlements(为附加权益创建最小化服务快照)
-      const serviceSnapshot = {
-        serviceId: `addon-${serviceType}-${Date.now()}`,
-        serviceName: serviceType,
-        serviceCode: `ADDON_${serviceType.toUpperCase()}`,
-        serviceType: serviceType,
-        billingMode: "times",
-        requiresEvaluation: false,
-        requiresMentorAssignment: false,
-        snapshotAt: new Date(),
-      };
-
-      // Create origin items record (traceability for addon)(创建来源项目记录(附加权益的可追溯性))
-      const originItems = [
-        {
-          productItemType: "addon" as const,
-          quantity,
-        },
-      ];
-
-      // Create entitlement record (pending, not available yet)(创建权利记录(待处理，尚不可用))
+      // Create entitlement record (immediately available)(创建权益记录(立即可用))
+      // v2.16.12: Use UPSERT to handle existing entitlements (cumulative system)
       const [entitlement] = await tx
         .insert(schema.contractServiceEntitlements)
         .values({
-          contractId,
+          studentId,
           serviceType: serviceType as ServiceType,
-          source,
-          totalQuantity: quantity,
+          source: ledgerType,
+          totalQuantity: quantityChanged,
           consumedQuantity: 0,
           heldQuantity: 0,
-          availableQuantity: 0, // Not available until approved(在批准前不可用)
-          serviceSnapshot: serviceSnapshot as never,
-          originItems: originItems as never,
-          expiresAt: contract.expiresAt, // Inherit contract expiration(继承合约到期时间)
+          availableQuantity: quantityChanged, // Immediately available(立即可用)
+          expiresAt: contract?.expiresAt, // Inherit contract expiration if available(如果合约可用则继承合约到期时间)
+          createdBy,
+        })
+        .onConflictDoUpdate({
+          target: [
+            schema.contractServiceEntitlements.studentId,
+            schema.contractServiceEntitlements.serviceType,
+          ],
+          set: {
+            totalQuantity: sql`${schema.contractServiceEntitlements.totalQuantity} + ${quantityChanged}`,
+            availableQuantity: sql`${schema.contractServiceEntitlements.availableQuantity} + ${quantityChanged}`,
+            updatedAt: new Date(),
+          },
         })
         .returning();
 
@@ -1122,23 +938,33 @@ export class ContractService {
         throw new ContractException("ENTITLEMENT_CREATION_FAILED");
       }
 
-      // Create revision record (pending approval)(创建修订记录(待批准))
-      // Note: Using serviceType as serviceName for addon entitlements since we don't have
-      // service snapshot from product catalog in this context(注意: 对于附加权益，由于没有产品目录中的服务快照，因此使用serviceType作为serviceName)
-      await tx.insert(schema.contractEntitlementRevisions).values({
-        contractId,
-        entitlementId: entitlement.id,
+      // Create amendment ledger record (audit trail)(创建权益变更台账记录(审计跟踪))
+      await tx.insert(schema.contractAmendmentLedgers).values({
+        studentId,
         serviceType: serviceType as ServiceType,
-        serviceName: serviceType,
-        revisionNumber: nextRevisionNumber,
-        revisionType: source as "addon" | "promotion" | "compensation",
-        source,
-        quantityChanged: quantity,
-        totalQuantity: quantity,
-        availableQuantity: 0,
-        status: "pending",
-        requiresApproval: true, // Decision R6: All additional entitlements require approval(决策R6: 所有额外权利都需要审批)
-        addOnReason,
+        ledgerType,
+        quantityChanged,
+        reason,
+        description:
+          description ||
+          `Add ${serviceType} entitlement for contract ${contractId}`,
+        attachments,
+        createdBy,
+        snapshot: {
+          contractId,
+          contractNumber: contract.contractNumber,
+        },
+      });
+
+      // Create service ledger entry for audit trail(创建服务流水记录用于审计跟踪)
+      await tx.insert(schema.serviceLedgers).values({
+        studentId,
+        serviceType: serviceType as ServiceType,
+        type: "adjustment",
+        source: "manual_adjustment",
+        quantity: quantityChanged,
+        balanceAfter: entitlement.availableQuantity,
+        reason: `Added ${serviceType} entitlement: ${reason || "No reason provided"}`,
         createdBy,
       });
 
@@ -1149,214 +975,17 @@ export class ContractService {
         aggregateType: "Contract",
         payload: {
           contractId,
-          entitlementId: entitlement.id,
+          entitlementId: `${studentId}-${serviceType}`, // Composite key representation
           serviceType,
-          quantity,
-          source,
-          addOnReason,
-          requiresApproval: true,
-          status: "pending",
+          quantity: quantityChanged,
+          source: ledgerType,
+          reason,
+          status: "active", // v2.16.10: 直接生效
         },
         status: "pending",
       });
 
       return entitlement;
-    });
-  }
-
-  /**
-   * Get entitlement revisions(获取权益修订)
-   * - Query revision history for a contract(- 查询合约的修订历史)
-   * - Optional filters: serviceType, revisionType, status(- 可选过滤器: 服务类型、修订类型、状态)
-   * - Sorted by revisionNumber desc (newest first)(- 按revisionNumber降序排列(最新的在前))
-   */
-  async getEntitlementRevisions(
-    contractId: string,
-    options?: {
-      serviceType?: ServiceType;
-      revisionType?:
-        | "initial"
-        | "addon"
-        | "promotion"
-        | "compensation"
-        | "increase"
-        | "decrease"
-        | "expiration"
-        | "termination";
-      status?: "pending" | "approved" | "rejected" | "applied";
-      page?: number;
-      pageSize?: number;
-    },
-  ): Promise<{
-    data: ContractEntitlementRevision[];
-    total: number;
-  }> {
-    // Build where conditions(构建where条件)
-    const conditions = [
-      eq(schema.contractEntitlementRevisions.contractId, contractId),
-    ];
-
-    if (options?.serviceType) {
-      conditions.push(
-        eq(
-          schema.contractEntitlementRevisions.serviceType,
-          options.serviceType,
-        ),
-      );
-    }
-
-    if (options?.revisionType) {
-      conditions.push(
-        eq(
-          schema.contractEntitlementRevisions.revisionType,
-          options.revisionType,
-        ),
-      );
-    }
-
-    if (options?.status) {
-      conditions.push(
-        eq(schema.contractEntitlementRevisions.status, options.status),
-      );
-    }
-
-    // Get total count(获取总数)
-    const [countResult] = await this.db
-      .select({ count: sql`COUNT(*)` })
-      .from(schema.contractEntitlementRevisions)
-      .where(and(...conditions));
-
-    const total = Number(countResult?.count || 0);
-
-    // Get revisions(获取修订)
-    const data = await this.db
-      .select()
-      .from(schema.contractEntitlementRevisions)
-      .where(and(...conditions))
-      .orderBy(desc(schema.contractEntitlementRevisions.revisionNumber))
-      .offset(((options?.page || 1) - 1) * (options?.pageSize || 20))
-      .limit(options?.pageSize || 20);
-
-    return { data, total };
-  }
-
-  /**
-   * Approve entitlement revision(批准权益修订)
-   * - Update revision status from pending to applied(- 将修订状态从待处理更新为已应用)
-   * - Update entitlement availableQuantity(- 更新权利可用数量)
-   * - Create adjustment ledger entry(- 创建调整台账条目)
-   */
-  async approveRevision(
-    revisionId: string,
-    approverId: string,
-    notes?: string,
-  ): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      // 1. Get revision(1. 获取修订)
-      const [revision] = await tx
-        .select()
-        .from(schema.contractEntitlementRevisions)
-        .where(eq(schema.contractEntitlementRevisions.id, revisionId));
-
-      if (!revision) {
-        throw new ContractNotFoundException("REVISION_NOT_FOUND");
-      }
-
-      if (revision.status !== "pending") {
-        throw new ContractException("REVISION_NOT_PENDING");
-      }
-
-      if (!revision.requiresApproval) {
-        throw new ContractException("REVISION_NOT_REQUIRES_APPROVAL");
-      }
-
-      // 2. Get contract to retrieve studentId(2. 获取合约以检索学生ID)
-      const [contract] = await tx
-        .select({ studentId: schema.contracts.studentId })
-        .from(schema.contracts)
-        .where(eq(schema.contracts.id, revision.contractId))
-        .limit(1);
-
-      if (!contract) {
-        throw new ContractNotFoundException("CONTRACT_NOT_FOUND");
-      }
-
-      // 3. Update revision status(3. 更新修订状态)
-      await tx
-        .update(schema.contractEntitlementRevisions)
-        .set({
-          status: "applied",
-          approvedBy: approverId,
-          approvedAt: new Date(),
-          approvalNotes: notes,
-        })
-        .where(eq(schema.contractEntitlementRevisions.id, revisionId));
-
-      // 4. Update entitlement availableQuantity(4. 更新权利可用数量)
-      await tx
-        .update(schema.contractServiceEntitlements)
-        .set({
-          availableQuantity: revision.totalQuantity,
-          updatedAt: new Date(),
-        })
-        .where(
-          eq(schema.contractServiceEntitlements.id, revision.entitlementId!),
-        );
-
-      // 5. Create adjustment ledger (increase balance)(5. 创建调整台账(增加余额))
-      await tx.insert(schema.serviceLedgers).values({
-        contractId: revision.contractId,
-        studentId: contract.studentId,
-        serviceType: revision.serviceType as ServiceType,
-        type: "adjustment",
-        source: "manual_adjustment",
-        quantity: revision.quantityChanged,
-        balanceAfter: revision.totalQuantity,
-        reason: `Approved revision #${revision.revisionNumber}: ${notes || "No notes"}`,
-        createdBy: approverId,
-      });
-    });
-  }
-
-  /**
-   * Reject entitlement revision(拒绝权益修订)
-   * - Update revision status from pending to rejected(- 将修订状态从待处理更新为已拒绝)
-   * - Do NOT update entitlement (keep unavailable)(- 不更新权利(保持不可用))
-   */
-  async rejectRevision(
-    revisionId: string,
-    approverId: string,
-    reason: string,
-  ): Promise<void> {
-    if (!reason || reason.trim().length === 0) {
-      throw new ContractException("REJECTION_REASON_REQUIRED");
-    }
-
-    await this.db.transaction(async (tx) => {
-      // 1. Get revision(1. 获取修订)
-      const [revision] = await tx
-        .select()
-        .from(schema.contractEntitlementRevisions)
-        .where(eq(schema.contractEntitlementRevisions.id, revisionId));
-
-      if (!revision) {
-        throw new ContractNotFoundException("REVISION_NOT_FOUND");
-      }
-
-      if (revision.status !== "pending") {
-        throw new ContractException("REVISION_NOT_PENDING");
-      }
-
-      // 2. Update revision status (do NOT modify entitlement)(2. 更新修订状态(不修改权利))
-      await tx
-        .update(schema.contractEntitlementRevisions)
-        .set({
-          status: "rejected",
-          approvedBy: approverId,
-          approvedAt: new Date(),
-          approvalNotes: reason,
-        })
-        .where(eq(schema.contractEntitlementRevisions.id, revisionId));
     });
   }
 

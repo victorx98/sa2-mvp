@@ -7,13 +7,19 @@ import {
 } from "class-validator";
 
 /**
- * DTO for consuming service (消费服务的DTO)
- * Used when recording service consumption (from session completion) (用于记录服务消费(来自会话完成))
+ * DTO for consuming service (v2.16.12 - 学生级权益累积制)
+ * Used when recording service consumption (from session completion)
+ *
+ * @change {v2.16.12} Primary key changed from contractId to studentId
  */
 export class ConsumeServiceDto {
   @IsNotEmpty()
+  @IsString()
+  studentId: string; // Student ID (学生ID) - NEW in v2.16.12
+
+  @IsOptional()
   @IsUUID()
-  contractId: string; // Contract ID (合约ID)
+  contractId?: string; // Contract ID (optional for audit only) (合约ID - 仅用于审计，可选)
 
   @IsNotEmpty()
   @IsString()
@@ -25,7 +31,7 @@ export class ConsumeServiceDto {
 
   @IsOptional()
   @IsUUID()
-  relatedBookingId?: string; // Associated booking ID (generic field for session, class, mock_interview, etc.) (关联预约ID(通用字段，适用于session、class、mock_interview等))
+  relatedBookingId?: string; // Associated booking ID (generic field for session, class, mock_interview, etc.) (关联预约ID)
 
   @IsOptional()
   @IsUUID()

@@ -54,7 +54,7 @@ service_holds（记录 contract_id）
 students (1) ←→ (∞) contract_service_entitlements（按学生+服务类型累积）
    ↓                              ↑
    ├─→ contracts（记录初始权益）  │
-   ├─→ contract_entitlement_ledgers（记录额外权益）
+   ├─→ contract_amendment_ledgers（记录额外权益）
    ├─→ service_holds（更新 held_quantity）
    └─→ service_ledgers（更新 consumed_quantity）
 ```
@@ -108,7 +108,7 @@ contract_service_entitlements 表由触发器维护：
 ✅ 仅允许触发器自动更新
 
 触发器来源：
-1. contract_entitlement_ledgers.INSERT → total_quantity +=
+1. contract_amendment_ledgers.INSERT → total_quantity +=
 2. service_ledgers.INSERT → consumed_quantity +=
 3. service_holds.INSERT/UPDATE → held_quantity +=/-
 ```
@@ -124,7 +124,7 @@ contract_service_entitlements 表由触发器维护：
 |------|------|----------|
 | contracts | 合同生命周期、财务信息 | 应用层直接操作 |
 | contract_service_entitlements | 学生权益余额（只读） | 触发器自动维护 |
-| contract_entitlement_ledgers | 额外权益审计流水 | 应用层 INSERT |
+| contract_amendment_ledgers | 额外权益审计流水 | 应用层 INSERT |
 | service_ledgers | 消费流水（只增） | 应用层 INSERT |
 | service_holds | 服务预占 | 应用层 INSERT/UPDATE |
 
@@ -138,7 +138,7 @@ contracts.product_snapshot → 记录合同包含的服务项
   └─→ Application Layer → 初始化 contract_service_entitlements
 
 额外权益来源：
-contract_entitlement_ledgers → 记录 who/when/what/why
+contract_amendment_ledgers → 记录 who/when/what/why
   └─→ 触发器 → 更新 contract_service_entitlements.total_quantity
 
 消费来源：
@@ -154,7 +154,7 @@ service_ledgers → 记录每次服务消费
 |------|--------|------|--------|--------|--------|
 | **contracts** | ✅ 应用层 | ✅ 应用层 | ✅ 应用层 | ❌ | ❌ 无 |
 | **contract_service_entitlements** | ✅ 应用层 | ✅ 应用层 | ❌ **禁止** | ❌ **禁止** | ✅ 3个触发器 |
-| **contract_entitlement_ledgers** | ✅ 应用层 | ✅ 应用层 | ❌ | ❌ | ✅ 1个触发器 |
+| **contract_amendment_ledgers** | ✅ 应用层 | ✅ 应用层 | ❌ | ❌ | ✅ 1个触发器 |
 | **service_ledgers** | ✅ 应用层 | ✅ 应用层 | ❌ | ❌ | ✅ 1个触发器 |
 | **service_holds** | ✅ 应用层 | ✅ 应用层 | ✅ 应用层 | ❌ | ✅ 1个触发器 |
 
@@ -268,7 +268,7 @@ ON contract_service_entitlements(service_type, student_id);
 
 | 字段 | 更新来源 | 触发器 | 说明 |
 |------|----------|--------|------|
-| totalQuantity | contract_entitlement_ledgers.INSERT | ✅ 触发器 | ledger新增时累加 |
+| totalQuantity | contract_amendment_ledgers.INSERT | ✅ 触发器 | ledger新增时累加 |
 | consumedQuantity | service_ledgers.INSERT | ✅ 触发器 | 消费流水新增时累加 |
 | heldQuantity | service_holds.INSERT/UPDATE | ✅ 触发器 | 预占状态变更时更新 |
 | availableQuantity | 自动计算 | ✅ CHECK约束 | total - consumed - held |
@@ -297,7 +297,7 @@ WHERE student_id = 'stu-001' AND service_type = 'session';
 **额外权益添加（触发器自动执行）：**
 ```typescript
 // 应用层插入到 ledgers 表（D-NEW-1 决策）
-INSERT INTO contract_entitlement_ledgers (student_id, service_type, quantity_changed, ...)
+INSERT INTO contract_amendment_ledgers (student_id, service_type, quantity_changed, ...)
 VALUES ('stu-001', 'session', 2, ...);
 
 // 触发器自动执行：UPDATE contract_service_entitlements SET total += 2, available += 2
@@ -306,7 +306,7 @@ VALUES ('stu-001', 'session', 2, ...);
 
 ---
 
-### 2.2 contract_entitlement_ledgers（额外权益流水表）
+### 2.2 contract_amendment_ledgers（额外权益流水表）
 
 **职责**：
 - 仅记录"额外添加"的服务权益（addon/promotion/compensation）
@@ -323,7 +323,7 @@ export const entitlementLedgerTypeEnum = pgEnum('entitlement_ledger_type', [
 ]);
 
 export const contractEntitlementLedgers = pgTable(
-  'contract_entitlement_ledgers',
+  'contract_amendment_ledgers',
   {
     id: uuid('id').defaultRandom().primaryKey(),
 
@@ -375,12 +375,12 @@ export const contractEntitlementLedgers = pgTable(
 **约束定义**：
 ```sql
 -- CHECK 约束：quantity_changed 必须为正数
-ALTER TABLE contract_entitlement_ledgers
+ALTER TABLE contract_amendment_ledgers
 ADD CONSTRAINT chk_quantity_changed_positive
 CHECK (quantity_changed > 0);
 
 -- CHECK 约束：reason 不能为空
-ALTER TABLE contract_entitlement_ledgers
+ALTER TABLE contract_amendment_ledgers
 ADD CONSTRAINT chk_reason_required
 CHECK (reason IS NOT NULL AND length(reason) > 0);
 ```
@@ -389,19 +389,19 @@ CHECK (reason IS NOT NULL AND length(reason) > 0);
 ```sql
 -- 复合索引：按学生查询权益变更历史
 CREATE INDEX idx_ledger_by_student
-ON contract_entitlement_ledgers(student_id, service_type, created_at DESC);
+ON contract_amendment_ledgers(student_id, service_type, created_at DESC);
 
 -- 复合索引：按类型查询（统计促销活动）
 CREATE INDEX idx_ledger_by_type
-ON contract_entitlement_ledgers(ledger_type, student_id, created_at DESC);
+ON contract_amendment_ledgers(ledger_type, student_id, created_at DESC);
 
 -- 索引：按创建时间（支持时间范围查询）
 CREATE INDEX idx_ledger_created_at
-ON contract_entitlement_ledgers(created_at DESC);
+ON contract_amendment_ledgers(created_at DESC);
 
 -- 复合索引：操作人审计（查询某人操作记录）
 CREATE INDEX idx_ledger_by_created_by
-ON contract_entitlement_ledgers(created_by, created_at DESC);
+ON contract_amendment_ledgers(created_by, created_at DESC);
 ```
 
 **特性说明**：
@@ -777,7 +777,7 @@ export const contracts = pgTable('contracts', {
                       │ 1:N
                       │
             ┌─────────▼──────────────────┐
-            │  contract_entitlement_ledgers│  ← 额外权益流水（只记录 addon）
+            │  contract_amendment_ledgers│  ← 额外权益流水（只记录 addon）
             │  Append-only                 │
             │                            │
             │ - student_id               │
@@ -800,7 +800,7 @@ export const contracts = pgTable('contracts', {
 **关键关联**：
 1. **查询关联**：通过 `student_id + service_type` 关联
 2. **触发器关联**：
-   - `contract_entitlement_ledgers.INSERT` → 更新 `contract_service_entitlements.total_quantity`
+   - `contract_amendment_ledgers.INSERT` → 更新 `contract_service_entitlements.total_quantity`
    - `service_ledgers.INSERT` → 更新 `contract_service_entitlements.consumed_quantity`
    - `service_holds.INSERT/UPDATE` → 更新 `contract_service_entitlements.held_quantity`
 3. **引用完整性**：不强制外键约束（复合主键），通过代码保证
@@ -821,9 +821,9 @@ export const contracts = pgTable('contracts', {
 - ✅ 原子性操作（触发器在事务内执行）
 - ✅ 性能优化（避免应用层多次数据库访问）
 
-### 3.2 触发器 1：contract_entitlement_ledgers → contract_service_entitlements
+### 3.2 触发器 1：contract_amendment_ledgers → contract_service_entitlements
 
-**触发时机**：`contract_entitlement_ledgers` 表 INSERT 操作后
+**触发时机**：`contract_amendment_ledgers` 表 INSERT 操作后
 
 **功能**：将额外添加的权益自动累加到学生总权益
 
@@ -834,7 +834,7 @@ export const contracts = pgTable('contracts', {
 ```sql
 -- ============================================================================
 -- 函数：sync_ledger_to_entitlement()
--- 描述：contract_entitlement_ledgers 新增时，自动累加 total_quantity
+-- 描述：contract_amendment_ledgers 新增时，自动累加 total_quantity
 -- 触发时机：AFTER INSERT
 -- 影响表：contract_service_entitlements
 -- 版本：v2.16.12
@@ -876,11 +876,11 @@ $$ LANGUAGE plpgsql;
 -- 触发器绑定
 -- ============================================================================
 
-DROP TRIGGER IF EXISTS trigger_ledger_insert ON contract_entitlement_ledgers;
+DROP TRIGGER IF EXISTS trigger_ledger_insert ON contract_amendment_ledgers;
 
 CREATE TRIGGER trigger_ledger_insert
   AFTER INSERT
-  ON contract_entitlement_ledgers
+  ON contract_amendment_ledgers
   FOR EACH ROW
   EXECUTE FUNCTION sync_ledger_to_entitlement();
 ```
@@ -894,7 +894,7 @@ CREATE TRIGGER trigger_ledger_insert
 #### 图解
 
 ```
-contract_entitlement_ledgers.INSERT (quantity_changed = +2)
+contract_amendment_ledgers.INSERT (quantity_changed = +2)
     ↓
 触发器自动执行
     ↓
@@ -915,7 +915,7 @@ ELSE
 ```typescript
 // 场景：学生 stu-001 获得 2 次额外 session
 ┌─────────────────────────────────────────┐
-│ INSERT INTO contract_entitlement_ledgers│
+│ INSERT INTO contract_amendment_ledgers│
 ├─────────────────────────────────────────┤
 │ student_id      = 'stu-001'             │
 │ service_type    = 'session'             │
@@ -1198,7 +1198,7 @@ SET
 |------|------|----------|--------|----------|
 | **D1** | 合同状态差异 | ✅ **方案A**：增加 `draft` 状态（draft → signed → active） | 🔴 高 | 待实施 |
 | **D2** | 合同状态管理方法缺失 | ✅ **方案A**：实现 `suspend()`, `resume()`, `complete()` | 🔴 高 | 待实施 |
-| **D3** | 权益修订表名 | ✅ **方案B**：表名为 `contract_entitlement_ledgers` | 🟡 中 | 文档已更新 |
+| **D3** | 权益修改表名 | ✅ **方案B**：表名为 `contract_amendment_ledgers` | 🟡 中 | 文档已更新 |
 | **D4** | DTO字段命名 | ✅ **方案B**：采用代码字段名（reason, sessionId 等） | 🟡 中 | 文档已更新 |
 | **D5** | 事件监听器缺失 | ✅ **方案A**：实现 `payment.succeeded`, `session.completed` 监听器 | 🔴 高 | 待实施 |
 | **D6** | 事务支持 | ✅ **方案B**：保持现状 | 🟢 低 | 无需实施 |
@@ -1368,7 +1368,7 @@ export type DrizzleExecutor = DrizzleDatabase | DrizzleTransaction;
 
 **权益审计机制重大简化**
 
-v2.16.10 简化 `contract_entitlement_ledgers` 表，从"版本管理系统"改为"审计日志系统"。
+v2.16.10 简化 `contract_amendment_ledgers` 表，从"版本管理系统"改为"审计日志系统"。
 
 **核心变更：**
 
@@ -1836,7 +1836,7 @@ Contract Domain 包含 8 张核心表：
 | ----------------------------------- | ------ | ---------------------- |
 | `contracts`                        | 实体表 | 合同定义               |
 | `contract_service_entitlements`    | 实体表 | 合同服务权益余额       |
-| `contract_entitlement_revisions`   | 历史表 | 权益变更修订历史 🆕     |
+| `contract_amendment_revisions`   | 历史表 | 权益变更修订历史 🆕     |
 | `service_ledgers`                  | 流水表 | 服务消费流水（Append-only） |
 | `service_holds`                    | 实体表 | 服务预占（TTL机制）     |
 | `domain_events`                    | 事件表 | 领域事件发件箱（Outbox） |
@@ -1861,7 +1861,7 @@ Contract Domain 包含 8 张核心表：
     │ 1:N 修订历史                      │ 归档
     │ ↓                                 │
 ┌───▼──────────────────────┐           │
-│contract_entitlement_revisions│       │
+│contract_amendment_revisions│       │
 └───┬──────────────────────┘           │
     │ 支持预占                          │
     │                                  │
@@ -2770,7 +2770,7 @@ export const serviceLedgerArchivePolicies = pgTable('service_ledger_archive_poli
 
 ---
 
-#### 3.2.7 contract_entitlement_ledgers（合同权益修订表）🆕
+#### 3.2.7 contract_amendment_ledgers（合同权益修改表）🆕
 
 > **版本：** v2.16.7 新增
 > **文件路径：** `src/infrastructure/database/schema/contract-entitlement-ledgers.schema.ts`
@@ -2785,9 +2785,9 @@ export const serviceLedgerArchivePolicies = pgTable('service_ledger_archive_poli
 - ✅ 支持审核流程（status, requires_approval）
 - ✅ 创建合同时记录初始权益（revision_type='initial'）
 -  **⚠️ v2.16.10 更新：表名对齐代码实现**  （D3 决策 - 方案B）：
-  - 设计文档表名：`contract_entitlement_revisions` → `contract_entitlement_ledgers`
-  - 文件名：`contract-entitlement-revisions.schema.ts` → `contract-entitlement-ledgers.schema.ts`
-  - 迁移文件：`0002_add_contract_entitlement_revisions.sql` → `0002_add_contract_entitlement_ledgers.sql`
+  - 设计文档表名：`contract_amendment_revisions` → `contract_amendment_ledgers`
+  - 文件名：`contract-amendment-ledgers.schema.ts` → `contract-entitlement-ledgers.schema.ts`
+  - 迁移文件：`0002_add_contract_amendment_revisions.sql` → `0002_add_contract_amendment_ledgers.sql`
 
 **核心用途：**
 1. **审计追溯**：记录权益变更历史（何时、何人、何因、何量）
@@ -2812,7 +2812,7 @@ export const entitlementRevisionTypeEnum = pgEnum('entitlement_revision_type', [
 
 ```typescript
 export const contractEntitlementLedgers = pgTable(
-  'contract_entitlement_ledgers',
+  'contract_amendment_ledgers',
   {
     id: uuid('id').defaultRandom().primaryKey(),
 
@@ -2875,23 +2875,23 @@ export const contractEntitlementLedgers = pgTable(
 ```typescript
 // 1. 按合同查询审计历史（最常用）
 CREATE INDEX idx_entitlement_ledgers_contract
-ON contract_entitlement_ledgers(contract_id, created_at DESC);
+ON contract_amendment_ledgers(contract_id, created_at DESC);
 
 // 2. 按权益记录查询审计历史（追踪单个权益的变更）
 CREATE INDEX idx_entitlement_ledgers_entitlement
-ON contract_entitlement_ledgers(entitlement_id, created_at DESC);
+ON contract_amendment_ledgers(entitlement_id, created_at DESC);
 
 // 3. 按服务类型查询审计历史（统计某服务的所有变更）
 CREATE INDEX idx_entitlement_ledgers_service_type
-ON contract_entitlement_ledgers(contract_id, service_type, created_at DESC);
+ON contract_amendment_ledgers(contract_id, service_type, created_at DESC);
 
 // 4. 按修订类型查询（统计某类型变更的数量）
 CREATE INDEX idx_entitlement_ledgers_revision_type
-ON contract_entitlement_ledgers(contract_id, revision_type, created_at DESC);
+ON contract_amendment_ledgers(contract_id, revision_type, created_at DESC);
 
 // 5. 按操作人查询（审计某个人员的操作）
 CREATE INDEX idx_entitlement_ledgers_created_by
-ON contract_entitlement_ledgers(created_by, created_at DESC);
+ON contract_amendment_ledgers(created_by, created_at DESC);
 ```
 
 **索引变更说明：**
@@ -2908,7 +2908,7 @@ ON contract_entitlement_ledgers(created_by, created_at DESC);
 // 仅保留 quantityChanged 不为 0 的基本验证
 
 // 约束：quantityChanged 不能为 0
-ALTER TABLE contract_entitlement_ledgers
+ALTER TABLE contract_amendment_ledgers
 ADD CONSTRAINT chk_quantity_changed_not_zero CHECK (quantity_changed != 0);
 ```
 
@@ -3026,23 +3026,22 @@ export type NewContractEntitlementLedger =
 **使用场景：**
 
 ```typescript
-// 场景1：查询合同的所有权益修订历史
-const revisions = await db.query.contractEntitlementRevisions.findMany({
-  where: eq(contractEntitlementRevisions.contractId, 'contract-123'),
-  orderBy: [desc(contractEntitlementRevisions.revisionNumber)],
+// 场景1：查询合同的所有权益修改历史
+const revisions = await db.query.contractAmendmentLedgers.findMany({
+  where: eq(contractAmendmentLedgers.contractId, 'contract-123'),
+  orderBy: [desc(contractAmendmentLedgers.createdAt)],
 });
 
-// 场景2：查询特定权益的修订历史
-const entitlementRevisions = await db.query.contractEntitlementRevisions.findMany({
-  where: eq(contractEntitlementRevisions.entitlementId, 'entitlement-001'),
-  orderBy: [asc(contractEntitlementRevisions.revisionNumber)],
+// 场景2：查询特定服务的修订历史
+const serviceRevisions = await db.query.contractAmendmentLedgers.findMany({
+  where: eq(contractAmendmentLedgers.serviceType, 'tutoring'),
+  orderBy: [asc(contractAmendmentLedgers.createdAt)],
 });
 
-// 场景3：查询待审批的修订
-const pendingRevisions = await db.query.contractEntitlementRevisions.findMany({
+// 场景3：查询特定类型的修订
+const addonRevisions = await db.query.contractAmendmentLedgers.findMany({
   where: and(
-    eq(contractEntitlementRevisions.status, 'pending'),
-    eq(contractEntitlementRevisions.requiresApproval, true)
+    eq(contractAmendmentLedgers.ledgerType, 'addon')
   ),
 });
 
@@ -3050,28 +3049,31 @@ const pendingRevisions = await db.query.contractEntitlementRevisions.findMany({
 const [stats] = await db
   .select({
     totalRevisions: count(),
-    initialRevisions: count().filter(
-      eq(contractEntitlementRevisions.revisionType, 'initial')
-    ),
     addonRevisions: count().filter(
-      eq(contractEntitlementRevisions.revisionType, 'addon')
+      eq(contractAmendmentLedgers.ledgerType, 'addon')
+    ),
+    promotionRevisions: count().filter(
+      eq(contractAmendmentLedgers.ledgerType, 'promotion')
+    ),
+    compensationRevisions: count().filter(
+      eq(contractAmendmentLedgers.ledgerType, 'compensation')
     ),
   })
-  .from(contractEntitlementRevisions)
-  .where(eq(contractEntitlementRevisions.contractId, 'contract-123'));
+  .from(contractAmendmentLedgers)
+  .where(eq(contractAmendmentLedgers.contractId, 'contract-123'));
 ```
 
 **性能优化：**
 
 1. **9个索引**覆盖所有常见查询场景
 2. **复合索引**优化按合同+服务类型查询
-3. **Partial Index**优化待审批查询（`WHERE status='pending' AND requires_approval=true`）
-4. **整数类型**的 revisionNumber 排序高效
+3. **时间戳索引**优化按创建时间排序查询
+4. **整数类型**的 quantityChanged 字段便于统计计算
 5. **UUID类型**的关联字段支持快速JOIN
 
 **文件位置：**
-- Schema: `src/infrastructure/database/schema/contract-entitlement-ledgers.schema.ts` (v2.16.10 更新)
-- SQL迁移: `src/infrastructure/database/migrations/0002_add_contract_entitlement_ledgers.sql` (v2.16.10 更新)
+- Schema: `src/infrastructure/database/schema/contract-amendment-ledgers.schema.ts` (v2.16.10 更新)
+- SQL迁移: `src/infrastructure/database/migrations/0002_add_contract_amendment_ledgers.sql` (v2.16.10 更新)
 
 ---
 
@@ -3087,11 +3089,11 @@ Contract Domain 提供 4 个核心服务：
 | `ServiceLedgerService` | 5 | 服务流水记录和余额对账 | ✅ 已实现 |
 | `ServiceHoldService` | 5 | 服务预占管理（TTL机制） | ✅ 已实现 |
 | `ServiceLedgerArchiveService` | 4 | 流水归档管理（冷热分离） | ✅ 已实现 |
-| `EntitlementLedgerService` | 3 | 权益修订历史管理 | 待实现（v2.16.8）|
+| `AmendmentLedgerService` | 3 | 权益修改历史管理 | 待实现（v2.16.8）|
 
 > **v2.16.10 更新：**
 > - `ContractService` 缺少 4 个方法：D1 决策（`sign()`）和 D2 决策（`suspend()`, `resume()`, `complete()`）
-> - `EntitlementLedgerService` 未实现：D3 决策推迟到后续版本
+> - `AmendmentLedgerService` 未实现：D3 决策推迟到后续版本
 > - 事件监听器（D5 决策）推迟到后续版本
 
 ---
@@ -3109,7 +3111,7 @@ Contract Domain 提供 4 个核心服务：
 | `ServiceHoldService`           | 5      | 服务预占管理（TTL机制）         |
 | `ServiceLedgerArchiveService`  | 4      | 流水归档管理（冷热分离）        |
 
-> **v2.16.7 更新**：`ContractService` 增加 3 个方法，用于权益修订历史管理
+> **v2.16.7 更新**：`ContractService` 增加 3 个方法，用于权益修改历史管理
 
 ### 4.2 ContractService - 合同管理服务
 
@@ -3232,13 +3234,13 @@ interface ContractService {
    * ⚠️ D-NEW-2 说明：此方法仅用于添加"额外权益"，不用于初始化
    * - 额外权益来源：addon（促成签约）/ promotion（促销）/ compensation（补偿）
    * - 初始权益（来自产品快照）应在 createContract() 中直接 INSERT
-   * - 不走 contract_entitlement_ledgers 表，不触发触发器
+   * - 不走 contract_amendment_ledgers 表，不触发触发器
    *
    * 功能说明：
    * - 促成签约：额外赠送服务（addon）
    * - 促销活动：限时赠送（promotion）
    * - 补偿：服务质量问题补偿（compensation）
-   * - 自动创建审计记录（contract_entitlement_ledgers）
+   * - 自动创建审计记录（contract_amendment_ledgers）
    * - 触发器自动更新合同权益余额（contract_service_entitlements）
    *
    * 重要特性：
@@ -3285,15 +3287,15 @@ interface ContractService {
    * - 查询结果直接反映已生效的权益变更
    *
    * ⚠️ 术语映射说明（D-NEW-4）：
-   * - 业务术语："权益修订"（Entitlement Revision）
-   * - 数据库表名：`contract_entitlement_ledgers`（审计日志表）
+   * - 业务术语："权益修改"（Entitlement Revision）
+   * - 数据库表名：`contract_amendment_ledgers`（审计日志表）
    * - 命名原因："Revision" 体现业务语义（权益变更版本）
    *              "ledgers" 体现技术实现（审计流水）
    *
    * 功能说明：
    * - 按 contractId 查询某合同的所有权益变更记录
    * - 权益变更一旦创建，立即生效并记录在 ledgers 审计表中
-   * - 可选按 serviceType、revisionType、时间范围过滤
+   * - 可选按 serviceType、ledgerType、时间范围过滤
    * - 典型场景：业务审计、数据分析、问题追溯、报表统计
    *
    * @param contractId - 合同ID（必填）
@@ -3316,7 +3318,7 @@ interface ContractService {
    * // 场景3：统计某合同的补偿记录
    * const compensations = await contractService.getEntitlementLedgers(
    *   'contract-123',
-   *   { revisionType: 'compensation' }
+   *   { ledgerType: 'compensation' }
    * );
    * console.log(`共补偿 ${compensations.length} 次`);
    *
@@ -3334,7 +3336,7 @@ interface ContractService {
     contractId: string,
     options?: {
       serviceType?: string;
-      revisionType?: string;
+      ledgerType?: string;
       startDate?: Date;
       endDate?: Date;
     }
@@ -4220,7 +4222,7 @@ interface SessionCancelledEvent {
 
 ### 5.8 Contract Entitlement Ledger DTOs (v2.16.10 更新)
 
-#### CreateEntitlementLedgerDto
+#### CreateAmendmentLedgerDto
 
 ```typescript
 /**
@@ -4236,7 +4238,7 @@ interface SessionCancelledEvent {
  * - 移除 approvedBy, approvedAt, approvalNotes（无审批流程）
  * - addOnReason → reason（D4决策 - 字段名对齐代码实现）
  */
-interface CreateEntitlementLedgerDto {
+interface CreateAmendmentLedgerDto {
   contractId: string;          // 合同ID（必填）
   entitlementId?: string;      // 权益记录ID（可选）
   serviceType: string;         // 服务类型（必填）
@@ -4261,7 +4263,7 @@ interface CreateEntitlementLedgerDto {
 }
 ```
 
-#### GetEntitlementLedgersQuery
+#### GetAmendmentLedgersQuery
 
 ```typescript
 /**
@@ -4270,7 +4272,7 @@ interface CreateEntitlementLedgerDto {
  * 查询权益审计历史参数
  * 移除所有与审批相关的过滤条件
  */
-interface GetEntitlementLedgersQuery {
+interface GetAmendmentLedgersQuery {
   contractId: string;                               // 合同ID（必填）
   serviceType?: string;                             // 服务类型（可选，过滤）
   revisionType?: 'initial' | 'addon' | 'promotion' | 'compensation' | 'increase' | 'decrease'; // 修订类型（可选）
@@ -4284,14 +4286,14 @@ interface GetEntitlementLedgersQuery {
 
 // 使用示例：
 // 场景1：查询某个合同的所有权益变更历史（按时间倒序）
-const params: GetEntitlementLedgersQuery = {
+const params: GetAmendmentLedgersQuery = {
   contractId: 'contract-123',
   sortBy: 'createdAt',
   sortOrder: 'desc'
 };
 
 // 场景2：查询特定服务类型的变更
-const params: GetEntitlementLedgersQuery = {
+const params: GetAmendmentLedgersQuery = {
   contractId: 'contract-123',
   serviceType: 'session',
   sortBy: 'createdAt',
@@ -4299,13 +4301,13 @@ const params: GetEntitlementLedgersQuery = {
 };
 
 // 场景3：统计某合同的补偿记录
-const params: GetEntitlementLedgersQuery = {
+const params: GetAmendmentLedgersQuery = {
   contractId: 'contract-123',
   revisionType: 'compensation'
 };
 
 // 场景4：按时间范围查询（用于月度报表）
-const params: GetEntitlementLedgersQuery = {
+const params: GetAmendmentLedgersQuery = {
   contractId: 'contract-123',
   startDate: new Date('2025-01-01'),
   endDate: new Date('2025-01-31')
@@ -4453,7 +4455,7 @@ const params: GetEntitlementLedgersQuery = {
 
 **核心业务规则（v2.16.10 更新）：**
 - 📌 **权益变更立即生效**：所有额外权益（addon/promotion/compensation）添加后立即生效
-- 📌 **自动创建审计记录**：在同一事务中创建审计日志（contract_entitlement_ledgers）
+- 📌 **自动创建审计记录**：在同一事务中创建审计日志（contract_amendment_ledgers）
 - 📌 **同步更新权益余额**：contract_service_entitlements 表立即更新可用数量
 - 📌 **无审批流程**：简化业务流程，提升用户体验（无需等待管理员审批）
 
@@ -4466,7 +4468,7 @@ const params: GetEntitlementLedgersQuery = {
    - totalQuantity = 添加数量
    - availableQuantity = 添加数量（⚠️ 立即生效）
    - createdBy = 操作人ID
-4. **创建权益审计记录（contract_entitlement_ledgers）：**
+4. **创建权益审计记录（contract_amendment_ledgers）：**
    - revisionType = addon/promotion/compensation（根据 source 确定）
    - quantityChanged = 正数（增加）
    - totalQuantity = 变更后的总量
@@ -4637,7 +4639,7 @@ async verifyBalance(
 - 可选删除主表数据（根据deleteAfterArchive配置）
 - 返回归档统计信息
 
-### 6.6 权益修订业务规则 🆕v2.16.7
+### 6.6 权益修改业务规则 🆕v2.16.7
 
 #### 6.6.1 审计记录机制（v2.16.10简化版）
 
@@ -4669,7 +4671,7 @@ async verifyBalance(
 
 **原因：** 简化业务流程，权益变更立即生效，无需审批等待。
 
-### 6.6 权益修订业务规则（v2.16.10简化版）
+### 6.6 权益修改业务规则（v2.16.10简化版）
 
 #### 6.6.1 审计记录机制
 
@@ -5109,7 +5111,7 @@ v2.16.10 决策：ledgers 表只记录"额外权益"（addon/promotion/compensat
 
 **实施说明：**
 - 创建合同时，应用层直接从 `product_snapshot` 派生权益并 INSERT 到 `contract_service_entitlements`
-- **不**通过 `contract_entitlement_ledgers` 表（ledgers 仅记录后续额外添加的权益）
+- **不**通过 `contract_amendment_ledgers` 表（ledgers 仅记录后续额外添加的权益）
 - 后续通过 `addEntitlement()` 添加额外权益时，才 INSERT 到 ledgers 表并触发触发器
 
 **示例流程：**
@@ -5121,7 +5123,7 @@ v2.16.10 决策：ledgers 表只记录"额外权益"（addon/promotion/compensat
 
 2. 后续添加额外权益
    → 应用层调用 addEntitlement()
-   → INSERT INTO contract_entitlement_ledgers (quantity_changed=2)
+   → INSERT INTO contract_amendment_ledgers (quantity_changed=2)
    → 触发器自动执行
    → UPDATE contract_service_entitlements SET total += 2, available += 2
 ```
@@ -5349,17 +5351,17 @@ src/infrastructure/database/
 │   │   │   - 命名规范：chk_<表名>_<字段>_<类型>
 │   │   │   - 示例：chk_contracts_paid_amount_not_exceed_total
 │   │   │
-│   │   ├── contract_entitlement_revisions_indexes.sql      # 修订表索引（9个）🆕v2.16.8
-│   │   └── contract_entitlement_revisions_constraints.sql  # 修订表CHECK约束（2个）🆕v2.16.8
+│   │   ├── contract_amendment_revisions_indexes.sql      # 修订表索引（9个）🆕v2.16.8
+│   │   └── contract_amendment_revisions_constraints.sql  # 修订表CHECK约束（2个）🆕v2.16.8
 │   │
 │   ├── 0000_initial.sql                      # Drizzle 自动生成的表结构迁移
 │   ├── 0001_contract_tables.sql              # contract 相关表
-│   └── 0002_add_contract_entitlement_revisions.sql  # 修订表迁移
+│   └── 0002_add_contract_amendment_revisions.sql  # 修订表迁移
 │
 └── schema/                                   # TypeScript Schema 定义
     ├── contracts.schema.ts
     ├── contract-service-entitlements.schema.ts
-    ├── contract-entitlement-revisions.schema.ts  # 🆕v2.16.8
+    ├── contract-amendment-ledgers.schema.ts  # 🆕v2.16.8
     └── ...
 ```
 
@@ -5421,11 +5423,11 @@ psql -d mentorx -f "$SQL_DIR/contract_constraints.sql"
 
 # 修订表索引（v2.16.8）
 echo "  - 修订表索引..."
-psql -d mentorx -f "$SQL_DIR/contract_entitlement_revisions_indexes.sql"
+psql -d mentorx -f "$SQL_DIR/contract_amendment_revisions_indexes.sql"
 
 # 修订表约束（v2.16.8）
 echo "  - 修订表约束..."
-psql -d mentorx -f "$SQL_DIR/contract_entitlement_revisions_constraints.sql"
+psql -d mentorx -f "$SQL_DIR/contract_amendment_revisions_constraints.sql"
 
 echo "✅ 部署完成！"
 ```
@@ -5566,7 +5568,7 @@ CONTRACT_ALLOW_FREE_CONTRACTS=false
   ├── archive/                   # 归档管理
   │   ├── service-ledger-archive.service.ts
   │   └── dto/
-  ├── entitlement-revision/      # 权益修订历史管理 🆕v2.16.8
+  ├── amendment-ledger/      # 权益修改历史管理 🆕v2.16.8
   │   ├── entitlement-revision.service.ts
   │   └── dto/
   ├── events/                    # 事件监听器
@@ -5603,7 +5605,7 @@ CONTRACT_ALLOW_FREE_CONTRACTS=false
   - [ ] `getServiceBalance()` - 查询服务权益余额
   - [ ] `consumeService()` - 扣减服务权益
   - [ ] `addEntitlement()` - 添加额外权益 🆕v2.16 (自动记录修订历史)
-  - [ ] `getEntitlementRevisions()` - 查询权益修订历史 🆕v2.16.8
+  - [ ] `getAmendmentLedgers()` - 查询权益修改历史 🆕v2.16.8
 
 - [ ] **实现 ServiceLedgerService**
   - [ ] `recordConsumption()` - 记录服务消费
@@ -5652,7 +5654,7 @@ CONTRACT_ALLOW_FREE_CONTRACTS=false
   - [ ] ServiceLedgerService 测试
   - [ ] ServiceHoldService 测试
   - [ ] ServiceLedgerArchiveService 测试
-  - [ ] EntitlementLedgerService 测试 🆕v2.16.8
+  - [ ] AmendmentLedgerService 测试 🆕v2.16.8
 
 - [ ] **集成测试**
   - [ ] 合同创建 → 激活 → 服务消费 → 完成（完整流程）
@@ -5661,8 +5663,8 @@ CONTRACT_ALLOW_FREE_CONTRACTS=false
   - [ ] 流水归档测试
   - [ ] 余额对账测试
   - [ ] 初始权益记录测试（应用层 INSERT）🆕v2.16.8
-  - [ ] 额外权益修订记录测试（触发器自动更新）🆕v2.16.8
-  - [ ] 权益修订历史查询测试（ledgers 表）🆕v2.16.8
+  - [ ] 额外权益修改记录测试（触发器自动更新）🆕v2.16.8
+  - [ ] 权益修改历史查询测试（ledgers 表）🆕v2.16.8
   - [ ] 合同终止冻结权益测试（触发器）🆕v2.16.12 D-NEW-3
 
 - [ ] **E2E 测试**
@@ -5679,7 +5681,7 @@ CONTRACT_ALLOW_FREE_CONTRACTS=false
 > **版本：** v2.16.10
 > **审查日期：** 2025-11-11
 > **状态：** ✅ **所有差异已决策（7 项）**
-> **重要更新：** v2.16.10 大幅简化 `contract_entitlement_ledgers` 表，移除审批流程和版本号追踪
+> **重要更新：** v2.16.10 大幅简化 `contract_amendment_ledgers` 表，移除审批流程和版本号追踪
 
 本章节记录在代码实现过程中与设计文档的差异，并总结 D1-D7 决策结果。
 
@@ -5691,7 +5693,7 @@ CONTRACT_ALLOW_FREE_CONTRACTS=false
 |------|----------|----------|----------|--------|----------|----------|
 | **D1** | 合同状态差异 | `draft` → `active` | `signed` → `active` | 🔴 高 | **方案A** | ⭕ 待实施 |
 | **D2** | 方法缺失 | `suspend()`, `resume()`, `complete()` | ❌ 未实现 | 🔴 高 | **方案A** | ⭕ 待实施 |
-| **D3** | 修订记录表名 | `contract_entitlement_revisions` | `contract_entitlement_ledgers` | 🟡 中 | **方案B** | ✅ 文档已更新 |
+| **D3** | 修订记录表名 | `contract_amendment_revisions` | `contract_amendment_ledgers` | 🟡 中 | **方案B** | ✅ 文档已更新 |
 | **D4** | DTO 字段差异 | `addOnReason` | `reason` | 🟡 中 | **方案B** | ✅ 文档已更新 |
 | **D5** | 事件监听器缺失 | `payment.succeeded`, `session.completed` | ❌ 未实现 | 🟡 中 | **方案B** | ⭕ 推迟 |
 | **D6** | 事务支持差异 | `createHold(dto, tx?)` | 部分支持 | 🟢 低 | **方案A** | ⭕ 待实施 |
@@ -5709,7 +5711,7 @@ CONTRACT_ALLOW_FREE_CONTRACTS=false
 | **索引数量** | 9个索引 | ✅ **5个索引** | 减少44.4%索引数 |
 | **CHECK约束** | 2个约束 | ✅ **1个约束** | 减少50%约束数 |
 
-**核心决策：** 将 `contract_entitlement_ledgers` 从"版本管理系统"简化为"审计日志系统"
+**核心决策：** 将 `contract_amendment_ledgers` 从"版本管理系统"简化为"审计日志系统"
 
 ---
 

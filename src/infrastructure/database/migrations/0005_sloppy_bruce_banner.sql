@@ -1,0 +1,2 @@
+CREATE TYPE "public"."entitlement_source" AS ENUM('product', 'addon', 'promotion', 'compensation');--> statement-breakpoint
+ALTER TABLE "contract_service_entitlements" ADD COLUMN "source" "entitlement_source" DEFAULT 'product' NOT NULL;
