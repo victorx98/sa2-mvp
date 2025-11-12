@@ -8,14 +8,9 @@ describe("EventPublisherService", () => {
   let service: EventPublisherService;
   let db: jest.Mocked<DrizzleDatabase>;
   let eventPublisher: jest.Mocked<IEventPublisher>;
-  let logger: jest.Mocked<Logger>;
-
-  const mockLogger = {
-    debug: jest.fn(),
-    log: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-  };
+  let loggerLogSpy: jest.SpyInstance;
+  let loggerErrorSpy: jest.SpyInstance;
+  let loggerDebugSpy: jest.SpyInstance;
 
   beforeEach(async () => {
     const mockDb = {
@@ -24,6 +19,7 @@ describe("EventPublisherService", () => {
       update: jest.fn(),
       delete: jest.fn(),
       transaction: jest.fn(),
+      execute: jest.fn(),
     };
 
     const mockEventPublisher = {
@@ -41,17 +37,17 @@ describe("EventPublisherService", () => {
           provide: "EVENT_PUBLISHER",
           useValue: mockEventPublisher,
         },
-        {
-          provide: Logger,
-          useValue: mockLogger,
-        },
       ],
     }).compile();
 
     service = module.get<EventPublisherService>(EventPublisherService);
     db = module.get(DATABASE_CONNECTION);
     eventPublisher = module.get("EVENT_PUBLISHER");
-    logger = module.get(Logger);
+    
+    // Spy on the logger methods
+    loggerLogSpy = jest.spyOn(service["logger"], "log");
+    loggerErrorSpy = jest.spyOn(service["logger"], "error");
+    loggerDebugSpy = jest.spyOn(service["logger"], "debug");
   });
 
   afterEach(() => {
@@ -113,7 +109,7 @@ describe("EventPublisherService", () => {
       // Assert
       expect(result).toBe(events.length);
       expect(eventPublisher.publish).toHaveBeenCalledTimes(events.length);
-      expect(mockLogger.log).toHaveBeenCalledWith(
+      expect(loggerLogSpy).toHaveBeenCalledWith(
         `Processing ${events.length} pending events`,
       );
     });
@@ -163,7 +159,7 @@ describe("EventPublisherService", () => {
 
       // Assert
       expect(result).toBe(0);
-      expect(mockLogger.error).toHaveBeenCalledWith(
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining("Failed to publish event"),
       );
     });
@@ -180,7 +176,7 @@ describe("EventPublisherService", () => {
 
       // Assert
       expect(result).toBe(0);
-      expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect(loggerDebugSpy).toHaveBeenCalledWith(
         "Another instance is processing events, skipping...(另一个实例正在处理事件，跳过...)",
       );
     });
@@ -192,7 +188,7 @@ describe("EventPublisherService", () => {
 
       // Act & Assert
       await expect(service.processPendingEvents()).rejects.toThrow(error);
-      expect(mockLogger.error).toHaveBeenCalledWith(
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining("Error processing pending events"),
       );
     });
@@ -226,7 +222,7 @@ describe("EventPublisherService", () => {
 
       // Assert
       expect(result).toBe(events.length);
-      expect(logger.log).toHaveBeenCalledWith(
+      expect(loggerLogSpy).toHaveBeenCalledWith(
         `Reset ${events.length} failed events for retry`,
       );
     });
@@ -240,6 +236,9 @@ describe("EventPublisherService", () => {
 
       // Act & Assert
       await expect(service.retryFailedEvents()).rejects.toThrow(error);
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Error resetting failed events"),
+      );
     });
   });
 
@@ -260,7 +259,7 @@ describe("EventPublisherService", () => {
 
       // Assert
       expect(result).toBe(deletedEvents.length);
-      expect(logger.log).toHaveBeenCalledWith(
+      expect(loggerLogSpy).toHaveBeenCalledWith(
         expect.stringContaining(`Cleaned up ${deletedEvents.length} old published events`),
       );
     });
@@ -274,6 +273,9 @@ describe("EventPublisherService", () => {
 
       // Act & Assert
       await expect(service.cleanupOldEvents()).rejects.toThrow(error);
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Error cleaning up old events"),
+      );
     });
   });
 

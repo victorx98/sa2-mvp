@@ -178,23 +178,28 @@ export class EventPublisherService {
     twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
     const executor: DrizzleExecutor = tx ?? this.db;
 
-    const retriedEvents = await executor
-      .update(schema.domainEvents)
-      .set({
-        status: "pending",
-        retryCount: 0,
-        errorMessage: null,
-      })
-      .where(
-        and(
-          eq(schema.domainEvents.status, "failed"),
-          sql`${schema.domainEvents.createdAt} > ${twentyFourHoursAgo}`,
-        ),
-      )
-      .returning();
+    try {
+      const retriedEvents = await executor
+        .update(schema.domainEvents)
+        .set({
+          status: "pending",
+          retryCount: 0,
+          errorMessage: null,
+        })
+        .where(
+          and(
+            eq(schema.domainEvents.status, "failed"),
+            sql`${schema.domainEvents.createdAt} > ${twentyFourHoursAgo}`,
+          ),
+        )
+        .returning();
 
-    this.logger.log(`Reset ${retriedEvents.length} failed events for retry`);
-    return retriedEvents.length;
+      this.logger.log(`Reset ${retriedEvents.length} failed events for retry`);
+      return retriedEvents.length;
+    } catch (error) {
+      this.logger.error(`Error resetting failed events: ${error}`);
+      throw error;
+    }
   }
 
   /**
@@ -210,19 +215,24 @@ export class EventPublisherService {
     retentionDate.setDate(retentionDate.getDate() - EVENT_RETENTION_DAYS);
     const executor: DrizzleExecutor = tx ?? this.db;
 
-    const deletedEvents = await executor
-      .delete(schema.domainEvents)
-      .where(
-        and(
-          eq(schema.domainEvents.status, "published"),
-          lt(schema.domainEvents.publishedAt, retentionDate),
-        ),
-      )
-      .returning();
-    this.logger.log(
-      `Cleaned up ${deletedEvents.length} old published events (older than ${EVENT_RETENTION_DAYS} days)`,
-    );
-    return deletedEvents.length;
+    try {
+      const deletedEvents = await executor
+        .delete(schema.domainEvents)
+        .where(
+          and(
+            eq(schema.domainEvents.status, "published"),
+            lt(schema.domainEvents.publishedAt, retentionDate),
+          ),
+        )
+        .returning();
+      this.logger.log(
+        `Cleaned up ${deletedEvents.length} old published events (older than ${EVENT_RETENTION_DAYS} days)`,
+      );
+      return deletedEvents.length;
+    } catch (error) {
+      this.logger.error(`Error cleaning up old events: ${error}`);
+      throw error;
+    }
   }
 
   /**
