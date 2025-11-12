@@ -81,10 +81,10 @@ export class EventPublisherService {
       const lockResult = await executor.execute(
         sql`SELECT pg_try_advisory_lock(${LOCK_KEY}) as locked`,
       );
-      interface LockResult {
+      interface ILockResult {
         locked: boolean;
       }
-      const locked = (lockResult.rows[0] as LockResult).locked;
+      const locked = (lockResult.rows[0] as unknown as ILockResult).locked;
 
       if (!locked) {
         this.logger.debug(

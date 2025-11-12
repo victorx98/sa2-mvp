@@ -17,8 +17,7 @@ import type { IDomainEventData } from "../common/types/event.types";
 @Injectable()
 export class EventBusService {
   private readonly emitter = new EventEmitter();
-
-  constructor(private readonly logger: Logger) {}
+  private readonly logger = new Logger(EventBusService.name);
 
   /**
    * 发布事件到本地总线
