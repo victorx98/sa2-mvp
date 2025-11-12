@@ -11,12 +11,12 @@ import {
 } from "@core/meeting-providers";
 import type { MeetingProvider } from "@domains/services/session/interfaces/session.interface";
 import { SessionService } from "@domains/services/session/services/session.service";
-import { ContractService } from "@domains/contract/services/contract.service";
+// import { ContractService } from "@domains/contract/services/contract.service";
+import { ContractService } from "@domains/contract/contract.service";
 import { ServiceHoldService } from "@domains/contract/services/service-hold.service";
 import { BookSessionInput } from "./dto/book-session-input.dto";
-import { CreateHoldDto } from "@domains/contract/dto/create-hold.dto";
 import { BookSessionOutput } from "./dto/book-session-output.dto";
-import { InsufficientBalanceException, TimeConflictException } from "@shared/exceptions";
+import { TimeConflictException } from "@shared/exceptions";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import type {
   DrizzleDatabase,
@@ -56,7 +56,7 @@ export class BookSessionCommand {
     private readonly meetingProviderFactory: MeetingProviderFactory,
     private readonly eventEmitter: EventEmitter2,
     private readonly serviceHoldService: ServiceHoldService,
-  ) { }
+  ) {}
 
   /**
    * 执行预约会话用例
@@ -86,15 +86,14 @@ export class BookSessionCommand {
           "Starting database transaction, including meeting creation",
         );
 
-        // Step 2: 检查余额(可以不检查)
-        const balance = await this.contractService.getServiceBalance({
-          studentId: input.studentId,
-          serviceType: input.serviceType,
-        });
+        // Step 2: 创建服务预占
+        const hold = await this.contractService.createServiceHold({
+          contractId: input.contractId,
+          serviceId: input.serviceType,
+          sessionId: undefined,
+          quantity: 1,
+        }, tx);
 
-        if (!balance || balance.length < 1 || balance[0].availableQuantity < 1) {
-          throw new InsufficientBalanceException("Insufficient service balance");
-        }
 
         // Step 3: Try to create calendar slot directly (atomic with DB constraint)
         // Let the database EXCLUDE constraint handle conflicts
@@ -109,32 +108,23 @@ export class BookSessionCommand {
           },
           tx,
         );
-
+        
         if (!calendarSlot) {
           throw new TimeConflictException("The mentor already has a conflict");
         }
-
-        // Step 4: 创建服务预占
-        const holdDto: CreateHoldDto = {
-          studentId: input.studentId,
-          serviceType: input.serviceType,
-          quantity: 1,
-          expiryAt: calendarSlot.timeRange.end,
-          createdBy: input.contractId, // NOTE: currentUser.name
-        };
-        const hold = await this.serviceHoldService.createHold(holdDto, tx);
 
         // Step 5: 创建会议链接（在事务内，先创建）
         let meetingInfo: {
           meetingUrl?: string;
           password?: string;
           provider?: string;
+          meetingNo?: string;
         } = {};
         try {
-          const meeting = await this.meetingProviderFactory
+          meetingInfo = await this.meetingProviderFactory
             .getProvider(
               (input.meetingProvider as MeetingProviderType) ||
-              MeetingProviderType.FEISHU,
+                MeetingProviderType.FEISHU,
             )
             .createMeeting({
               topic: input.topic,
@@ -142,11 +132,6 @@ export class BookSessionCommand {
               duration: input.duration,
               hostUserId: input.mentorId,
             });
-          meetingInfo = {
-            meetingUrl: meeting.meetingUrl,
-            password: meeting.meetingPassword,
-            provider: meeting.provider,
-          };
         } catch (error) {
           // 会议创建失败，回滚整个事务
           this.logger.error(
@@ -165,20 +150,17 @@ export class BookSessionCommand {
             scheduledDuration: input.duration,
             sessionName: input.topic,
             meetingProvider: input.meetingProvider as MeetingProvider,
+            meetingUrl: meetingInfo.meetingUrl,
+            meetingPassword: meetingInfo.password,
+            meetingNo: meetingInfo.meetingNo,
           },
           tx,
-        );
-
-        // Calendar slot is already created in Step 3, just update it with session ID
-        const updatedCalendarSlot = await this.calendarService.updateSlotSessionId(
-          calendarSlot.id,
-          session.id,
         );
 
         return {
           session,
           hold,
-          calendarSlot: updatedCalendarSlot,
+          calendarSlot,
           meetingInfo,
         };
       });
