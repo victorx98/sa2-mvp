@@ -118,6 +118,7 @@ export class BookSessionCommand {
           meetingUrl?: string;
           password?: string;
           provider?: string;
+          meetingNo?: string;
         } = {};
         try {
           const meeting = await this.meetingProviderFactory
@@ -154,22 +155,17 @@ export class BookSessionCommand {
             scheduledDuration: input.duration,
             sessionName: input.topic,
             meetingProvider: input.meetingProvider as MeetingProvider,
+            meetingUrl: meetingInfo.meetingUrl,
+            meetingPassword: meetingInfo.password,
+            meetingNo: meetingInfo.meetingNo,
           },
           tx,
         );
 
-        // Calendar slot is already created in Step 3, just update it with session ID
-        const updatedCalendarSlot =
-          await this.calendarService.updateSlotSessionId(
-            calendarSlot.id,
-            session.id,
-            tx,
-          );
-
         return {
           session,
           hold,
-          calendarSlot: updatedCalendarSlot,
+          calendarSlot,
           meetingInfo,
         };
       });
