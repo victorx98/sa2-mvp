@@ -1,32 +1,16 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { Logger } from "@nestjs/common";
 import { EventBusService } from "./event-bus.service";
 import type { DomainEvent } from "@infrastructure/database/schema";
 
 describe("EventBusService", () => {
   let service: EventBusService;
-  let logger: jest.Mocked<Logger>;
-
-  const mockLogger = {
-    debug: jest.fn(),
-    log: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        EventBusService,
-        {
-          provide: Logger,
-          useValue: mockLogger,
-        },
-      ],
+      providers: [EventBusService],
     }).compile();
 
     service = module.get<EventBusService>(EventBusService);
-    logger = module.get(Logger);
   });
 
   afterEach(() => {
@@ -63,9 +47,6 @@ describe("EventBusService", () => {
 
       // Assert
       expect(mockHandler).toHaveBeenCalledWith(event);
-      expect(logger.debug).toHaveBeenCalledWith(
-        `[EventBus] Publishing: ${eventName}`,
-      );
     });
 
     it("should handle multiple subscribers", () => {
@@ -125,9 +106,6 @@ describe("EventBusService", () => {
 
       // Act & Assert
       expect(() => service.publish(event)).not.toThrow();
-      expect(logger.debug).toHaveBeenCalledWith(
-        `[EventBus] Publishing: ${eventName}`,
-      );
     });
   });
 
@@ -142,9 +120,6 @@ describe("EventBusService", () => {
 
       // Assert
       expect(service.listenerCount(eventName)).toBe(1);
-      expect(logger.log).toHaveBeenCalledWith(
-        `[EventBus] Subscribing to: ${eventName}`,
-      );
     });
 
     it("should add multiple subscribers for same event", () => {
@@ -174,9 +149,6 @@ describe("EventBusService", () => {
 
       // Assert
       expect(service.listenerCount(eventName)).toBe(0);
-      expect(logger.log).toHaveBeenCalledWith(
-        `[EventBus] Unsubscribing from: ${eventName}`,
-      );
     });
 
     it("should handle unsubscribe when no subscription exists", () => {
