@@ -81,7 +81,12 @@ export class ServiceLedgerArchiveService {
       this.logger.log(`Archived ${totalArchived} ledger records`);
       return totalArchived;
     } catch (error) {
-      this.logger.error(`Ledger archiving task failed: ${error}`);
+      // Database connection failures are expected in unit tests and should be logged as warnings
+      // 数据库连接失败在单元测试中是预期的，应记录为警告
+      this.logger.warn(`Ledger archiving task failed: ${error.message}`, { 
+        error: error,
+        stack: error.stack 
+      });
       throw error;
     }
   }

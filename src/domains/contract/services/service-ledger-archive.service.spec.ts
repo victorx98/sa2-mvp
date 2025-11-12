@@ -251,11 +251,15 @@ describe("ServiceLedgerArchiveService", () => {
 
     it("should handle errors gracefully", async () => {
       // Arrange
+      // Simulate database connection failure - this is an expected error scenario in unit tests
+      // 模拟数据库连接失败 - 这是单元测试中的预期错误场景
       mockDb.where.mockRejectedValueOnce(
         new Error("Database connection failed"),
       );
 
       // Act & Assert
+      // Verify that the service properly propagates the database error
+      // 验证服务是否正确传播数据库错误
       await expect(service.archiveOldLedgers()).rejects.toThrow(
         "Database connection failed",
       );
