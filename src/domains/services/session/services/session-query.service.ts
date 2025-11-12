@@ -296,7 +296,6 @@ export class SessionQueryService {
       mentorId: record.mentorId,
       contractId: record.contractId,
       meetingProvider: record.meetingProvider,
-      meetingId: record.meetingId,
       meetingNo: record.meetingNo,
       meetingUrl: record.meetingUrl,
       meetingPassword: record.meetingPassword,

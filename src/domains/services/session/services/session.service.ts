@@ -73,7 +73,6 @@ export class SessionService {
         mentorId: dto.mentorId,
         contractId: dto.contractId || null,
         meetingProvider: meetingProvider,
-        meetingId: dto.meetingId || null,
         meetingNo: dto.meetingNo || null,
         meetingUrl: dto.meetingUrl || null,
         meetingPassword: dto.meetingPassword || null,
@@ -179,7 +178,6 @@ export class SessionService {
       .update(schema.sessions)
       .set({
         meetingProvider: info.meetingProvider,
-        meetingId: info.meetingId,
         meetingNo: info.meetingNo || null,
         meetingUrl: info.meetingUrl,
         meetingPassword: info.meetingPassword || null,
@@ -323,7 +321,6 @@ export class SessionService {
       mentorId: record.mentorId,
       contractId: record.contractId,
       meetingProvider: record.meetingProvider,
-      meetingId: record.meetingId,
       meetingNo: record.meetingNo,
       meetingUrl: record.meetingUrl,
       meetingPassword: record.meetingPassword,

@@ -303,7 +303,6 @@ describe("SessionService", () => {
     it("should update meeting information", async () => {
       const meetingInfo: MeetingInfoDto = {
         meetingProvider: MeetingProvider.FEISHU,
-        meetingId: "6892847362938471942",
         meetingNo: "123456789",
         meetingUrl: "https://vc.feishu.cn/j/123456789",
         meetingPassword: "abc123",
@@ -321,7 +320,7 @@ describe("SessionService", () => {
 
       const result = await service.updateMeetingInfo(sessionId, meetingInfo);
 
-      expect(result.meetingId).toBe(meetingInfo.meetingId);
+      expect(result.meetingNo).toBe(meetingInfo.meetingNo);
       expect(result.meetingUrl).toBe(meetingInfo.meetingUrl);
     });
 
@@ -330,7 +329,6 @@ describe("SessionService", () => {
 
       const meetingInfo: MeetingInfoDto = {
         meetingProvider: MeetingProvider.FEISHU,
-        meetingId: "123",
         meetingUrl: "https://example.com",
       };
 
