@@ -64,6 +64,13 @@
       "when": 1763007509930,
       "tag": "0008_free_catseye",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1763046824417,
+      "tag": "0009_woozy_thing",
+      "breakpoints": true
     }
   ]
 }

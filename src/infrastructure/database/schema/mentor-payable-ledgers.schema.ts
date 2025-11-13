@@ -63,10 +63,10 @@ export const mentorPayableLedgers = pgTable("mentor_payable_ledgers", {
 
   // ========== Service Snapshot ==========
   /**
-   * Service Type ID - References service_types.id
+   * Service Type Code - References service_types.code
    * Purpose: Snapshots service type at the time of billing (no foreign key - ACL principle)
    */
-  serviceTypeId: uuid("service_type_id").notNull(),
+  serviceTypeCode: varchar("service_type_code", { length: 50 }).notNull(),
 
   /**
    * Service Name - Human-readable service name
@@ -137,8 +137,7 @@ export const mentorPayableLedgers = pgTable("mentor_payable_ledgers", {
 });
 
 export type MentorPayableLedger = typeof mentorPayableLedgers.$inferSelect;
-export type InsertMentorPayableLedger =
-  typeof mentorPayableLedgers.$inferInsert;
+export type InsertMentorPayableLedger = typeof mentorPayableLedgers.$inferInsert;
 
 /**
  * Unique Indexes (created in migration files):

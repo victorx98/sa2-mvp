@@ -4,21 +4,8 @@ import {
   varchar,
   numeric,
   timestamp,
-  pgEnum,
 } from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
-
-/**
- * Billing mode enum (计费模式枚举)
- * - per_session: 按次计费
- * - per_hour: 按时长计费
- * - package: 按包计费（多个session组成一个包）
- */
-export const billingModeEnum = pgEnum("billing_mode", [
-  "per_session",
-  "per_hour",
-  "package",
-]);
 
 /**
  * Mentor Prices Table (导师价格配置表)
@@ -46,24 +33,18 @@ export const mentorPrices = pgTable("mentor_prices", {
    * Mentor User ID (with foreign key comment)
    * References: identity.users.id
    */
-  mentorUserId: uuid("mentor_user_id")
-    .notNull()
-    .references(() => userTable.id, { onDelete: "cascade" }),
+  /**
+   * Mentor User ID (with foreign key comment)
+   * References: identity.users.id
+   */
+  mentorUserId: uuid("mentor_user_id").notNull(),
 
   // ========== Service & Billing ==========
   /**
-   * Service Type ID - References service_types.id
+   * Service Type Code - References service_types.code
    * Purpose: Snapshots service type at the time of pricing (no foreign key - ACL principle)
    */
-  serviceTypeId: uuid("service_type_id").notNull(),
-
-  /**
-   * Billing Mode - How the service is billed
-   * - per_session: Fixed price per session
-   * - per_hour: Price per hour × duration
-   * - package: Fixed price for all sessions in package
-   */
-  billingMode: billingModeEnum("billing_mode").notNull(),
+  serviceTypeCode: varchar("service_type_code", { length: 50 }).notNull(),
 
   /**
    * Unit Price - Price per session/hour/package
@@ -108,9 +89,19 @@ export const mentorPrices = pgTable("mentor_prices", {
    * Updated At - Last update timestamp
    * Updated when price or status changes
    */
+  /**
+   * Updated At - Last update timestamp
+   * Updated when price or status changes
+   */
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
+  
+  /**
+   * Updated By - Operator user ID (for audit trail)
+   * References: identity.users.id
+   */
+  updatedBy: uuid("updated_by"),
 });
 
 export type MentorPrice = typeof mentorPrices.$inferSelect;
@@ -119,10 +110,10 @@ export type InsertMentorPrice = typeof mentorPrices.$inferInsert;
 /**
  * Unique Indexes (created in migration files):
  *
- * 1. Unique price per mentor + service + billing mode
+ * 1. Unique price per mentor + service type
  *    Ensures each mentor has one active price per service type
  *    CREATE UNIQUE INDEX idx_mentor_price_unique
- *    ON mentor_prices(mentor_user_id, service_type_id, billing_mode)
+ *    ON mentor_prices(mentor_user_id, service_type_code)
  *    WHERE status = 'active';
  *
  * 2. Query optimization
@@ -132,5 +123,5 @@ export type InsertMentorPrice = typeof mentorPrices.$inferInsert;
  * 3. Package price lookup
  *    CREATE INDEX idx_mentor_prices_package
  *    ON mentor_prices(service_package_id)
- *    WHERE billing_mode = 'package';
+ *    WHERE service_package_id IS NOT NULL;
  */
