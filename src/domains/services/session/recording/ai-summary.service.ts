@@ -196,16 +196,14 @@ export class AISummaryService {
    * @returns Prompt string
    */
   private buildPrompt(session: ISessionEntity, transcript: string): string {
-    const effectiveMinutes = session.effectiveTutoringDurationSeconds
-      ? Math.floor(session.effectiveTutoringDurationSeconds / 60)
-      : 0;
+    const actualServiceDuration = session.actualServiceDuration || 0;
 
     return `You are an AI assistant helping to summarize a tutoring session.
 
 Session Information:
 - Session Name: ${session.sessionName}
 - Scheduled Duration: ${session.scheduledDuration} minutes
-- Actual Effective Duration: ${effectiveMinutes} minutes
+- Actual Service Duration: ${actualServiceDuration} minutes
 - Notes: ${session.notes || "None"}
 
 Transcript:
@@ -218,7 +216,7 @@ Please provide a comprehensive summary in the following JSON format:
   "key_points": ["Array of key learning points and insights"],
   "suggestions": ["Array of suggestions for the student's future learning"],
   "duration_analysis": {
-    "effective_minutes": ${effectiveMinutes},
+    "effective_minutes": ${actualServiceDuration},
     "topic_breakdown": {
       "Topic 1": estimated_minutes,
       "Topic 2": estimated_minutes

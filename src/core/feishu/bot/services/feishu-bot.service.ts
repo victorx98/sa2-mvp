@@ -154,7 +154,7 @@ export class FeishuBotService {
           tag: "div",
           text: {
             tag: "lark_md",
-            content: `**实际时长**: ${Math.floor((session.effectiveTutoringDurationSeconds || 0) / 60)} 分钟`,
+            content: `**实际时长**: ${session.actualServiceDuration || 0} 分钟`,
           },
         },
         {

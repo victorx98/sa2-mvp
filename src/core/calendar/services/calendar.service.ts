@@ -39,8 +39,6 @@ export class CalendarService {
    * This method performs a direct INSERT, and relies on PostgreSQL EXCLUDE constraint
    * to prevent overlapping bookings. It returns null if a constraint violation occurs.
    *
-   * This is the primary method for creating bookings - do NOT use separate availability
-   * checks before calling this method, as that creates a race condition window.
    *
    * @param dto - CreateSlotDto containing user ID, type, start time, duration, etc.
    * @param tx - Optional transaction for atomicity
@@ -62,8 +60,6 @@ export class CalendarService {
       const executor: DrizzleExecutor = tx ?? this.db;
 
       // Perform direct INSERT - let PostgreSQL EXCLUDE constraint handle conflicts
-      // NOTE: Table name is 'calendar' (not 'calendar_slots'), column 'type' (not 'slot_type')
-      // Build tstzrange inline to avoid parameter expansion issues
       const tstzrangeValue = `tstzrange('${startTime.toISOString()}'::timestamptz, '${endTime.toISOString()}'::timestamptz, '[)')`;
       
       const result = await executor.execute(sql`
@@ -91,14 +87,36 @@ export class CalendarService {
 
       return this.mapToEntity(result.rows[0]);
     } catch (error) {
-      // Check if error is EXCLUDE constraint violation
-      if (error instanceof Error && error.message.includes("23P01")) {
-        return null; // Return null for conflict (not an exception)
+      // Extract the original pg error, compatible with Drizzle error wrapping
+      const pgError =
+        (error as { cause?: unknown })?.cause && typeof (error as { cause?: unknown }).cause === "object"
+          ? ((error as { cause?: unknown }).cause as {
+              message?: string;
+              code?: string;
+              detail?: string;
+              constraint?: string;
+            })
+          : (error as {
+              message?: string;
+              code?: string;
+              detail?: string;
+              constraint?: string;
+            });
+
+      const message = pgError?.message ?? (error instanceof Error ? error.message : "");
+
+      // Return null for EXCLUDE constraint conflicts (SQLSTATE 23P01 or specific constraint name)
+      if (
+        pgError?.code === SQLSTATE_EXCLUDE_CONSTRAINT_VIOLATION ||
+        (typeof message === "string" && message.includes(SQLSTATE_EXCLUDE_CONSTRAINT_VIOLATION)) ||
+        pgError?.constraint === "calendar_no_overlap"
+      ) {
+        return null;
       }
 
-      // Re-throw other database errors
-      if (error instanceof Error) {
-        throw new CalendarException(`Database error: ${error.message}`);
+      // other database errors should be thrown as CalendarException
+      if (message) {
+        throw new CalendarException(`Database error: ${message}`);
       }
 
       throw new CalendarException("Unknown database error occurred");
@@ -110,8 +128,6 @@ export class CalendarService {
    * This method is for UI feedback ONLY and should NOT be used to make write decisions.
    * Always use createSlotDirect() directly and let the database enforce constraints.
    *
-   * Note: user_type parameter is kept for backward compatibility but not used in query,
-   * since the database constraint only checks user_id + time_range overlap
    *
    * @param userId - User ID
    * @param userType - User type (optional, kept for compatibility)
@@ -137,7 +153,6 @@ export class CalendarService {
     const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
 
     // Query for overlapping booked slots (user_type not needed, only user_id + time_range)
-    // NOTE: Table name is 'calendar' (not 'calendar_slots')
     const tstzrangeValue = `tstzrange('${startTime.toISOString()}'::timestamptz, '${endTime.toISOString()}'::timestamptz, '[)')`;
     const result = await this.db.execute(sql`
       SELECT COUNT(*) as count
@@ -174,7 +189,6 @@ export class CalendarService {
     }
 
     // Update status to cancelled
-    // NOTE: Table name is 'calendar' (not 'calendar_slots')
     const result = await this.db.execute(sql`
       UPDATE calendar
       SET status = ${SlotStatus.CANCELLED}, updated_at = NOW()
@@ -210,7 +224,6 @@ export class CalendarService {
       throw new CalendarException("Date range cannot exceed 90 days");
     }
 
-    // NOTE: Table name is 'calendar' (not 'calendar_slots'), column is 'user_type' (not 'calendar_user_type')
     const dateTstzrangeValue = `tstzrange('${dateFrom.toISOString()}'::timestamptz, '${dateTo.toISOString()}'::timestamptz, '[)')`;
     const result = await this.db.execute(sql`
       SELECT *
@@ -250,7 +263,6 @@ export class CalendarService {
     // Use transaction to ensure atomicity: release old + create new
     return await this.db.transaction(async (tx) => {
       // Step 1: Release old slot
-      // NOTE: Table name is 'calendar' (not 'calendar_slots')
       await tx.execute(sql`
         UPDATE calendar
         SET status = ${SlotStatus.CANCELLED}, updated_at = NOW()
@@ -263,7 +275,6 @@ export class CalendarService {
       );
 
       try {
-        // NOTE: Table name is 'calendar' (not 'calendar_slots'), column 'user_type' (not 'calendar_user_type'), 'type' (not 'slot_type')
         const newTstzrangeValue = `tstzrange('${newStartTime.toISOString()}'::timestamptz, '${newEndTime.toISOString()}'::timestamptz, '[)')`;
         const result = await tx.execute(sql`
           INSERT INTO calendar (
@@ -331,7 +342,6 @@ export class CalendarService {
    * @returns ICalendarSlotEntity if found, null otherwise
    */
   async getSlotById(slotId: string): Promise<ICalendarSlotEntity | null> {
-    // NOTE: Table name is 'calendar' (not 'calendar_slots')
     const result = await this.db.execute(sql`
       SELECT *
       FROM calendar
@@ -361,7 +371,6 @@ export class CalendarService {
     tx?: DrizzleTransaction,
   ): Promise<ICalendarSlotEntity> {
     const executor: DrizzleExecutor = tx ?? this.db;
-    // NOTE: Table name is 'calendar' (not 'calendar_slots')
     const result = await executor.execute(sql`
       UPDATE calendar
       SET session_id = ${sessionId}, updated_at = NOW()

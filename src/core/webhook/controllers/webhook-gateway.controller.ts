@@ -38,6 +38,10 @@ export class WebhookGatewayController {
    *
    * POST /webhooks/feishu
    *
+   * Supports two verification modes:
+   * 1. Verification Token mode: Verifies the token in the request body
+   * 2. Encrypt Key mode: Verifies the signature in request headers
+   *
    * @param request - Raw request with body
    * @param headers - Request headers
    * @param body - Webhook payload
@@ -51,11 +55,11 @@ export class WebhookGatewayController {
   ): Promise<{ challenge?: string }> {
     this.logger.debug("Received Feishu webhook");
 
-    // Handle URL verification challenge
+    // Handle URL verification challenge (initial configuration on Feishu platform)
     if (body.type === "url_verification" && body.challenge) {
       this.logger.log("Handling Feishu URL verification challenge");
 
-      // Verify token
+      // Verify the token sent by Feishu during URL verification
       if (body.token) {
         this.verificationService.verifyFeishuToken(body.token);
       }
@@ -63,9 +67,17 @@ export class WebhookGatewayController {
       return { challenge: body.challenge };
     }
 
-    // Verify webhook signature
-    const rawBody = request.rawBody?.toString("utf-8") || JSON.stringify(body);
-    this.verificationService.verifyFeishuWebhook(headers, rawBody);
+    // Verify event webhook using appropriate mode
+    // First, check if we're using Verification Token mode (no Encrypt Key configured)
+    // In this case, verify using the token in the request body
+    if (!body.header?.token) {
+      // Try signature verification if Encrypt Key mode is enabled
+      const rawBody = request.rawBody?.toString("utf-8") || JSON.stringify(body);
+      this.verificationService.verifyFeishuWebhook(headers, rawBody);
+    } else {
+      // Use Verification Token mode - verify the token in the request body
+      this.verificationService.verifyFeishuWebhookByToken(body as Record<string, unknown>);
+    }
 
     // Extract event data
     const event = this.extractFeishuEvent(body);
@@ -125,7 +137,7 @@ export class WebhookGatewayController {
     if (payload.header && payload.header.event_type) {
       return {
         eventType: payload.header.event_type,
-        eventData: payload.event || payload,
+        eventData: payload,
         timestamp: parseInt(payload.header.create_time, 10),
         eventId: payload.header.event_id,
       };
@@ -135,7 +147,7 @@ export class WebhookGatewayController {
     if (payload.event && payload.event.type) {
       return {
         eventType: payload.event.type,
-        eventData: payload.event,
+        eventData: payload,
         timestamp: Date.now(),
       };
     }
