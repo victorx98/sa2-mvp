@@ -2,9 +2,9 @@ import { Injectable, UnauthorizedException, Inject } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 import {
-  IUserRepository,
-  USER_REPOSITORY,
-} from "@domains/identity/user/user-repository.interface";
+  IUserService,
+  USER_SERVICE,
+} from "@domains/identity/user/user-interface";
 import { LoginDto } from "@api/dto/request/login.dto";
 import { AuthResultDto } from "./dto/auth-result.dto";
 
@@ -16,7 +16,7 @@ import { AuthResultDto } from "./dto/auth-result.dto";
  * 3. 返回业务数据（不是前端格式）
  *
  * 设计原则：
- * ✅ 注入 Domain Service/Repository
+ * ✅ 注入 Domain Service
  * ✅ 包含业务规则验证
  * ✅ 返回业务 DTO（可被多个 BFF 复用）
  * ❌ 不返回前端特定格式
@@ -25,14 +25,14 @@ import { AuthResultDto } from "./dto/auth-result.dto";
 @Injectable()
 export class LoginCommand {
   constructor(
-    @Inject(USER_REPOSITORY)
-    private readonly userRepository: IUserRepository,
+    @Inject(USER_SERVICE)
+    private readonly userService: IUserService,
     private readonly jwtService: JwtService,
   ) {}
 
   async execute(loginDto: LoginDto): Promise<AuthResultDto> {
     // Step 1: 查找用户（包含密码）
-    const user = await this.userRepository.findByEmailWithPassword(
+    const user = await this.userService.findByEmailWithPassword(
       loginDto.email,
     );
     if (!user) {

@@ -8,11 +8,11 @@ import type { StringValue } from "ms";
 import { DatabaseModule } from "@infrastructure/database/database.module";
 
 // Domain Layer
-import { UserRepository } from "@infrastructure/repositories/user.repository";
-import { USER_REPOSITORY } from "@domains/identity/user/user-repository.interface";
+import { UserModule } from "@domains/identity/user/user.module";
 
 // Application Layer - Queries
 import { UserQueryService } from "./queries/user-query.service";
+import { StudentListQuery } from "./queries/student/student-list.query";
 
 // Application Layer - Commands
 import { RegisterCommand } from "./commands/auth/register.command";
@@ -29,6 +29,7 @@ import { MeetingProviderModule } from "@core/meeting-providers";
 // Domain Services
 import { SessionModule } from "@domains/services/session/session.module";
 import { ContractModule } from "@domains/contract/contract.module";
+import { QueryModule } from "@domains/query/query.module";
 
 // Shared
 import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";
@@ -45,8 +46,10 @@ import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";
   imports: [
     DatabaseModule, // 导入数据库模块，提供事务支持
     MeetingProviderModule, // 导入会议提供者模块
+    UserModule, // Domain层：User (Identity)
     SessionModule, // Domain层：Session
     ContractModule, // Domain层：Contract
+    QueryModule, // Domain层：Query (跨域查询)
     PassportModule.register({ defaultStrategy: "jwt" }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -62,17 +65,12 @@ import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";
     }),
   ],
   providers: [
-    // Domain Repositories
-    {
-      provide: USER_REPOSITORY,
-      useClass: UserRepository,
-    },
-
     // Core Services
     CalendarService,
 
     // Queries
     UserQueryService,
+    StudentListQuery,
 
     // Commands
     RegisterCommand,
@@ -91,11 +89,13 @@ import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";
     MeetingProviderModule,
 
     // Domain Services
+    UserModule,
     SessionModule,
     ContractModule,
 
     // Queries
     UserQueryService,
+    StudentListQuery,
 
     // Commands
     RegisterCommand,
