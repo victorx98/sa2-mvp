@@ -10,7 +10,7 @@ import { resourceFromAttributes } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME, ATTR_SERVER_ADDRESS, ATTR_SERVICE_VERSION, SEMRESATTRS_DEPLOYMENT_ENVIRONMENT } from "@opentelemetry/semantic-conventions";
 
 const isTelemetryEnabled =
-  process.env.OTEL_ENABLED !== "false" && process.env.NODE_ENV !== "test";
+  process.env.OTEL_ENABLED !== "false" && process.env.NODE_ENV !== "development";
 
 if (process.env.OTEL_LOG_LEVEL) {
   const logLevel = process.env.OTEL_LOG_LEVEL.toUpperCase();

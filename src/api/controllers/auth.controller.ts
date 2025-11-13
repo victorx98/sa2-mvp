@@ -53,18 +53,7 @@ export class AuthController {
     description: "Login successful",
   })
   async login(@Body() loginDto: LoginDto): Promise<AuthResultDto> {
-    this.logger.log("[API]login: ", loginDto.email);
     // ✅ 直接调用 Application Layer 服务
     return this.loginCommand.execute(loginDto);
-    // return {
-    //   accessToken: "test",
-    //   user: {
-    //     id: "test",
-    //     email: loginDto.email,
-    //     nickname: "test",
-    //     cnNickname: "test",
-    //     status: "active",
-    //   },
-    // };
   }
 }
