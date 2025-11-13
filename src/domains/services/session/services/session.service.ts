@@ -101,11 +101,9 @@ export class SessionService {
       throw new SessionNotFoundException("SESSION_NOT_FOUND");
     }
 
-    // 2. Check if session can be updated (not completed or cancelled)
-    if (
-      existing.status === SessionStatus.COMPLETED ||
-      existing.status === SessionStatus.CANCELLED
-    ) {
+    // 2. Check if session can be updated (not cancelled)
+    // where mentor/student may reconnect after initial disconnect
+    if (existing.status === SessionStatus.CANCELLED) {
       throw new SessionException("SESSION_CANNOT_UPDATE");
     }
 

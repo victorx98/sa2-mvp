@@ -137,7 +137,7 @@ export class SessionEventSubscriber {
       const actualServiceDuration = this.calculateTotalDuration(updatedTimeList);
 
       this.logger.log(
-        `Meeting time segment added for session ${session.id}: startTime=${newTimeSegment.startTime}, endTime=${newTimeSegment.endTime}. Total actual service duration: ${actualServiceDuration} minutes.`,
+        `Meeting time segment added for session ${session.id}: startTime=${newTimeSegment.startTime?.toISOString()}, endTime=${newTimeSegment.endTime?.toISOString()}. Total actual service duration: ${actualServiceDuration} minutes.`,
       );
 
       // 6. Update session with new meeting time list and calculated service duration
