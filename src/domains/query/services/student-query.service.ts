@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { eq, and, sql, inArray } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
@@ -8,9 +8,9 @@ import * as schema from "@infrastructure/database/schema";
  * Student Query Service
  * 职责：
  * 1. 查询学生列表
- * 2. 支持按导师过滤（通过 sessions 表关联）
- * 3. 支持按顾问过滤（目前通过 sessions 表，未来可能需要专门的关联表）
- * 4. 返回扁平化的 Read Model
+ * 2. 支持按导师过滤（通过 student_mentor 表关联）
+ * 3. 支持按顾问过滤（通过 student_counselor 表关联）
+ * 4. 返回扁平化的 Read Model，包含用户信息和学生信息
  */
 @Injectable()
 export class StudentQueryService {
@@ -23,99 +23,188 @@ export class StudentQueryService {
 
   /**
    * 根据导师ID获取学生列表
-   * 通过 sessions 表关联，查找与导师有过会话的学生
-   * 注意：sessions 表的 student_id 和 mentor_id 是 uuid 类型，而 user 表的 id 是 varchar(32)
-   * 使用 SQL 查询直接 JOIN，通过类型转换匹配
+   * 通过 student_mentor 表关联，查找分配给该导师的学生
    */
   async findStudentsByMentorId(mentorId: string): Promise<StudentListItem[]> {
     this.logger.log(`Finding students for mentor: ${mentorId}`);
 
-    // 使用 SQL 直接查询，通过类型转换匹配 user.id (varchar) 和 sessions.student_id (uuid)
-    // 假设 user.id 存储的是 UUID 格式的字符串
+    // 使用 SQL 查询，以 student 表为主表，通过 student_mentor 表关联
     const result = await this.db.execute(sql`
       SELECT DISTINCT
-        u.id,
+        s.id,
+        s.user_id,
+        s.status,
+        s.under_major,
+        s.under_college,
+        s.graduate_major,
+        s.graduate_college,
+        s.ai_resume_summary,
+        s.customer_importance,
+        s.fulltime_startdate,
+        s.background_info,
+        s.grades,
+        s.created_time,
+        s.modified_time,
         u.email,
         u.nickname,
         u.cn_nickname,
-        u.status,
         u.country,
-        u.created_time,
-        COUNT(DISTINCT s.id) as session_count
-      FROM "user" u
-      INNER JOIN sessions s ON u.id::uuid = s.student_id
-      WHERE s.mentor_id::text = ${mentorId}
-      GROUP BY u.id, u.email, u.nickname, u.cn_nickname, u.status, u.country, u.created_time
-      ORDER BY u.created_time
+        u.gender
+      FROM student s
+      LEFT JOIN "user" u ON s.user_id = u.id
+      INNER JOIN student_mentor sm ON s.id = sm.student_id
+      INNER JOIN mentor m ON sm.mentor_id = m.id
+      WHERE m.id = ${mentorId}
+        AND s.user_id IS NOT NULL
+      ORDER BY s.created_time DESC
     `);
 
-    return result.rows.map((row: any) => ({
-      id: row.id,
-      email: row.email || "",
-      nickname: row.nickname || "",
-      cnNickname: row.cn_nickname || "",
-      status: row.status || "",
-      country: row.country || "",
-      createdAt: row.created_time,
-      sessionCount: Number(row.session_count) || 0,
+    return result.rows.map((row: Record<string, unknown>) => ({
+      id: String(row.id || ""),
+      userId: String(row.user_id || ""),
+      status: String(row.status || ""),
+      underMajor: String(row.under_major || ""),
+      underCollege: String(row.under_college || ""),
+      graduateMajor: String(row.graduate_major || ""),
+      graduateCollege: String(row.graduate_college || ""),
+      aiResumeSummary: String(row.ai_resume_summary || ""),
+      customerImportance: String(row.customer_importance || ""),
+      fulltimeStartdate: row.fulltime_startdate ? new Date(String(row.fulltime_startdate)) : null,
+      backgroundInfo: String(row.background_info || ""),
+      grades: String(row.grades || ""),
+      createdAt: row.created_time as Date,
+      modifiedAt: row.modified_time as Date,
+      email: String(row.email || ""),
+      nickname: String(row.nickname || ""),
+      cnNickname: String(row.cn_nickname || ""),
+      country: String(row.country || ""),
+      gender: String(row.gender || ""),
     }));
   }
 
   /**
    * 根据顾问ID获取学生列表
-   * 注意：目前系统中没有直接的顾问-学生关联表
-   * 这里暂时返回空数组，或者可以通过其他业务逻辑关联
-   * 未来可能需要创建专门的顾问-学生关联表
+   * 通过 student_counselor 表关联，查找分配给该顾问的学生
    */
   async findStudentsByCounselorId(
     counselorId: string,
   ): Promise<StudentListItem[]> {
     this.logger.log(`Finding students for counselor: ${counselorId}`);
 
-    // TODO: 实现顾问-学生关联查询
-    // 目前系统中没有直接的顾问-学生关联表
-    // 可能的实现方式：
-    // 1. 创建 counselor_assignments 表
-    // 2. 或者通过其他业务逻辑关联（如 contracts 表）
-    // 暂时返回空数组
-    this.logger.warn(
-      "Counselor-student relationship not yet implemented. Returning empty array.",
-    );
+    // 使用 SQL 查询，以 student 表为主表，通过 student_counselor 表关联
+    const result = await this.db.execute(sql`
+      SELECT DISTINCT
+        s.id,
+        s.user_id,
+        s.status,
+        s.under_major,
+        s.under_college,
+        s.graduate_major,
+        s.graduate_college,
+        s.ai_resume_summary,
+        s.customer_importance,
+        s.fulltime_startdate,
+        s.background_info,
+        s.grades,
+        s.created_time,
+        s.modified_time,
+        u.email,
+        u.nickname,
+        u.cn_nickname,
+        u.country,
+        u.gender,
+        sc.status as counselor_status,
+        sc.type as counselor_type
+      FROM student s
+      LEFT JOIN "user" u ON s.user_id = u.id
+      INNER JOIN student_counselor sc ON s.id = sc.student_id
+      INNER JOIN counselor c ON sc.counselor_id = c.id
+      WHERE c.id = ${counselorId}
+        AND s.user_id IS NOT NULL
+      ORDER BY s.created_time DESC
+    `);
 
-    // 暂时返回空数组
-    // 未来可以通过 contracts 表或其他关联表实现
-    return [];
+    return result.rows.map((row: Record<string, unknown>) => ({
+      id: String(row.id || ""),
+      userId: String(row.user_id || ""),
+      status: String(row.status || ""),
+      underMajor: String(row.under_major || ""),
+      underCollege: String(row.under_college || ""),
+      graduateMajor: String(row.graduate_major || ""),
+      graduateCollege: String(row.graduate_college || ""),
+      aiResumeSummary: String(row.ai_resume_summary || ""),
+      customerImportance: String(row.customer_importance || ""),
+      fulltimeStartdate: row.fulltime_startdate ? new Date(String(row.fulltime_startdate)) : null,
+      backgroundInfo: String(row.background_info || ""),
+      grades: String(row.grades || ""),
+      createdAt: row.created_time as Date,
+      modifiedAt: row.modified_time as Date,
+      email: String(row.email || ""),
+      nickname: String(row.nickname || ""),
+      cnNickname: String(row.cn_nickname || ""),
+      country: String(row.country || ""),
+      gender: String(row.gender || ""),
+      counselorStatus: String(row.counselor_status || ""),
+      counselorType: String(row.counselor_type || ""),
+    }));
   }
 
   /**
    * 获取所有学生列表（不带过滤）
+   * 以 student 表为主表，关联 user 表获取用户信息
    * 可以根据需要添加分页和过滤逻辑
    */
   async findAllStudents(): Promise<StudentListItem[]> {
     this.logger.log("Finding all students");
 
-    const result = await this.db
-      .select({
-        id: schema.userTable.id,
-        email: schema.userTable.email,
-        nickname: schema.userTable.nickname,
-        cnNickname: schema.userTable.cnNickname,
-        status: schema.userTable.status,
-        country: schema.userTable.country,
-        createdTime: schema.userTable.createdTime,
-      })
-      .from(schema.userTable)
-      .orderBy(schema.userTable.createdTime);
+    // 使用 SQL 查询，以 student 表为主表
+    const result = await this.db.execute(sql`
+      SELECT 
+        s.id,
+        s.user_id,
+        s.status,
+        s.under_major,
+        s.under_college,
+        s.graduate_major,
+        s.graduate_college,
+        s.ai_resume_summary,
+        s.customer_importance,
+        s.fulltime_startdate,
+        s.background_info,
+        s.grades,
+        s.created_time,
+        s.modified_time,
+        u.email,
+        u.nickname,
+        u.cn_nickname,
+        u.country,
+        u.gender
+      FROM student s
+      LEFT JOIN "user" u ON s.user_id = u.id
+      WHERE s.user_id IS NOT NULL
+      ORDER BY s.created_time DESC
+    `);
 
-    return result.map((row) => ({
-      id: row.id,
-      email: row.email || "",
-      nickname: row.nickname || "",
-      cnNickname: row.cnNickname || "",
-      status: row.status || "",
-      country: row.country || "",
-      createdAt: row.createdTime,
-      sessionCount: 0, // 全部学生列表不统计会话数量
+    return result.rows.map((row: Record<string, unknown>) => ({
+      id: String(row.id || ""),
+      userId: String(row.user_id || ""),
+      status: String(row.status || ""),
+      underMajor: String(row.under_major || ""),
+      underCollege: String(row.under_college || ""),
+      graduateMajor: String(row.graduate_major || ""),
+      graduateCollege: String(row.graduate_college || ""),
+      aiResumeSummary: String(row.ai_resume_summary || ""),
+      customerImportance: String(row.customer_importance || ""),
+      fulltimeStartdate: row.fulltime_startdate ? new Date(String(row.fulltime_startdate)) : null,
+      backgroundInfo: String(row.background_info || ""),
+      grades: String(row.grades || ""),
+      createdAt: row.created_time as Date,
+      modifiedAt: row.modified_time as Date,
+      email: String(row.email || ""),
+      nickname: String(row.nickname || ""),
+      cnNickname: String(row.cn_nickname || ""),
+      country: String(row.country || ""),
+      gender: String(row.gender || ""),
     }));
   }
 }
@@ -123,15 +212,34 @@ export class StudentQueryService {
 /**
  * Student List Item DTO
  * 扁平化的 Read Model，用于列表展示
+ * 以 student 表的字段为主，user 表的字段作为补充信息
  */
 export interface StudentListItem {
-  id: string;
-  email: string;
-  nickname: string;
-  cnNickname: string;
-  status: string;
-  country: string;
-  createdAt: Date;
-  sessionCount?: number; // 可选字段，用于显示与导师/顾问的会话数量
+  // Student 表主要字段
+  id: string; // student.id (主键)
+  userId: string; // student.user_id (关联到 user.id)
+  status: string; // student.status
+  underMajor: string; // student.under_major
+  underCollege: string; // student.under_college
+  graduateMajor: string; // student.graduate_major
+  graduateCollege: string; // student.graduate_college
+  aiResumeSummary: string; // student.ai_resume_summary
+  customerImportance: string; // student.customer_importance
+  fulltimeStartdate: Date | null; // student.fulltime_startdate
+  backgroundInfo: string; // student.background_info
+  grades: string; // student.grades
+  createdAt: Date; // student.created_time
+  modifiedAt: Date; // student.modified_time
+
+  // User 表补充字段（通过 LEFT JOIN 获取）
+  email: string; // user.email
+  nickname: string; // user.nickname
+  cnNickname: string; // user.cn_nickname
+  country: string; // user.country
+  gender: string; // user.gender
+
+  // 关联信息
+  counselorStatus?: string; // student_counselor.status (仅当通过顾问查询时)
+  counselorType?: string; // student_counselor.type (仅当通过顾问查询时)
 }
 

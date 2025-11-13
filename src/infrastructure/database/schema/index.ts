@@ -1,5 +1,10 @@
 // User and identity
 export * from "./user.schema";
+export * from "./student.schema";
+export * from "./mentor.schema";
+export * from "./counselor.schema";
+export * from "./student-mentor.schema";
+export * from "./student-counselor.schema";
 
 // Catalog domain
 export * from "./services.schema";
@@ -17,8 +22,6 @@ export * from "./service-holds.schema";
 export * from "./service-ledger-archive-policies.schema";
 export * from "./service-ledgers-archive.schema";
 export * from "./service-ledgers.schema";
-
-export * from "./user.schema";
 
 // Services domain
 export * from "./sessions.schema";
