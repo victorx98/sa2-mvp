@@ -44,8 +44,7 @@ export interface ISessionEntity {
 
   // Meeting information
   meetingProvider: string; // 'feishu' | 'zoom'
-  meetingId: string | null; // Third-party meeting ID
-  meetingNo: string | null; // Feishu meeting number (9 digits)
+  meetingNo: string | null; // Feishu meeting number (9 digits) - key field for webhook association
   meetingUrl: string | null; // Meeting link
   meetingPassword: string | null; // Meeting password
 

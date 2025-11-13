@@ -30,7 +30,8 @@ export class SessionService {
   ) {}
 
   /**
-   * Create session record (atomic operation, no meeting creation or calendar blocking)
+   * Create session record with meeting information (atomic operation)
+   * BFF layer should call MeetingProvider.createMeeting() first, then pass meeting info to this method
    */
   async createSession(
     dto: CreateSessionDto,
@@ -62,7 +63,7 @@ export class SessionService {
       (process.env.DEFAULT_MEETING_PROVIDER as MeetingProvider) ||
       MeetingProvider.FEISHU;
 
-    // 6. Create session record
+    // 6. Create session record with meeting information
     const executor: DrizzleExecutor = tx ?? this.db;
 
     const [session] = await executor
@@ -72,6 +73,9 @@ export class SessionService {
         mentorId: dto.mentorId,
         contractId: dto.contractId || null,
         meetingProvider: meetingProvider,
+        meetingNo: dto.meetingNo || null,
+        meetingUrl: dto.meetingUrl || null,
+        meetingPassword: dto.meetingPassword || null,
         scheduledStartTime: startTime,
         scheduledDuration: dto.scheduledDuration,
         sessionName: sessionName,
@@ -174,7 +178,6 @@ export class SessionService {
       .update(schema.sessions)
       .set({
         meetingProvider: info.meetingProvider,
-        meetingId: info.meetingId,
         meetingNo: info.meetingNo || null,
         meetingUrl: info.meetingUrl,
         meetingPassword: info.meetingPassword || null,
@@ -283,10 +286,11 @@ export class SessionService {
   }
 
   /**
-   * Get session by meeting_id (used by Webhook module)
+   * Get session by meeting_no (Feishu meeting number)
+   * Used by event subscribers to identify their sessions
    */
-  async getSessionByMeetingId(
-    meetingId: string,
+  async getSessionByMeetingNo(
+    meetingNo: string,
     tx?: DrizzleTransaction,
   ): Promise<ISessionEntity | null> {
     const executor: DrizzleExecutor = tx ?? this.db;
@@ -296,7 +300,7 @@ export class SessionService {
       .from(schema.sessions)
       .where(
         and(
-          eq(schema.sessions.meetingId, meetingId),
+          eq(schema.sessions.meetingNo, meetingNo),
           isNull(schema.sessions.deletedAt),
         ),
       )
@@ -317,7 +321,6 @@ export class SessionService {
       mentorId: record.mentorId,
       contractId: record.contractId,
       meetingProvider: record.meetingProvider,
-      meetingId: record.meetingId,
       meetingNo: record.meetingNo,
       meetingUrl: record.meetingUrl,
       meetingPassword: record.meetingPassword,

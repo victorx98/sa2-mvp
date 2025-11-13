@@ -12,6 +12,8 @@ export const CONTRACT_ERROR_MESSAGES: Record<string, string> = {
   CONTRACT_NOT_FOUND: "Contract not found",
   CONTRACT_NUMBER_DUPLICATE: "Contract number already exists",
   CONTRACT_NOT_DRAFT: "Contract is not in draft status",
+  CONTRACT_NOT_DRAFT_CORE_FIELDS:
+    "Core fields can only be updated for draft contracts",
   CONTRACT_NOT_ACTIVE: "Contract is not active",
   CONTRACT_NOT_SUSPENDED: "Contract is not suspended",
   CONTRACT_NOT_TERMINATABLE: "Contract cannot be terminated in current status",

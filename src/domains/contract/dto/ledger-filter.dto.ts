@@ -1,27 +1,27 @@
 import { IsOptional, IsUUID, IsString, IsDateString } from "class-validator";
 
 /**
- * Ledger Filter DTO
- * Used for filtering ledger records
+ * DTO for filtering ledger records (筛选台账记录的DTO)
+ * Used for filtering ledger records (用于筛选台账记录)
  */
 export class LedgerFilterDto {
   @IsOptional()
   @IsUUID()
-  contractId?: string;
+  contractId?: string; // Contract ID (合约ID)
 
   @IsOptional()
   @IsString()
-  studentId?: string;
+  studentId?: string; // Student ID (学生ID)
 
   @IsOptional()
   @IsString()
-  serviceType?: string;
+  serviceType?: string; // Service type (服务类型)
 
   @IsOptional()
   @IsDateString()
-  startDate?: Date;
+  startDate?: Date; // Filter start date (筛选开始日期)
 
   @IsOptional()
   @IsDateString()
-  endDate?: Date;
+  endDate?: Date; // Filter end date (筛选结束日期)
 }

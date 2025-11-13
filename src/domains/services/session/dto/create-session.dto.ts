@@ -8,10 +8,12 @@ import {
   IsString,
   MaxLength,
   IsEnum,
+  IsUrl,
 } from "class-validator";
 import { MeetingProvider } from "../interfaces/session.interface";
 
 export class CreateSessionDto {
+  // Base fields
   @IsUUID()
   studentId: string; // Student user ID
 
@@ -37,12 +39,28 @@ export class CreateSessionDto {
   notes?: string; // Notes (optional)
 
   @IsOptional()
-  @IsEnum(MeetingProvider)
-  meetingProvider?: MeetingProvider; // Meeting platform (default from system config)
-
-  @IsOptional()
   @IsUUID()
   contractId?: string; // Associated contract ID (optional, for billing)
+
+  // Meeting information fields (integrated from MeetingInfoDto)
+  @IsOptional()
+  @IsEnum(MeetingProvider)
+  meetingProvider?: MeetingProvider; // Meeting platform (from MeetingProvider.createMeeting())
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  meetingNo?: string; // Feishu meeting number (9 digits) - key field for webhook association
+
+  @IsOptional()
+  @IsUrl()
+  @MaxLength(2048)
+  meetingUrl?: string; // Meeting link (from MeetingProvider.createMeeting())
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  meetingPassword?: string; // Meeting password (optional, from MeetingProvider.createMeeting())
 
   @IsOptional()
   @IsString()

@@ -14,12 +14,12 @@ import {
   CatalogConflictException,
   CatalogGoneException,
 } from "../../common/exceptions/catalog.exception";
-import {
-  ServiceStatus,
-  ProductItemType,
-} from "../../common/interfaces/enums";
+import { ServiceStatus, ProductItemType } from "../../common/interfaces/enums";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "@infrastructure/database/schema";
+
+// Increase default timeout for integration tests
+jest.setTimeout(60000);
 
 describe("ServicePackageService (Integration with Real Database)", () => {
   let moduleRef: TestingModule;
@@ -52,14 +52,14 @@ describe("ServicePackageService (Integration with Real Database)", () => {
     // Create test user
     const user = await fixtures.createUser();
     testUserId = user.id;
-  });
+  }, 30000); // Increase timeout for beforeAll hook
 
   afterAll(async () => {
     // Clean up all test data
     await fixtures.cleanupAll();
 
     await moduleRef.close();
-  });
+  }, 30000); // Increase timeout for afterAll hook
 
   afterEach(async () => {
     // Clean up catalog data after each test to avoid unique constraint violations
@@ -416,20 +416,27 @@ describe("ServicePackageService (Integration with Real Database)", () => {
       const services = await fixtures.createServices(testUserId, 2, {
         status: "active",
       });
-      const servicePackage = await fixtures.createServicePackage(
+
+      const pkg = await fixtures.createServicePackage(
         testUserId,
         [services[0].id, services[1].id],
-        { name: "Test Package" },
+        { status: "active" },
       );
 
-      const snapshot = await service.generateSnapshot(servicePackage.id);
+      const result = await service.generateSnapshot(pkg.id);
 
-      expect(snapshot).toBeDefined();
-      expect(snapshot.packageId).toBe(servicePackage.id);
-      expect(snapshot.packageName).toBe(servicePackage.name);
-      expect(snapshot.items.length).toBe(2);
-      expect(snapshot.snapshotAt).toBeDefined();
-    });
+      expect(result).toBeDefined();
+      expect(result.packageId).toBe(pkg.id);
+      expect(result.packageName).toBe(pkg.name);
+      expect(result.items).toHaveLength(2);
+
+      // Verify item structure
+      const firstItem = result.items[0];
+      expect(firstItem).toBeDefined();
+      expect(firstItem.serviceSnapshot.serviceId).toBeDefined();
+      expect(firstItem.serviceSnapshot.serviceName).toBeDefined();
+      expect(firstItem.quantity).toBeGreaterThan(0);
+    }, 15000); // Increase timeout for this test
 
     it("should reject generating snapshot for non-existent package", async () => {
       await expect(

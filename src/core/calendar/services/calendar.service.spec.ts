@@ -1,31 +1,42 @@
-import { Test, TestingModule } from "@nestjs/testing";
-import { CalendarService } from "./calendar.service";
-import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
+import { Test, TestingModule } from '@nestjs/testing';
+import { CalendarService } from './calendar.service';
+import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import {
   CalendarException,
   CalendarNotFoundException,
-  CalendarConflictException,
-} from "../exceptions/calendar.exception";
-import { CreateSlotDto } from "../dto/create-slot.dto";
-import { QuerySlotDto } from "../dto/query-slot.dto";
+} from '../exceptions/calendar.exception';
+import { CreateSlotDto } from '../dto/create-slot.dto';
+import { QuerySlotDto } from '../dto/query-slot.dto';
 import {
-  ResourceType,
-  SlotType,
   SlotStatus,
-} from "../interfaces/calendar-slot.interface";
+  SlotType,
+  UserType,
+} from '../interfaces/calendar-slot.interface';
 
-describe("CalendarService", () => {
+describe('CalendarService', () => {
   let service: CalendarService;
-  let mockDb: unknown;
+  let mockDb: any;
 
-  // Mock database connection
-  const createMockDb = () => ({
-    execute: jest.fn(),
-    transaction: jest.fn(),
-  });
+  const mockSlotEntity = {
+    id: '123',
+    user_id: 'user-1',
+    user_type: 'consultant',
+    time_range: '[2025-12-01 10:00:00+00, 2025-12-01 11:00:00+00)',
+    duration_minutes: 60,
+    session_id: 'session-1',
+    type: 'appointment',
+    status: 'booked',
+    reason: null,
+    created_at: new Date('2025-11-11T10:00:00Z'),
+    updated_at: new Date('2025-11-11T10:00:00Z'),
+  };
 
   beforeEach(async () => {
-    mockDb = createMockDb();
+    // Mock database module
+    mockDb = {
+      execute: jest.fn(),
+      transaction: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -44,402 +55,484 @@ describe("CalendarService", () => {
     jest.clearAllMocks();
   });
 
-  describe("isSlotAvailable", () => {
-    const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000); // Tomorrow
+  describe('createSlotDirect', () => {
+    it('should create a slot successfully', async () => {
+      const dto: CreateSlotDto = {
+        userId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        userType: UserType.MENTOR,
+        startTime: '2025-12-01T10:00:00Z',
+        durationMinutes: 60,
+        sessionId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        slotType: SlotType.SESSION,
+        reason: null,
+      };
 
-    it("should return true when slot is available", async () => {
-      (mockDb as { execute: jest.Mock }).execute.mockResolvedValue({
-        rows: [{ count: "0" }],
-      });
+      mockDb.execute.mockResolvedValue({ rows: [mockSlotEntity] });
+
+      const result = await service.createSlotDirect(dto);
+
+      expect(result).toBeDefined();
+      expect(result?.id).toBe('123');
+      expect(result?.userId).toBe('user-1');
+      expect(mockDb.execute).toHaveBeenCalled();
+    });
+
+    it('should return null when EXCLUDE constraint violation occurs (23P01)', async () => {
+      const dto: CreateSlotDto = {
+        userId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        userType: UserType.MENTOR,
+        startTime: '2025-12-01T10:00:00Z',
+        durationMinutes: 60,
+        sessionId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        slotType: SlotType.SESSION,
+        reason: null,
+      };
+
+      const error = new Error('Duplicate key value violates unique constraint (23P01)');
+      mockDb.execute.mockRejectedValue(error);
+
+      const result = await service.createSlotDirect(dto);
+
+      expect(result).toBeNull();
+    });
+
+    it('should throw CalendarException for other database errors', async () => {
+      const dto: CreateSlotDto = {
+        userId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        userType: UserType.MENTOR,
+        startTime: '2025-12-01T10:00:00Z',
+        durationMinutes: 60,
+        sessionId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        slotType: SlotType.SESSION,
+        reason: null,
+      };
+
+      const error = new Error('Connection timeout');
+      mockDb.execute.mockRejectedValue(error);
+
+      await expect(service.createSlotDirect(dto)).rejects.toThrow(CalendarException);
+    });
+
+    it('should throw CalendarException for invalid duration (less than 30 minutes)', async () => {
+      const dto: CreateSlotDto = {
+        userId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        userType: UserType.MENTOR,
+        startTime: '2025-12-01T10:00:00Z',
+        durationMinutes: 15,
+        sessionId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        slotType: SlotType.SESSION,
+        reason: null,
+      };
+
+      await expect(service.createSlotDirect(dto)).rejects.toThrow(
+        'Duration must be between 30 and 180 minutes',
+      );
+    });
+
+    it('should throw CalendarException for invalid duration (more than 180 minutes)', async () => {
+      const dto: CreateSlotDto = {
+        userId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        userType: UserType.MENTOR,
+        startTime: '2025-12-01T10:00:00Z',
+        durationMinutes: 200,
+        sessionId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        slotType: SlotType.SESSION,
+        reason: null,
+      };
+
+      await expect(service.createSlotDirect(dto)).rejects.toThrow(
+        'Duration must be between 30 and 180 minutes',
+      );
+    });
+
+    it('should throw CalendarException for past start time', async () => {
+      const pastDate = new Date(Date.now() - 60 * 60 * 1000).toISOString(); // 1 hour ago
+      const dto: CreateSlotDto = {
+        userId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        userType: UserType.MENTOR,
+        startTime: pastDate,
+        durationMinutes: 60,
+        sessionId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        slotType: SlotType.SESSION,
+        reason: null,
+      };
+
+      await expect(service.createSlotDirect(dto)).rejects.toThrow(
+        'Start time cannot be in the past',
+      );
+    });
+  });
+
+  describe('isSlotAvailable', () => {
+    it('should return true when slot is available', async () => {
+      mockDb.execute.mockResolvedValue({ rows: [{ count: '0' }] });
 
       const result = await service.isSlotAvailable(
-        ResourceType.MENTOR,
-        "mentor-id-123",
-        futureDate,
+        'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        UserType.MENTOR,
+        new Date('2025-12-01T10:00:00Z'),
         60,
       );
 
       expect(result).toBe(true);
     });
 
-    it("should return false when slot is occupied", async () => {
-      (mockDb as { execute: jest.Mock }).execute.mockResolvedValue({
-        rows: [{ count: "1" }],
-      });
+    it('should return false when slot is not available', async () => {
+      mockDb.execute.mockResolvedValue({ rows: [{ count: '1' }] });
 
       const result = await service.isSlotAvailable(
-        ResourceType.MENTOR,
-        "mentor-id-123",
-        futureDate,
+        'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        UserType.MENTOR,
+        new Date('2025-12-01T10:00:00Z'),
         60,
       );
 
       expect(result).toBe(false);
     });
 
-    it("should throw error when start time is in the past", async () => {
-      const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    it('should throw CalendarException for invalid duration', async () => {
+      await expect(
+        service.isSlotAvailable(
+          'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+          UserType.MENTOR,
+          new Date('2025-12-01T10:00:00Z'),
+          15,
+        ),
+      ).rejects.toThrow('Duration must be between 30 and 180 minutes');
+    });
+
+    it('should throw CalendarException for past start time', async () => {
+      const pastDate = new Date(Date.now() - 60 * 60 * 1000);
 
       await expect(
         service.isSlotAvailable(
-          ResourceType.MENTOR,
-          "mentor-id-123",
+          'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+          UserType.MENTOR,
           pastDate,
           60,
         ),
-      ).rejects.toThrow(CalendarException);
+      ).rejects.toThrow('Start time cannot be in the past');
     });
   });
 
-  describe("createOccupiedSlot", () => {
-    const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    const validDto: CreateSlotDto = {
-      resourceType: ResourceType.MENTOR,
-      resourceId: "mentor-id-123",
-      startTime: futureDate.toISOString(),
-      durationMinutes: 60,
-      slotType: SlotType.SESSION,
-      sessionId: "session-id-123",
-    };
-
-    it("should create occupied slot when available", async () => {
-      const mockSlot = {
-        id: "slot-id-123",
-        resource_type: "mentor",
-        resource_id: "mentor-id-123",
-        time_range: `[${futureDate.toISOString()}, ${new Date(futureDate.getTime() + 60 * 60000).toISOString()})`,
-        duration_minutes: 60,
-        session_id: "session-id-123",
-        slot_type: "session",
-        status: "occupied",
-        reason: null,
-        created_at: new Date(),
-        updated_at: new Date(),
+  describe('releaseSlot', () => {
+    it('should release a slot successfully', async () => {
+      const cancelledEntity = {
+        ...mockSlotEntity,
+        status: SlotStatus.CANCELLED,
       };
 
-      // Mock availability check
-      (mockDb as { execute: jest.Mock }).execute
-        .mockResolvedValueOnce({ rows: [{ count: "0" }] }) // isSlotAvailable
-        .mockResolvedValueOnce({ rows: [mockSlot] }); // create
+      // Mock getSlotById
+      mockDb.execute
+        .mockResolvedValueOnce({ rows: [mockSlotEntity] })
+        .mockResolvedValueOnce({ rows: [cancelledEntity] });
 
-      const result = await service.createOccupiedSlot(validDto);
-
-      expect(result).toBeDefined();
-      expect(result.resourceType).toBe(ResourceType.MENTOR);
-    });
-
-    it("should throw conflict error when slot is not available", async () => {
-      (mockDb as { execute: jest.Mock }).execute.mockResolvedValue({
-        rows: [{ count: "1" }],
-      });
-
-      await expect(service.createOccupiedSlot(validDto)).rejects.toThrow(
-        CalendarConflictException,
-      );
-    });
-
-    it("should throw error when duration is less than 30", async () => {
-      const invalidDto = { ...validDto, durationMinutes: 20 };
-
-      await expect(service.createOccupiedSlot(invalidDto)).rejects.toThrow(
-        CalendarException,
-      );
-    });
-
-    it("should throw error when duration is more than 180", async () => {
-      const invalidDto = { ...validDto, durationMinutes: 200 };
-
-      await expect(service.createOccupiedSlot(invalidDto)).rejects.toThrow(
-        CalendarException,
-      );
-    });
-
-    it("should throw error when start time is in the past", async () => {
-      const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const invalidDto = { ...validDto, startTime: pastDate.toISOString() };
-
-      await expect(service.createOccupiedSlot(invalidDto)).rejects.toThrow(
-        CalendarException,
-      );
-    });
-  });
-
-  describe("releaseSlot", () => {
-    const slotId = "slot-id-123";
-
-    it("should release occupied slot", async () => {
-      const mockSlot = {
-        id: slotId,
-        resource_type: "mentor",
-        resource_id: "mentor-id-123",
-        time_range: "[2025-11-10 14:00:00+00, 2025-11-10 15:00:00+00)",
-        duration_minutes: 60,
-        session_id: "session-id-123",
-        slot_type: "session",
-        status: "occupied",
-        reason: null,
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
-
-      // Mock getSlotById and release
-      (mockDb as { execute: jest.Mock }).execute
-        .mockResolvedValueOnce({ rows: [mockSlot] }) // getSlotById
-        .mockResolvedValueOnce({
-          rows: [{ ...mockSlot, status: "cancelled" }],
-        }); // release
-
-      const result = await service.releaseSlot(slotId);
+      const result = await service.releaseSlot('123');
 
       expect(result.status).toBe(SlotStatus.CANCELLED);
+      expect(mockDb.execute).toHaveBeenCalledTimes(2);
     });
 
-    it("should throw error when slot not found", async () => {
-      (mockDb as { execute: jest.Mock }).execute.mockResolvedValue({
-        rows: [],
-      });
+    it('should throw CalendarNotFoundException if slot does not exist', async () => {
+      mockDb.execute.mockResolvedValueOnce({ rows: [] });
 
-      await expect(service.releaseSlot(slotId)).rejects.toThrow(
+      await expect(service.releaseSlot('999')).rejects.toThrow(
         CalendarNotFoundException,
       );
     });
 
-    it("should throw error when slot is already cancelled", async () => {
-      const cancelledSlot = {
-        id: slotId,
-        resource_type: "mentor",
-        resource_id: "mentor-id-123",
-        time_range: "[2025-11-10 14:00:00+00, 2025-11-10 15:00:00+00)",
-        duration_minutes: 60,
-        session_id: "session-id-123",
-        slot_type: "session",
-        status: "cancelled",
-        reason: null,
-        created_at: new Date(),
-        updated_at: new Date(),
+    it('should throw CalendarException if slot is already cancelled', async () => {
+      const cancelledEntity = {
+        ...mockSlotEntity,
+        status: SlotStatus.CANCELLED,
       };
 
-      (mockDb as { execute: jest.Mock }).execute.mockResolvedValue({
-        rows: [cancelledSlot],
+      mockDb.execute.mockResolvedValueOnce({ rows: [cancelledEntity] });
+
+      await expect(service.releaseSlot('123')).rejects.toThrow(
+        'Slot is already cancelled',
+      );
+    });
+
+    it('should throw CalendarNotFoundException if UPDATE returns no rows', async () => {
+      mockDb.execute
+        .mockResolvedValueOnce({ rows: [mockSlotEntity] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      await expect(service.releaseSlot('123')).rejects.toThrow(
+        CalendarNotFoundException,
+      );
+    });
+  });
+
+  describe('getBookedSlots', () => {
+    it('should retrieve booked slots within date range', async () => {
+      const slots = [mockSlotEntity];
+      mockDb.execute.mockResolvedValue({ rows: slots });
+
+      const dto: QuerySlotDto = {
+        userId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        userType: UserType.MENTOR,
+        dateFrom: '2025-12-01',
+        dateTo: '2025-12-31',
+      };
+
+      const result = await service.getBookedSlots(dto);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('123');
+      expect(mockDb.execute).toHaveBeenCalled();
+    });
+
+    it('should use default 90-day range if dateTo is not provided', async () => {
+      const slots = [mockSlotEntity];
+      mockDb.execute.mockResolvedValue({ rows: slots });
+
+      const dto: QuerySlotDto = {
+        userId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        userType: UserType.MENTOR,
+      };
+
+      const result = await service.getBookedSlots(dto);
+
+      expect(result).toHaveLength(1);
+    });
+
+    it('should throw CalendarException if date range exceeds 90 days', async () => {
+      const dto: QuerySlotDto = {
+        userId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        userType: UserType.MENTOR,
+        dateFrom: '2025-01-01',
+        dateTo: '2025-05-01', // ~120 days
+      };
+
+      await expect(service.getBookedSlots(dto)).rejects.toThrow(
+        'Date range cannot exceed 90 days',
+      );
+    });
+
+    it('should return empty array if no slots found', async () => {
+      mockDb.execute.mockResolvedValue({ rows: [] });
+
+      const dto: QuerySlotDto = {
+        userId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
+        userType: UserType.MENTOR,
+      };
+
+      const result = await service.getBookedSlots(dto);
+
+      expect(result).toHaveLength(0);
+    });
+  });
+
+  describe('rescheduleSlot', () => {
+    it('should reschedule a slot successfully', async () => {
+      const newSlotEntity = {
+        ...mockSlotEntity,
+        id: '456',
+        time_range: '[2025-12-02 14:00:00+00, 2025-12-02 15:00:00+00)',
+      };
+
+      const mockTransaction = jest.fn().mockImplementation((callback) => {
+        return callback({
+          execute: jest
+            .fn()
+            .mockResolvedValueOnce({})
+            .mockResolvedValueOnce({ rows: [newSlotEntity] }),
+        });
       });
 
-      await expect(service.releaseSlot(slotId)).rejects.toThrow(
-        CalendarException,
-      );
-    });
-  });
-
-  describe("getOccupiedSlots", () => {
-    const queryDto: QuerySlotDto = {
-      resourceType: ResourceType.MENTOR,
-      resourceId: "mentor-id-123",
-      dateFrom: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      dateTo: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    };
-
-    it("should return list of occupied slots", async () => {
-      const mockSlots = [
-        {
-          id: "slot-1",
-          resource_type: "mentor",
-          resource_id: "mentor-id-123",
-          time_range: "[2025-11-10 14:00:00+00, 2025-11-10 15:00:00+00)",
-          duration_minutes: 60,
-          session_id: "session-1",
-          slot_type: "session",
-          status: "occupied",
-          reason: null,
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-        {
-          id: "slot-2",
-          resource_type: "mentor",
-          resource_id: "mentor-id-123",
-          time_range: "[2025-11-11 14:00:00+00, 2025-11-11 15:00:00+00)",
-          duration_minutes: 60,
-          session_id: "session-2",
-          slot_type: "session",
-          status: "occupied",
-          reason: null,
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-      ];
-
-      (mockDb as { execute: jest.Mock }).execute.mockResolvedValue({
-        rows: mockSlots,
-      });
-
-      const result = await service.getOccupiedSlots(queryDto);
-
-      expect(result).toHaveLength(2);
-      expect(result[0].id).toBe("slot-1");
-    });
-
-    it("should throw error when date range is too large", async () => {
-      const invalidDto: QuerySlotDto = {
-        resourceType: ResourceType.MENTOR,
-        resourceId: "mentor-id-123",
-        dateFrom: new Date().toISOString(),
-        dateTo: new Date(Date.now() + 100 * 24 * 60 * 60 * 1000).toISOString(), // 100 days
-      };
-
-      await expect(service.getOccupiedSlots(invalidDto)).rejects.toThrow(
-        CalendarException,
-      );
-    });
-  });
-
-  describe("blockTimeSlot", () => {
-    const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    it("should create blocked slot", async () => {
-      const mockSlot = {
-        id: "slot-id-123",
-        resource_type: "mentor",
-        resource_id: "mentor-id-123",
-        time_range: `[${futureDate.toISOString()}, ${new Date(futureDate.getTime() + 60 * 60000).toISOString()})`,
-        duration_minutes: 60,
-        session_id: null,
-        slot_type: "blocked",
-        status: "occupied",
-        reason: "Mentor on vacation",
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
-
-      (mockDb as { execute: jest.Mock }).execute
-        .mockResolvedValueOnce({ rows: [{ count: "0" }] }) // isSlotAvailable
-        .mockResolvedValueOnce({ rows: [mockSlot] }); // create
-
-      const result = await service.blockTimeSlot(
-        ResourceType.MENTOR,
-        "mentor-id-123",
-        futureDate,
-        60,
-        "Mentor on vacation",
-      );
-
-      expect(result.slotType).toBe(SlotType.BLOCKED);
-      expect(result.reason).toBe("Mentor on vacation");
-    });
-  });
-
-  describe("rescheduleSlot", () => {
-    const oldSlotId = "old-slot-id";
-    const newStartTime = new Date(Date.now() + 48 * 60 * 60 * 1000);
-    const newDuration = 90;
-
-    it("should reschedule slot successfully", async () => {
-      const oldSlot = {
-        id: oldSlotId,
-        resource_type: "mentor",
-        resource_id: "mentor-id-123",
-        time_range: "[2025-11-10 14:00:00+00, 2025-11-10 15:00:00+00)",
-        duration_minutes: 60,
-        session_id: "session-id-123",
-        slot_type: "session",
-        status: "occupied",
-        reason: null,
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
-
-      const newSlot = {
-        ...oldSlot,
-        id: "new-slot-id",
-        time_range: `[${newStartTime.toISOString()}, ${new Date(newStartTime.getTime() + newDuration * 60000).toISOString()})`,
-        duration_minutes: newDuration,
-      };
-
-      // Mock getSlotById, isSlotAvailable, and transaction
-      (mockDb as { execute: jest.Mock }).execute
-        .mockResolvedValueOnce({ rows: [oldSlot] }) // getSlotById
-        .mockResolvedValueOnce({ rows: [{ count: "0" }] }); // isSlotAvailable
-
-      (mockDb as { transaction: jest.Mock }).transaction.mockImplementation(
-        async (callback: (tx: unknown) => Promise<unknown>) => {
-          const mockTx = {
-            execute: jest
-              .fn()
-              .mockResolvedValueOnce({ rows: [] }) // release old
-              .mockResolvedValueOnce({ rows: [newSlot] }), // create new
-          };
-          return await callback(mockTx);
-        },
-      );
+      mockDb.transaction.mockImplementation(mockTransaction);
+      mockDb.execute.mockResolvedValueOnce({ rows: [mockSlotEntity] });
 
       const result = await service.rescheduleSlot(
-        oldSlotId,
-        newStartTime,
-        newDuration,
+        '123',
+        new Date('2025-12-02T14:00:00Z'),
+        60,
       );
 
-      expect(result).toBeDefined();
-      expect(result.durationMinutes).toBe(newDuration);
+      expect(result?.id).toBe('456');
     });
 
-    it("should throw error when new slot conflicts", async () => {
-      const oldSlot = {
-        id: oldSlotId,
-        resource_type: "mentor",
-        resource_id: "mentor-id-123",
-        time_range: "[2025-11-10 14:00:00+00, 2025-11-10 15:00:00+00)",
-        duration_minutes: 60,
-        session_id: "session-id-123",
-        slot_type: "session",
-        status: "occupied",
-        reason: null,
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
-
-      (mockDb as { execute: jest.Mock }).execute
-        .mockResolvedValueOnce({ rows: [oldSlot] }) // getSlotById
-        .mockResolvedValueOnce({ rows: [{ count: "1" }] }); // isSlotAvailable - conflict
+    it('should throw CalendarNotFoundException if old slot does not exist', async () => {
+      mockDb.execute.mockResolvedValueOnce({ rows: [] });
 
       await expect(
-        service.rescheduleSlot(oldSlotId, newStartTime, newDuration),
-      ).rejects.toThrow(CalendarConflictException);
+        service.rescheduleSlot(
+          '999',
+          new Date('2025-12-02T14:00:00Z'),
+          60,
+        ),
+      ).rejects.toThrow(CalendarNotFoundException);
+    });
+
+    it('should return null if new slot conflicts with EXCLUDE constraint', async () => {
+      const mockTransaction = jest.fn().mockImplementation((callback) => {
+        const txMock = {
+          execute: jest
+            .fn()
+            .mockResolvedValueOnce({})
+            .mockRejectedValueOnce(
+              new Error('Constraint violation (23P01)'),
+            ),
+        };
+        return callback(txMock);
+      });
+
+      mockDb.transaction.mockImplementation(mockTransaction);
+      mockDb.execute.mockResolvedValueOnce({ rows: [mockSlotEntity] });
+
+      const result = await service.rescheduleSlot(
+        '123',
+        new Date('2025-12-02T14:00:00Z'),
+        60,
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it('should rollback transaction on unexpected error', async () => {
+      const mockTransaction = jest.fn().mockImplementation((callback) => {
+        const txMock = {
+          execute: jest
+            .fn()
+            .mockResolvedValueOnce({})
+            .mockRejectedValueOnce(new Error('Unexpected database error')),
+        };
+        return callback(txMock);
+      });
+
+      mockDb.transaction.mockImplementation(mockTransaction);
+      mockDb.execute.mockResolvedValueOnce({ rows: [mockSlotEntity] });
+
+      await expect(
+        service.rescheduleSlot(
+          '123',
+          new Date('2025-12-02T14:00:00Z'),
+          60,
+        ),
+      ).rejects.toThrow('Unexpected database error');
     });
   });
 
-  describe("getSlotBySessionId", () => {
-    it("should return slot when found", async () => {
-      const mockSlot = {
-        id: "slot-id-123",
-        resource_type: "mentor",
-        resource_id: "mentor-id-123",
-        time_range: "[2025-11-10 14:00:00+00, 2025-11-10 15:00:00+00)",
-        duration_minutes: 60,
-        session_id: "session-id-123",
-        slot_type: "session",
-        status: "occupied",
-        reason: null,
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
+  describe('getSlotBySessionId', () => {
+    it('should retrieve slot by session ID', async () => {
+      mockDb.execute.mockResolvedValue({ rows: [mockSlotEntity] });
 
-      (mockDb as { execute: jest.Mock }).execute.mockResolvedValue({
-        rows: [mockSlot],
-      });
-
-      const result = await service.getSlotBySessionId("session-id-123");
+      const result = await service.getSlotBySessionId('session-1');
 
       expect(result).toBeDefined();
-      expect(result?.sessionId).toBe("session-id-123");
+      expect(result?.sessionId).toBe('session-1');
     });
 
-    it("should return null when not found", async () => {
-      (mockDb as { execute: jest.Mock }).execute.mockResolvedValue({
-        rows: [],
-      });
+    it('should return null if session not found', async () => {
+      mockDb.execute.mockResolvedValue({ rows: [] });
 
-      const result = await service.getSlotBySessionId("non-existent");
+      const result = await service.getSlotBySessionId('session-999');
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('getSlotById', () => {
+    it('should retrieve slot by ID', async () => {
+      mockDb.execute.mockResolvedValue({ rows: [mockSlotEntity] });
+
+      const result = await service.getSlotById('123');
+
+      expect(result).toBeDefined();
+      expect(result?.id).toBe('123');
+    });
+
+    it('should return null if slot not found', async () => {
+      mockDb.execute.mockResolvedValue({ rows: [] });
+
+      const result = await service.getSlotById('999');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('updateSlotSessionId', () => {
+    it('should update slot with session ID', async () => {
+      const updatedEntity = {
+        ...mockSlotEntity,
+        session_id: 'session-2',
+      };
+
+      mockDb.execute.mockResolvedValue({ rows: [updatedEntity] });
+
+      const result = await service.updateSlotSessionId('123', 'session-2');
+
+      expect(result.sessionId).toBe('session-2');
+      expect(mockDb.execute).toHaveBeenCalled();
+    });
+
+    it('should throw CalendarNotFoundException if slot not found', async () => {
+      mockDb.execute.mockResolvedValue({ rows: [] });
+
+      await expect(
+        service.updateSlotSessionId('999', 'session-1'),
+      ).rejects.toThrow(CalendarNotFoundException);
+    });
+  });
+
+  describe('mapToEntity (private method via public methods)', () => {
+    it('should correctly parse PostgreSQL tstzrange format', async () => {
+      mockDb.execute.mockResolvedValue({ rows: [mockSlotEntity] });
+
+      const result = await service.getSlotById('123');
+
+      expect(result?.timeRange).toBeDefined();
+      expect(result?.timeRange.start).toBeInstanceOf(Date);
+      expect(result?.timeRange.end).toBeInstanceOf(Date);
+      expect(result?.timeRange.start < result?.timeRange.end).toBe(true);
+    });
+
+    it('should handle fallback when time_range format is unexpected', async () => {
+      const invalidEntity = {
+        ...mockSlotEntity,
+        time_range: 'invalid_format',
+      };
+
+      mockDb.execute.mockResolvedValue({ rows: [invalidEntity] });
+
+      const result = await service.getSlotById('123');
+
+      expect(result?.timeRange).toBeDefined();
+      expect(result?.timeRange.start).toBeInstanceOf(Date);
+      expect(result?.timeRange.end).toBeInstanceOf(Date);
+    });
+  });
+
+  describe('edge cases and data validation', () => {
+    it('should handle timezone-aware timestamps correctly', async () => {
+      const tzAwareEntity = {
+        ...mockSlotEntity,
+        time_range: '[2025-12-01T10:00:00+05:30, 2025-12-01T11:00:00+05:30)',
+      };
+
+      mockDb.execute.mockResolvedValue({ rows: [tzAwareEntity] });
+
+      const result = await service.getSlotById('123');
+
+      expect(result?.timeRange.start).toBeInstanceOf(Date);
+      expect(result?.timeRange.end).toBeInstanceOf(Date);
+    });
+
+    it('should map all entity fields correctly', async () => {
+      mockDb.execute.mockResolvedValue({ rows: [mockSlotEntity] });
+
+      const result = await service.getSlotById('123');
+
+      expect(result?.id).toBe(mockSlotEntity.id);
+      expect(result?.userId).toBe(mockSlotEntity.user_id);
+      expect(result?.userType).toBe(mockSlotEntity.user_type);
+      expect(result?.durationMinutes).toBe(mockSlotEntity.duration_minutes);
+      expect(result?.sessionId).toBe(mockSlotEntity.session_id);
+      expect(result?.slotType).toBe(mockSlotEntity.type);
+      expect(result?.status).toBe(mockSlotEntity.status);
+      expect(result?.reason).toBe(mockSlotEntity.reason);
     });
   });
 });

@@ -303,7 +303,6 @@ describe("SessionService", () => {
     it("should update meeting information", async () => {
       const meetingInfo: MeetingInfoDto = {
         meetingProvider: MeetingProvider.FEISHU,
-        meetingId: "6892847362938471942",
         meetingNo: "123456789",
         meetingUrl: "https://vc.feishu.cn/j/123456789",
         meetingPassword: "abc123",
@@ -321,7 +320,7 @@ describe("SessionService", () => {
 
       const result = await service.updateMeetingInfo(sessionId, meetingInfo);
 
-      expect(result.meetingId).toBe(meetingInfo.meetingId);
+      expect(result.meetingNo).toBe(meetingInfo.meetingNo);
       expect(result.meetingUrl).toBe(meetingInfo.meetingUrl);
     });
 
@@ -330,7 +329,6 @@ describe("SessionService", () => {
 
       const meetingInfo: MeetingInfoDto = {
         meetingProvider: MeetingProvider.FEISHU,
-        meetingId: "123",
         meetingUrl: "https://example.com",
       };
 
@@ -531,53 +529,4 @@ describe("SessionService", () => {
     });
   });
 
-  describe("getSessionByMeetingId", () => {
-    it("should return session when found by meeting_id", async () => {
-      const mockSession = {
-        id: "00000000-0000-0000-0000-000000000003",
-        studentId: "00000000-0000-0000-0000-000000000001",
-        mentorId: "00000000-0000-0000-0000-000000000002",
-        scheduledStartTime: new Date(),
-        scheduledDuration: 60,
-        sessionName: "Test Session",
-        status: "scheduled",
-        recordings: [],
-        aiSummary: null,
-        mentorJoinCount: 0,
-        studentJoinCount: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        deletedAt: null,
-        meetingProvider: "feishu",
-        meetingId: "6892847362938471942",
-        meetingNo: null,
-        meetingUrl: null,
-        meetingPassword: null,
-        actualStartTime: null,
-        actualEndTime: null,
-        mentorTotalDurationSeconds: null,
-        studentTotalDurationSeconds: null,
-        effectiveTutoringDurationSeconds: null,
-        notes: null,
-        contractId: null,
-      };
-
-      mockDb.limit.mockResolvedValue([mockSession]);
-
-      const result = await service.getSessionByMeetingId(
-        mockSession.meetingId!,
-      );
-
-      expect(result).toBeDefined();
-      expect(result?.meetingId).toBe(mockSession.meetingId);
-    });
-
-    it("should return null when meeting_id not found", async () => {
-      mockDb.limit.mockResolvedValue([]);
-
-      const result = await service.getSessionByMeetingId("non-existent-id");
-
-      expect(result).toBeNull();
-    });
-  });
 });

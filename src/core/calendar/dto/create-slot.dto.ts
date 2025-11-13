@@ -9,32 +9,57 @@ import {
   IsString,
   MaxLength,
 } from "class-validator";
-import { ResourceType, SlotType } from "../interfaces/calendar-slot.interface";
+import { UserType, SlotType } from "../interfaces/calendar-slot.interface";
 
+/**
+ * DTO for creating a calendar slot
+ * Represents user input for booking or creating a time slot
+ */
 export class CreateSlotDto {
-  @IsEnum(ResourceType)
-  resourceType: ResourceType; // Resource type
-
+  /**
+   * User ID (UUID)
+   */
   @IsUUID()
-  resourceId: string; // Resource ID
+  userId: string;
 
+  /**
+   * User type (mentor/student/counselor)
+   */
+  @IsEnum(UserType)
+  userType: UserType;
+
+  /**
+   * Start time in ISO 8601 format
+   */
   @IsDateString()
-  startTime: string; // Start time (ISO 8601 format)
+  startTime: string;
 
+  /**
+   * Duration in minutes (30-180)
+   */
   @IsInt()
   @Min(30)
   @Max(180)
-  durationMinutes: number; // Duration in minutes (30-180)
+  durationMinutes: number;
 
+  /**
+   * Associated session ID (optional)
+   */
   @IsOptional()
   @IsUUID()
-  sessionId?: string; // Associated session ID (for session type slots)
+  sessionId?: string;
 
+  /**
+   * Slot type (session/class_session/comm_session)
+   */
   @IsEnum(SlotType)
-  slotType: SlotType; // Slot type
+  slotType: SlotType;
 
+  /**
+   * Reason for blocking or remarks (optional, max 255 characters)
+   */
   @IsOptional()
   @IsString()
   @MaxLength(255)
-  reason?: string; // Reason for blocking (for blocked type slots)
+  reason?: string;
 }

@@ -6,11 +6,11 @@ import type { StringValue } from "ms";
 import { AuthCommandService } from "./auth-command.service";
 import { AuthController } from "@api/controllers/auth.controller";
 import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";
-import { UserRepository } from "@infrastructure/repositories/user.repository";
-import { USER_REPOSITORY } from "@domains/identity/user/user-repository.interface";
+import { UserModule } from "@domains/identity/user/user.module";
 
 @Module({
   imports: [
+    UserModule, // Domain层：User (Identity)
     PassportModule.register({ defaultStrategy: "jwt" }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -26,14 +26,7 @@ import { USER_REPOSITORY } from "@domains/identity/user/user-repository.interfac
     }),
   ],
   controllers: [AuthController],
-  providers: [
-    AuthCommandService,
-    JwtStrategy,
-    {
-      provide: USER_REPOSITORY,
-      useClass: UserRepository,
-    },
-  ],
+  providers: [AuthCommandService, JwtStrategy],
   exports: [AuthCommandService, JwtStrategy, PassportModule],
 })
 export class AuthCommandModule {}

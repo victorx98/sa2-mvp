@@ -1,5 +1,10 @@
 // User and identity
 export * from "./user.schema";
+export * from "./student.schema";
+export * from "./mentor.schema";
+export * from "./counselor.schema";
+export * from "./student-mentor.schema";
+export * from "./student-counselor.schema";
 
 // Catalog domain
 export * from "./services.schema";
@@ -11,7 +16,7 @@ export * from "./product-items.schema";
 // Contract domain
 export * from "./contracts.schema";
 export * from "./contract-service-entitlements.schema";
-export * from "./contract-entitlement-revisions.schema";
+export * from "./contract-amendment-ledgers.schema";
 export * from "./domain-events.schema";
 export * from "./service-holds.schema";
 export * from "./service-ledger-archive-policies.schema";
@@ -20,8 +25,9 @@ export * from "./service-ledgers.schema";
 
 // Services domain
 export * from "./sessions.schema";
-export * from "./session-events.schema";
+export * from "./session-events.schema"; // Legacy, kept for backward compatibility
+export * from "./meeting-events.schema";
 
 // Shared
-export * from "./calendar-slots.schema";
+export * from "./calendar.schema";
 export * from "./notification-queue.schema";

@@ -4,7 +4,10 @@ import {
   IWebhookEvent,
 } from "../interfaces/webhook-handler.interface";
 import { WebhookProcessingException } from "../exceptions/webhook.exception";
-import { SessionLifecycleService } from "@domains/services/session/services/session-lifecycle.service";
+import { FeishuEventExtractor } from "../extractors/feishu-event-extractor";
+import { MeetingEventService } from "@core/meeting-providers/services/meeting-event.service";
+import { WebhookEventBusService } from "../services/webhook-event-bus.service";
+import { MeetingEventCreated } from "../dto/meeting-event-created.event";
 
 /**
  * Feishu Webhook Event Types
@@ -24,15 +27,17 @@ export enum FeishuEventType {
 /**
  * Feishu Webhook Handler
  *
- * Handles webhook events from Feishu (Lark) platform
- * Processes meeting lifecycle events and stores them in session_events table
+ * Processes webhook events from Feishu (Lark) platform
+ * Flow: Extract → Store → Publish domain event
  */
 @Injectable()
 export class FeishuWebhookHandler implements IWebhookHandler {
   private readonly logger = new Logger(FeishuWebhookHandler.name);
 
   constructor(
-    private readonly sessionLifecycleService: SessionLifecycleService,
+    private readonly feishuEventExtractor: FeishuEventExtractor,
+    private readonly meetingEventService: MeetingEventService,
+    private readonly eventBus: WebhookEventBusService,
   ) {}
 
   /**
@@ -99,92 +104,113 @@ export class FeishuWebhookHandler implements IWebhookHandler {
   }
 
   /**
-   * Handle meeting started event
+   * Generic event processor: Extract → Store → Publish
    *
-   * Updates actual_start_time and status to 'started'
+   * @param rawEvent - Raw webhook event
+   */
+  private async processEvent(rawEvent: IWebhookEvent): Promise<void> {
+    // 1. Extract structured fields from raw webhook data
+    const extractedData = this.feishuEventExtractor.extract(
+      rawEvent.eventData as any,
+    );
+
+    this.logger.debug(
+      `Extracted event: ${extractedData.eventType} (${extractedData.eventId})`,
+    );
+
+    // 2. Store event in meeting_events table (with automatic deduplication)
+    await this.meetingEventService.recordEvent(extractedData);
+
+    // 3. Publish domain event for subscribers (Session Domain, Comm Session, etc.)
+    const domainEvent = new MeetingEventCreated(
+      extractedData.meetingId,
+      extractedData.meetingNo,
+      extractedData.eventId,
+      extractedData.eventType,
+      extractedData.provider,
+      extractedData.operatorId,
+      extractedData.operatorRole,
+      extractedData.meetingTopic,
+      extractedData.occurredAt,
+      extractedData.eventData,
+    );
+
+    await this.eventBus.publish(domainEvent);
+
+    this.logger.log(
+      `Event processed and published: ${extractedData.eventType}`,
+    );
+  }
+
+  /**
+   * Handle meeting started event
    */
   private async handleMeetingStarted(event: IWebhookEvent): Promise<void> {
     this.logger.debug("Processing meeting_started event");
-    await this.sessionLifecycleService.handleMeetingStarted(event);
+    await this.processEvent(event);
   }
 
   /**
    * Handle meeting ended event
-   *
-   * Updates actual_end_time and calculates duration statistics
    */
   private async handleMeetingEnded(event: IWebhookEvent): Promise<void> {
     this.logger.debug("Processing meeting_ended event");
-    await this.sessionLifecycleService.handleMeetingEnded(event);
+    await this.processEvent(event);
   }
 
   /**
    * Handle recording ready event
-   *
-   * Appends recording record and starts transcript polling
    */
   private async handleRecordingReady(event: IWebhookEvent): Promise<void> {
     this.logger.debug("Processing recording_ready event");
-    await this.sessionLifecycleService.handleRecordingReady(event);
+    await this.processEvent(event);
   }
 
   /**
    * Handle recording started event
-   *
-   * Records recording start time
    */
   private async handleRecordingStarted(event: IWebhookEvent): Promise<void> {
     this.logger.debug("Processing recording_started event");
-    await this.sessionLifecycleService.handleRecordingStarted(event);
+    await this.processEvent(event);
   }
 
   /**
    * Handle recording ended event
-   *
-   * Records recording end time
    */
   private async handleRecordingEnded(event: IWebhookEvent): Promise<void> {
     this.logger.debug("Processing recording_ended event");
-    await this.sessionLifecycleService.handleRecordingEnded(event);
+    await this.processEvent(event);
   }
 
   /**
    * Handle participant joined event
-   *
-   * Records join event for duration calculation
    */
   private async handleJoinMeeting(event: IWebhookEvent): Promise<void> {
     this.logger.debug("Processing join_meeting event");
-    await this.sessionLifecycleService.handleParticipantJoined(event);
+    await this.processEvent(event);
   }
 
   /**
    * Handle participant left event
-   *
-   * Records leave event for duration calculation
    */
   private async handleLeaveMeeting(event: IWebhookEvent): Promise<void> {
     this.logger.debug("Processing leave_meeting event");
-    await this.sessionLifecycleService.handleParticipantLeft(event);
+    await this.processEvent(event);
   }
 
   /**
    * Handle screen share started event
-   *
-   * Records screen share event
    */
   private async handleShareStarted(event: IWebhookEvent): Promise<void> {
     this.logger.debug("Processing share_started event");
-    await this.sessionLifecycleService.handleShareStarted(event);
+    await this.processEvent(event);
   }
 
   /**
    * Handle screen share ended event
-   *
-   * Records screen share end event
    */
   private async handleShareEnded(event: IWebhookEvent): Promise<void> {
     this.logger.debug("Processing share_ended event");
-    await this.sessionLifecycleService.handleShareEnded(event);
+    await this.processEvent(event);
   }
 }

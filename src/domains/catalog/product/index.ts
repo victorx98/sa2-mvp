@@ -11,7 +11,6 @@ export * from "./dto/add-product-item.dto";
 export * from "./dto/publish-product.dto";
 export * from "./dto/product-filter.dto";
 export * from "./dto/find-one-product.dto";
-export * from "./dto/batch-operation.dto";
 export * from "./dto/update-product-sort-order.dto";
 
 // Interfaces

@@ -86,22 +86,6 @@ export const CONSUMPTION_PRIORITY = {
 } as const;
 
 // ============================================================================
-// Price Override Limits
-// ============================================================================
-
-// Maximum allowed override price as percentage of original (default: 200%)
-export const MAX_OVERRIDE_PERCENTAGE = parseInt(
-  process.env.MAX_OVERRIDE_PERCENTAGE || "200",
-  10,
-);
-
-// Minimum allowed override price as percentage of original (default: 10%)
-export const MIN_OVERRIDE_PERCENTAGE = parseInt(
-  process.env.MIN_OVERRIDE_PERCENTAGE || "10",
-  10,
-);
-
-// ============================================================================
 // Concurrent Control
 // ============================================================================
 

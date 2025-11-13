@@ -14,10 +14,98 @@ import {
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
-import { User } from "@domains/identity/user/user.interface";
-import { CounselorSessionsService } from "@operations/counselor-portal/sessions/sessions.service";
-import { BookSessionRequestDto } from "@operations/counselor-portal/sessions/dto/book-session-request.dto";
-import { SessionDetailResponseDto } from "@operations/counselor-portal/sessions/dto/session-detail-response.dto";
+import { User } from "@domains/identity/user/user-interface";
+import { BookSessionCommand } from "@application/commands/booking/book-session.command";
+import { BookSessionOutput } from "@application/commands/booking/dto/book-session-output.dto";
+import { BookSessionInput } from "@application/commands/booking/dto/book-session-input.dto";
+import { ApiProperty } from "@nestjs/swagger";
+import {
+  IsString,
+  IsNotEmpty,
+  IsDateString,
+  IsInt,
+  Min,
+  IsOptional,
+} from "class-validator";
+
+/**
+ * API Layer - Book Session Request DTO
+ * 顾问预约会话的请求DTO（前端提交的数据）
+ */
+class BookSessionRequestDto {
+  @ApiProperty({
+    description: "Student ID",
+    example: "123e4567-e89b-12d3-a456-426614174000",
+  })
+  @IsString()
+  @IsNotEmpty()
+  studentId: string;
+
+  @ApiProperty({
+    description: "Mentor ID",
+    example: "123e4567-e89b-12d3-a456-426614174001",
+  })
+  @IsString()
+  @IsNotEmpty()
+  mentorId: string;
+
+  @ApiProperty({
+    description: "Contract ID",
+    example: "123e4567-e89b-12d3-a456-426614174002",
+  })
+  @IsString()
+  @IsNotEmpty()
+  contractId: string;
+
+  @ApiProperty({
+    description: "Service ID",
+    example: "service-1v1-session",
+  })
+  @IsString()
+  @IsNotEmpty()
+  serviceId: string;
+
+  @ApiProperty({
+    description: "Session start time (ISO 8601 format)",
+    example: "2025-11-10T14:00:00Z",
+  })
+  @IsDateString()
+  @IsNotEmpty()
+  scheduledStartTime: string;
+
+  @ApiProperty({
+    description: "Session end time (ISO 8601 format)",
+    example: "2025-11-10T15:00:00Z",
+  })
+  @IsDateString()
+  @IsNotEmpty()
+  scheduledEndTime: string;
+
+  @ApiProperty({
+    description: "Session duration (minutes)",
+    example: 60,
+  })
+  @IsInt()
+  @Min(15)
+  duration: number;
+
+  @ApiProperty({
+    description: "Session topic",
+    example: "Resume review guidance",
+  })
+  @IsString()
+  @IsNotEmpty()
+  topic: string;
+
+  @ApiProperty({
+    description: "Meeting provider",
+    example: "zoom",
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  meetingProvider?: string;
+}
 
 /**
  * API Layer - Counselor Sessions Controller
@@ -26,7 +114,7 @@ import { SessionDetailResponseDto } from "@operations/counselor-portal/sessions/
  * 职责：
  * 1. 定义HTTP路由
  * 2. 参数提取和验证
- * 3. 调用BFF层服务
+ * 3. 调用 Application Layer 服务
  * 4. 返回HTTP响应
  */
 @ApiTags("Counselor Portal - Sessions")
@@ -34,7 +122,10 @@ import { SessionDetailResponseDto } from "@operations/counselor-portal/sessions/
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class CounselorSessionsController {
-  constructor(private readonly sessionsService: CounselorSessionsService) {}
+  constructor(
+    // ✅ 直接注入 Application Layer 服务
+    private readonly bookSessionCommand: BookSessionCommand,
+  ) {}
 
   /**
    * 预约会话
@@ -60,7 +151,6 @@ export class CounselorSessionsController {
   @ApiResponse({
     status: 201,
     description: "Booking created successfully",
-    type: SessionDetailResponseDto,
   })
   @ApiResponse({
     status: 400,
@@ -77,7 +167,23 @@ export class CounselorSessionsController {
   async bookSession(
     @CurrentUser() user: User,
     @Body() dto: BookSessionRequestDto,
-  ): Promise<SessionDetailResponseDto> {
-    return await this.sessionsService.bookSession(user.id, dto);
+  ): Promise<BookSessionOutput> {
+    // ✅ 直接调用 Application Layer 服务
+    // 将前端 DTO 转换为 BookSessionInput
+    // 注意：serviceType 暂时硬编码为 'session'，未来需要从 serviceId 查询
+    const input: BookSessionInput = {
+      counselorId: user.id,
+      studentId: dto.studentId,
+      mentorId: dto.mentorId,
+      contractId: dto.contractId,
+      serviceType: "session" as any, // TODO: 从 serviceId 查询 serviceType
+      scheduledStartTime: new Date(dto.scheduledStartTime),
+      scheduledEndTime: new Date(dto.scheduledEndTime),
+      duration: dto.duration,
+      topic: dto.topic,
+      meetingProvider: dto.meetingProvider,
+    };
+
+    return await this.bookSessionCommand.execute(input);
   }
 }

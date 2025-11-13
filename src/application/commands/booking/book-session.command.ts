@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { CalendarService } from "@core/calendar";
 import {
-  ResourceType,
+  UserType,
   SlotType,
 } from "@core/calendar/interfaces/calendar-slot.interface";
 import {
@@ -11,10 +11,10 @@ import {
 } from "@core/meeting-providers";
 import type { MeetingProvider } from "@domains/services/session/interfaces/session.interface";
 import { SessionService } from "@domains/services/session/services/session.service";
-import { ContractService } from "@domains/contract/contract.service";
+import { ServiceHoldService } from "@domains/contract/services/service-hold.service";
 import { BookSessionInput } from "./dto/book-session-input.dto";
 import { BookSessionOutput } from "./dto/book-session-output.dto";
-import { InsufficientBalanceException, TimeConflictException } from "@shared/exceptions";
+import { TimeConflictException } from "@shared/exceptions";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import type {
   DrizzleDatabase,
@@ -48,11 +48,11 @@ export class BookSessionCommand {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-    private readonly contractService: ContractService,
     private readonly sessionService: SessionService,
     private readonly calendarService: CalendarService,
     private readonly meetingProviderFactory: MeetingProviderFactory,
     private readonly eventEmitter: EventEmitter2,
+    private readonly serviceHoldService: ServiceHoldService,
   ) {}
 
   /**
@@ -83,45 +83,42 @@ export class BookSessionCommand {
           "Starting database transaction, including meeting creation",
         );
 
-        // Step 2: 检查余额
-        const balance = await this.contractService.getServiceBalance(
-          input.contractId,
-          input.serviceId,
-        );
-        if (balance.available < 1) {
-          throw new InsufficientBalanceException("Insufficient service balance");
-        }
+        // Step 2: 创建服务预占
+        const hold = await this.serviceHoldService.createHold({
+          studentId: input.studentId,
+          serviceType: input.serviceType,
+          quantity: 1,
+          createdBy: input.counselorId,
+        }, tx);
 
-        // Step 3: 检查时间冲突
-        const isAvailable = await this.calendarService.isSlotAvailable(
-          ResourceType.MENTOR,
-          input.mentorId,
-          input.scheduledStartTime,
-          input.duration,
-        );
-        if (!isAvailable) {
-          throw new TimeConflictException("The mentor already has a conflict");
-        }
 
-        // Step 4: 创建服务预占
-        const hold = await this.contractService.createServiceHold(
+        // Step 3: Try to create calendar slot directly (atomic with DB constraint)
+        // Let the database EXCLUDE constraint handle conflicts
+        const calendarSlot = await this.calendarService.createSlotDirect(
           {
-            contractId: input.contractId,
-            serviceId: input.serviceId,
-            sessionId: "temp_session_id", // 临时ID，稍后会更新
-            quantity: 1,
+            userId: input.mentorId,
+            userType: UserType.MENTOR,
+            startTime: input.scheduledStartTime.toISOString(),
+            durationMinutes: input.duration,
+            slotType: SlotType.SESSION,
+            sessionId: undefined, // Will be updated after session creation
           },
           tx,
         );
+        
+        if (!calendarSlot) {
+          throw new TimeConflictException("The mentor already has a conflict");
+        }
 
         // Step 5: 创建会议链接（在事务内，先创建）
         let meetingInfo: {
           meetingUrl?: string;
           password?: string;
           provider?: string;
+          meetingNo?: string;
         } = {};
         try {
-          const meeting = await this.meetingProviderFactory
+          meetingInfo = await this.meetingProviderFactory
             .getProvider(
               (input.meetingProvider as MeetingProviderType) ||
                 MeetingProviderType.FEISHU,
@@ -132,11 +129,6 @@ export class BookSessionCommand {
               duration: input.duration,
               hostUserId: input.mentorId,
             });
-          meetingInfo = {
-            meetingUrl: meeting.meetingUrl,
-            password: meeting.meetingPassword,
-            provider: meeting.provider,
-          };
         } catch (error) {
           // 会议创建失败，回滚整个事务
           this.logger.error(
@@ -155,19 +147,12 @@ export class BookSessionCommand {
             scheduledDuration: input.duration,
             sessionName: input.topic,
             meetingProvider: input.meetingProvider as MeetingProvider,
+            meetingUrl: meetingInfo.meetingUrl,
+            meetingPassword: meetingInfo.password,
+            meetingNo: meetingInfo.meetingNo,
           },
           tx,
         );
-
-        // Step 7: 占用日历时段
-        const calendarSlot = await this.calendarService.createOccupiedSlot({
-          resourceType: ResourceType.MENTOR,
-          resourceId: input.mentorId,
-          startTime: input.scheduledStartTime.toISOString(),
-          durationMinutes: input.duration,
-          sessionId: session.id,
-          slotType: SlotType.SESSION,
-        }, tx);
 
         return {
           session,
@@ -186,7 +171,7 @@ export class BookSessionCommand {
       studentId: input.studentId,
       mentorId: input.mentorId,
       counselorId: input.counselorId,
-      serviceId: input.serviceId,
+      serviceType: input.serviceType,
       calendarSlotId: sessionResult.calendarSlot.id,
       serviceHoldId: sessionResult.hold.id,
       scheduledStartTime: input.scheduledStartTime.toISOString(),

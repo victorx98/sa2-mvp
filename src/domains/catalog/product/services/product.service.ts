@@ -19,16 +19,13 @@ import { AddProductItemDto } from "../dto/add-product-item.dto";
 import { PublishProductDto } from "../dto/publish-product.dto";
 import { ProductFilterDto } from "../dto/product-filter.dto";
 import { FindOneProductDto } from "../dto/find-one-product.dto";
-import { BatchOperationDto, BatchResult } from "../dto/batch-operation.dto";
+
 import { IProduct } from "../interfaces/product.interface";
 import { IProductDetail } from "../interfaces/product-detail.interface";
 import { IProductSnapshot } from "../interfaces/product-snapshot.interface";
 import type { IService } from "../../service/interfaces/service.interface";
 import type { IServicePackage } from "../../service-package/interfaces/service-package.interface";
-import {
-  ProductStatus,
-  ProductItemType,
-} from "../../common/interfaces/enums";
+import { ProductStatus, ProductItemType } from "../../common/interfaces/enums";
 import { ServiceService } from "../../service/services/service.service";
 import { ServicePackageService } from "../../service-package/services/service-package.service";
 import { buildLikePattern } from "../../common/utils/sql.utils";
@@ -744,42 +741,7 @@ export class ProductService {
     return this.mapToProductInterface(restored);
   }
 
-  /**
-   * Batch publish/unpublish (independent transactions, max 50)
-   */
-  async batchUpdate(
-    dto: BatchOperationDto,
-    userId: string,
-  ): Promise<BatchResult> {
-    const result: BatchResult = {
-      success: 0,
-      failed: 0,
-      errors: [],
-    };
 
-    for (const productId of dto.productIds) {
-      try {
-        if (dto.operation === "publish") {
-          await this.publish(productId, {}, userId);
-        } else {
-          await this.unpublish(
-            productId,
-            dto.reason || "batch unpublish",
-            userId,
-          );
-        }
-        result.success++;
-      } catch (error) {
-        result.failed++;
-        result.errors.push({
-          productId,
-          error: error.message || "operation failed",
-        });
-      }
-    }
-
-    return result;
-  }
 
   /**
    * Batch update product sort order

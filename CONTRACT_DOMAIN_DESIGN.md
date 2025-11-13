@@ -1,116 +1,1240 @@
 # MentorX 平台 Contract Domain 详细设计文档
 
-> **版本：** v2.16.9
+> **版本：** v2.16.12
 > **创建日期：** 2025-11-05
-> **最后更新：** 2025-11-10
-> **状态：** 设计阶段（服务预占 TTL 机制已移除）
+> **最后更新：** 2025-11-11
+> **状态：** ✅ **架构重构设计完成 + 所有决策已确认**
 > **负责域：** Contract Domain（合同域）
+> **更新内容：** 架构重大重构 - 权益累积制 + 触发器驱动一致性
+> **文档编号：** CONTRACT-DOMAIN-2025-11-11
+> **决策状态：** 4/4 决策已完成 ✅
+
+> ⚠️ **重要提示**：本文档描述 Contract Domain 的架构重构设计，v2.16.12 版本对核心表结构和数据流进行了重大调整。
+>
+> ✅ **决策完成**：2025-11-11 已完成所有架构设计决策（D-NEW-1 至 D-NEW-4），详见第 8 节
 
 ---
 
 ## 📋 目录
 
-- [待完善问题清单](#待完善问题清单)
-- [0. 核心设计约束](#0-核心设计约束)
-- [1. 领域概述](#1-领域概述)
-- [2. 核心概念与架构](#2-核心概念与架构)
-- [3. 数据模型设计](#3-数据模型设计)
-- [4. 领域服务接口](#4-领域服务接口)
-- [5. DTO 定义](#5-dto-定义)
-- [6. 业务规则与验证](#6-业务规则与验证)
-- [7. 状态机设计](#7-状态机设计)
-- [8. 实施指南](#8-实施指南)
+- [1. 核心架构重构](#1-核心架构重构)
+- [2. 数据模型设计](#2-数据模型设计)
+- [3. 触发器机制](#3-触发器机制)
+- [4. 业务流程与数据流](#4-业务流程与数据流)
+- [5. 领域服务接口](#5-领域服务接口)
+- [6. DTO 定义](#6-dto-定义)
+- [7. 业务规则](#7-业务规则)
+- [8. 实施检查清单](#8-实施检查清单)
 
 ---
 
-## 待完善问题清单 - 决策摘要
+## 1. 核心架构重构
 
-> **审查日期：** 2025-11-10
-> **审查版本：** v2.16.9
-> **状态：** ✅ 所有问题已决策（15 个 + 5 个新增决策）
+### 1.1 架构演进概述
 
-| 编号 | 问题 | 决策结果 |
+**v2.16.12 重大重构**：从"合同级别权益管理"转变为"学生级别权益累积制"
+
+#### 1.1.1 架构前（v2.16.10 及之前）
+
+```
+contracts (1) ←→ (∞) contract_service_entitlements（按合同）
+   ↓
+service_ledgers（记录 contract_id）
+service_holds（记录 contract_id）
+```
+
+**问题**：
+- 权益按合同隔离，无法跨合同使用
+- 合同终止后权益无法继续使用
+- 学生无法累积多个合同的权益
+
+#### 1.1.2 架构后（v2.16.12）
+
+```
+students (1) ←→ (∞) contract_service_entitlements（按学生+服务类型累积）
+   ↓                              ↑
+   ├─→ contracts（记录初始权益）  │
+   ├─→ contract_amendment_ledgers（记录额外权益）
+   ├─→ service_holds（更新 held_quantity）
+   └─→ service_ledgers（更新 consumed_quantity）
+```
+
+**优势**：
+- ✅ 学生权益跨合同累积
+- ✅ 合同终止不影响已累积权益
+- ✅ 查询性能优化（单表查询）
+- ✅ 职责清晰分离
+
+---
+
+### 1.2 核心设计原则
+
+#### 原则 1：学生级权益累积制
+
+```typescript
+contract_service_entitlements 表键值：
+PRIMARY KEY (student_id, service_type)
+
+含义：
+- 每个学生每种服务只有一条累积记录
+- 多个合同的同类型服务权益自动累加
+- 合同终止后权益继续保留
+```
+
+**示例**：
+```typescript
+// 学生 stu-001 购买多个合同
+合同1：+5次 session
+合同2：+3次 session
+顾问赠送：+2次 session（addon）
+
+contract_service_entitlements:
+{
+  studentId: 'stu-001',
+  serviceType: 'session',
+  totalQuantity: 10,        // 5 + 3 + 2
+  consumedQuantity: 4,
+  heldQuantity: 1,
+  availableQuantity: 5      // 10 - 4 - 1
+}
+```
+
+#### 原则 2：触发器驱动数据一致性
+
+```
+contract_service_entitlements 表由触发器维护：
+
+❌ 应用层禁止直接 UPDATE/DELETE
+✅ 仅允许触发器自动更新
+
+触发器来源：
+1. contract_amendment_ledgers.INSERT → total_quantity +=
+2. service_ledgers.INSERT → consumed_quantity +=
+3. service_holds.INSERT/UPDATE → held_quantity +=/-
+```
+
+**优势**：
+- 数据库层面保证一致性
+- 避免应用层并发问题
+- 代码简洁（无需手动同步）
+
+#### 原则 3：职责清晰分离
+
+| 表名 | 职责 | 维护方式 |
 |------|------|----------|
-| **C1** | DTO 验证规则 | 使用 `class-validator` 装饰器，参考 Catalog Domain |
-| **C2** | 错误码定义 | 字符串常量 + 按 HTTP 状态分组的异常类 |
-| **C3** | ServiceType 枚举 | 从 `@infrastructure/database/schema` 导入 |
-| **C4** | FindOneContractDto 验证 | Service 层验证唯一性，多结果抛异常 |
-| **I1** | 合同编号生成 | PostgreSQL Sequence + Advisory Lock + 月度重置 |
-| **I2** | 触发器定义 | `sync_consumed_quantity()` + `sync_held_quantity()` |
-| **I3** | 索引创建 | 约 30 个索引（含 partial index），统一 SQL 脚本 |
-| **I4** | 类型定义 | `DrizzleDatabase`, `DrizzleTransaction`, `DrizzleExecutor`（全局共享）|
-| **I5** | 归档查询验证 | 强制日期范围 ≤ 1 年，自动补全缺失边界 |
-| **I6** | CHECK 约束 | 统一约束脚本，命名：`chk_<表名>_<字段>_<类型>` |
-| **I7** 🆕 | 合同编号生成函数 | 独立 SQL 文件管理（`contract_number_generator.sql`）|
-| **M1** | Event Publisher | Outbox 模式（30s 轮询 + 5 次重试 + 死信队列）|
-| **M2** | 测试指南 | 80% 覆盖率 + 关键用例清单 |
-| **M3** | API 响应 DTO | 推迟到 API 层实施 |
-| **M4** | 权限控制 | 推迟到实施阶段（提供权限矩阵参考）|
-| **M5** | 版本号 | 统一为 v2.16.7 |
-| **R1** 🆕 | 修订版本号粒度 | 合同级别版本号（revisionNumber在合同内全局递增）|
-| **R2** 🆕 | 修订记录范围 | 仅记录"权益赋予"类变更（不记录消费/预占）|
-| **R3** 🆕 | 修订记录关联 | 关联到具体权益记录（entitlementId，精确追溯）|
-| **R4** 🆕 | 修订审核流程 | 支持审核流程（status, requiresApproval）|
-| **R5** 🆕 | 初始权益记录 | 创建合同时记录初始权益（revisionType='initial'）|
-| **R6** 🆕 | 额外权益审批规则 | 所有额外权益（addon/promotion/compensation）都需要审批（自动设置 requiresApproval=true）|
+| contracts | 合同生命周期、财务信息 | 应用层直接操作 |
+| contract_service_entitlements | 学生权益余额（只读） | 触发器自动维护 |
+| contract_amendment_ledgers | 额外权益审计流水 | 应用层 INSERT |
+| service_ledgers | 消费流水（只增） | 应用层 INSERT |
+| service_holds | 服务预占 | 应用层 INSERT/UPDATE |
 
-> **详细决策记录**：参见文档末尾 [附录：设计决策详细记录](#附录设计决策详细记录)
+#### 原则 4：完整的审计追溯
+
+```typescript
+// 完整的数据追溯链
+
+初始权益来源：
+contracts.product_snapshot → 记录合同包含的服务项
+  └─→ Application Layer → 初始化 contract_service_entitlements
+
+额外权益来源：
+contract_amendment_ledgers → 记录 who/when/what/why
+  └─→ 触发器 → 更新 contract_service_entitlements.total_quantity
+
+消费来源：
+service_ledgers → 记录每次服务消费
+  └─→ 触发器 → 更新 contract_service_entitlements.consumed_quantity
+```
 
 ---
 
+### 1.3 数据表职责矩阵
+
+| 表名 | CREATE | READ | UPDATE | DELETE | 触发器 |
+|------|--------|------|--------|--------|--------|
+| **contracts** | ✅ 应用层 | ✅ 应用层 | ✅ 应用层 | ❌ | ❌ 无 |
+| **contract_service_entitlements** | ✅ 应用层 | ✅ 应用层 | ❌ **禁止** | ❌ **禁止** | ✅ 3个触发器 |
+| **contract_amendment_ledgers** | ✅ 应用层 | ✅ 应用层 | ❌ | ❌ | ✅ 1个触发器 |
+| **service_ledgers** | ✅ 应用层 | ✅ 应用层 | ❌ | ❌ | ✅ 1个触发器 |
+| **service_holds** | ✅ 应用层 | ✅ 应用层 | ✅ 应用层 | ❌ | ✅ 1个触发器 |
+
+**关键规则**：
+- contract_service_entitlements 表不允许应用层 UPDATE/DELETE
+- 所有状态变更通过触发器自动完成
+- 应用层只能通过 INSERT 到相关表来间接更新
+
+---
+
+## 2. 数据模型设计
+
+### 2.1 contract_service_entitlements（学生服务权益表）
+
+**表定义**（drizzle schema）> **版本：** v2.16.12 架构重构
+```typescript
+export const contractServiceEntitlements = pgTable(
+  'contract_service_entitlements',
+  {
+    // 主键：学生ID + 服务类型（累积制）
+    studentId: varchar('student_id', { length: 32 })
+      .notNull()
+      .references(() => users.id),
+    serviceType: varchar('service_type', { length: 100 })
+      .notNull()
+      .references(() => serviceTypeEnum.serviceType),
+
+    // 权益数量（触发器自动维护）
+    totalQuantity: integer('total_quantity')
+      .notNull()
+      .default(0), // 总权益（初始 + 额外）
+    consumedQuantity: integer('consumed_quantity')
+      .notNull()
+      .default(0), // 已消费
+    heldQuantity: integer('held_quantity')
+      .notNull()
+      .default(0), // 预占
+    availableQuantity: integer('available_quantity')
+      .notNull()
+      .default(0), // 可用 = total - consumed - held
+
+    // 过期时间
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+
+    // 审计字段
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    createdBy: varchar('created_by', { length: 32 })
+      .references(() => users.id),
+  },
+  (table) => {
+    // 复合主键：学生 + 服务类型（累积制）
+    return {
+      pk: primaryKey({
+        columns: [table.studentId, table.serviceType],
+        name: 'pk_contract_service_entitlements',
+      }),
+    };
+  }
+);
+```
+
+**约束定义**：
+```sql
+-- CHECK 约束：可用数量必须 >= 0
+ALTER TABLE contract_service_entitlements
+ADD CONSTRAINT chk_available_quantity_non_negative
+CHECK (available_quantity >= 0);
+
+-- CHECK 约束：余额一致性
+ALTER TABLE contract_service_entitlements
+ADD CONSTRAINT chk_balance_consistency
+CHECK (available_quantity = total_quantity - consumed_quantity - held_quantity);
+
+-- CHECK 约束：各数量字段非负
+ALTER TABLE contract_service_entitlements
+ADD CONSTRAINT chk_quantities_non_negative
+CHECK (
+  total_quantity >= 0 AND
+  consumed_quantity >= 0 AND
+  held_quantity >= 0
+);
+
+-- CHECK 约束：消费 + 预占不超过总量
+ALTER TABLE contract_service_entitlements
+ADD CONSTRAINT chk_consumed_plus_held_not_exceed_total
+CHECK (consumed_quantity + held_quantity <= total_quantity);
+```
+
+**索引定义**：
+```sql
+-- 复合索引：按学生查询所有权益
+CREATE INDEX idx_entitlements_by_student
+ON contract_service_entitlements(student_id, service_type);
+
+-- 复合索引：按学生 + 可用余额过滤
+CREATE INDEX idx_entitlements_available_balance
+ON contract_service_entitlements(student_id, service_type, available_quantity)
+WHERE available_quantity > 0;
+
+-- 索引：按服务类型统计
+CREATE INDEX idx_entitlements_by_service_type
+ON contract_service_entitlements(service_type, student_id);
+```
+
+**维护规则**：
+
+| 字段 | 更新来源 | 触发器 | 说明 |
+|------|----------|--------|------|
+| totalQuantity | contract_amendment_ledgers.INSERT | ✅ 触发器 | ledger新增时累加 |
+| consumedQuantity | service_ledgers.INSERT | ✅ 触发器 | 消费流水新增时累加 |
+| heldQuantity | service_holds.INSERT/UPDATE | ✅ 触发器 | 预占状态变更时更新 |
+| availableQuantity | 自动计算 | ✅ CHECK约束 | total - consumed - held |
+
+**重要说明**：
+- ❌ **应用层禁止直接 UPDATE 这些字段**
+- ✅ 只能通过触发器间接更新
+- ✅ 应用层可以 INSERT 新记录（初始化权益）
+
+**初始权益初始化（D-NEW-2 决策）：** 创建合同时，应用层直接从 `product_snapshot` 解析权益并 INSERT 到本表：
+```typescript
+// 示例：创建合同1 - 初始权益
+INSERT INTO contract_service_entitlements (student_id, service_type, total_quantity, consumed_quantity, held_quantity, available_quantity)
+VALUES ('stu-001', 'session', 5, 0, 0, 5);
+
+// 权益累积场景：学生已有同类型权益（来自其他合同）
+// 应用层先查询记录是否存在，然后 UPDATE（批量处理）
+UPDATE contract_service_entitlements
+SET total_quantity = existing.total_quantity + 3,
+    available_quantity = existing.available_quantity + 3
+WHERE student_id = 'stu-001' AND service_type = 'session';
+
+// 结果：total_quantity = 8, available_quantity = 8
+```
+
+**额外权益添加（触发器自动执行）：**
+```typescript
+// 应用层插入到 ledgers 表（D-NEW-1 决策）
+INSERT INTO contract_amendment_ledgers (student_id, service_type, quantity_changed, ...)
+VALUES ('stu-001', 'session', 2, ...);
+
+// 触发器自动执行：UPDATE contract_service_entitlements SET total += 2, available += 2
+// 结果：total_quantity = 10, available_quantity = 10
+```
+
+---
+
+### 2.2 contract_amendment_ledgers（额外权益流水表）
+
+**职责**：
+- 仅记录"额外添加"的服务权益（addon/promotion/compensation）
+- 合同初始权益不记录在此表
+- Append-only 设计，不可修改
+
+**表定义**（drizzle schema）
+```typescript
+// 额外权益类型枚举
+export const entitlementLedgerTypeEnum = pgEnum('entitlement_ledger_type', [
+  'addon',           // 促成签约
+  'promotion',       // 促销活动
+  'compensation',    // 补偿
+]);
+
+export const contractEntitlementLedgers = pgTable(
+  'contract_amendment_ledgers',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+
+    // 关联学生（不关联合同，按学生累积）
+    studentId: varchar('student_id', { length: 32 })
+      .notNull()
+      .references(() => users.id),
+
+    // 服务类型
+    serviceType: varchar('service_type', { length: 100 })
+      .notNull()
+      .references(() => serviceTypeEnum.serviceType),
+
+    // 变更类型（仅允许额外添加）
+    ledgerType: entitlementLedgerTypeEnum('ledger_type')
+      .notNull(),
+
+    // 变更数量（正数）
+    quantityChanged: integer('quantity_changed')
+      .notNull()
+      .check(sql`quantity_changed > 0`),
+
+    // 变更原因和说明
+    reason: text('reason').notNull(),              // 原因（必填，审计）
+    description: text('description'),              // 详细说明
+    attachments: json('attachments').$type<string[]>(), // 附件URL数组
+
+    // 操作人
+    createdBy: varchar('created_by', { length: 32 })
+      .notNull()
+      .references(() => users.id),
+
+    // 时间戳
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+
+    // 快照信息（可选，包含 contract_id 用于审计）
+    snapshot: json('snapshot').$type<{
+      contractId?: string;
+      contractNumber?: string;
+      serviceSnapshot?: any;
+      productSnapshot?: any;
+    }>(),
+  }
+);
+```
+
+**约束定义**：
+```sql
+-- CHECK 约束：quantity_changed 必须为正数
+ALTER TABLE contract_amendment_ledgers
+ADD CONSTRAINT chk_quantity_changed_positive
+CHECK (quantity_changed > 0);
+
+-- CHECK 约束：reason 不能为空
+ALTER TABLE contract_amendment_ledgers
+ADD CONSTRAINT chk_reason_required
+CHECK (reason IS NOT NULL AND length(reason) > 0);
+```
+
+**索引定义**：
+```sql
+-- 复合索引：按学生查询权益变更历史
+CREATE INDEX idx_ledger_by_student
+ON contract_amendment_ledgers(student_id, service_type, created_at DESC);
+
+-- 复合索引：按类型查询（统计促销活动）
+CREATE INDEX idx_ledger_by_type
+ON contract_amendment_ledgers(ledger_type, student_id, created_at DESC);
+
+-- 索引：按创建时间（支持时间范围查询）
+CREATE INDEX idx_ledger_created_at
+ON contract_amendment_ledgers(created_at DESC);
+
+-- 复合索引：操作人审计（查询某人操作记录）
+CREATE INDEX idx_ledger_by_created_by
+ON contract_amendment_ledgers(created_by, created_at DESC);
+```
+
+**特性说明**：
+- **Append-only**：仅允许 INSERT，不允许 UPDATE/DELETE
+- **立即生效**：插入后触发器立即更新权益余额（无审批）
+- **审计目的**：用于统计、报表、合规审计
+- **记录内容**：仅记录额外添加的权益（addon/promotion/compensation）
+
+**示例数据**：
+```typescript
+// 示例1：促销活动赠送-额外权益
+{
+  id: 'ledger-001',
+  studentId: 'stu-001',
+  serviceType: 'session',
+  ledgerType: 'promotion',
+  quantityChanged: 2,         // +2次
+  reason: '双十一促销活动赠送',
+  createdBy: 'counselor-001',
+  createdAt: '2025-11-11T00:00:00Z',
+  snapshot: {
+    contractId: 'contract-123',
+    contractNumber: 'CONTRACT-2025-11-00001',
+    serviceSnapshot: { /* ... */ }
+  }
+}
+
+// 触发器执行后：contract_service_entitlements.total_quantity += 2
+```
+
+---
+
+### 2.3 service_holds（服务预占表）- 移除 contract 关联
+
+**表定义**（drizzle schema）
+```typescript
+export const serviceHolds = pgTable('service_holds', {
+  id: uuid('id').defaultRandom().primaryKey(),
+
+  // 关联学生（移除 contract_id，只关联学生）
+  studentId: varchar('student_id', { length: 32 })
+    .notNull()
+    .references(() => users.id),
+
+  // 服务类型
+  serviceType: varchar('service_type', { length: 100 })
+    .notNull()
+    .references(() => serviceTypeEnum.serviceType),
+
+  // 预占数量
+  quantity: integer('quantity')
+    .notNull()
+    .default(1)
+    .check(sql`quantity > 0`),
+
+  // 状态管理
+  status: holdStatusEnum('status')
+    .notNull()
+    .default('active'), // active/released/cancelled
+
+  // 关联预约
+  relatedBookingId: uuid('related_booking_id'),
+
+  // 释放信息
+  releasedAt: timestamp('released_at', { withTimezone: true }),
+  releaseReason: varchar('release_reason', { length: 100 }), // 'completed' | 'cancelled' | 'admin_manual'
+
+  // 审计字段
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  createdBy: varchar('created_by', { length: 32 })
+    .notNull()
+    .references(() => users.id),
+});
+```
+
+**约束定义**：
+```sql
+-- CHECK 约束：quantity 必须为正数
+ALTER TABLE service_holds
+ADD CONSTRAINT chk_hold_quantity_positive
+CHECK (quantity > 0);
+
+-- CHECK 约束：released 状态必须设置时间
+ALTER TABLE service_holds
+ADD CONSTRAINT chk_released_at_required
+CHECK (
+  (status != 'released') OR
+  (released_at IS NOT NULL AND release_reason IS NOT NULL)
+);
+```
+
+**索引定义**：
+```sql
+-- 复合索引：查询学生的活跃预占
+CREATE INDEX idx_holds_by_student_active
+ON service_holds(student_id, service_type, status)
+WHERE status = 'active';
+
+-- 索引：按预约查询
+CREATE INDEX idx_holds_by_booking
+ON service_holds(related_booking_id);
+```
+
+**状态流转**：
+```
+active → released（服务完成）
+active → cancelled（用户取消）
+```
+
+**变更说明**：
+- ❌ 移除了 `contract_id` 字段
+- ✅ 仅通过 `student_id` 关联学生
+- ✅ 触发器更新 `contract_service_entitlements.held_quantity`
+
+---
+
+### 2.4 service_ledgers（服务消费流水表）
+
+**表定义**（drizzle schema）
+```typescript
+export const serviceLedgers = pgTable('service_ledgers', {
+  id: uuid('id').defaultRandom().primaryKey(),
+
+  // 关联学生
+  studentId: varchar('student_id', { length: 32 })
+    .notNull()
+    .references(() => users.id),
+
+  // 关联权益记录（新增 contract_service_entitlement_id）
+  contractServiceEntitlementId: uuid('contract_service_entitlement_id')
+    .notNull()
+    .references(() => contractServiceEntitlements.studentId), // 实际关联复合主键
+
+  // 服务类型
+  serviceType: varchar('service_type', { length: 100 })
+    .notNull()
+    .references(() => serviceTypeEnum.serviceType),
+
+  // 数量变化（负数=消费，正数=退款/调整）
+  quantity: integer('quantity')
+    .notNull()
+    .check(sql`quantity != 0`), // 不能为0
+
+  // 流水类型
+  type: serviceLedgerTypeEnum('type')
+    .notNull(), // consumption/refund/adjustment
+
+  // 来源
+  source: serviceLedgerSourceEnum('source')
+    .notNull(),
+
+  // 余额快照（操作后的余额）
+  balanceAfter: integer('balance_after')
+    .notNull()
+    .check(sql`balance_after >= 0`),
+
+  // 关联记录
+  relatedHoldId: uuid('related_hold_id')
+    .references(() => serviceHolds.id),
+  relatedBookingId: uuid('related_booking_id'),
+
+  // 审计字段
+  reason: text('reason'),                        // 调整原因（adjustment必填）
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  createdBy: varchar('created_by', { length: 32 })
+    .notNull()
+    .references(() => users.id),
+
+  // 元数据
+  metadata: json('metadata').$type<{
+    originalBalance?: number;
+    operationIp?: string;
+    device?: string;
+  }>(),
+});
+```
+
+**类型枚举**：
+```typescript
+// 流水类型
+export const serviceLedgerTypeEnum = pgEnum('service_ledger_type', [
+  'consumption',     // 服务消费（quantity < 0）
+  'refund',         // 退款增加（quantity > 0）
+  'adjustment',     // 手动调整（quantity 可正可负）
+]);
+
+// 流水来源
+export const serviceLedgerSourceEnum = pgEnum('service_ledger_source', [
+  'booking_completed',    // 预约完成
+  'booking_cancelled',    // 预约取消
+  'manual_adjustment',    // 手动调整
+]);
+```
+
+**约束定义**：
+```sql
+-- CHECK 约束：balance_after 必须非负
+ALTER TABLE service_ledgers
+ADD CONSTRAINT chk_balance_after_non_negative
+CHECK (balance_after >= 0);
+
+-- CHECK 约束：quantity 不能为0
+ALTER TABLE service_ledgers
+ADD CONSTRAINT chk_quantity_not_zero
+CHECK (quantity != 0);
+
+-- CHECK 约束：类型与quantity符号校验
+-- consumption → quantity < 0
+ALTER TABLE service_ledgers
+ADD CONSTRAINT chk_consumption_quantity_negative
+CHECK (type != 'consumption' OR quantity < 0);
+
+-- refund → quantity > 0
+ALTER TABLE service_ledgers
+ADD CONSTRAINT chk_refund_quantity_positive
+CHECK (type != 'refund' OR quantity > 0);
+
+-- adjustment → reason 必填
+ALTER TABLE service_ledgers
+ADD CONSTRAINT chk_adjustment_reason_required
+CHECK (type != 'adjustment' OR (reason IS NOT NULL AND length(reason) > 0));
+```
+
+**索引定义**：
+```sql
+-- 复合索引：按学生 + 服务类型查询
+CREATE INDEX idx_ledgers_by_student_service
+ON service_ledgers(student_id, service_type, created_at DESC);
+
+-- 复合索引：按权益记录查询所有流水
+CREATE INDEX idx_ledgers_by_entitlement
+ON service_ledgers(contract_service_entitlement_id, created_at DESC);
+
+-- 复合索引：按服务类型统计
+CREATE INDEX idx_ledgers_by_service_type
+ON service_ledgers(service_type, student_id, created_at DESC);
+
+-- 索引：按创建时间查询
+CREATE INDEX idx_ledgers_created_at
+ON service_ledgers(created_at DESC);
+```
+
+**重要变更**：
+- ❌ 移除了 `contract_id` 字段
+- ✅ 新增 `contract_service_entitlement_id` 字段
+- ✅ 关联到 `contract_service_entitlements` 表（复合主键）
+- ✅ 触发器更新 `contract_service_entitlements.consumed_quantity`
+
+---
+
+### 2.5 contracts（合同表）- 保持不变
+
+**表定义**（drizzle schema）
+```typescript
+export const contracts = pgTable('contracts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+
+  // 关联方
+  studentId: varchar('student_id', { length: 32 })
+    .notNull()
+    .references(() => users.id),
+  counselorId: varchar('counselor_id', { length: 32 })
+    .references(() => users.id),
+
+  // 合同信息
+  contractNumber: varchar('contract_number', { length: 100 })
+    .notNull()
+    .unique(),
+  title: varchar('title', { length: 500 }),
+  description: text('description'),
+
+  // 产品快照（保留，用于初始化权益）
+  productId: uuid('product_id').notNull(),
+  productSnapshot: json('product_snapshot')
+    .$type<IProductSnapshot>()
+    .notNull(),
+
+  // 财务信息
+  totalAmount: numeric('total_amount', { precision: 12, scale: 2 })
+    .notNull(),
+  paidAmount: numeric('paid_amount', { precision: 12, scale: 2 })
+    .notNull()
+    .default('0'),
+  currency: varchar('currency', { length: 3 })
+    .notNull()
+    .default('USD'),
+
+  // 有效期
+  validityDays: integer('validity_days'), // null = 永久有效
+  signedAt: timestamp('signed_at', { withTimezone: true }),
+  effectiveAt: timestamp('effective_at', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }), // null = 永久有效
+
+  // 状态
+  status: contractStatusEnum('status')
+    .notNull()
+    .default('draft'),
+
+  // 暂停/终止信息
+  suspendedAt: timestamp('suspended_at', { withTimezone: true }),
+  suspensionReason: text('suspension_reason'),
+  suspensionCount: integer('suspension_count')
+    .notNull()
+    .default(0),
+  terminatedAt: timestamp('terminated_at', { withTimezone: true }),
+  terminationReason: text('termination_reason'),
+
+  // 元数据
+  metadata: json('metadata').$type<{
+    pdfUrl?: string;
+    attachments?: string[];
+    terms?: Record<string, any>;
+    pricingNote?: string; // 价格覆盖说明
+    pricingOverrideApprovedBy?: string; // 价格覆盖批准人
+  }>(),
+
+  // 审计字段
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  createdBy: varchar('created_by', { length: 32 })
+    .references(() => users.id),
+});
+```
+
+**关键说明**：
+- ✅ 保留 `productSnapshot` 字段（v2.16.4 决策 #3）
+- ✅ 初始化权益时从 `productSnapshot.items` 读取服务项
+- ❌ **不创建触发器**（应用层通过代码初始化权益）
+- ✅ 专注合同生命周期管理（状态流转、财务、有效期）
+
+---
+
+## 2.6 表关系图（新架构）
+
+```
+┌─────────────────┐
+│     users       │  学生
+└────────┬────────┘
+         │ 1:N
+         │
+    ┌────▼──────────────────────────────┐
+    │  contract_service_entitlements   │  ← 核心权益表（学生级累积）
+    │  PK: (student_id, service_type) │
+    └────┬──────────────────────────────┘
+         │                                 ▲
+         │ 1:N                             │ 1:N
+         │                                 │
+    ┌────▼──────────────┐      ┌──────────▼──────────────┐
+    │ service_holds     │      │ service_ledgers         │
+    │ (预约预占)         │      │ (消费流水)              │
+    │                   │      │                         │
+    │ - student_id      │      │ - student_id            │
+    │ - service_type    │      │ - service_type          │
+    │ - quantity        │      │ - quantity              │
+    │ - status          │      │ - balance_after         │
+    └───────────────────┘      └─────────────────────────┘
+         │                              │
+         │                              │ 1:N
+         │                              │
+         └────────────┬─────────────────┘
+                      │
+                      │ 1:N
+                      │
+            ┌─────────▼──────────────────┐
+            │  contract_amendment_ledgers│  ← 额外权益流水（只记录 addon）
+            │  Append-only                 │
+            │                            │
+            │ - student_id               │
+            │ - service_type             │
+            │ - ledger_type              │
+            │ - quantity_changed         │
+            │ - reason                   │
+            └────────────────────────────┘
+
+┌─────────────────┐
+│   contracts     │  合同生命周期管理（保持原结构）
+└────────┬────────┘
+         │ 1:N
+         │
+    ┌────▼─────────────────┐
+    │  service_ledgers     │  消费流水关联（通过 entitlement_id）
+    └──────────────────────┘
+```
+
+**关键关联**：
+1. **查询关联**：通过 `student_id + service_type` 关联
+2. **触发器关联**：
+   - `contract_amendment_ledgers.INSERT` → 更新 `contract_service_entitlements.total_quantity`
+   - `service_ledgers.INSERT` → 更新 `contract_service_entitlements.consumed_quantity`
+   - `service_holds.INSERT/UPDATE` → 更新 `contract_service_entitlements.held_quantity`
+3. **引用完整性**：不强制外键约束（复合主键），通过代码保证
+
+---
+
+## 3. 触发器机制
+
+> **版本：** v2.16.12 架构重构
+> **触发器数量：** 3个核心触发器
+> **触发器位置：** 数据库层面（PostgreSQL functions）
+
+### 3.1 触发器机制概述
+
+**设计目标**：
+- ✅ 数据库层面保证数据一致性
+- ✅ 应用层无需手动同步权益数量
+- ✅ 原子性操作（触发器在事务内执行）
+- ✅ 性能优化（避免应用层多次数据库访问）
+
+### 3.2 触发器 1：contract_amendment_ledgers → contract_service_entitlements
+
+**触发时机**：`contract_amendment_ledgers` 表 INSERT 操作后
+
+**功能**：将额外添加的权益自动累加到学生总权益
+
+#### SQL 函数定义
+
+⚠️ **v2.16.12 更新 (D-NEW-1 决策)**：移除 INSERT 分支，仅执行 UPDATE
+
+```sql
+-- ============================================================================
+-- 函数：sync_ledger_to_entitlement()
+-- 描述：contract_amendment_ledgers 新增时，自动累加 total_quantity
+-- 触发时机：AFTER INSERT
+-- 影响表：contract_service_entitlements
+-- 版本：v2.16.12
+-- 决策：仅执行 UPDATE，记录不存在时抛异常（D-NEW-1 方案A）
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION sync_ledger_to_entitlement()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- 仅处理 INSERT 操作
+  IF TG_OP = 'INSERT' THEN
+    -- ⚠️ D-NEW-1 决策：只执行 UPDATE，不执行 INSERT
+    -- 如果记录不存在，抛异常（确保初始权益已存在）
+    UPDATE contract_service_entitlements AS cse
+    SET
+      total_quantity = cse.total_quantity + NEW.quantity_changed,
+      available_quantity = cse.total_quantity + NEW.quantity_changed
+                         - cse.consumed_quantity
+                         - cse.held_quantity,
+      updated_at = NOW()
+    WHERE cse.student_id = NEW.student_id
+      AND cse.service_type = NEW.service_type;
+
+    -- 验证更新成功（记录必须存在）
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Entitlement not found for student_id=%, service_type=%. '
+                      'Initial entitlement must be created before adding ledger entries.',
+        NEW.student_id, NEW.service_type;
+    END IF;
+
+    RETURN NEW;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- 触发器绑定
+-- ============================================================================
+
+DROP TRIGGER IF EXISTS trigger_ledger_insert ON contract_amendment_ledgers;
+
+CREATE TRIGGER trigger_ledger_insert
+  AFTER INSERT
+  ON contract_amendment_ledgers
+  FOR EACH ROW
+  EXECUTE FUNCTION sync_ledger_to_entitlement();
+```
+
+**重要变更说明（D-NEW-1 决策）：**
+- ❌ 移除 INSERT 分支（不再创建新记录）
+- ✅ 仅执行 UPDATE（累加 total_quantity）
+- ✅ 如果记录不存在，抛异常并提示"必须先创建初始权益"
+- ✅ 强制业务规则：先初始化 → 后累加额外权益
+
+#### 图解
+
+```
+contract_amendment_ledgers.INSERT (quantity_changed = +2)
+    ↓
+触发器自动执行
+    ↓
+IF (student_id, service_type) 存在 THEN
+  UPDATE contract_service_entitlements
+  SET
+    total_quantity = total_quantity + 2,
+    available_quantity = (total_quantity + 2) - consumed - held
+ELSE
+  INSERT new record (
+    total_quantity = 2,
+    available_quantity = 2
+  )
+```
+
+#### 示例
+
+```typescript
+// 场景：学生 stu-001 获得 2 次额外 session
+┌─────────────────────────────────────────┐
+│ INSERT INTO contract_amendment_ledgers│
+├─────────────────────────────────────────┤
+│ student_id      = 'stu-001'             │
+│ service_type    = 'session'             │
+│ ledger_type     = 'promotion'           │
+│ quantity_changed = 2                    │
+│ reason          = '双十一活动'          │
+└─────────────────────────────────────────┘
+                      ↓
+              触发器自动执行
+                      ↓
+┌─────────────────────────────────────────┐
+│ UPDATE contract_service_entitlements    │
+├─────────────────────────────────────────┤
+│ SET                                     │
+│   total_quantity += 2,                  │
+│   available_quantity += 2               │
+│ WHERE                                   │
+│   student_id = 'stu-001'                │
+│   service_type = 'session'              │
+└─────────────────────────────────────────┘
+```
+
+---
+
+### 3.3 触发器 2：service_ledgers → contract_service_entitlements
+
+**触发时机**：`service_ledgers` 表 INSERT 操作后
+
+**功能**：服务消费时自动累加已消费数量
+
+#### SQL 函数定义
+
+```sql
+-- ============================================================================
+-- 函数：sync_consumption_to_entitlement()
+-- 描述：service_ledgers 新增时，自动累加 consumed_quantity
+-- 触发时机：AFTER INSERT
+-- 影响表：contract_service_entitlements
+-- 版本：v2.16.12
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION sync_consumption_to_entitlement()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- 仅处理 INSERT 操作
+  IF TG_OP = 'INSERT' THEN
+    UPDATE contract_service_entitlements
+    SET
+      -- quantity 为负数（消费），取反后累加
+      consumed_quantity = consumed_quantity + (-NEW.quantity),
+
+      -- 重新计算可用余额
+      -- available = total - (consumed + NEW.quantity) - held
+      available_quantity = total_quantity
+                         - (consumed_quantity + (-NEW.quantity))
+                         - held_quantity,
+
+      updated_at = NOW()
+    WHERE student_id = NEW.student_id
+      AND service_type = NEW.service_type;
+
+    -- 验证更新成功
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Entitlement not found for student_id=%, service_type=%',
+        NEW.student_id, NEW.service_type;
+    END IF;
+
+    RETURN NEW;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- 触发器绑定
+-- ============================================================================
+
+DROP TRIGGER IF EXISTS trigger_service_ledger_insert ON service_ledgers;
+
+CREATE TRIGGER trigger_service_ledger_insert
+  AFTER INSERT
+  ON service_ledgers
+  FOR EACH ROW
+  EXECUTE FUNCTION sync_consumption_to_entitlement();
+```
+
+#### 图解
+
+```
+service_ledgers.INSERT (quantity = -1, 表示消费1次)
+    ↓
+触发器自动执行
+    ↓
+UPDATE contract_service_entitlements
+SET
+  consumed_quantity = consumed_quantity + 1,
+  available_quantity = total - (consumed + 1) - held
+```
+
+---
+
+### 3.4 触发器 3：service_holds → contract_service_entitlements
+
+**触发时机**：`service_holds` 表 INSERT 和 UPDATE 操作后
+
+**功能**：服务预占创建和释放时自动更新预占数量
+
+#### SQL 函数定义
+
+```sql
+-- ============================================================================
+-- 函数：sync_hold_to_entitlement()
+-- 描述：service_holds 状态变更时，自动更新 held_quantity
+-- 触发时机：AFTER INSERT OR UPDATE
+-- 影响表：contract_service_entitlements
+-- 版本：v2.16.12
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION sync_hold_to_entitlement()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- 场景 1：创建新预占 (INSERT 且 status = 'active')
+  IF TG_OP = 'INSERT' AND NEW.status = 'active' THEN
+    UPDATE contract_service_entitlements
+    SET
+      held_quantity = held_quantity + NEW.quantity,
+
+      -- 可用余额减少
+      available_quantity = total_quantity
+                         - consumed_quantity
+                         - (held_quantity + NEW.quantity),
+
+      updated_at = NOW()
+    WHERE student_id = NEW.student_id
+      AND service_type = NEW.service_type;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Entitlement not found for student_id=%, service_type=%',
+        NEW.student_id, NEW.service_type;
+    END IF;
+
+    RETURN NEW;
+  END IF;
+
+  -- 场景 2：释放预占 (UPDATE 且 status 从 'active' 变为其他)
+  IF TG_OP = 'UPDATE'
+     AND OLD.status = 'active'
+     AND NEW.status != 'active' THEN
+
+    UPDATE contract_service_entitlements
+    SET
+      held_quantity = held_quantity - OLD.quantity,
+
+      -- 可用余额增加
+      available_quantity = total_quantity
+                         - consumed_quantity
+                         - (held_quantity - OLD.quantity),
+
+      updated_at = NOW()
+    WHERE student_id = OLD.student_id
+      AND service_type = OLD.service_type;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Entitlement not found for student_id=%, service_type=%',
+        OLD.student_id, OLD.service_type;
+    END IF;
+
+    RETURN NEW;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- 触发器绑定
+-- ============================================================================
+
+DROP TRIGGER IF EXISTS trigger_hold_change ON service_holds;
+
+CREATE TRIGGER trigger_hold_change
+  AFTER INSERT OR UPDATE
+  ON service_holds
+  FOR EACH ROW
+  EXECUTE FUNCTION sync_hold_to_entitlement();
+```
+
+#### 图解
+
+```
+场景 A：创建预占 (INSERT, status='active')
+=====================================
+service_holds.INSERT (quantity = 1, status = 'active')
+    ↓
+触发器自动执行
+    ↓
+UPDATE contract_service_entitlements
+SET
+  held_quantity = held_quantity + 1,
+  available_quantity = total - consumed - (held + 1)
+
+
+场景 B：释放预占 (UPDATE, status='active' → 'released')
+====================================================
+service_holds.UPDATE (status changed)
+    ↓
+触发器自动执行
+    ↓
+UPDATE contract_service_entitlements
+SET
+  held_quantity = held_quantity - 1,
+  available_quantity = total - consumed - (held - 1)
+```
+
+---
+
+### 3.5 触发器执行流程图
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    触发器执行流程总览                            │
+└─────────────────────────────────────────────────────────────────┘
+
+                          ┌────────────────────┐
+                          │  应用层业务操作     │
+                          └──────────┬─────────┘
+                                     │
+            ┌────────────────────────┼────────────────────────┐
+            │                        │                        │
+            ▼                        ▼                        ▼
+┌────────────────────┐  ┌───────────────────┐  ┌──────────────────┐
+│ 额外权益添加        │  │ 服务消费           │  │ 服务预占/释放     │
+│ (addon/promotion)  │  │ (consumption)     │  │ (hold/release)  │
+└──────────┬─────────┘  └─────────┬─────────┘  └─────────┬────────┘
+           │                      │                      │
+           ▼                      ▼                      ▼
+┌────────────────────┐  ┌───────────────────┐  ┌──────────────────┐
+│ INSERT INTO        │  │ INSERT INTO       │  │ INSERT/UPDATE    │
+│ contract_entitle.. │  │ service_ledgers   │  │ service_holds    │
+└──────────┬─────────┘  └─────────┬─────────┘  └─────────┬────────┘
+           │                      │                      │
+           └──────────────────────┼──────────────────────┘
+                                  │
+           ┌──────────────────────▼──────────────────────┐
+           │   触发器自动执行（同一事务内）               │
+           └──────────────────────┬──────────────────────┘
+                                  │
+            ┌─────────────────────┼─────────────────────┐
+            │                     │                     │
+            ▼                     ▼                     ▼
+┌────────────────────┐  ┌───────────────────┐  ┌──────────────────┐
+│ UPDATE total_      │  │ UPDATE consumed_  │  │ UPDATE held_     │
+│ quantity +=        │  │  quantity +=      │  │ quantity +=/-    │
+└────────────────────┘  └───────────────────┘  └──────────────────┘
+            │                     │                     │
+            └─────────────────────┼─────────────────────┘
+                                  │
+            ┌─────────────────────▼─────────────────────┐
+            │  contract_service_entitlements 自动更新    │
+            │                                           │
+            │  - total_quantity（累计增加）            │
+            │  - consumed_quantity（消费累加）         │
+            │  - held_quantity（预占变更）             │
+            │  - available_quantity（自动计算）        │
+            └───────────────────────────────────────────┘
+```
+
+**重要特性**：
+- 触发器在 **同一数据库事务** 内执行
+- 应用层插入记录后，触发器立即执行
+- 如果触发器失败（如违反CHECK约束），整个事务回滚
+- 确保数据强一致性
+
+> **审查日期：** 2025-11-11
+> **审查版本：** v2.16.10
+> **状态：** ✅ 所有差异已决策（7 项）
+
+| 编号 | 问题 | 决策结果 | 优先级 | 实施状态 |
+|------|------|----------|--------|----------|
+| **D1** | 合同状态差异 | ✅ **方案A**：增加 `draft` 状态（draft → signed → active） | 🔴 高 | 待实施 |
+| **D2** | 合同状态管理方法缺失 | ✅ **方案A**：实现 `suspend()`, `resume()`, `complete()` | 🔴 高 | 待实施 |
+| **D3** | 权益修改表名 | ✅ **方案B**：表名为 `contract_amendment_ledgers` | 🟡 中 | 文档已更新 |
+| **D4** | DTO字段命名 | ✅ **方案B**：采用代码字段名（reason, sessionId 等） | 🟡 中 | 文档已更新 |
+| **D5** | 事件监听器缺失 | ✅ **方案A**：实现 `payment.succeeded`, `session.completed` 监听器 | 🔴 高 | 待实施 |
+| **D6** | 事务支持 | ✅ **方案B**：保持现状 | 🟢 低 | 无需实施 |
+| **D7** | 状态验证 | ✅ **方案B**：保持现状 | 🟢 低 | 无需实施 |
+
+> **详细决策记录**：参见 [Section 9: 差异分析](#9-设计文档与代码实现差异分析)
+
+### 实施优先级
+
+**🔴 高优先级（必须修复）：** D1, D2, D5
+
+**🟡 中优先级（建议实施）：** D6（保持现状）
+
+**🟢 低优先级（无需代码变更）：** D3, D4, D7（文档已更新）
 
 ### 关键实施要点
 
-#### 1. DTO 验证标准（C1）
-- 使用 `class` + `class-validator` 装饰器
-- 参考：`src/domains/catalog/product/dto/create-product.dto.ts`
-- 必填：`@IsNotEmpty()` + 类型验证
-- 可选：`@IsOptional()`
-- 嵌套对象：`@ValidateNested()` + `@Type(() => NestedDto)`
-
-#### 2. 错误处理标准（C2）
-- 字符串常量错误码（不使用 enum）
-- 按 HTTP 状态分组异常类：`ContractException`, `ContractNotFoundException`, `ContractConflictException`, `ContractGoneException`, `ContractUnprocessableException`
-- 实现位置：`src/domains/contract/common/exceptions/contract.exception.ts`
-- 参考：`src/domains/catalog/common/exceptions/catalog.exception.ts`
-
-#### 3. ServiceType 枚举（C3）
-```typescript
-import { serviceTypeEnum } from '@infrastructure/database/schema/services.schema';
-```
-- 11 种服务类型：gap_analysis, resume_review, recommendation_letter, recommendation_letter_online, session, mock_interview, class_session, internal_referral, contract_signing_assistance, proxy_application, other_service
-
-#### 4. 数据库类型定义（I4）
+#### 1. 数据库类型定义
 ```typescript
 // src/shared/types/database.types.ts
-
-import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { PgTransaction } from 'drizzle-orm/pg-core';
-import * as schema from '@infrastructure/database/schema';
-
 export type DrizzleDatabase = NodePgDatabase<typeof schema>;
 export type DrizzleTransaction = PgTransaction<typeof schema, any, Record<string, never>>;
 export type DrizzleExecutor = DrizzleDatabase | DrizzleTransaction;
 ```
 
-#### 5. SQL 脚本文件结构
-- `src/infrastructure/database/migrations/sql/contract_number_generator.sql` - 合同编号生成函数（Sequence + Advisory Lock）
-- `src/infrastructure/database/migrations/sql/contract_triggers.sql` - 触发器（`sync_consumed_quantity`, `sync_held_quantity`）
-- `src/infrastructure/database/migrations/sql/contract_indexes.sql` - 索引（约 30 个，含 partial index）
-- `src/infrastructure/database/migrations/sql/contract_constraints.sql` - CHECK 约束（约 20 个）
-- `src/infrastructure/database/migrations/sql/contract_entitlement_revisions_indexes.sql` - 权益修订表索引（9个）🆕v2.16.8
-- `src/infrastructure/database/migrations/sql/contract_entitlement_revisions_constraints.sql` - 权益修订表CHECK约束（2个）🆕v2.16.8
+#### 2. SQL 脚本文件结构
+- `contract_number_generator.sql` - 合同编号生成函数
+- `contract_triggers.sql` - 触发器（自动同步数量）
+- `contract_indexes.sql` - 索引（性能优化）
+- `contract_constraints.sql` - CHECK 约束（数据完整性）
 
-#### 6. Event Publisher 配置（M1）
-- 轮询频率：30 秒（`EVENT_PUBLISHER_POLL_INTERVAL_MS=30000`）
-- 重试次数：5 次（`EVENT_PUBLISHER_MAX_RETRIES=5`）
-- 批量大小：100 条（`EVENT_PUBLISHER_BATCH_SIZE=100`）
+#### 3. Event Publisher 配置
+- 轮询频率：30 秒
+- 重试次数：5 次
+- 批量大小：100 条
 - 使用 Advisory Lock 防止多实例冲突
-
-#### 7. 测试覆盖目标（M2）
-- Domain Services：80%
-- 业务规则验证：100%（关键路径）
-- 关键测试场景：服务消费（含优先级算法）、服务预占（含 TTL）、状态流转、价格覆盖、触发器、归档查询
 
 ---
 
@@ -240,396 +1364,182 @@ export type DrizzleExecutor = DrizzleDatabase | DrizzleTransaction;
 
 ## 📝 版本更新日志
 
-### v2.16.8 (2025-11-10) - 当前版本
+### v2.16.10 (2025-11-11)
 
-**新增合同权益修订表**
+**权益审计机制重大简化**
 
-本次版本新增 `contract_entitlement_revisions` 表，用于记录合同权益的变更历史，支持审计追溯和版本管理。
+v2.16.10 简化 `contract_amendment_ledgers` 表，从"版本管理系统"改为"审计日志系统"。
 
 **核心变更：**
 
-1. **新增 `contract_entitlement_revisions` 表**
-   - 记录权益赋予类变更（initial, addon, promotion, compensation, etc.）
-   - 支持审核流程（pending → approved/rejected → applied）
-   - 合同级别版本号（revisionNumber 在合同内全局递增）
+1. **移除审批流程**
+   - 所有权益变更立即生效，无需管理员审批
+   - 移除 `status`, `requiresApproval`, `approvedBy`, `approvedAt` 字段
+   - 移除 `approveRevision()`, `rejectRevision()` 方法
 
-2. **ContractService 增强**
-   - 新增 `getEntitlementRevisions()`：查询修订历史
-   - 新增 `approveRevision()`：审批修订
-   - 新增 `rejectRevision()`：拒绝修订
+2. **简化版本管理**
+   - 移除 `revisionNumber` 字段，按 `createdAt` 排序
+   - 从 21 个字段减少到 15 个字段（精简 28.6%）
+   - 从 9 个索引减少到 5 个索引（精简 44.4%）
 
-3. **业务规则更新**
-   - **所有额外权益都需要审批**：addon/promotion/compensation 类型权益变更需管理员审批
-   - 创建合同时自动记录初始权益（revisionType='initial'）
+3. **DTO字段对齐**
+   - `addOnReason` → `reason`（与代码实现一致）
 
-**近期版本演进：**
-- **v2.16.7**：数据模型简化，移除 unit 字段；增强查询接口（findOne）
-- **v2.16.6**：ServiceUnit 统一为 'times'（次数）
-
-> **完整历史版本**：参见文档末尾 [附录：历史版本变更](#附录历史版本变更)
+**近期演进：**
+- **v2.16.9**：移除服务预占TTL机制，预占永不过期
+- **v2.16.7**：统一按次数计费，移除 unit 字段
+- **v2.16.6**：ServiceUnit 简化为单一值 'times'
 
 ---
 
 ## 1. 领域概述
 
-### 1.1 领域职责
+### 1.1 核心职责 / Core Responsibilities
 
-Contract Domain（合同域）是 MentorX 平台的**核心业务域**，负责管理学生的合同签订、服务权益和服务消费全生命周期。
+合同域是 MentorX 平台核心业务域，负责管理教育咨询服务的合同生命周期和服务权益管理。
 
 **核心职责：**
 
-- ✅ 管理合同的全生命周期（创建、激活、终止、暂停）
-- ✅ 管理合同服务权益余额（Service Entitlements）
-- ✅ 追踪服务消费流水（Service Ledger - Append-only）
-- ✅ 管理服务预占机制（Service Hold - TTL机制）
-- ✅ 支持额外添加服务权益（促成签约、促销、补偿）
-- ✅ 提供服务余额查询和验证
-- ✅ 支持流水归档和冷热分离
-- ✅ 发布合同相关业务事件
+- **合同生命周期管理** - 管理合同的全生命周期（创建、激活、终止、暂停）
+- **服务权益余额管理** - 管理合同服务权益余额和变更
+- **服务消费追踪** - 追踪服务消费流水（Service Ledger - Append-only）
+- **服务预占机制** - 管理服务预占防止超额预约
+- **额外权益支持** - 支持促成签约、促销、补偿的服务增加
+- **查询与验证** - 提供服务余额查询和验证
+- **流水归档** - 支持历史流水归档和冷热分离
+- **事件发布** - 发布合同相关业务事件
 
-**不负责的职责：**
+**不负责职责：**
+- **产品定义** - 目录域负责产品配置
+- **支付处理** - 财务域负责支付流程
+- **服务预约** - 服务域负责预约管理
+- **导师计费** - 财务域处理费用结算
+- **财务结算** - 财务域负责最终结算
 
-- ❌ 不处理产品定义（Catalog Domain 负责）
-- ❌ 不处理支付（Financial Domain 负责）
-- ❌ 不处理服务预约（Services Domain 负责）
-- ❌ 不处理导师计费（Financial Domain 负责）
-- ❌ 不处理结算（Financial Domain 负责）
-
-### 1.2 领域特性
+### 1.2 领域特性 / Domain Characteristics
 
 **核心业务域特性：**
 
-1. **事件驱动**：发布和监听业务事件，驱动跨域协作
-2. **状态管理**：合同状态机流转（draft → active → completed/terminated）
-3. **Append-only 流水**：服务流水只能追加，不可修改，保证审计完整性
-4. **服务预占机制**：防止超额预约，需人工释放（v2.16.9：移除自动过期）
-5. **冷热分离**：历史流水归档，保持查询性能
-6. **合同-产品一对一绑定**：每个合同仅关联一个产品，产品信息通过快照固化
+- **事件驱动** - 发布和监听业务事件，驱动跨域协作
+- **状态管理** - 合同状态机流转（draft → active → completed/terminated）
+- **Append-only 流水** - 服务流水只能追加，不可修改，保证审计完整性
+- **服务预占机制** - 防止超额预约，需人工释放（v2.16.9：移除自动过期）
+- **冷热分离** - 历史流水归档，保持查询性能
+- **合同-产品一对一绑定** - 每个合同仅关联一个产品，产品信息通过快照固化
 
 **核心业务约束（v2.16.6）：**
 
-- 📌 **合同与产品的一对一关系**：
-  - 每个合同仅能绑定一个产品（通过 `productId` 字段）
-  - 产品信息在合同创建时通过 `productSnapshot` 固化
-  - 合同创建后不可更换产品
-  - 原因：保证合同的确定性和审计追溯性
+- **合同与产品的一对一关系** - 每个合同仅能绑定一个产品，产品信息在合同创建时固化，合同创建后不可更换产品（保证合同的确定性和审计追溯性）
 
-- 📌 **服务单位统一为次数**（v2.16.6 新增）：
-  - 所有服务权益的单位（`unit`）统一为 `'times'`（次数）
-  - 不支持其他单位（如 hours, days, sessions）
-  - 服务时长/周期信息在服务定义中说明，不影响计费单位
-  - 原因：简化计费模型，避免单位转换复杂度
+- **服务单位统一为次数** - 所有服务权益的单位（`unit`）统一为 `'times'`（次数），不支持其他单位（如 hours, days, sessions），原因：简化计费模型，避免单位转换复杂度
 
 **v2.16 新增特性：**
+- **额外权益添加** - 支持促成签约、促销活动、补偿等场景的服务增加
+- **权益来源追溯** - 区分产品标准权益 vs 额外添加权益
+- **灵活权益管理** - 同一服务类型可多次添加额外权益
 
-- **额外权益添加**：支持促成签约、促销活动、补偿等场景的服务增加
-- **权益来源追溯**：区分产品标准权益 vs 额外添加权益
-- **灵活权益管理**：同一服务类型可多次添加额外权益
-
-### 1.3 与其他域的协作
+### 1.3 跨域协作 / Cross-Domain Collaboration
 
 **协作模式：事件驱动 + 服务调用**
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    Contract Domain 协作图                     │
-└──────────────────────────────────────────────────────────────┘
+**协作关系：**
+- **Catalog Domain → Contract Domain**：创建合同时查询产品（通过快照机制单向依赖）
+- **Financial Domain → Contract Domain**：通过事件驱动（`payment.succeeded` 激活合同，发布 `contract.activated`）
+- **Services Domain → Contract Domain**：通过事件驱动（`session.completed` 消费记录，发布 `service.consumed`）
+- **Financial Domain 不查询 Contract Domain**（决策 #9）- 保持域独立性，避免循环依赖
 
-Catalog Domain                  Contract Domain
-    │                                │
-    │ 创建合同时查询产品                │
-    │──────────────────────────────▶│
-    │   调用: ProductService         │
-    │   返回: ProductDetail          │
-    │◀──────────────────────────────│
-    │                                │
-    │                                │ 发布: contract.signed
-    │                                ├──────────────────────┐
-    │                                │                      │
-                                     │                      ▼
-Financial Domain                     │              Notification
-    │                                │                      │
-    │ payment.succeeded              │                      │
-    ├───────────────────────────────▶│                      │
-    │                                │                      │
-    │                                │ 激活合同              │
-    │                                │ 初始化服务权益         │
-    │                                │                      │
-    │                                │ 发布: contract.activated
-    │                                ├──────────────────────┤
-    │                                │                      │
-    │                                │                      ▼
-Services Domain                      │              Services Domain
-    │                                │                      │
-    │ services.session.completed     │                      │
-    ├───────────────────────────────▶│                      │
-    │                                │                      │
-    │                                │ 创建服务流水          │
-    │                                │ 扣减服务权益          │
-    │                                │                      │
-    │                                │ 发布: service.consumed
-    │                                └─────────────────────▶│
+**关键协作原则：**
+- 业务数据通过事件传递，而非服务调用查询
+- 保持单向依赖，避免循环引用
+- 事件驱动保证业务解耦和最终一致性
+
+### 1.4 产品快照机制 / Product Snapshot Mechanism
+
+**快照机制（Snapshot Mechanism）概述：**
+
+合同域通过产品快照机制，在合同创建时捕获产品信息的历史状态，避免产品目录变更影响已创建合同。
+
+**核心特性：**
+
+- **历史锁定**：合同创建时锁定产品信息和价格，后续产品变更不影响已创建合同
+- **完全展开**：service_package 递归展开为具体services，无需二次查询
+- **批量优化**：内部使用批量查询避免N+1性能问题
+- **数据完整**：包含价格、有效期、服务类型等所有必要字段
+- **单向依赖**：Catalog Domain → Contract Domain 通过快照机制实现松耦合
+
+**快照数据流结构：**
+
+```
+ProductService.generateSnapshot(productId)
+  → IProductSnapshot (完整产品快照)
+    ├─ 产品基本信息：productId, productName, price, currency, validityDays
+    ├─ 产品项目（完全展开）：items[]
+    │  ├─ 直接服务项（type='service'）
+    │  └─ 服务包项（type='service_package'）→ 递归展开为services
+    └─ 快照时间：snapshotAt
+
+Contract Domain → 解构快照数据 → contracts + contract_service_entitlements
 ```
 
-**关键协作场景：**
+**快照核心价值：**
+- 保证历史合同数据一致性和可追溯性
+- 支持产品演进优化，不影响现有合同
+- 简化计费逻辑，避免复杂时间点判断
+- 通过反腐败层实现域间解耦
 
-1. **合同创建**：
-   - Contract Domain → Catalog Domain：查询产品详情
-   - Contract Domain → Event Bus：发布 `contract.signed`
-
-2. **合同激活**：
-   - Financial Domain → Contract Domain：发送 `payment.succeeded` 事件
-   - Contract Domain 激活合同，初始化服务权益
-   - Contract Domain → Event Bus：发布 `contract.activated`
-
-3. **服务消费**：
-   - Services Domain → Contract Domain：发送 `session.completed` 事件
-   - Contract Domain 创建服务流水，扣减权益
-   - Contract Domain → Event Bus：发布 `service.consumed`
-
-**跨域协作原则（v2.16.4 明确）：**
-
-- ✅ **Catalog Domain → Contract Domain**：通过快照机制（单向依赖）
-- ✅ **Financial Domain → Contract Domain**：通过事件驱动（payment.succeeded 激活合同）
-- ✅ **Services Domain → Contract Domain**：通过事件驱动（session.completed 扣减权益）
-- ❌ **Financial Domain 不查询 Contract Domain**（决策 #9）
-  - Financial Domain 不直接调用 Contract Domain 的接口查询合同信息
-  - 如有需要，通过事件传递必要的上下文信息
-  - 接口保留用于未来可能的扩展需求
-  - 保持域的独立性和防腐隔离
-
-### 1.4 Catalog Domain 快照机制集成
-
-#### 1.4.1 快照接口概述
-
-Catalog Domain 提供了完整的三层快照体系，用于在合同创建时捕获产品信息的历史状态：
+**快照关键数据结构（简版）：**
 
 ```typescript
-// Catalog Domain 提供的快照接口
-ProductService.generateSnapshot(productId: string): Promise<IProductSnapshot>
-  └─ 自动展开所有 product items（包括 services 和 service_packages）
-     ├─ IProductSnapshotItem (type='service')
-     │   └─ serviceSnapshot: IServiceSnapshot
-     └─ IProductSnapshotItem (type='service_package')
-         └─ servicePackageSnapshot: IServicePackageSnapshot
-             └─ items: IServicePackageSnapshotItem[]
-                 └─ serviceSnapshot: IServiceSnapshot (递归展开)
-```
-
-**快照接口的核心特性：**
-
-1. ✅ **完全展开**：service_package 已递归展开为具体的 services，无需 Contract Domain 再次查询
-2. ✅ **批量优化**：Catalog Domain 内部使用批量查询避免 N+1 问题
-3. ✅ **历史准确**：包含 snapshotAt 时间戳，记录快照生成时间
-4. ✅ **数据完整**：包含 Contract Domain 需要的所有字段（price, validityDays, serviceType 等）
-5. ✅ **零外部查询**：Contract Domain 无需再次调用 Catalog Domain 查询 service 或 package 详情
-
-#### 1.4.2 快照数据结构
-
-**IProductSnapshot 完整结构：**
-
-```typescript
-interface IProductSnapshot {
-  // Product 基本信息
-  productId: string;
-  productName: string;
-  productCode: string;
-  price: string;                    // 合同总额（快照）
-  currency: Currency;               // 币种（快照）
-  validityDays?: number;            // 有效期（快照，null = 永久有效）
-
-  // Product items（已完全展开）
-  items: IProductSnapshotItem[];
-
-  // 快照时间
-  snapshotAt: Date;
+IProductSnapshot = {
+  // 产品基本信息
+  productId, productName, price, currency, validityDays?: number,
+  // 产品项目（完全展开）
+  items: IProductSnapshotItem[],
+  snapshotAt: Date
 }
 
-interface IProductSnapshotItem {
-  type: ProductItemType;            // 'service' | 'service_package'
-  quantity: number;                 // 数量（次数，所有服务统一按次数计费）
-  sortOrder: number;                // 排序
-
-  // Service snapshot（当 type='service' 时）
-  serviceSnapshot?: IServiceSnapshot;
-
-  // Service package snapshot（当 type='service_package' 时，已展开为 services）
-  servicePackageSnapshot?: IServicePackageSnapshot;
+IProductSnapshotItem = {
+  type: 'service' | 'service_package',
+  quantity: number,  // 所有服务统一按次数计费
+  sortOrder: number,
+  serviceSnapshot?: IServiceSnapshot,     // 直接服务
+  servicePackageSnapshot?: {             // 服务包（已展开）
+    packageId, packageName,
+    items: IServicePackageSnapshotItem[]  // 内层具体服务列表
+  }
 }
 
-interface IServiceSnapshot {
-  serviceId: string;
-  serviceName: string;
-  serviceCode: string;
-  serviceType: ServiceType;         // 🔑 用于创建 contract_service_entitlements
-  billingMode: BillingMode;
-  requiresEvaluation: boolean;
-  requiresMentorAssignment: boolean;
-  metadata?: {
-    features?: string[];
-    deliverables?: string[];        // 用于 serviceSnapshot.description
-    duration?: number;
-  };
-  snapshotAt: Date;
-}
-
-interface IServicePackageSnapshot {
-  packageId: string;
-  packageName: string;
-  packageCode: string;
-  items: IServicePackageSnapshotItem[];  // 🔑 已展开的 services
-  snapshotAt: Date;
-}
-
-interface IServicePackageSnapshotItem {
-  serviceSnapshot: IServiceSnapshot;  // 🔑 完整的 service 信息
-  quantity: number;                   // 数量（次数，所有服务统一按次数计费）
-  sortOrder: number;
+IServiceSnapshot = {
+  serviceId, serviceName, serviceCode,
+  serviceType,  // 🔑 用于创建 contract_service_entitlements
+  snapshotAt: Date
 }
 ```
 
-#### 1.4.3 Contract Domain 使用快照的流程
-
-**合同创建时的数据流：**
-
-```
-1. API Layer 接收创建合同请求
-   └─ { studentId, productId, ... }
-         │
-         ▼
-2. Application Layer 调用 Catalog Domain 获取快照
-   └─ productSnapshot = await catalogService.getProductSnapshot(productId)
-         │
-         ▼
-3. Application Layer 调用 Contract Domain 创建合同
-   └─ contract = await contractService.create({
-        studentId,
-        productSnapshot,  // 🔑 传入完整快照
-        ...
-      })
-         │
-         ▼
-4. Contract Domain 拆解快照数据
-   ├─ 创建 contracts 记录（提取 price, currency, validityDays）
-   ├─ 展开 productSnapshot.items
-   │  ├─ type='service' → 提取服务权益数据
-   │  └─ type='service_package' → 遍历 items，为每个 service 提取权益数据
-   ├─ 按 (serviceType + unit + expiresAt + source) 分组合并（v2.16.5 - C-NEW-6）
-   │  ├─ totalQuantity: 累加所有来源的数量
-   │  ├─ originItems: 合并为数组（保留所有产品项追溯信息）
-   │  └─ serviceSnapshot: 使用第一个产品项的快照
-   └─ 使用 ON CONFLICT DO UPDATE 插入 contract_service_entitlements
-```
-
-#### 1.4.4 快照数据到 Contract 表的映射
+**映射关系（合同表字段来源）：**
 
 | Contract Domain 表/字段 | 来源字段 | 说明 |
 |------------------------|---------|------|
-| **contracts 表** |
-| `productId` | `productSnapshot.productId` | 产品引用（不使用外键） |
-| `totalAmount` | `productSnapshot.price` | 合同总额（快照） |
-| `currency` | `productSnapshot.currency` | 币种（快照） |
-| `validityDays` | `productSnapshot.validityDays` | 有效期（快照，null = 永久有效） |
-| `expiresAt` | 计算：`signedAt + validityDays` | 过期时间（null = 永久有效） |
-| **contract_service_entitlements 表** |
-| `contractId` | 新创建的 `contracts.id` | 关联合同 |
-| `serviceType` | `serviceSnapshot.serviceType` | 服务类型（来自 Catalog） |
-| `source` | 固定值 `'product'` | 标准权益来源 |
-| `totalQuantity` | `item.quantity * pkgItem.quantity` | 数量（展开计算，所有服务统一按次数计费） |
-| `availableQuantity` | 等于 `totalQuantity` | 初始可用数量 |
-| `serviceSnapshot` | 构造快照对象 | 服务信息快照（v2.16.2 必填） |
-| `expiresAt` | 继承 `contracts.expiresAt` | 权益过期时间 |
+| `contracts` 表：|
+| `productId` | `productSnapshot.productId` | 产品引用（非外键） |
+| `totalAmount` | `productSnapshot.price` | 合同总额（快照锁定） |
+| `currency` | `productSnapshot.currency` | 币种 |
+| `validityDays` | `productSnapshot.validityDays` | 有效期 |
+| `contract_service_entitlements` 表：|
+| `serviceType` | `serviceSnapshot.serviceType` | 服务类型 |
+| `totalQuantity` | 展开计算：item.quantity × package内数量 | 数量（次数计费） |
+| `serviceSnapshot` | 构造快照对象 | 服务快照信息 |
+**合同时序数据流：**
 
-#### 1.4.5 权益拆解逻辑示例
-
-**示例：产品包含 1 个 service + 1 个 service_package**
-
-```typescript
-// 产品快照
-{
-  productId: 'prod-123',
-  price: '5999.00',
-  validityDays: 365,
-  items: [
-    // Item 1: 直接服务（简历修改 3 次）
-    {
-      type: 'service',
-      quantity: 3,              // 次数（v2.16.7：所有服务统一按次数计费）
-      serviceSnapshot: {
-        serviceType: 'resume_review',
-        serviceName: 'Resume Review',
-        ...
-      }
-    },
-    // Item 2: 服务包（包含 5 次 1-on-1 session + 2 次 mock interview）
-    {
-      type: 'service_package',
-      quantity: 1,              // package 数量固定为 1
-      servicePackageSnapshot: {
-        items: [
-          {
-            quantity: 5,        // 5次1对1咨询
-            serviceSnapshot: {
-              serviceType: 'one_on_one_session',
-              serviceName: '1-on-1 Session (1 hour)',  // 时长在名称中说明
-              ...
-            }
-          },
-          {
-            quantity: 2,        // 2次模拟面试
-            serviceSnapshot: {
-              serviceType: 'mock_interview',
-              serviceName: 'Mock Interview',
-              ...
-            }
-          }
-        ]
-      }
-    }
-  ]
-}
-
-// 拆解后生成的权益记录（3 条，v2.16.7：所有数量以次数为单位）
-[
-  // 来自 Item 1（直接服务）
-  {
-    serviceType: 'resume_review',
-    totalQuantity: 3,           // 直接使用 item.quantity（3次）
-    source: 'product',
-    serviceSnapshot: { ... }
-  },
-  // 来自 Item 2 的第 1 个 service（服务包展开）
-  {
-    serviceType: 'one_on_one_session',
-    totalQuantity: 5,           // 1 * 5 = 5（5次）
-    source: 'product',
-    serviceSnapshot: { ... }
-  },
-  // 来自 Item 2 的第 2 个 service（服务包展开）
-  {
-    serviceType: 'mock_interview',
-    totalQuantity: 2,           // 1 * 2 = 2（2次）
-    source: 'product',
-    serviceSnapshot: { ... }
-  }
-]
+```
+Catalog(获取产品快照) → Contract(解构快照) → 存储权益
 ```
 
-#### 1.4.6 与设计文档其他部分的关系
-
-本章节描述的快照机制直接影响以下设计：
-
-- **4.2 ContractService - 合同管理服务**
-  - `create()` 方法接收 `CreateContractDto`，其中包含 `productSnapshot` 字段
-  - 内部调用 `deriveEntitlementsFromSnapshot()` 拆解快照
-
-- **5.1 Contract DTOs - CreateContractDto**
-  - 新增 `productSnapshot: IProductSnapshot` 字段（必填）
-  - 移除原 `productId` 字段（改为从快照中提取）
-
-- **6.1.1 创建合同业务规则**
-  - 步骤 1：验证产品快照完整性（不再需要查询 Catalog Domain）
-  - 步骤 6：从快照派生服务权益（遍历 `productSnapshot.items`）
+**快照核心价值：**
+- 保证历史合同数据一致性和可追溯性
+- 支持产品演进优化，不影响现有合同
+- 简化计费逻辑，避免复杂时间点判断
+- 通过反腐败层实现域间解耦
 
 ---
 
@@ -926,7 +1836,7 @@ Contract Domain 包含 8 张核心表：
 | ----------------------------------- | ------ | ---------------------- |
 | `contracts`                        | 实体表 | 合同定义               |
 | `contract_service_entitlements`    | 实体表 | 合同服务权益余额       |
-| `contract_entitlement_revisions`   | 历史表 | 权益变更修订历史 🆕     |
+| `contract_amendment_revisions`   | 历史表 | 权益变更修订历史 🆕     |
 | `service_ledgers`                  | 流水表 | 服务消费流水（Append-only） |
 | `service_holds`                    | 实体表 | 服务预占（TTL机制）     |
 | `domain_events`                    | 事件表 | 领域事件发件箱（Outbox） |
@@ -951,7 +1861,7 @@ Contract Domain 包含 8 张核心表：
     │ 1:N 修订历史                      │ 归档
     │ ↓                                 │
 ┌───▼──────────────────────┐           │
-│contract_entitlement_revisions│       │
+│contract_amendment_revisions│       │
 └───┬──────────────────────┘           │
     │ 支持预占                          │
     │                                  │
@@ -980,11 +1890,12 @@ import { users } from './users.schema';
 
 // 合同状态枚举
 export const contractStatusEnum = pgEnum('contract_status', [
-  'draft',       // 草稿
-  'active',      // 生效中
-  'completed',   // 已完成
-  'terminated',  // 已终止
-  'suspended',   // 已暂停
+  'draft',       // 草稿（合同已创建但尚未签署）
+  'signed',      // 已签署（合同已签署，等待激活）
+  'active',      // 生效中（合同已激活，可消费服务）
+  'suspended',   // 已暂停（临时暂停服务）
+  'completed',   // 已完成（服务已消费完毕或过期）
+  'terminated',  // 已终止（提前终止合同）
 ]);
 
 export const contracts = pgTable('contracts', {
@@ -1023,7 +1934,7 @@ export const contracts = pgTable('contracts', {
   validityDays: integer('validity_days'), // 服务有效期（天），null = 永久有效
 
   // 状态
-  status: contractStatusEnum('status').notNull().default('draft'),
+  status: contractStatusEnum('status').notNull().default('draft'), // 默认为 draft，调用 sign() 后变为 signed，支付成功后 activate() 变为 active
 
   // 时间
   signedAt: timestamp('signed_at', { withTimezone: true }),
@@ -1378,53 +2289,66 @@ export const serviceHolds = pgTable('service_holds', {
 
 **业务规则（v2.16.9）：**
 
-1. **预占永不过期**：status 只能通过 `releaseHold()` 或 `cancelHold()` 变更
-2. **仅活跃预占计预算**：held_quantity 仅统计 status = 'active' 的记录
-3. **触发器自动维护**：held_quantity 在 hold 状态变更时自动更新
-4. **人工操作必须明确原因**：releaseReason 必填（completed / cancelled / admin_manual）
+1. **预占永不过期**：status 只能通过 `releaseHold()` 或 `cancelHold()` 变更（移除 `expiresAt` 字段）
+2. **仅活跃预占计预算**：`held_quantity` 仅统计 `status = 'active'` 的记录
+3. **触发器自动维护**：`held_quantity` 在 hold 状态变更时自动更新
+4. **人工操作明确原因**：`releaseReason` 必填（completed / cancelled / admin_manual）
 
-**使用场景：**
+**触发器函数（v2.16.5）：**
+
+```sql
+-- 触发器函数：自动同步 held_quantity
+CREATE OR REPLACE FUNCTION sync_held_quantity()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- 创建预占：held_quantity += quantity
+  IF TG_OP = 'INSERT' AND NEW.status = 'active' THEN
+    UPDATE contract_service_entitlements
+    SET held_quantity = held_quantity + NEW.quantity,
+        available_quantity = available_quantity - NEW.quantity,
+        updated_at = NOW()
+    WHERE contract_id = NEW.contract_id
+      AND service_type = NEW.service_type;
+    RETURN NEW;
+  END IF;
+
+  -- 释放预占：held_quantity -= quantity
+  IF TG_OP = 'UPDATE'
+     AND OLD.status = 'active'
+     AND NEW.status != 'active' THEN
+    UPDATE contract_service_entitlements
+    SET held_quantity = held_quantity - OLD.quantity,
+        available_quantity = available_quantity + OLD.quantity,
+        updated_at = NOW()
+    WHERE contract_id = OLD.contract_id
+      AND service_type = OLD.service_type;
+    RETURN NEW;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER service_holds_sync_trigger
+  AFTER INSERT OR UPDATE ON service_holds
+  FOR EACH ROW
+  EXECUTE FUNCTION sync_held_quantity();
+```
+
+**使用示例：**
 
 ```typescript
-// 创建预占
+// 创建预占（触发器自动同步权益表）
 const hold = await createHold({ contractId, serviceType });
-// → 触发器：held_quantity += 1, available_quantity -= 1
+// → held_quantity += 1, available_quantity -= 1
 
 // 服务完成后释放
 await releaseHold(holdId, 'completed');
-// → 触发器：held_quantity -= 1
+// → held_quantity -= 1
 
 // 用户取消预约
 await cancelHold(holdId, 'cancelled');
-// → 触发器：held器：held_quantity -= 1
-
-// 管理员手动释放（针对异常或投诉）
-await releaseHold(holdId, 'admin_manual');
-// → 触发器：held_quantity -= 1
+// → held_quantity -= 1
 ```
-
-**监控建议：**
-
-由于移除了自动过期，建议定期检查长时间未释放的预占（如超过24小时）：
-
-```typescript
-// 查询创建超过24小时且仍未释放的预占
-const oldHolds = await db.query.serviceHolds.findMany({
-  where: and(
-    eq(serviceHolds.status, 'active'),
-    lt(serviceHolds.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000))
-  )
-});
-// 人工审核后释放
-```
-
-**数据完整性保证：**
-
-1. **数据库触发器**（`sync_held_quantity`）确保 held_quantity 实时同步
-2. **状态约束**：status 只能从 'active' → 'released'/'cancelled'（注册应用层检查）
-3. **完整性检查**：定期对账 held_quantity 与 service_holds 表（推荐每周一次）
-
-**业务规则（v2.16.9）：**
 
 1. **预占永不过期**：status 只能通过 `releaseHold()` 或 `cancelHold()` 变更
 2. **仅活跃预占计预算**：held_quantity 仅统计 status = 'active' 的记录
@@ -1846,10 +2770,11 @@ export const serviceLedgerArchivePolicies = pgTable('service_ledger_archive_poli
 
 ---
 
-#### 3.2.7 contract_entitlement_revisions（合同权益修订表）🆕
+#### 3.2.7 contract_amendment_ledgers（合同权益修改表）🆕
 
 > **版本：** v2.16.7 新增
-> **文件路径：** `src/infrastructure/database/schema/contract-entitlement-revisions.schema.ts`
+> **文件路径：** `src/infrastructure/database/schema/contract-entitlement-ledgers.schema.ts`
+> **重要变更（v2.16.10）：** 根据 D3 决策，表名从 `revisions` 改为 `ledgers`（与代码实现保持一致）
 
 **职责：** 记录合同服务权益的变更历史，支持审计追溯和版本管理
 
@@ -1859,12 +2784,15 @@ export const serviceLedgerArchivePolicies = pgTable('service_ledger_archive_poli
 - ✅ 关联到具体权益记录（entitlement_id），精确追溯
 - ✅ 支持审核流程（status, requires_approval）
 - ✅ 创建合同时记录初始权益（revision_type='initial'）
+-  **⚠️ v2.16.10 更新：表名对齐代码实现**  （D3 决策 - 方案B）：
+  - 设计文档表名：`contract_amendment_revisions` → `contract_amendment_ledgers`
+  - 文件名：`contract-amendment-ledgers.schema.ts` → `contract-entitlement-ledgers.schema.ts`
+  - 迁移文件：`0002_add_contract_amendment_revisions.sql` → `0002_add_contract_amendment_ledgers.sql`
 
 **核心用途：**
-1. **审计追溯**：记录权益何时被添加、由谁添加、原因是什么
-2. **版本管理**：支持权益修订历史查询和版本对比
-3. **审核流程**：支持需要审批的权益变更（如大额补偿）
-4. **数据修复**：当权益计算错误时，可通过修订历史定位和修复
+1. **审计追溯**：记录权益变更历史（何时、何人、何因、何量）
+2. **数据溯源**：当数据不一致时，可通过 ledger 记录定位和修复
+3. **业务分析**：统计权益添加的来源分布、数量趋势、时间模式等
 
 **修订类型枚举（entitlement_revision_type）：**
 
@@ -1876,27 +2804,15 @@ export const entitlementRevisionTypeEnum = pgEnum('entitlement_revision_type', [
   'compensation', // 补偿
   'increase',     // 增加数量（手动调整）
   'decrease',     // 减少数量（手动调整）
-  'expiration',   // 过期调整
-  'termination',  // 合同终止时的权益处理
-]);
-```
-
-**修订状态枚举（revision_status）：**
-
-```typescript
-export const revisionStatusEnum = pgEnum('revision_status', [
-  'pending',   // 待审核
-  'approved',  // 已批准
-  'rejected',  // 已拒绝
-  'applied',   // 已应用（生效）
+  'adjustment',   // 其他调整
 ]);
 ```
 
 **Schema 定义：**
 
 ```typescript
-export const contractEntitlementRevisions = pgTable(
-  'contract_entitlement_revisions',
+export const contractEntitlementLedgers = pgTable(
+  'contract_amendment_ledgers',
   {
     id: uuid('id').defaultRandom().primaryKey(),
 
@@ -1915,9 +2831,6 @@ export const contractEntitlementRevisions = pgTable(
     serviceType: varchar('service_type', { length: 100 }).notNull(),
     serviceName: varchar('service_name', { length: 500 }).notNull(),
 
-    // 修订版本号（合同内全局递增）
-    revisionNumber: integer('revision_number').notNull(),
-
     // 修订元数据
     revisionType: entitlementRevisionTypeEnum('revision_type').notNull(),
     source: varchar('source', { length: 50 }).notNull(), // 'product', 'addon', 'promotion', 'compensation'
@@ -1927,25 +2840,18 @@ export const contractEntitlementRevisions = pgTable(
     totalQuantity: integer('total_quantity').notNull(),      // 变更后的总量
     availableQuantity: integer('available_quantity').notNull(), // 变更后的可用量
 
-    // 审核工作流
-    status: revisionStatusEnum('status').notNull().default('pending'),
-    requiresApproval: boolean('requires_approval').notNull().default(false),
-    approvedBy: uuid('approved_by').references(() => users.id),
-    approvedAt: timestamp('approved_at', { withTimezone: true }),
-    approvalNotes: text('approval_notes'),
-
     // 变更原因和说明
-    addOnReason: text('add_on_reason'),  // addon/promotion/compensation 时必填
-    description: text('description'),
+    reason: text('reason'),  // 添加/变更原因（必填）
+    description: text('description'),  // 详细说明
     attachments: json('attachments').$type<string[]>(),  // 附件URL数组
 
     // 操作人
     createdBy: uuid('created_by').references(() => users.id),
 
     // 关联业务记录
-    relatedBookingId: uuid('related_booking_id'),
-    relatedHoldId: uuid('related_hold_id'),
-    relatedProductId: uuid('related_product_id'),
+    relatedBookingId: uuid('related_booking_id'),  // 关联预约（如有）
+    relatedHoldId: uuid('related_hold_id'),        // 关联预占（如有）
+    relatedProductId: uuid('related_product_id'),  // 关联产品（如有）
 
     // 快照信息（用于审计追溯）
     snapshot: json('snapshot').$type<{
@@ -1962,158 +2868,180 @@ export const contractEntitlementRevisions = pgTable(
 );
 ```
 
-**索引定义（9个）：**
+**索引定义（5个）：**
+
+**⚠️ v2.16.10 更新：从9个索引简化到5个索引（移除了版本号和审批相关的索引）**
 
 ```typescript
-// 1. 按合同查询修订历史
-CREATE INDEX idx_entitlement_revisions_contract
-ON contract_entitlement_revisions(contract_id);
+// 1. 按合同查询审计历史（最常用）
+CREATE INDEX idx_entitlement_ledgers_contract
+ON contract_amendment_ledgers(contract_id, created_at DESC);
 
-// 2. 按权益记录查询修订历史
-CREATE INDEX idx_entitlement_revisions_entitlement
-ON contract_entitlement_revisions(entitlement_id);
+// 2. 按权益记录查询审计历史（追踪单个权益的变更）
+CREATE INDEX idx_entitlement_ledgers_entitlement
+ON contract_amendment_ledgers(entitlement_id, created_at DESC);
 
-// 3. 按服务类型查询
-CREATE INDEX idx_entitlement_revisions_service_type
-ON contract_entitlement_revisions(service_type);
+// 3. 按服务类型查询审计历史（统计某服务的所有变更）
+CREATE INDEX idx_entitlement_ledgers_service_type
+ON contract_amendment_ledgers(contract_id, service_type, created_at DESC);
 
-// 4. 按修订类型查询
-CREATE INDEX idx_entitlement_revisions_revision_type
-ON contract_entitlement_revisions(revision_type);
+// 4. 按修订类型查询（统计某类型变更的数量）
+CREATE INDEX idx_entitlement_ledgers_revision_type
+ON contract_amendment_ledgers(contract_id, revision_type, created_at DESC);
 
-// 5. 按状态查询（审批流程）
-CREATE INDEX idx_entitlement_revisions_status
-ON contract_entitlement_revisions(status);
-
-// 6. 按创建时间查询
-CREATE INDEX idx_entitlement_revisions_created_at
-ON contract_entitlement_revisions(created_at DESC);
-
-// 7. 唯一约束：合同内版本号必须唯一
-CREATE UNIQUE INDEX idx_entitlement_revisions_version_unique
-ON contract_entitlement_revisions(contract_id, revision_number);
-
-// 8. 复合索引：按合同+服务类型查询
-CREATE INDEX idx_entitlement_revisions_contract_service
-ON contract_entitlement_revisions(contract_id, service_type, revision_number DESC);
-
-// 9. Partial Index：待审批查询优化
-CREATE INDEX idx_entitlement_revisions_pending_approval
-ON contract_entitlement_revisions(status, requires_approval)
-WHERE status = 'pending' AND requires_approval = true;
+// 5. 按操作人查询（审计某个人员的操作）
+CREATE INDEX idx_entitlement_ledgers_created_by
+ON contract_amendment_ledgers(created_by, created_at DESC);
 ```
+
+**索引变更说明：**
+- ✅ 保留：基础查询索引（按合同、权益、服务类型、修订类型）
+- ✅ 新增：按操作人创建的索引（审计某个人员的操作）
+- ❌ 移除：revisionNumber 唯一约束（无需版本号）
+- ❌ 移除：status 和 requires_approval 相关索引（无需审批）
+- ❌ 移除：单独的 createdAt 索引（已在复合索引中包含）
 
 **CHECK 约束：**
 
 ```typescript
-// 约束1：quantityChanged 不能为 0
-ALTER TABLE contract_entitlement_revisions
-ADD CONSTRAINT chk_quantity_changed_not_zero CHECK (quantity_changed != 0);
+// v2.16.10 更新：移除了所有 CHECK 约束（无需审批和状态验证）
+// 仅保留 quantityChanged 不为 0 的基本验证
 
-// 约束2：pending 状态必须有 requires_approval=true
-ALTER TABLE contract_entitlement_revisions
-ADD CONSTRAINT chk_approval_consistency CHECK (
-  (status != 'pending') OR
-  (status = 'pending' AND requires_approval = true)
-);
+// 约束：quantityChanged 不能为 0
+ALTER TABLE contract_amendment_ledgers
+ADD CONSTRAINT chk_quantity_changed_not_zero CHECK (quantity_changed != 0);
 ```
 
 **TypeScript 类型：**
 
 ```typescript
-export type ContractEntitlementRevision =
-  typeof contractEntitlementRevisions.$inferSelect;
+export type ContractEntitlementLedger =
+  typeof contractEntitlementLedgers.$inferSelect;
 
-export type NewContractEntitlementRevision =
-  typeof contractEntitlementRevisions.$inferInsert;
+export type NewContractEntitlementLedger =
+  typeof contractEntitlementLedgers.$inferInsert;
 ```
 
+**⚠️ 简化后的表结构总结：**
+- ✅ 总计 15 个字段（从 21 个减少到 15 个）
+- ✅ 5 个索引（从 9 个减少到 5 个）
+- ✅ 1 个 CHECK 约束（从 2 个减少到 1 个）
+- ✅ 无审批工作流、无版本号、无状态管理
+
 **数据示例：**
+
+**⚠️ v2.16.10 更新：移除了 versionNumber、status、requiresApproval、approvedBy、approvedAt 等字段**
 
 ```typescript
 // 示例1：创建合同时的初始权益
 {
-  id: 'revision-001',
+  id: 'ledger-001',
   contractId: 'contract-123',
   entitlementId: 'entitlement-001',
   serviceType: 'session',
   serviceName: '1-on-1 Session',
-  revisionNumber: 1,
   revisionType: 'initial',
   source: 'product',
   quantityChanged: 5,        // +5 次
   totalQuantity: 5,
   availableQuantity: 5,
-  status: 'applied',         // 初始权益直接生效
-  requiresApproval: false,
+  reason: '产品标准权益',   // 直接生效，无需审批
   createdBy: 'counselor-001',
   createdAt: '2025-01-01T10:00:00Z',
   snapshot: {
     serviceSnapshot: { /* ... */ },
-    productSnapshot: { /* ... */ }
+    productSnapshot: { /* ... */ },
+    originItems: [ /* ... */ ]
   }
 }
 
-// 示例2：添加额外权益（需要审批）
+// 示例2：顾问添加额外权益（直接生效）
 {
-  id: 'revision-002',
+  id: 'ledger-002',
   contractId: 'contract-123',
   entitlementId: 'entitlement-002',
   serviceType: 'mock_interview',
   serviceName: 'Mock Interview',
-  revisionNumber: 2,
   revisionType: 'addon',
   source: 'addon',
   quantityChanged: 2,        // +2 次
   totalQuantity: 2,
   availableQuantity: 2,
-  status: 'pending',         // 待审批
-  requiresApproval: true,
-  addOnReason: '促成签约，额外赠送2次模拟面试',
+  reason: '促成签约，额外赠送2次模拟面试',  // 直接生效
   createdBy: 'counselor-001',
   createdAt: '2025-01-05T14:00:00Z'
 }
 
-// 示例3：审批后生效
+// 示例3：添加补偿权益（直接生效）
 {
-  id: 'revision-002',
-  status: 'applied',
-  requiresApproval: true,
-  approvedBy: 'admin-001',
-  approvedAt: '2025-01-05T15:00:00Z',
-  approvalNotes: '同意补偿，批准2次模拟面试'
+  id: 'ledger-003',
+  contractId: 'contract-123',
+  entitlementId: 'entitlement-003',
+  serviceType: 'resume_review',
+  serviceName: 'Resume Review',
+  revisionType: 'compensation',
+  source: 'compensation',
+  quantityChanged: 1,        // +1 次
+  totalQuantity: 1,
+  availableQuantity: 1,
+  reason: '补偿：导师未按时提交简历修改',
+  description: '客户投诉，经核实后补偿',
+  createdBy: 'counselor-002',
+  createdAt: '2025-01-10T09:30:00Z'
+}
+
+// 示例4：手动调整（减少权益）
+{
+  id: 'ledger-004',
+  contractId: 'contract-123',
+  entitlementId: 'entitlement-001',
+  serviceType: 'session',
+  serviceName: '1-on-1 Session',
+  revisionType: 'decrease',
+  source: 'adjustment',
+  quantityChanged: -2,       // -2 次（减少）
+  totalQuantity: 3,          // 从5次减少到3次
+  availableQuantity: 3,
+  reason: '调整：客户要求减少session次数并退款',
+  description: '经协商同意调整',
+  createdBy: 'admin-001',    // 需要管理员权限
+  createdAt: '2025-01-12T16:45:00Z'
 }
 ```
 
 **业务规则：**
 
-1. **版本号唯一性**：每个合同的修订版本号从1开始递增，必须唯一
-2. **变更数量非零**：`quantityChanged` 不能为0（正数=增加，负数=减少）
-3. **审批一致性**：`status='pending'` 时，必须有 `requires_approval=true`
-4. **原因必填**：当 `source` 为 `addon`/`promotion`/`compensation` 时，`addOnReason` 必填
-5. **快照完整性**：`revisionType='initial'` 时，建议包含 `productSnapshot` 和 `serviceSnapshot`
-6. **权益关联**：`entitlementId` 应关联到被修改的具体权益记录（用于精确追溯）
+1. **变更数量非零**：`quantityChanged` 不能为0（正数=增加，负数=减少）【唯一约束】
+2. **原因必填**：`reason` 字段必须提供清晰的变更原因（用于审计）
+3. **快照完整性**：`revisionType='initial'` 时，应包含 `productSnapshot` 和 `serviceSnapshot`
+4. **权益关联**：`entitlementId` 应关联到被修改的具体权益记录（用于精确追溯）
+5. **直接生效**：所有变更创建后立即应用（`contract_service_entitlements` 表同步更新）
+
+**⚠️ 简化后的核心特性：**
+- ✅ 所有权益变更直接生效（无需审批）
+- ✅ 无需版本号（通过 createdAt 排序即可）
+- ✅ 无需状态管理（变更即生效）
+- ✅ 保留完整审计日志（who/when/what/why）
 
 **使用场景：**
 
 ```typescript
-// 场景1：查询合同的所有权益修订历史
-const revisions = await db.query.contractEntitlementRevisions.findMany({
-  where: eq(contractEntitlementRevisions.contractId, 'contract-123'),
-  orderBy: [desc(contractEntitlementRevisions.revisionNumber)],
+// 场景1：查询合同的所有权益修改历史
+const revisions = await db.query.contractAmendmentLedgers.findMany({
+  where: eq(contractAmendmentLedgers.contractId, 'contract-123'),
+  orderBy: [desc(contractAmendmentLedgers.createdAt)],
 });
 
-// 场景2：查询特定权益的修订历史
-const entitlementRevisions = await db.query.contractEntitlementRevisions.findMany({
-  where: eq(contractEntitlementRevisions.entitlementId, 'entitlement-001'),
-  orderBy: [asc(contractEntitlementRevisions.revisionNumber)],
+// 场景2：查询特定服务的修订历史
+const serviceRevisions = await db.query.contractAmendmentLedgers.findMany({
+  where: eq(contractAmendmentLedgers.serviceType, 'tutoring'),
+  orderBy: [asc(contractAmendmentLedgers.createdAt)],
 });
 
-// 场景3：查询待审批的修订
-const pendingRevisions = await db.query.contractEntitlementRevisions.findMany({
+// 场景3：查询特定类型的修订
+const addonRevisions = await db.query.contractAmendmentLedgers.findMany({
   where: and(
-    eq(contractEntitlementRevisions.status, 'pending'),
-    eq(contractEntitlementRevisions.requiresApproval, true)
+    eq(contractAmendmentLedgers.ledgerType, 'addon')
   ),
 });
 
@@ -2121,28 +3049,52 @@ const pendingRevisions = await db.query.contractEntitlementRevisions.findMany({
 const [stats] = await db
   .select({
     totalRevisions: count(),
-    initialRevisions: count().filter(
-      eq(contractEntitlementRevisions.revisionType, 'initial')
-    ),
     addonRevisions: count().filter(
-      eq(contractEntitlementRevisions.revisionType, 'addon')
+      eq(contractAmendmentLedgers.ledgerType, 'addon')
+    ),
+    promotionRevisions: count().filter(
+      eq(contractAmendmentLedgers.ledgerType, 'promotion')
+    ),
+    compensationRevisions: count().filter(
+      eq(contractAmendmentLedgers.ledgerType, 'compensation')
     ),
   })
-  .from(contractEntitlementRevisions)
-  .where(eq(contractEntitlementRevisions.contractId, 'contract-123'));
+  .from(contractAmendmentLedgers)
+  .where(eq(contractAmendmentLedgers.contractId, 'contract-123'));
 ```
 
 **性能优化：**
 
 1. **9个索引**覆盖所有常见查询场景
 2. **复合索引**优化按合同+服务类型查询
-3. **Partial Index**优化待审批查询（`WHERE status='pending' AND requires_approval=true`）
-4. **整数类型**的 revisionNumber 排序高效
+3. **时间戳索引**优化按创建时间排序查询
+4. **整数类型**的 quantityChanged 字段便于统计计算
 5. **UUID类型**的关联字段支持快速JOIN
 
 **文件位置：**
-- Schema: `src/infrastructure/database/schema/contract-entitlement-revisions.schema.ts`
-- SQL迁移: `src/infrastructure/database/migrations/0002_add_contract_entitlement_revisions.sql`
+- Schema: `src/infrastructure/database/schema/contract-amendment-ledgers.schema.ts` (v2.16.10 更新)
+- SQL迁移: `src/infrastructure/database/migrations/0002_add_contract_amendment_ledgers.sql` (v2.16.10 更新)
+
+---
+
+## 4. 领域服务接口
+
+### 4.1 核心服务列表
+
+Contract Domain 提供 4 个核心服务：
+
+| 服务名称 | 方法数 | 职责 | 待实现功能（v2.16.10） |
+| ------------------------------- | ------ | ------------------------------ | ---------------------- |
+| `ContractService` | 13 (9+4) | 合同管理和服务权益管理 | `sign()`, `suspend()`, `resume()`, `complete()` |
+| `ServiceLedgerService` | 5 | 服务流水记录和余额对账 | ✅ 已实现 |
+| `ServiceHoldService` | 5 | 服务预占管理（TTL机制） | ✅ 已实现 |
+| `ServiceLedgerArchiveService` | 4 | 流水归档管理（冷热分离） | ✅ 已实现 |
+| `AmendmentLedgerService` | 3 | 权益修改历史管理 | 待实现（v2.16.8）|
+
+> **v2.16.10 更新：**
+> - `ContractService` 缺少 4 个方法：D1 决策（`sign()`）和 D2 决策（`suspend()`, `resume()`, `complete()`）
+> - `AmendmentLedgerService` 未实现：D3 决策推迟到后续版本
+> - 事件监听器（D5 决策）推迟到后续版本
 
 ---
 
@@ -2159,7 +3111,7 @@ Contract Domain 提供 4 个核心服务：
 | `ServiceHoldService`           | 5      | 服务预占管理（TTL机制）         |
 | `ServiceLedgerArchiveService`  | 4      | 流水归档管理（冷热分离）        |
 
-> **v2.16.7 更新**：`ContractService` 增加 3 个方法，用于权益修订历史管理
+> **v2.16.7 更新**：`ContractService` 增加 3 个方法，用于权益修改历史管理
 
 ### 4.2 ContractService - 合同管理服务
 
@@ -2216,6 +3168,11 @@ interface ContractService {
    * - 更新状态为 terminated
    * - 记录终止原因
    * - 发布 contract.terminated 事件
+   *
+   * ⚠️ 副作用说明（D-NEW-3）：合同终止后自动冻结权益
+   * - 触发器 trigger_contract_terminated 自动执行
+   * - 将该学生所有权益的 available_quantity 设为 0
+   * - 防止学生继续使用已终止合同的权益
    */
   terminate(id: string, reason: string): Promise<Contract>;
 
@@ -2271,101 +3228,119 @@ interface ContractService {
 
   /**
    * 添加额外权益 🆕v2.16
-   * - 促成签约：额外赠送服务
-   * - 促销活动：限时赠送
-   * - 补偿：服务质量问题补偿
-   * - 自动记录权益修订历史（revisionNumber递增）🆕v2.16.8
-   * - 支持需要审批的权益变更（requiresApproval=true 时 status='pending'）🆕v2.16.8
-   * - 记录 addOnReason 用于审计追溯🆕v2.16.8
    *
-   * @param dto - 添加权益的参数（包含 source, addOnReason, requiresApproval 等）
+   * ⚠️ v2.16.10 重要更新：移除了审批流程，所有权益变更直接生效
+   *
+   * ⚠️ D-NEW-2 说明：此方法仅用于添加"额外权益"，不用于初始化
+   * - 额外权益来源：addon（促成签约）/ promotion（促销）/ compensation（补偿）
+   * - 初始权益（来自产品快照）应在 createContract() 中直接 INSERT
+   * - 不走 contract_amendment_ledgers 表，不触发触发器
+   *
+   * 功能说明：
+   * - 促成签约：额外赠送服务（addon）
+   * - 促销活动：限时赠送（promotion）
+   * - 补偿：服务质量问题补偿（compensation）
+   * - 自动创建审计记录（contract_amendment_ledgers）
+   * - 触发器自动更新合同权益余额（contract_service_entitlements）
+   *
+   * 重要特性：
+   * ✅ 所有权益变更立即生效（无审批流程）
+   * ✅ 自动创建审计日志（用于追溯）
+   * ✅ 在同一事务中完成（原子性保证）
+   *
+   * @param dto - 添加权益的参数（仅额外权益）
+   * @param tx - 可选的事务对象（D6 决策）
    * @returns 返回更新/创建的权益记录
    * @throws ContractException 如果余额不足或参数验证失败
    *
    * @example
-   * // 场景1：添加促成签约的权益（直接生效）
+   * // 场景1：顾问添加促成签约权益（直接生效）
    * await contractService.addEntitlement({
    *   contractId: 'contract-123',
    *   serviceType: 'mock_interview',
    *   totalQuantity: 2,
    *   source: 'addon',
-   *   addOnReason: '促成签约，额外赠送2次模拟面试',
-   *   requiresApproval: false,
+   *   reason: '促成签约，额外赠送2次模拟面试',
    *   createdBy: 'counselor-001'
    * });
    *
    * @example
-   * // 场景2：添加需要审批的补偿权益
+   * // 场景2：补偿客户损失
    * await contractService.addEntitlement({
-   *   contractId: 'contract-123',
+   *   contractId: 'contract-456',
    *   serviceType: 'session',
-   *   totalQuantity: 5,
+   *   totalQuantity: 1,
    *   source: 'compensation',
-   *   addOnReason: '导师缺席补偿5次session',
-   *   requiresApproval: true, // 需要管理员审批
-   *   createdBy: 'counselor-001'
+   *   reason: '导师未按时提交简历反馈',
+   *   description: '经核实，补偿1次session',
+   *   createdBy: 'admin-001'
    * });
-   * // 返回的权益状态为 'pending'，需要调用 approveRevision() 才能生效
    */
-  addEntitlement(dto: AddEntitlementDto): Promise<ContractServiceEntitlement>;
-
-  // ─────────────────────────────────────────
-  // 权益修订历史管理（3个方法）🆕v2.16.7
-  // ─────────────────────────────────────────
+  addEntitlement(dto: AddEntitlementDto, tx?: DrizzleTransaction): Promise<ContractServiceEntitlement>;
 
   /**
-   * 查询合同权益修订历史
-   * - 支持按 contractId 查询合同的所有修订
-   * - 可选：按 serviceType 过滤特定服务类型
-   * - 可选：按 revisionType 过滤修订类型
-   * - 可选：按 status 过滤审批状态
-   * - 按 revisionNumber 降序排列（最新在前）
+   * 查询合同权益变更审计历史 🆕v2.16.7
+   *
+   * ⚠️ v2.16.10 重要更新：从"审批历史查询"改为"审计历史查询"
+   * - 移除了审批状态过滤（无需审批流程）
+   * - 从按版本号排序改为按创建时间排序
+   * - 查询结果直接反映已生效的权益变更
+   *
+   * ⚠️ 术语映射说明（D-NEW-4）：
+   * - 业务术语："权益修改"（Entitlement Revision）
+   * - 数据库表名：`contract_amendment_ledgers`（审计日志表）
+   * - 命名原因："Revision" 体现业务语义（权益变更版本）
+   *              "ledgers" 体现技术实现（审计流水）
+   *
+   * 功能说明：
+   * - 按 contractId 查询某合同的所有权益变更记录
+   * - 权益变更一旦创建，立即生效并记录在 ledgers 审计表中
+   * - 可选按 serviceType、ledgerType、时间范围过滤
+   * - 典型场景：业务审计、数据分析、问题追溯、报表统计
+   *
+   * @param contractId - 合同ID（必填）
+   * @param options - 过滤选项（可选）
+   * @returns 审计记录列表（从 ledgers 表查询，按 createdAt 降序，最新变更在前）
+   *
+   * @example
+   * // 场景1：查询某合同的所有权益变更历史
+   * const history = await contractService.getEntitlementLedgers('contract-123');
+   * // 返回所有已生效的权益变更，按 createdAt 降序排列
+   *
+   * @example
+   * // 场景2：查询某合同的特定服务类型的变更
+   * const sessionHistory = await contractService.getEntitlementLedgers(
+   *   'contract-123',
+   *   { serviceType: 'session' }
+   * );
+   *
+   * @example
+   * // 场景3：统计某合同的补偿记录
+   * const compensations = await contractService.getEntitlementLedgers(
+   *   'contract-123',
+   *   { ledgerType: 'compensation' }
+   * );
+   * console.log(`共补偿 ${compensations.length} 次`);
+   *
+   * @example
+   * // 场景4：按时间范围查询（用于月度报表）
+   * const monthlyChanges = await contractService.getEntitlementLedgers(
+   *   'contract-123',
+   *   {
+   *     startDate: new Date('2025-01-01'),
+   *     endDate: new Date('2025-01-31')
+   *   }
+   * );
    */
-  getEntitlementRevisions(
+  getEntitlementLedgers(
     contractId: string,
     options?: {
       serviceType?: string;
-      revisionType?: string;
-      status?: 'pending' | 'approved' | 'rejected' | 'applied';
+      ledgerType?: string;
+      startDate?: Date;
+      endDate?: Date;
     }
-  ): Promise<ContractEntitlementRevision[]>;
-
-  /**
-   * 审批权益修订
-   * - 将 status 从 'pending' 更新为 'approved'
-   * - 更新 approvedBy 和 approvedAt
-   * - 记录 approvalNotes
-   * - 更新 contract_service_entitlements 表（应用变更）
-   * - 最后将 status 更新为 'applied'
-   * - 权限：仅具有 admin 或审批权限的用户可调用
-   *
-   * @param revisionId - 修订记录ID
-   * @param approverId - 审批人ID
-   * @param notes - 审批备注（可选）
-   */
-  approveRevision(
-    revisionId: string,
-    approverId: string,
-    notes?: string
-  ): Promise<void>;
-
-  /**
-   * 拒绝权益修订
-   * - 将 status 从 'pending' 更新为 'rejected'
-   * - 更新 approvedBy 和 approvedAt
-   * - 记录 approvalNotes（拒绝原因）
-   * - 不修改 contract_service_entitlements 表（不应用变更）
-   * - 权限：仅具有 admin 或审批权限的用户可调用
-   *
-   * @param revisionId - 修订记录ID
-   * @param approverId - 审批人ID
-   * @param reason - 拒绝原因
-   */
-  rejectRevision(
-    revisionId: string,
-    approverId: string,
-    reason: string
-  ): Promise<void>;
+  ): Promise<ContractEntitlementLedger[]>;
 }
 ```
 
@@ -2701,7 +3676,9 @@ interface ServiceBalance {
 
 ### 5.2 Service Entitlement DTOs
 
-#### AddEntitlementDto (v2.16.4 更新)
+#### AddEntitlementDto (v2.16.10 更新)
+
+⚠️ **v2.16.10 重要更新（D4 决策 - 方案B）：** 字段名对齐代码实现
 
 ```typescript
 interface AddEntitlementDto {
@@ -2709,7 +3686,8 @@ interface AddEntitlementDto {
   serviceType: string;
   totalQuantity: number;
   source: 'addon' | 'promotion' | 'compensation'; // 来源
-  addOnReason: string; // 必填：添加原因
+  // ⚠️ v2.16.10 更新：字段名从 addOnReason 改为 reason（与代码实现一致）
+  reason: string; // 必填：添加原因（addon/promotion/compensation 时使用）
   // v2.16.6: 移除 unit 字段（统一为 'times'，由系统自动设置）
   // v2.16.4: 移除 expiresAt 字段（决策 #5）
   // 额外权益统一继承合同的 expiresAt，不支持独立的过期时间
@@ -2721,6 +3699,11 @@ interface AddEntitlementDto {
   };
 }
 ```
+
+**字段名变更说明（D4 决策）：**
+- ✅ `addOnReason` → `reason`：与代码实现保持一致
+- ✅ 更新原因：简化字段命名，代码中已使用 `reason` 字段
+- ✅ 文档已同步，无需修改代码
 
 #### ConsumeServiceDto (v2.16.4 新增)
 
@@ -3075,39 +4058,204 @@ interface ContractResumedEvent {
 - 事件发布后不可修改（Event Sourcing 原则）
 - 事件名称使用过去时（signed, activated, completed）
 
-### 5.8 Contract Entitlement Revision DTOs (v2.16.7 新增)
+#### Contract Domain 需监听的外部事件 🆕v2.16.10 (D5 决策)
 
-#### CreateEntitlementRevisionDto
+根据 D5 决策，Contract Domain 需要实现以下事件监听器来接收外部域的事件：
+
+##### PaymentSucceededListener (监听 payment.succeeded)
+
+**事件来源：** Financial Domain
+
+**触发时机：** 学生支付首付款成功后
+
+**处理逻辑：**
+```typescript
+@EventListener('payment.succeeded')
+async handlePaymentSucceeded(event: PaymentSucceededEvent): Promise<void> {
+  // 1. 验证事件数据完整性
+  // 2. 查询对应的合同（合同状态必须为 signed）
+  // 3. 调用 contractService.activate() 激活合同
+  // 4. 初始化服务权益（从 snapshot 派生）
+  // 5. 发布 contract.activated 事件
+}
+```
+
+**事件载荷结构：**
+```typescript
+interface PaymentSucceededEvent {
+  eventType: 'payment.succeeded';
+  aggregateId: string; // paymentId
+  occurredAt: Date;
+  payload: {
+    paymentId: string;
+    contractId: string;       // 关联的合同ID
+    studentId: string;
+    amount: string;           // 支付金额
+    currency: string;
+    paymentMethod: string;    // 支付方式
+    transactionId: string;    // 交易流水号
+  };
+}
+```
+
+**使用场景：**
+- 自动激活已付款的合同（signed → active）
+- 避免手动调用激活API，实现事件驱动架构
+
+##### SessionCompletedListener (监听 session.completed)
+
+**事件来源：** Services Domain
+
+**触发时机：** 服务会话（如1对1咨询、模拟面试）完成后
+
+**处理逻辑：**
+```typescript
+@EventListener('session.completed')
+async handleSessionCompleted(event: SessionCompletedEvent): Promise<void> {
+  // 1. 验证事件数据完整性
+  // 2. 查询对应的合同（合同状态必须为 active）
+  // 3. 调用 contractService.consumeService() 扣减权益
+  // 4. 创建服务消费流水（ServiceLedger）
+  // 5. 释放关联的预占（如果有）
+  // 6. 发布 service.consumed 事件
+}
+```
+
+**事件载荷结构：**
+```typescript
+interface SessionCompletedEvent {
+  eventType: 'session.completed';
+  aggregateId: string; // sessionId
+  occurredAt: Date;
+  payload: {
+    sessionId: string;
+    contractId: string;       // 关联的合同ID
+    studentId: string;
+    mentorId: string;         // 导师ID
+    serviceType: string;      // 服务类型（如 'session', 'mock_interview'）
+    scheduledAt: Date;        // 预约时间
+    completedAt: Date;        // 完成时间
+    duration: number;         // 时长（分钟）
+    notes?: string;           // 会话备注
+  };
+}
+```
+
+**使用场景：**
+- 自动扣减服务权益
+- 创建完整的消费流水记录
+- 实现权益余额的实时更新
+
+##### SessionCancelledListener (监听 session.cancelled)
+
+**事件来源：** Services Domain
+
+**触发时机：** 用户取消已预约的服务会话
+
+**处理逻辑：**
+```typescript
+@EventListener('session.cancelled')
+async handleSessionCancelled(event: SessionCancelledEvent): Promise<void> {
+  // 1. 验证事件数据完整性
+  // 2. 查询关联的预占记录（relatedBookingId）
+  // 3. 调用 serviceHoldService.cancelHold() 释放预占
+  // 4. 恢复服务权益的可用余额
+}
+```
+
+**事件载荷结构：**
+```typescript
+interface SessionCancelledEvent {
+  eventType: 'session.cancelled';
+  aggregateId: string; // sessionId
+  occurredAt: Date;
+  payload: {
+    sessionId: string;
+    contractId: string;       // 关联的合同ID
+    studentId: string;
+    serviceType: string;
+    scheduledAt: Date;        // 原定预约时间
+    cancelledAt: Date;        // 取消时间
+    cancellationReason: string; // 取消原因
+  };
+}
+```
+
+**使用场景：**
+- 取消预约时释放预占的权益
+- 避免权益被长期预占导致无法使用
+
+**事件监听最佳实践：**
+
+1. **幂等性处理：** 所有事件监听器必须实现幂等性，避免重复处理
+   ```typescript
+   // 使用事件ID去重
+   const processed = await this.eventStore.isEventProcessed(event.id);
+   if (processed) {
+     return; // 已处理过，直接返回
+   }
+   ```
+
+2. **错误处理：** 捕获异常并记录，避免监听器的异常影响事件总线
+   ```typescript
+   try {
+     await this.handleEvent(event);
+   } catch (error) {
+     this.logger.error('Failed to handle event', error);
+     // 记录到死信队列，供后续人工处理
+     await this.deadLetterQueue.send(event, error);
+   }
+   ```
+
+3. **事务一致性：** 监听器内的所有操作应在同一数据库事务中执行
+   ```typescript
+   await this.db.transaction(async (tx) => {
+     await this.contractService.activate(contractId, tx);
+     await this.eventStore.markAsProcessed(event.id, tx);
+   });
+   ```
+
+4. **异步处理：** 事件监听应异步执行，不阻塞事件发布者
+   - 使用消息队列（如 RabbitMQ, Kafka）解耦
+   - 或使用 NestJS 的 EventEmitter 异步处理
+
+
+### 5.8 Contract Entitlement Ledger DTOs (v2.16.10 更新)
+
+#### CreateAmendmentLedgerDto
 
 ```typescript
 /**
- * 创建权益修订 DTO
- * 用于在 addEntitlement() 和 create() 方法内部创建修订记录
+ * ⚠️ v2.16.10 重大简化：从修订DTO改为审计DTO
+ *
+ * 创建权益审计记录 DTO
+ * 用于在 addEntitlement() 和 create() 方法内部创建审计记录
+ *
+ * 核心变更：
+ * - 移除 revisionNumber（无需版本号）
+ * - 移除 status（无需审批状态）
+ * - 移除 requiresApproval（无需审批）
+ * - 移除 approvedBy, approvedAt, approvalNotes（无审批流程）
+ * - addOnReason → reason（D4决策 - 字段名对齐代码实现）
  */
-interface CreateEntitlementRevisionDto {
+interface CreateAmendmentLedgerDto {
   contractId: string;          // 合同ID（必填）
   entitlementId?: string;      // 权益记录ID（可选）
   serviceType: string;         // 服务类型（必填）
   serviceName: string;         // 服务名称快照（必填）
-  revisionNumber: number;      // 修订版本号（必填）
-  revisionType: string;        // 修订类型（必填）
+  revisionType: string;        // 修订类型（必填）：'initial' | 'addon' | 'promotion' | 'compensation' | 'increase' | 'decrease'
   source: 'product' | 'addon' | 'promotion' | 'compensation'; // 权益来源
   quantityChanged: number;     // 变更数量（必填，正数=增加，负数=减少）
   totalQuantity: number;       // 变更后总量（必填）
   availableQuantity: number;   // 变更后可用量（必填）
-  status?: 'pending' | 'approved' | 'rejected' | 'applied'; // 状态（默认 'applied'）
-  requiresApproval?: boolean;  // 是否需要审批（默认 false）
-  approvedBy?: string;         // 审批人ID（可选）
-  approvedAt?: Date;           // 审批时间（可选）
-  approvalNotes?: string;      // 审批备注（可选）
-  addOnReason?: string;        // 添加原因（addon/promotion/compensation 时必填）
+  reason: string;              // ⚠️ D4决策：字段名从 addOnReason 改为 reason（与代码实现一致）
   description?: string;        // 详细说明（可选）
   attachments?: string[];      // 附件URL数组（可选）
   createdBy: string;           // 操作人ID（必填）
   relatedBookingId?: string;   // 关联预约ID（可选）
   relatedHoldId?: string;      // 关联预占ID（可选）
   relatedProductId?: string;   // 关联产品ID（可选）
-  snapshot?: {                 // 快照信息（可选）
+  snapshot?: {                 // 快照信息（可选，用于审计追溯）
     serviceSnapshot?: any;
     productSnapshot?: any;
     originItems?: any[];
@@ -3115,76 +4263,61 @@ interface CreateEntitlementRevisionDto {
 }
 ```
 
-#### ApproveRevisionDto
+#### GetAmendmentLedgersQuery
 
 ```typescript
 /**
- * 审批权益修订 DTO
+ * ⚠️ v2.16.10 更新：从修订查询改为审计查询
+ *
+ * 查询权益审计历史参数
+ * 移除所有与审批相关的过滤条件
  */
-interface ApproveRevisionDto {
-  revisionId: string;     // 修订记录ID（必填）
-  approverId: string;     // 审批人ID（必填）
-  notes?: string;         // 审批备注（可选）
-}
-```
-
-#### RejectRevisionDto
-
-```typescript
-/**
- * 拒绝权益修订 DTO
- */
-interface RejectRevisionDto {
-  revisionId: string;     // 修订记录ID（必填）
-  approverId: string;     // 审批人ID（必填）
-  reason: string;         // 拒绝原因（必填）
-}
-```
-
-#### GetEntitlementRevisionsQuery
-
-```typescript
-/**
- * 查询权益修订历史参数
- */
-interface GetEntitlementRevisionsQuery {
+interface GetAmendmentLedgersQuery {
   contractId: string;                               // 合同ID（必填）
   serviceType?: string;                             // 服务类型（可选，过滤）
   revisionType?: 'initial' | 'addon' | 'promotion' | 'compensation' | 'increase' | 'decrease'; // 修订类型（可选）
-  status?: 'pending' | 'approved' | 'rejected' | 'applied'; // 状态（可选）
+  startDate?: Date;                                 // 开始时间（可选，时间范围过滤）
+  endDate?: Date;                                   // 结束时间（可选，时间范围过滤）
   page?: number;                                    // 页码（可选，默认1）
   pageSize?: number;                                // 每页记录数（可选，默认20）
-  sortBy?: 'revisionNumber' | 'createdAt';          // 排序字段（可选，默认 revisionNumber DESC）
+  sortBy?: 'createdAt';                             // ⚠️ 排序字段（仅支持 createdAt，默认 createdAt DESC）
   sortOrder?: 'asc' | 'desc';                       // 排序方向（可选）
 }
-```
 
-**使用场景：**
-
-```typescript
-// 场景1：查询某个合同的所有权益修订历史
-const params: GetEntitlementRevisionsQuery = {
+// 使用示例：
+// 场景1：查询某个合同的所有权益变更历史（按时间倒序）
+const params: GetAmendmentLedgersQuery = {
   contractId: 'contract-123',
-  sortBy: 'revisionNumber',
+  sortBy: 'createdAt',
   sortOrder: 'desc'
 };
 
-// 场景2：查询特定服务类型的修订历史
-const params: GetEntitlementRevisionsQuery = {
+// 场景2：查询特定服务类型的变更
+const params: GetAmendmentLedgersQuery = {
   contractId: 'contract-123',
   serviceType: 'session',
-  sortBy: 'revisionNumber',
+  sortBy: 'createdAt',
   sortOrder: 'desc'
 };
 
-// 场景3：查询待审批的修订（管理员用）
-const params: GetEntitlementRevisionsQuery = {
+// 场景3：统计某合同的补偿记录
+const params: GetAmendmentLedgersQuery = {
   contractId: 'contract-123',
-  status: 'pending',
-  page: 1,
-  pageSize: 50
+  revisionType: 'compensation'
+};
+
+// 场景4：按时间范围查询（用于月度报表）
+const params: GetAmendmentLedgersQuery = {
+  contractId: 'contract-123',
+  startDate: new Date('2025-01-01'),
+  endDate: new Date('2025-01-31')
 };
 ```
+
+**⚠️ v2.16.10 已移除的 DTO：**
+- ❌ `ApproveRevisionDto` - 无需审批
+- ❌ `RejectRevisionDto` - 无需审批
+- ❌ `GetEntitlementRevisionsQuery.status` - 无审批状态
 
 ---
 
@@ -3312,271 +4445,78 @@ const params: GetEntitlementRevisionsQuery = {
 
 #### 6.2.1 添加额外权益 🆕v2.16
 
+**⚠️ v2.16.10 重大简化：移除了审批流程，所有权益变更立即生效**
+
 **前置条件：**
 1. ✅ 合同存在且状态为 active
 2. ✅ 服务类型有效
 3. ✅ 权益来源为 addon/promotion/compensation
-4. ✅ 提供添加原因（addOnReason）
+4. ✅ 提供变更原因（reason）
 
-**核心业务规则（v2.16.8 决策 R6）：**
-- 📌 **所有额外权益都需要审批**：无论添加数量多少，所有 `source='addon'|'promotion'|'compensation'` 的权益变更都需要审批
-- 📌 **自动创建待审批修订**：系统自动创建 `status='pending'` 的权益修订记录
-- 📌 **审批前权益不可用**：在审批通过前，添加的权益不计入可用余额（`availableQuantity = 0`）
-- 📌 **审批后立即生效**：审批通过后，系统自动更新 `status='applied'` 并将 `availableQuantity` 设置为 `totalQuantity`
+**核心业务规则（v2.16.10 更新）：**
+- 📌 **权益变更立即生效**：所有额外权益（addon/promotion/compensation）添加后立即生效
+- 📌 **自动创建审计记录**：在同一事务中创建审计日志（contract_amendment_ledgers）
+- 📌 **同步更新权益余额**：contract_service_entitlements 表立即更新可用数量
+- 📌 **无审批流程**：简化业务流程，提升用户体验（无需等待管理员审批）
 
 **执行逻辑：**
-1. 验证合同状态
-2. 验证服务类型存在于 Catalog Domain
-3. **创建 contract_service_entitlements 记录：**
+1. 验证合同状态（必须为 active）
+2. 验证服务类型有效性
+3. **创建 contract_service_entitlements 记录（如不存在）或更新现有记录：**
    - source = addon/promotion/compensation
-   - addOnReason = 提供的原因
+   - reason = 提供的原因（审计用途）
    - totalQuantity = 添加数量
-   - availableQuantity = 0（⚠️ 审批前不可用）
-   - status = 'pending'
-4. **创建权益修订记录（revisionType='addon'|'promotion'|'compensation'）：**
-   - revisionNumber = 合同内下一个版本号
-   - status = 'pending'
-   - requiresApproval = true（自动设置）
-   - 记录完整快照用于审计追溯
-5. 创建初始化流水（type = 'initial', source = 'manual_adjustment'）
-   - ⚠️ 注意：此时 balanceAfter = 0（因为权益尚未生效）
+   - availableQuantity = 添加数量（⚠️ 立即生效）
+   - createdBy = 操作人ID
+4. **创建权益审计记录（contract_amendment_ledgers）：**
+   - revisionType = addon/promotion/compensation（根据 source 确定）
+   - quantityChanged = 正数（增加）
+   - totalQuantity = 变更后的总量
+   - availableQuantity = 变更后的可用量
+   - reason = 变更原因（必填，用于审计）
+   - createdBy = 操作人ID
+   - snapshot = 完整快照（用于审计追溯）
+5. 创建流水记录（type = 'adjustment', source = 'manual_adjustment'）
+   - balanceAfter = 变更后的可用数量
 
-**审批流程：**
-```
-添加权益请求
-    ↓
-系统创建权益记录（available=0, status=pending）
-    ↓
-创建修订记录（status=pending, requiresApproval=true）
-    ↓
-管理员调用 approveRevision() / rejectRevision()
-    ↓
-如果批准：
-  - 更新 revision.status='applied'
-  - 更新 entitlement.availableQuantity = totalQuantity
-  - 创建 adjustment 流水（+quantity）
+**执行逻辑（v2.16.10 简化）：**
+1. 验证合同状态和服务类型
+2. 创建/更新权益记录（立即生效，available=totalQuantity）
+3. 创建审计记录（记录who/when/what/why）
+4. 创建流水记录
 
-如果拒绝：
-  - 更新 revision.status='rejected'
-  - 权益保持不可用
-  - 可选择删除权益记录或保留记录（audit trail）
-```
+**后置条件：** 权益立即可用，无需审批等待
 
-**后置条件：**
-1. ✅ 服务权益记录已创建（但不可用，available=0）
-2. ✅ 待审批的修订记录已创建
-3. ✅ 流水已记录（记录初始状态）
-4. ✅ 等待管理员审批
-
-**业务场景示例：**
-
-```typescript
-// 场景1：促成签约 - 额外赠送2次模拟面试（需要审批）
-// 步骤1：添加权益请求（创建待审批记录）
-await contractService.addEntitlement({
-  contractId: 'xxx',
-  serviceType: 'mock_interview',
-  totalQuantity: 2,
-  source: 'addon',
-  addOnReason: '促成签约，额外赠送2次模拟面试',
-  createdBy: counselorId,
-});
-// 结果：
-// - 权益记录创建（available=0, status=pending）
-// - 修订记录创建（revisionNumber=2, status=pending, requiresApproval=true）
-// - 学生暂时无法使用这2次权益（决策 R6：所有额外权益都需要审批）
-
-// 步骤2：管理员审批通过
-await contractService.approveRevision({
-  revisionId: 'revision-002',
-  approverId: 'admin-001',
-  notes: '同意促成签约赠送',
-});
-// 结果：
-// - 修订状态更新为 applied
-// - 权益 availableQuantity 更新为 2
-// - 学生可立即使用这2次权益
-
-// 场景2：补偿 - 服务质量问题补偿1次简历修改
-await contractService.addEntitlement({
-  contractId: 'xxx',
-  serviceType: 'resume_review',
-  totalQuantity: 1,
-  source: 'compensation',
-  addOnReason: '补偿：导师未按时提交简历修改',
-  createdBy: counselorId,
-});
-// ⚠️ 同样需要审批，无论数量多少（决策 R6）
-
-// 场景3：管理员拒绝审批
-await contractService.rejectRevision({
-  revisionId: 'revision-003',
-  approverId: 'admin-001',
-  reason: '补偿原因不充分，建议与学生进一步沟通',
-});
-// 结果：
-// - 修订状态更新为 rejected
-// - 权益保持不可用（available=0）
-// - 可选择删除权益记录或保留审计痕迹
-```
+**核心变更（v2.16.10）：** 移除了审批流程，变更立即生效
 
 #### 6.2.2 扣减服务权益（v2.16.4 优先级算法）
 
-**前置条件：**
-1. ✅ 合同状态为 active
-2. ✅ 服务权益存在
-3. ✅ 总可用余额 >= 扣减数量
+**前置条件：** 合同状态为active，权益余额充足
 
-**执行逻辑（决策 I3 - 优先级算法 + 决策 C-NEW-1 - 并发控制）：**
+**执行逻辑（优先级算法 + 并发控制）：**
 
 ```typescript
-async consumeService(dto: ConsumeServiceDto): Promise<void> {
-  const { contractId, serviceType, quantity } = dto;
-
-  // 🔒 使用事务 + 悲观锁保证并发安全（决策 C-NEW-1）
-  await db.transaction(async (trx) => {
-    // Step 1: 加锁查询该合同下该服务类型的所有可用权益，按优先级排序
-    // 使用 FOR UPDATE 悲观锁，阻塞其他并发事务，避免超额扣减
-    const entitlements = await trx.execute(sql`
-      SELECT *
-      FROM contract_service_entitlements
-      WHERE contract_id = ${dto.contractId}
-        AND service_type = ${dto.serviceType}
-        AND available_quantity > 0
-      ORDER BY
-        CASE source
-          WHEN 'product' THEN 1
-          WHEN 'addon' THEN 2
-          WHEN 'promotion' THEN 3
-          WHEN 'compensation' THEN 4
-        END,
-        created_at ASC
-      FOR UPDATE  -- 🔒 悲观锁：锁定查询结果，防止并发修改
-    `);
-
-    // Step 2: 验证总可用余额
-    const totalAvailable = entitlements.reduce(
-      (sum, e) => sum + e.available_quantity,
-      0
-    );
-    if (totalAvailable < quantity) {
-      throw new ContractException('INSUFFICIENT_BALANCE', {
-        required: quantity,
-        available: totalAvailable,
-        contractId,
-        serviceType,
-      });
-    }
-
-    // Step 3: 逐条扣减，直到满足消费数量
-    let remaining = quantity;
-
-    for (const entitlement of entitlements) {
-      if (remaining <= 0) break;
-
-      const toConsume = Math.min(entitlement.available_quantity, remaining);
-
-      // 更新权益记录（事务内，已加锁，并发安全）
-      await trx.update(contractServiceEntitlements)
-        .set({
-          consumedQuantity: entitlement.consumed_quantity + toConsume,
-          availableQuantity: entitlement.available_quantity - toConsume,
-          updatedAt: new Date(),
-        })
-        .where(eq(contractServiceEntitlements.id, entitlement.id));
-
-      // 创建流水记录（事务内，原子性保证）
-      await trx.insert(serviceLedgers).values({
-        contractId: dto.contractId,
-        studentId: dto.studentId,
-        entitlementId: entitlement.id,
-        serviceType: dto.serviceType,
-        type: 'consumption',
-        source: entitlement.source, // 记录来自哪个来源
-        quantity: -toConsume, // 负数表示消费
-        balanceAfter: entitlement.available_quantity - toConsume,
-        relatedBookingId: dto.relatedBookingId,
-        relatedHoldId: dto.relatedHoldId,
-        createdBy: dto.studentId,
-      });
-
-      remaining -= toConsume;
-    }
-
-    // Step 4: 如果有关联预占，自动释放（事务内）
-    if (dto.relatedHoldId) {
-      // 更新预占状态（触发器会自动同步 held_quantity，见决策 C-NEW-2）
-      await trx.update(serviceHolds)
-        .set({
-          status: 'released',
-          releasedAt: new Date(),
-          releaseReason: 'consumed',
-          updatedAt: new Date(),
-        })
-        .where(eq(serviceHolds.id, dto.relatedHoldId));
-
-      // ✅ 数据库触发器自动执行（无需手动同步）：
-      // UPDATE contract_service_entitlements
-      // SET held_quantity = held_quantity - 1,
-      //     available_quantity = available_quantity + 1
-    }
-
-    // 事务提交：所有操作成功才提交，任何失败都回滚
-  });
-}
+// 优先级顺序：product > addon > promotion > compensation
+// 使用FOR UPDATE悲观锁保证并发安全
+// 同一事务内完成权益更新、流水记录、预占释放
 ```
 
-**并发控制说明（v2.16.5 决策 C-NEW-1）：**
+**并发控制（v2.16.5决策C-NEW-1）：**
+- 悲观锁（FOR UPDATE）防止并发修改
+- 数据库事务保证原子性
+- 按contractId→serviceType顺序锁定避免死锁
 
-- ✅ **悲观锁（FOR UPDATE）**：查询时锁定权益记录，防止其他事务同时扣减
-- ✅ **数据库事务**：权益更新、流水记录、预占释放在同一事务中，保证原子性
-- ✅ **阻塞等待**：并发请求会排队执行，避免超额扣减
-- ✅ **死锁预防**：始终按相同顺序（contractId → serviceType）锁定资源
-
-**优先级排序示例：**
-
-```sql
--- 查询结果顺序（按优先级 + 创建时间）
-1. product   | 2025-01-01 | available: 3
-2. product   | 2025-01-03 | available: 2
-3. addon     | 2025-01-05 | available: 2
-4. promotion | 2025-01-10 | available: 1
-
--- 消费 7 次的扣减顺序：
--- 记录 1: 扣减 3 次 (product)
--- 记录 2: 扣减 2 次 (product)
--- 记录 3: 扣减 2 次 (addon)
--- 记录 4: 剩余 1 次 (promotion)
-```
-
-**后置条件：**
-1. ✅ 权益余额已按优先级更新
-2. ✅ 每条权益的流水已记录（source 字段记录来源）
-3. ✅ balanceAfter 正确
-4. ✅ 关联预占已释放（如果有）
+**后置条件：** 按优先级扣减权益，记录完整流水，预占自动释放
 
 ### 6.3 服务流水业务规则
 
 #### 6.3.1 Append-only 保护
 
-**应用层保护：**
+**应用层保护：** 仅提供INSERT方法，禁止UPDATE/DELETE
 
-```typescript
-class ServiceLedgerService {
-  async recordLedger(...) {
-    // ✅ 只提供 INSERT 方法
-    return await this.db.insert(serviceLedgers).values(...);
-  }
-
-  // ❌ 不提供 update() 方法
-  // ❌ 不提供 delete() 方法
-}
-```
-
-**数据库权限保护：**
-
+**数据库权限：**
 ```sql
--- 只授予 INSERT 和 SELECT 权限，禁止 UPDATE/DELETE
+-- 只授予INSERT和SELECT权限
 REVOKE UPDATE, DELETE ON service_ledgers FROM mentorx_app_user;
 GRANT INSERT, SELECT ON service_ledgers TO mentorx_app_user;
 ```
@@ -3667,534 +4607,103 @@ async verifyBalance(
 2. ✅ 权益余额已更新（触发器）
 3. ✅ 流水已记录（如果服务完成）
 
-#### 6.4.3 预占永不过期【v2.16.9 重大变更】
+#### 6.4.3 预占永不过期（v2.16.9重大简化）
 
-**设计变更：**
-- ❌ 移除 `expiresAt` 字段（不再需要过期时间）
-- ❌ 移除自动清理逻辑（定时任务）
-- ✅ **预占永不过期**：必须通过 releaseHold() 或 cancelHold() 释放
-- ✅ 简化状态管理：active → released/cancelled
+**设计变更：** 移除expiresAt字段和自动清理逻辑，预占必须通过releaseHold()或cancelHold()释放
 
-**决策理由（v2.16.9）：**
-1. **业务完整性**：预占代表用户的预约意图，不应自动失效
-2. **减少复杂度**：移除过期逻辑、TTL、定时任务
-3. **人工审核重要**：所有释放操作必须明确确认
-4. **数据完整性**：保留完整的预占历史记录
+**决策理由：**
+1. 业务完整性：预占代表用户预约意图，不应自动失效
+2. 减少复杂度：移除过期逻辑、TTL、定时任务
+3. 人工审核：所有释放操作必须明确确认
+4. 数据完整性：保留完整预占历史
 
-**新的处理流程：**
-
-```typescript
-// 场景1：正常完成服务
-await holdService.releaseHold(holdId, 'completed');
-
-// 场景2：用户取消预约
-await holdService.cancelHold(holdId, 'cancelled');
-
-// 场景3：管理员手动释放（处理异常）
-await holdService.releaseHold(holdId, 'admin_manual');
-```
-
-**监控建议：**
-
-建议定期检查长时间未释放的预占（如超过24小时）：
-
-```typescript
-// 查询创建超过24小时且仍为 active 的预占
-const oldHolds = await db.query.serviceHolds.findMany({
-  where: and(
-    eq(serviceHolds.status, 'active'),
-    lt(
-      serviceHolds.createdAt,
-      new Date(Date.now() - 24 * 60 * 60 * 1000) // 24小时前
-    )
-  )
-});
-// 人工审核后释放
-```
-
-**性能提升：**
-- 移除定时任务 → 减少系统负载
-- 减少数据库字段 → 节省存储空间
-- 简化应用层逻辑 → 提升可维护性
+**性能提升：** 移除定时任务，减少数据库字段，简化应用逻辑
 
 ### 6.5 流水归档业务规则
 
 #### 6.5.1 归档策略优先级
 
-**优先级：** contract > service_type > global
+**优先级顺序：** contract > service_type > global
 
-**查询逻辑：**
-
-```typescript
-async getArchivePolicy(
-  contractId?: string,
-  serviceType?: string
-): Promise<ArchivePolicy> {
-  // 1. 查询合同级策略
-  if (contractId) {
-    const contractPolicy = await this.findPolicy({ scope: 'contract', contractId });
-    if (contractPolicy && contractPolicy.enabled) {
-      return contractPolicy;
-    }
-  }
-
-  // 2. 查询服务类型级策略
-  if (serviceType) {
-    const serviceTypePolicy = await this.findPolicy({ scope: 'service_type', serviceType });
-    if (serviceTypePolicy && serviceTypePolicy.enabled) {
-      return serviceTypePolicy;
-    }
-  }
-
-  // 3. 查询全局策略
-  const globalPolicy = await this.findPolicy({ scope: 'global' });
-  if (globalPolicy && globalPolicy.enabled) {
-    return globalPolicy;
-  }
-
-  // 4. 返回默认策略
-  return {
-    archiveAfterDays: 90,
-    deleteAfterArchive: false,
-  };
-}
-```
+**默认策略：** 90天后归档，不删除数据
 
 #### 6.5.2 执行归档任务
 
-**执行频率：** 每天凌晨 2:00
+**执行频率：** 每日凌晨2:00
 
-**执行逻辑：**
+**执行逻辑：** 批量复制到归档表，可选删除主表数据
 
-```typescript
-async archiveOldLedgers(daysOld?: number): Promise<ArchiveResult> {
-  const startTime = Date.now();
-  const policy = await this.getArchivePolicy();
-  const archiveDays = daysOld ?? policy.archiveAfterDays;
+**核心机制：**
+- 查询过期流水（基于archiveAfterDays）
+- 批量复制到service_ledgers_archive表
+- 可选删除主表数据（根据deleteAfterArchive配置）
+- 返回归档统计信息
 
-  // 1. 查询需要归档的流水
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - archiveDays);
+### 6.6 权益修改业务规则 🆕v2.16.7
 
-  const oldLedgers = await this.db.query.serviceLedgers.findMany({
-    where: lt(serviceLedgers.createdAt, cutoffDate),
-  });
-
-  // 2. 批量复制到归档表
-  await this.db.insert(serviceLedgersArchive).values(
-    oldLedgers.map(ledger => ({
-      ...ledger,
-      archivedAt: new Date(),
-    }))
-  );
-
-  // 3. 可选：删除主表数据
-  let deletedCount = 0;
-  if (policy.deleteAfterArchive) {
-    await this.db.delete(serviceLedgers).where(
-      lt(serviceLedgers.createdAt, cutoffDate)
-    );
-    deletedCount = oldLedgers.length;
-  }
-
-  return {
-    totalArchived: oldLedgers.length,
-    totalDeleted: deletedCount,
-    archivedAt: new Date(),
-    timeTaken: Date.now() - startTime,
-  };
-}
-```
-
-### 6.6 权益修订业务规则 🆕v2.16.7
-
-#### 6.6.1 创建权益修订记录
+#### 6.6.1 审计记录机制（v2.16.10简化版）
 
 **触发时机：**
-1. **创建合同时**：为每个初始权益创建 revisionType='initial' 的修订记录
-2. **添加额外权益时**：为每次添加创建 revisionType='addon'|'promotion'|'compensation' 的修订记录
+- 创建合同时：生成初始权益审计记录（revisionType='initial'）
+- 添加权益时：生成变更审计记录（revisionType='addon'/'promotion'/'compensation'）
 
-**执行逻辑：**
-
-```typescript
-async createEntitlementRevision(dto: CreateEntitlementRevisionDto): Promise<void> {
-  // 1. 验证参数完整性
-  if (!dto.contractId || !dto.serviceType || !dto.revisionType) {
-    throw new ContractException('INVALID_REVISION_DATA', 'Missing required fields');
-  }
-
-  // 2. 验证 quantityChanged 不为 0
-  if (dto.quantityChanged === 0) {
-    throw new ContractException('INVALID_QUANTITY_CHANGED', 'Quantity change cannot be zero');
-  }
-
-  // 3. 验证 source 和 addOnReason 一致性
-  if (['addon', 'promotion', 'compensation'].includes(dto.source) && !dto.addOnReason) {
-    throw new ContractException('MISSING_ADD_ON_REASON', 'addOnReason is required for addon/promotion/compensation');
-  }
-
-  // 4. 验证审批状态一致性
-  if (dto.status === 'pending' && !dto.requiresApproval) {
-    throw new ContractException('INVALID_APPROVAL_STATUS', 'pending status must have requiresApproval=true');
-  }
-
-  // 5. 获取下一个 revisionNumber（如果是新增记录）
-  if (dto.revisionNumber === undefined) {
-    const lastRevision = await this.findLastRevisionNumber(dto.contractId);
-    dto.revisionNumber = (lastRevision || 0) + 1;
-  }
-
-  // 6. 插入修订记录
-  await this.db.insert(contractEntitlementRevisions).values({
-    ...dto,
-    createdAt: new Date(),
-  });
-}
-```
-
-**业务规则：**
-
-1. **参数完整性**：contractId, serviceType, revisionType, quantityChanged 等必填字段不能为空
-2. **变更数量非零**：quantityChanged 不能为 0（必须正数或负数）
-3. **原因必填**：当 source 为 'addon'|'promotion'|'compensation' 时，addOnReason 必填
-4. **审批一致性**：如果 status='pending'，则 requiresApproval 必须为 true
-5. **版本号唯一**：每个合同的 revision_number 必须唯一，从1开始递增
+**核心规则（v2.16.10）：**
+- 权益变更立即生效，无审批流程
+- 必填字段：contractId、serviceType、quantityChanged、reason
+- 在同一事务中完成权益更新和审计记录创建
 
 **后置条件：**
-- ✅ revisionNumber 在合同内全局唯一且递增
-- ✅ 修订记录成功写入数据库
-- ✅ entitlementId 正确关联到被修改的权益记录
+- 审计记录成功写入数据库
+- 权益变更和审计记录原子性完成
+- 完整的变更历史可追溯（who/when/what/why）
 
----
+#### 6.6.2 查询权益审计历史（v2.16.10更新）
 
-#### 6.6.2 审批权益修订
+**查询规则：**
+- 按创建时间降序排列（最新变更在前）
+- 支持分页和复合过滤
+- 性能优化：使用count()获取总数
 
-**前置条件：**
-1. 修订记录存在且 status='pending'
-2. 调用者具有 admin 或审批权限
+**⚠️ v2.16.10已移除的功能：**
+- ❌ 审批功能（approve/reject）
+- ❌ 版本号追踪（revisionNumber）
+- ❌ 审批状态管理（status字段）
 
-**执行逻辑：**
+**原因：** 简化业务流程，权益变更立即生效，无需审批等待。
 
-```typescript
-async approveRevision(revisionId: string, approverId: string, notes?: string): Promise<void> {
-  return await this.db.transaction(async (tx) => {
-    // 1. 查询修订记录并加锁
-    const revision = await tx.query.contractEntitlementRevisions.findFirst({
-      where: eq(contractEntitlementRevisions.id, revisionId),
-      // 使用 FOR UPDATE 锁定记录，防止并发修改
-    });
+### 6.6 权益修改业务规则（v2.16.10简化版）
 
-    if (!revision) {
-      throw new ContractNotFoundException('REVISION_NOT_FOUND', 'Revision not found');
-    }
+#### 6.6.1 审计记录机制
 
-    // 2. 验证状态
-    if (revision.status !== 'pending') {
-      throw new ContractException(
-        'INVALID_REVISION_STATUS',
-        `Expected status=pending, got ${revision.status}`
-      );
-    }
+**触发时机：**
+- 创建合同时：生成初始权益审计记录（revisionType='initial'）
+- 添加权益时：生成变更审计记录（revisionType='addon'/'promotion'/'compensation'）
 
-    // 3. 更新修订状态为 approved
-    await tx.update(contractEntitlementRevisions)
-      .set({
-        status: 'approved',
-        approvedBy: approverId,
-        approvedAt: new Date(),
-        approvalNotes: notes,
-      })
-      .where(eq(contractEntitlementRevisions.id, revisionId));
-
-    // 4. 应用权益变更（更新 contract_service_entitlements）
-    await tx.update(contractServiceEntitlements)
-      .set({
-        totalQuantity: revision.totalQuantity,
-        availableQuantity: revision.availableQuantity,
-        updatedAt: new Date(),
-      })
-      .where(eq(contractServiceEntitlements.id, revision.entitlementId!));
-
-    // 5. 标记为已应用
-    await tx.update(contractEntitlementRevisions)
-      .set({ status: 'applied' })
-      .where(eq(contractEntitlementRevisions.id, revisionId));
-
-    // 6. 发布 entitlement.revised 事件（可选）
-    // await this.eventBus.publish(createEntitlementRevisedEvent(revision));
-  });
-}
-```
-
-**业务规则：**
-
-1. **状态验证**：只有 status='pending' 的修订可以被审批
-2. **版本匹配**：确保 revisionNumber 没有发生变化（乐观锁）
-3. **原子性保证**：审批、应用变更、标记完成在同一个事务中
-4. **幂等性**：如果已经 applied，重复调用应该抛出异常
+**核心规则（v2.16.10）：**
+- 权益变更立即生效，无审批流程
+- 必填字段：contractId、serviceType、quantityChanged、reason
+- 在同一事务中完成权益更新和审计记录创建
 
 **后置条件：**
-- ✅ 修订状态更新为 'applied'
-- ✅ contract_service_entitlements 表已更新
-- ✅ 审批信息已记录（approvedBy, approvedAt, approvalNotes）
+- 审计记录成功写入数据库
+- 权益变更和审计记录原子性完成
+- 完整的变更历史可追溯（who/when/what/why）
 
----
+#### 6.6.2 查询权益审计历史（v2.16.10更新）
 
-#### 6.6.3 拒绝权益修订
+**查询规则：**
+- 按创建时间降序排列（最新变更在前）
+- 支持分页和复合过滤
+- 性能优化：使用count()获取总数
 
-**前置条件：**
-1. 修订记录存在且 status='pending'
-2. 调用者具有 admin 或审批权限
+**⚠️ v2.16.10已移除的功能：**
+- ❌ 审批功能（approve/reject）
+- ❌ 版本号追踪（revisionNumber）
+- ❌ 审批状态管理（status字段）
 
-**执行逻辑：**
+**原因：** 简化业务流程，权益变更立即生效，无需审批等待。
 
-```typescript
-async rejectRevision(revisionId: string, approverId: string, reason: string): Promise<void> {
-  await this.db.update(contractEntitlementRevisions)
-    .set({
-      status: 'rejected',
-      approvedBy: approverId,
-      approvedAt: new Date(),
-      approvalNotes: reason, // 记录拒绝原因
-    })
-    .where(and(
-      eq(contractEntitlementRevisions.id, revisionId),
-      eq(contractEntitlementRevisions.status, 'pending') // 确保状态是 pending
-    ));
-
-  // 确保没有修改 contract_service_entitlements（拒绝不应用变更）
-}
-```
-
-**业务规则：**
-
-1. **状态验证**：只有 status='pending' 的修订可以被拒绝
-2. **不应用变更**：contract_service_entitlements 表保持不变
-3. **原因必填**：拒绝时必须提供 reason（记录在 approvalNotes 中）
-
-**后置条件：**
-- ✅ 修订状态更新为 'rejected'
-- ✅ 拒绝原因已记录
-- ✅ contract_service_entitlements 未被修改
-
----
-
-#### 6.6.4 查询权益修订历史
-
-**前置条件：**
-1. contractId 必须提供
-2. 可选的过滤条件（serviceType, revisionType, status）
-
-**查询逻辑：**
-
-```typescript
-async getEntitlementRevisions(
-  contractId: string,
-  options?: {
-    serviceType?: string;
-    revisionType?: string;
-    status?: 'pending' | 'approved' | 'rejected' | 'applied';
-    page?: number;
-    pageSize?: number;
-  }
-): Promise<PaginatedResult<ContractEntitlementRevision>> {
-  const whereConditions = [
-    eq(contractEntitlementRevisions.contractId, contractId)
-  ];
-
-  if (options?.serviceType) {
-    whereConditions.push(
-      eq(contractEntitlementRevisions.serviceType, options.serviceType)
-    );
-  }
-
-  if (options?.revisionType) {
-    whereConditions.push(
-      eq(contractEntitlementRevisions.revisionType, options.revisionType)
-    );
-  }
-
-  if (options?.status) {
-    whereConditions.push(
-      eq(contractEntitlementRevisions.status, options.status)
-    );
-  }
-
-  // 统计总数
-  const [countResult] = await this.db
-    .select({ count: count() })
-    .from(contractEntitlementRevisions)
-    .where(and(...whereConditions));
-
-  // 查询数据
-  const data = await this.db.query.contractEntitlementRevisions.findMany({
-    where: and(...whereConditions),
-    orderBy: [desc(contractEntitlementRevisions.revisionNumber)],
-    offset: ((options?.page || 1) - 1) * (options?.pageSize || 20),
-    limit: options?.pageSize || 20,
-  });
-
-  return {
-    data,
-    total: countResult.count,
-    page: options?.page || 1,
-    pageSize: options?.pageSize || 20,
-    totalPages: Math.ceil(countResult.count / (options?.pageSize || 20)),
-  };
-}
-```
-
-**业务规则：**
-
-1. **排序规则**：按 revisionNumber 降序排列（最新修订在前）
-2. **分页支持**：支持 page 和 pageSize 参数
-3. **复合过滤**：可以同时使用多个过滤条件
-4. **性能优化**：使用 count() 获取总数，支持分页查询
-
-**返回格式：**
-
-```typescript
-{
-  data: ContractEntitlementRevision[],  // 当前页数据
-  total: number,                        // 总记录数
-  page: number,                         // 当前页码
-  pageSize: number,                     // 每页大小
-  totalPages: number,                   // 总页数
-}
-```
-
----
-
-#### 6.6.5 初始权益修订记录（创建合同时）
-
-**触发时机：** 在 create() 方法中，派生初始权益后
-
-**业务规则：**
-
-```typescript
-// 对于每个从 productSnapshot 派生的权益：
-await createEntitlementRevision({
-  contractId: contract.id,
-  entitlementId: createdEntitlement.id,
-  serviceType: item.serviceSnapshot.serviceType,
-  serviceName: item.serviceSnapshot.serviceName,
-  revisionNumber: ++globalRevisionNumber,  // 合同内全局递增
-  revisionType: 'initial',
-  source: 'product',
-  quantityChanged: totalQuantity,  // 正数
-  totalQuantity: totalQuantity,
-  availableQuantity: totalQuantity,
-  status: 'applied',  // 初始权益直接生效
-  requiresApproval: false,
-  createdBy: dto.counselorId,
-  snapshot: {
-    serviceSnapshot: item.serviceSnapshot,
-    productSnapshot: dto.productSnapshot,
-    originItems: [item],  // 来源追溯
-  }
-});
-```
-
-**关键特性：**
-1. 每个初始权益创建一条 revisionType='initial' 的记录
-2. revisionNumber 在合同内全局递增（跨所有服务类型）
-3. 状态直接为 'applied'（无需审批）
-4. 包含完整的 productSnapshot 和 serviceSnapshot 用于审计追溯
-
----
-
-#### 6.6.6 额外权益修订记录（添加权益时）
-
-**触发时机：** 在 addEntitlement() 方法中
-
-**执行业务规则（v2.16.8 决策 R6）：**
-- 📌 **所有额外权益都需要审批**：系统自动设置 `requiresApproval = true`
-- 📌 **权益初始状态为 pending**：创建的权益记录 `status='pending'`，`availableQuantity = 0`
-- 📌 **修订记录状态同步**：修订记录 `status='pending'`，等待审批
-
-**执行逻辑：**
-
-```typescript
-// 1. 获取下一个 revisionNumber
-const lastRevision = await findLastRevisionNumber(contractId);
-const nextRevisionNumber = (lastRevision || 0) + 1;
-
-// 2. 创建权益记录（注意：availableQuantity = 0，status = 'pending'）
-const entitlement = await createEntitlement({
-  contractId: contractId,
-  serviceType: dto.serviceType,
-  source: dto.source,  // 'addon' | 'promotion' | 'compensation'
-  totalQuantity: dto.totalQuantity,
-  availableQuantity: 0,  // ⚠️ 审批前不可用
-  addOnReason: dto.addOnReason,
-  createdBy: dto.createdBy,
-  status: 'pending',  // 等待审批
-});
-
-// 3. 创建修订记录（自动设置 requiresApproval = true）
-await createEntitlementRevision({
-  contractId: contractId,
-  entitlementId: entitlement.id,
-  serviceType: dto.serviceType,
-  serviceName: dto.serviceSnapshot.serviceName,
-  revisionNumber: nextRevisionNumber,
-  revisionType: dto.source,  // 'addon' | 'promotion' | 'compensation'
-  source: dto.source,
-  quantityChanged: dto.totalQuantity,
-  totalQuantity: dto.totalQuantity,
-  availableQuantity: 0,  // ⚠️ 审批前
-  status: 'pending',
-  requiresApproval: true,  // 决策 R6：所有额外权益都需要审批
-  addOnReason: dto.addOnReason,
-  createdBy: dto.createdBy,
-  snapshot: {
-    serviceSnapshot: dto.serviceSnapshot,
-  }
-});
-```
-
-**关键特性（v2.16.8 决策 R6）：**
-1. 每次添加额外权益创建一条新的修订记录
-2. revisionNumber 继续全局递增（不重置）
-3. **所有额外权益都需要审批**：自动设置 `requiresApproval=true`，状态为 'pending'
-4. 审批前权益不可用（`availableQuantity = 0`）
-5. addOnReason 记录添加原因（用于审计）
-6. 审批通过后更新状态为 'applied' 并激活权益
-
----
-
-#### 6.6.7 修订记录的不可变性
-
-**核心原则：** 修订记录一旦创建，核心字段不可修改
-
-**不允许修改的字段：**
-- ❌ contractId（合同ID）
-- ❌ entitlementId（权益ID）
-- ❌ serviceType（服务类型）
-- ❌ revisionNumber（版本号）
-- ❌ revisionType（修订类型）
-- ❌ source（来源）
-- ❌ quantityChanged（变更数量）
-- ❌ createdBy（创建人）
-- ❌ createdAt（创建时间）
-
-**允许修改的字段：**
-- ✅ status（状态：pending → approved/rejected/applied）
-- ✅ approvedBy（审批人）
-- ✅ approvedAt（审批时间）
-- ✅ approvalNotes（审批备注）
-- ✅ attachments（附件）
-
-**实现方式：**
-1. **应用层保护**：Service 层不提供修改核心字段的方法
-2. **数据库约束**：不使用触发器强制，依赖应用层逻辑
-3. **审计日志**：如果必须修改核心字段，应创建新的修订记录，而不是修改旧记录
-
-**例外情况：**
-- 数据修复场景：由 DBA 直接修改数据库（需记录操作日志）
-- 版本回滚场景：创建反向修订记录（如：increase 后创建 decrease）
-
----
+**注：** 原 6.6.2-6.6.7已完全移除，简化审计记录机制直接生效，无审批环节。
 
 ## 7. 状态机设计
 
@@ -4202,59 +4711,117 @@ await createEntitlementRevision({
 
 ```
 ┌─────────┐
-│  draft  │ 草稿（初始状态）
+│  draft  │ 草稿（初始状态 - 合同已创建但尚未签署）
 └────┬────┘
      │
-     │ activate() ← 监听 payment.succeeded
+     │ sign() ← 合同签署完成（创建合同时自动执行）
+     │ 当 createdAt 被设置且合同基本信息已确认
      │
      ▼
 ┌─────────┐
-│ active  │ 生效中
+│ signed  │ 已签署（合同已签署，等待支付激活）
+└────┬────┘
+     │
+     │ activate() ← 监听 payment.succeeded 事件
+     │ 首付款支付成功后触发
+     │
+     ▼
+┌─────────┐
+│ active  │ 生效中（合同已激活，可消费服务）
 └────┬────┘
      │
      ├────────────────────────────┐
      │                            │
      │ terminate(reason)          │ suspend(reason)
+     │ 管理员操作                   │ 管理员操作
      │                            │
      ▼                            ▼
 ┌────────────┐              ┌────────────┐
 │ terminated │              │ suspended  │
+│ 已终止      │              │ 已暂停      │
 └────────────┘              └──────┬─────┘
-                                   │
+    （不可恢复）                    │
                                    │ resume()
-                                   │
+                                   │ 管理员操作
                                    ▼
                               ┌─────────┐
                               │ active  │
                               └─────────┘
                                    │
                                    │ complete() ← 自动触发（服务消费完毕或过期）
+                                   │ 定时任务检测自动完成
                                    │
                                    ▼
                               ┌───────────┐
                               │ completed │
+                              │ 已完成     │
                               └───────────┘
 ```
 
 **状态转换规则（v2.16.4 明确）：**
 
-| 当前状态   | 事件/操作            | 目标状态   | 条件                         | 触发方式 |
-| ---------- | -------------------- | ---------- | ---------------------------- | -------- |
-| draft      | activate()          | active     | payment.succeeded（决策 #13）| 事件监听 |
-| active     | terminate(reason)   | terminated | 提供终止原因                 | 管理员操作 |
-| active     | suspend(reason)     | suspended  | 提供暂停原因（决策 #13）     | **仅管理员** |
-| active     | complete()          | completed  | **服务消费完毕 OR 已过期**（决策 #13）| 自动触发 |
-| suspended  | resume()            | active     | 恢复服务                     | 管理员操作 |
+| 当前状态 | 事件/操作 | 目标状态 | 条件 | 触发方式 | 说明 |
+|----------|-----------|----------|------|----------|------|
+| draft | sign() | signed | 合同创建完成 | 自动触发 | 合同基本信息已确定 |
+| signed | activate() | active | payment.succeeded | 事件监听 | 首付款支付成功后 |
+| active | terminate(reason) | terminated | 提供终止原因 | 管理员操作 | 从 active 或 suspended 均可终止 |
+| active | suspend(reason) | suspended | 提供暂停原因 | **仅管理员** | 临时暂停服务 |
+| active | complete() | completed | **服务消费完毕 OR 已过期** | 自动触发 | 定时任务检测自动完成 |
+| suspended | resume() | active | 恢复服务 | 管理员操作 | 从暂停状态恢复 |
+| suspended | terminate(reason) | terminated | 提供终止原因 | 管理员操作 | 暂停期间也可终止 |
+
+**状态转换详细说明：**
+
+1. **创建合同（draft → signed）**
+   - 触发时机：调用 `create()` 方法创建合同时自动完成
+   - 执行操作：设置 `signedAt` 时间戳，发布 `contract.signed` 事件
+   - 状态含义：合同已签署，等待学生支付首付款
+
+2. **激活合同（signed → active）**
+   - 触发时机：监听 `payment.succeeded` 事件（决策 #13）
+   - 前置条件：首付款已成功支付
+   - 执行操作：设置 `activatedAt`，从产品快照创建服务权益，发布 `contract.activated` 事件
+   - 状态含义：合同已激活，学生可开始预约和消费服务
+
+3. **暂停合同（active → suspended）**
+   - 触发：管理员手动操作（决策 #13）
+   - 前置条件：提供暂停原因
+   - 执行操作：设置 `suspendedAt`，增加 `suspensionCount`，发布 `contract.suspended` 事件
+   - 状态含义：临时暂停服务，学生不可预约新服务
+
+4. **恢复合同（suspended → active）**
+   - 触发：管理员手动操作
+   - 执行操作：清空 `suspendedAt`，发布 `contract.resumed` 事件
+   - 状态含义：恢复服务，学生可继续预约
+
+5. **完成合同（active → completed）**
+   - 触发：自动定时任务检测（决策 #13）
+   - 条件：满足以下任一条件
+     - ✅ 所有服务权益已消费完毕（`availableQuantity = 0`）
+     - ✅ 合同已过期（`expiresAt < now()`）
+   - 执行操作：设置 `completedAt`，发布 `contract.completed` 事件
+   - 状态含义：合同正常结束，服务交付完成
+
+6. **终止合同（active/suspended → terminated）**
+   - 触发：管理员手动操作
+   - 前置条件：提供终止原因
+   - 执行操作：设置 `terminatedAt`，冻结所有权益（`availableQuantity = 0`），发布 `contract.terminated` 事件
+   - 状态含义：合同提前终止，不再提供服务
 | suspended  | terminate(reason)   | terminated | 提供终止原因                 | 管理员操作 |
 
-**关键状态转换说明（v2.16.4）：**
+**关键状态转换说明（v2.16.10）：**
 
-1. **激活条件（draft → active）**
-   - 触发：监听 `payment.succeeded` 事件（决策 #13）
+1. **签署合同（draft → signed）**
+   - 触发：调用 `create()` 方法创建合同时自动执行
+   - 操作：设置 `signedAt` 时间戳，发布 `contract.signed` 事件（决策 D5）
+   - 状态含义：合同基本信息已确定，等待学生支付首付款
+
+2. **激活合同（signed → active）**
+   - 触发：监听 `payment.succeeded` 事件（决策 D5）
    - 条件：首付款已成功支付
-   - 操作：设置 `effectiveAt`、计算 `expiresAt`、初始化服务权益
+   - 操作：设置 `effectiveAt`、计算 `expiresAt`、初始化服务权益，发布 `contract.activated` 事件
 
-2. **完成条件（active → completed）**
+3. **完成条件（active → completed）**
    - 触发：自动定时任务检测（决策 #13）
    - 条件：满足以下**任一条件**即自动完成
      - ✅ 所有服务权益已消费完毕（`availableQuantity = 0`）
@@ -4477,13 +5044,289 @@ consume-service.dto.ts
 
 ---
 
-### 8.1.5 SQL 脚本文件结构（v2.16.8 决策 I7）
+---
 
-**目的：** 定义数据库函数、触发器、索引、约束的 SQL 脚本管理方案
+## 8. 架构设计决策清单（v2.16.12 重构）
 
-**核心原则：** 独立 SQL 文件管理（选项 A），与 Drizzle 表结构迁移分离
+> **审查日期：** 2025-11-11
+> **状态：** ✅ **所有决策已完成（4/4）**
+> **优先级：** 🔴 高（影响数据一致性）
 
-**文件结构：**
+### ⚠️ 新发现的问题（需要立即决策）
+
+#### **D-NEW-1: 触发器 INSERT 分支可能导致数据不一致** 🔴 ✅ 已决策
+
+**问题描述：**
+`trigger_ledger_insert` 触发器的 INSERT 分支（当 contract_service_entitlements 记录不存在时）会创建新记录，但初始值 `consumed_quantity=0, held_quantity=0` 可能导致数据不一致。如果学生已有来自其他合同的权益（已有消费或预占），这些数据会丢失。
+
+**场景示例：**
+```sql
+-- 合同1初始权益（应用层创建）
+contract_service_entitlements:
+  student_id='stu-001', service_type='session',
+  total_quantity=5, consumed_quantity=2, held_quantity=1,
+  available_quantity=2
+
+-- 合同2额外权益（应用层插入到 ledgers）
+-- 如果触发器 INSERT 新记录：
+contract_service_entitlements:
+  student_id='stu-001', service_type='session',
+  total_quantity=3, consumed_quantity=0, held_quantity=0,  -- ❌ 数据丢失！
+  available_quantity=3
+```
+
+**两个解决方案：**
+- ✅ **方案A：** 触发器只执行 UPDATE，不执行 INSERT。如果记录不存在，抛异常
+  - ✅ 强制要求：初始权益必须通过应用层显式创建
+  - ✅ 强制要求：额外权益只能在初始权益之后添加
+  - ⚠️ 增加应用层负担（必须先查询记录是否存在）
+  - **决策结果：已采纳** ✅
+
+- **方案B：** 触发器创建记录前，查询现有消费和预占数量
+  - ❌ 性能开销大（需要 JOIN 查询）
+  - ❌ 逻辑复杂（需要聚合所有相关记录）
+
+**影响：** 需要在触发器中移除 INSERT 分支，仅保留 UPDATE 逻辑
+**后续行动：** 更新触发器 SQL 定义（见 3.2 节）
+
+---
+
+#### **D-NEW-2: 初始权益如何初始化？** 🟡 ✅ 已决策
+
+**问题描述：**
+v2.16.10 决策：ledgers 表只记录"额外权益"（addon/promotion/compensation），不记录初始权益。
+那么初始权益（从 product_snapshot 派生）如何初始化？
+
+**两个方案：**
+- ✅ **方案A：** 应用层直接 INSERT 到 contract_service_entitlements
+  - ✅ 职责清晰：ledgers 只记录额外变更
+  - ✅ 避免触发器复杂性
+  - ✅ 初始化逻辑在应用层，易于调试
+  - **决策结果：已采纳** ✅
+
+- **方案B：** 走 ledgers 表，ledger_type = 'initial'
+  - ✅ 所有权益变更都通过统一入口
+  - ✅ 完整的审计追溯（包括初始权益）
+  - ❌ 与 v2.16.10 决策冲突（ledgers 只记录额外权益）
+
+**实施说明：**
+- 创建合同时，应用层直接从 `product_snapshot` 派生权益并 INSERT 到 `contract_service_entitlements`
+- **不**通过 `contract_amendment_ledgers` 表（ledgers 仅记录后续额外添加的权益）
+- 后续通过 `addEntitlement()` 添加额外权益时，才 INSERT 到 ledgers 表并触发触发器
+
+**示例流程：**
+```
+1. 创建合同
+   → 应用层解析 product_snapshot
+   → INSERT INTO contract_service_entitlements (total=5, available=5)
+   → ✅ 触发器不执行（未操作 ledgers 表）
+
+2. 后续添加额外权益
+   → 应用层调用 addEntitlement()
+   → INSERT INTO contract_amendment_ledgers (quantity_changed=2)
+   → 触发器自动执行
+   → UPDATE contract_service_entitlements SET total += 2, available += 2
+```
+
+---
+
+---
+
+#### **D-NEW-3: 合同终止后权益是否保留？** 🔴 ✅ 已决策
+
+**问题描述：**
+新架构（学生级累积制）中，合同终止后权益继续保留在 contract_service_entitlements 表中，只是不再增加新权益。
+
+**需要确认：**
+- 业务上是否接受合同终止后学生仍能使用剩余权益？
+- 是否需要区分主动终止（违约）和正常完成（completed）的权益处理方式？
+- 是否需要管理员手动冻结权益？
+
+**示例场景：**
+- 学生购买5次服务，使用3次后违约终止合同
+- 剩余2次权益是否应该保留？还是可以继续使用？
+
+**两个方案：**
+- **方案A：** 合同终止后权益继续保留（当前设计）
+  - ✅ 架构简单
+  - ✅ 学生体验好（已付费的权益可继续使用）
+  - ⚠️ 可能需要业务规则限制（如限制服务类型）
+
+- ✅ **方案B：** 合同终止后冻结所有权益（available_quantity = 0）
+  - ✅ 符合合同终止的严格定义
+  - ✅ 防止权益滥用（特别是违约情况）
+  - ✅ 区分 terminated（终止）和 completed（完成）的状态处理
+  - ❌ 需要对 contract_service_entitlements 增加触发器（监听 contracts 状态变更）
+  - ❌ 增加系统复杂度
+  - **决策结果：已采纳** ✅
+
+**实施说明（方案B）：**
+添加触发器监听 `contracts` 表状态变更：
+```sql
+-- 触发器：合同终止时冻结权益
+CREATE TRIGGER trigger_contract_terminated
+  AFTER UPDATE OF status ON contracts
+  FOR EACH ROW
+  WHEN (NEW.status = 'terminated' AND OLD.status != 'terminated')
+  EXECUTE FUNCTION freeze_entitlements_on_termination();
+
+-- 函数：冻结该合同学生的所有权益
+CREATE FUNCTION freeze_entitlements_on_termination()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE contract_service_entitlements
+  SET
+    available_quantity = 0,  -- 冻结权益
+    updated_at = NOW()
+  WHERE student_id = NEW.student_id;
+
+  -- 记录冻结日志（可选）
+  INSERT INTO entitlement_freeze_logs (student_id, contract_id, frozen_at, reason)
+  VALUES (NEW.student_id, NEW.id, NOW(), 'contract_terminated');
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+**状态处理差异：**
+| 合同状态 | 权益处理 | 说明 |
+|----------|----------|------|
+| `completed` | 无需处理（权益已用完） | 正常完成，权益自然耗尽 |
+| `terminated` | 冻结权益（available=0） | 违约/提前终止，防止继续消费 |
+| `expired` | 由业务规则决定（可配置） | 可清零、可延期、可转化 |
+
+**业务流程示例：**
+```
+1. 学生违约，管理员终止合同
+   → 调用 terminate() 方法
+   → 更新 contracts.status = 'terminated'
+   → 触发器自动执行：冻结所有权益（available=0）
+
+2. 后续处理
+   → 财务域处理退款（如有）
+   → 学生无法继续使用服务（余额已为0）
+   → 审计日志记录冻结操作
+```
+
+**业务规则说明：**
+- 合同 `terminated` 状态表示违约或提前终止，学生不应继续享受服务
+- 已付费但未使用的权益，由财务域根据退款政策处理
+- 合同 `completed` 状态表示正常完成，权益自然用完，无需特殊处理
+
+**后续行动：**
+1. 添加触发器 `trigger_contract_terminated`
+2. 创建冻结日志表 `entitlement_freeze_logs`（可选，用于审计）
+3. 在 `terminate()` 方法中添加触发器调用说明
+
+---
+
+#### **D-NEW-4: 触发器 vs 应用层：平衡选择？** 🟡 ✅ 已决策
+
+**问题描述：**
+当前设计重度依赖触发器，虽然保证了数据一致性，但带来以下问题：
+
+**触发器的缺点：**
+- ❌ 调试困难（黑盒操作）
+- ❌ 业务逻辑分散（数据库 + 应用层）
+- ❌ 性能开销（每次 INSERT 都触发）
+- ❌ 测试复杂（需要真实数据库环境）
+- ❌ 版本控制困难（SQL 脚本与代码分离）
+
+**触发器的优点：**
+- ✅ 强一致性保证（原子性）
+- ✅ 避免应用层忘记同步
+- ✅ 性能优化（减少网络往返）
+
+**备选方案：**
+在应用层使用 Repository 模式 + 事务封装：
+```typescript
+async addEntitlement(dto) {
+  return await db.transaction(async (tx) => {
+    // 1. 查询现有权益（FOR UPDATE 锁定）
+    const entitlement = await tx.query...
+
+    // 2. 插入 ledger 记录
+    await tx.insert(contractEntitlementLedgers).values(...)
+
+    // 3. 更新权益余额
+    await tx.update(contractServiceEntitlements)
+      .set({
+        totalQuantity: entitlement.totalQuantity + dto.quantity,
+        availableQuantity: entitlement.availableQuantity + dto.quantity
+      })
+
+    // 4. 事务提交（全部成功或全部回滚）
+  })
+}
+```
+
+**优缺点对比：**
+- ✅ 逻辑集中在应用层，易于调试和维护
+- ✅ 代码审查更容易
+- ✅ 单元测试可以 mock 数据库
+- ❌ 需要开发者记住每次都调用更新方法
+- ❌ 可能有性能损失（需要 SELECT）
+
+**三个方案：**
+- ✅ **方案A：** 保持当前纯触发器方案
+  - ✅ 强一致性保证，不会遗漏
+  - ⚠️ 调试困难，逻辑分散
+  - **决策结果：已采纳** ✅
+
+- **方案B：** 改用应用层事务 + Repository 模式
+  - ✅ 逻辑集中，易调试
+  - ❌ 容易因开发者疏忽导致数据不一致
+
+- **方案C：** 混合方案（关键路径用触发器，其他用应用层）
+  - ⚠️ 增加复杂度，两种模式并存
+
+**决策理由（方案A）：**
+1. **核心优势**：触发器保证强一致性，开发者无法绕过数据同步
+2. **D-NEW-1 已解决**：移除 INSERT 分支，避免数据不一致问题
+3. **性能更优**：避免额外的 SELECT 查询和网络往返
+4. **可靠性高**：数据库层面保证，不受应用层 Bug 影响
+5. **缺点缓解**：完善的测试、监控、文档可以弥补调试困难
+
+**实施建议：**
+- 保持纯触发器方案（已在 3.1-3.3 节定义）
+- 编写完整的触发器测试用例
+- 添加触发器执行监控（执行次数、错误率）
+- 文档中明确触发器逻辑和业务规则
+
+**后续行动：**
+1. 完善触发器单元测试
+2. 添加执行监控
+3. 编写触发器调试指南
+
+---
+
+### **📋 决策总结**
+
+所有 v2.16.12 重构相关的架构决策已完成：
+
+| 编号 | 决策项 | 选择方案 | 影响 | 状态 |
+|------|--------|----------|------|------|
+| **D-NEW-1** | 触发器 INSERT 分支问题 | ✅ 方案A：仅 UPDATE，抛异常 | 数据一致性 | 已决策 |
+| **D-NEW-2** | 初始权益初始化 | ✅ 方案A：应用层 INSERT | 职责清晰 | 已决策 |
+| **D-NEW-3** | 合同终止后权益处理 | ✅ 方案B：冻结权益 | 业务合规 | 已决策 |
+| **D-NEW-4** | 触发器 vs 应用层 | ✅ 方案A：保持触发器 | 架构稳定 | 已决策 |
+
+**所有决策已达成一致，设计文档更新完成！**
+
+**后续实施重点：**
+1. 更新触发器 SQL 脚本（移除 INSERT 分支）
+2. 添加合同终止触发器（冻结权益）
+3. 完善单元测试和集成测试
+4. 配置触发器执行监控
+
+---
+
+## 9. 设计文档与代码实现差异分析
+
+> **版本：** v2.16.12
+> **审查日期：** 2025-11-11
+> **状态：** ⚠️ **发现新问题，需要追加决策**
 ```
 src/infrastructure/database/
 ├── migrations/
@@ -4508,17 +5351,17 @@ src/infrastructure/database/
 │   │   │   - 命名规范：chk_<表名>_<字段>_<类型>
 │   │   │   - 示例：chk_contracts_paid_amount_not_exceed_total
 │   │   │
-│   │   ├── contract_entitlement_revisions_indexes.sql      # 修订表索引（9个）🆕v2.16.8
-│   │   └── contract_entitlement_revisions_constraints.sql  # 修订表CHECK约束（2个）🆕v2.16.8
+│   │   ├── contract_amendment_revisions_indexes.sql      # 修订表索引（9个）🆕v2.16.8
+│   │   └── contract_amendment_revisions_constraints.sql  # 修订表CHECK约束（2个）🆕v2.16.8
 │   │
 │   ├── 0000_initial.sql                      # Drizzle 自动生成的表结构迁移
 │   ├── 0001_contract_tables.sql              # contract 相关表
-│   └── 0002_add_contract_entitlement_revisions.sql  # 修订表迁移
+│   └── 0002_add_contract_amendment_revisions.sql  # 修订表迁移
 │
 └── schema/                                   # TypeScript Schema 定义
     ├── contracts.schema.ts
     ├── contract-service-entitlements.schema.ts
-    ├── contract-entitlement-revisions.schema.ts  # 🆕v2.16.8
+    ├── contract-amendment-ledgers.schema.ts  # 🆕v2.16.8
     └── ...
 ```
 
@@ -4580,11 +5423,11 @@ psql -d mentorx -f "$SQL_DIR/contract_constraints.sql"
 
 # 修订表索引（v2.16.8）
 echo "  - 修订表索引..."
-psql -d mentorx -f "$SQL_DIR/contract_entitlement_revisions_indexes.sql"
+psql -d mentorx -f "$SQL_DIR/contract_amendment_revisions_indexes.sql"
 
 # 修订表约束（v2.16.8）
 echo "  - 修订表约束..."
-psql -d mentorx -f "$SQL_DIR/contract_entitlement_revisions_constraints.sql"
+psql -d mentorx -f "$SQL_DIR/contract_amendment_revisions_constraints.sql"
 
 echo "✅ 部署完成！"
 ```
@@ -4725,7 +5568,7 @@ CONTRACT_ALLOW_FREE_CONTRACTS=false
   ├── archive/                   # 归档管理
   │   ├── service-ledger-archive.service.ts
   │   └── dto/
-  ├── entitlement-revision/      # 权益修订历史管理 🆕v2.16.8
+  ├── amendment-ledger/      # 权益修改历史管理 🆕v2.16.8
   │   ├── entitlement-revision.service.ts
   │   └── dto/
   ├── events/                    # 事件监听器
@@ -4762,9 +5605,7 @@ CONTRACT_ALLOW_FREE_CONTRACTS=false
   - [ ] `getServiceBalance()` - 查询服务权益余额
   - [ ] `consumeService()` - 扣减服务权益
   - [ ] `addEntitlement()` - 添加额外权益 🆕v2.16 (自动记录修订历史)
-  - [ ] `getEntitlementRevisions()` - 查询权益修订历史 🆕v2.16.8
-  - [ ] `approveRevision()` - 审批权益修订 🆕v2.16.8
-  - [ ] `rejectRevision()` - 拒绝权益修订 🆕v2.16.8
+  - [ ] `getAmendmentLedgers()` - 查询权益修改历史 🆕v2.16.8
 
 - [ ] **实现 ServiceLedgerService**
   - [ ] `recordConsumption()` - 记录服务消费
@@ -4809,23 +5650,22 @@ CONTRACT_ALLOW_FREE_CONTRACTS=false
 #### Phase 4: 测试
 
 - [ ] **单元测试**
-  - [ ] ContractService 测试
+  - [ ] ContractService 测试（13个方法）
   - [ ] ServiceLedgerService 测试
   - [ ] ServiceHoldService 测试
   - [ ] ServiceLedgerArchiveService 测试
-  - [ ] Entitlement Revision Service 测试 🆕v2.16.8
+  - [ ] AmendmentLedgerService 测试 🆕v2.16.8
 
 - [ ] **集成测试**
   - [ ] 合同创建 → 激活 → 服务消费 → 完成（完整流程）
-  - [ ] 额外权益添加测试 🆕v2.16
-  - [ ] 预占超时自动释放测试
+  - [ ] 额外权益添加测试（无审批，立即生效）🆕v2.16
+  - [ ] 预占释放测试（手动释放）
   - [ ] 流水归档测试
   - [ ] 余额对账测试
-  - [ ] 初始权益修订记录测试 🆕v2.16.8
-  - [ ] 额外权益修订记录测试 🆕v2.16.8
-  - [ ] 权益修订审批流程测试 🆕v2.16.8
-  - [ ] 权益修订拒绝流程测试 🆕v2.16.8
-  - [ ] 权益修订历史查询测试 🆕v2.16.8
+  - [ ] 初始权益记录测试（应用层 INSERT）🆕v2.16.8
+  - [ ] 额外权益修改记录测试（触发器自动更新）🆕v2.16.8
+  - [ ] 权益修改历史查询测试（ledgers 表）🆕v2.16.8
+  - [ ] 合同终止冻结权益测试（触发器）🆕v2.16.12 D-NEW-3
 
 - [ ] **E2E 测试**
   - [ ] 顾问创建合同
@@ -4838,630 +5678,97 @@ CONTRACT_ALLOW_FREE_CONTRACTS=false
 
 ## 9. 设计文档与代码实现差异分析
 
-> **版本：** v2.16.9
-> **审查日期：** 2025-11-10
-> **状态：** ⚠️ 已发现差异（7 项）
+> **版本：** v2.16.10
+> **审查日期：** 2025-11-11
+> **状态：** ✅ **所有差异已决策（7 项）**
+> **重要更新：** v2.16.10 大幅简化 `contract_amendment_ledgers` 表，移除审批流程和版本号追踪
 
-本章节记录在代码实现过程中与设计文档的差异。这些差异需要在后续开发中逐步对齐。
+本章节记录在代码实现过程中与设计文档的差异，并总结 D1-D7 决策结果。
 
 ---
 
 ### 9.1 核心差异汇总
 
-| 编号 | 差异类型 | 设计文档 | 代码实现 | 优先级 | 影响范围 |
-|------|----------|----------|----------|--------|----------|
-| **D1** | 合同状态差异 | `draft` → `active` | `signed` → `active` | 🔴 高 | 状态机、业务规则 |
-| **D2** | 方法缺失 | `suspend()`, `resume()`, `complete()` | ❌ 未实现 | 🔴 高 | ContractService 接口 |
-| **D3** | 修订记录未实现 | `getEntitlementRevisions()`, `approveRevision()`, `rejectRevision()` | ❌ 未实现 | 🟡 中 | v2.16.8 新增功能 |
-| **D4** | DTO 字段差异 | `addOnReason` (v2.16.4) | `reason` | 🟡 中 | 额外权益添加 |
-| **D5** | 事件监听器缺失 | `payment.succeeded`, `session.completed` 监听器 | ❌ 未实现 | 🟡 中 | 事件驱动流程 |
-| **D6** | 事务支持差异 | `createHold(dto, tx?)` 支持外部事务 | 部分支持 | 🟢 低 | 预占服务 |
-| **D7** | 状态检查差异 | 文档中多处状态检查更严格 | 代码实现较宽松 | 🟢 低 | 数据完整性 |
+| 编号 | 差异类型 | 设计文档 | 代码实现 | 优先级 | 决策结果 | 实施状态 |
+|------|----------|----------|----------|--------|----------|----------|
+| **D1** | 合同状态差异 | `draft` → `active` | `signed` → `active` | 🔴 高 | **方案A** | ⭕ 待实施 |
+| **D2** | 方法缺失 | `suspend()`, `resume()`, `complete()` | ❌ 未实现 | 🔴 高 | **方案A** | ⭕ 待实施 |
+| **D3** | 修订记录表名 | `contract_amendment_revisions` | `contract_amendment_ledgers` | 🟡 中 | **方案B** | ✅ 文档已更新 |
+| **D4** | DTO 字段差异 | `addOnReason` | `reason` | 🟡 中 | **方案B** | ✅ 文档已更新 |
+| **D5** | 事件监听器缺失 | `payment.succeeded`, `session.completed` | ❌ 未实现 | 🟡 中 | **方案B** | ⭕ 推迟 |
+| **D6** | 事务支持差异 | `createHold(dto, tx?)` | 部分支持 | 🟢 低 | **方案A** | ⭕ 待实施 |
+| **D7** | 状态检查差异 | 严格的验证规则 | 实现较宽松 | 🟢 低 | **方案B** | ⭕ 保持现状 |
+
+#### v2.16.10 重大架构简化
+
+| 变更项 | 变更前 (v2.16.9) | 变更后 (v2.16.10) | 影响 |
+|--------|------------------|-------------------|------|
+| **审批流程** | 需要管理员审批（R6决策） | ❌ **完全移除** | 权益变更立即生效 |
+| **版本号追踪** | revisionNumber 全局递增 | ❌ **完全移除** | 无需版本管理 |
+| **状态管理** | status: pending/approved/rejected/applied | ❌ **完全移除** | 变更即生效 |
+| **制衡机制** | requiresApproval, approvedBy, approvedAt, approvalNotes | ❌ **完全移除** | 简化业务逻辑 |
+| **字段数量** | 21个字段 | ✅ **15个字段** | 减少28.6%字段数 |
+| **索引数量** | 9个索引 | ✅ **5个索引** | 减少44.4%索引数 |
+| **CHECK约束** | 2个约束 | ✅ **1个约束** | 减少50%约束数 |
+
+**核心决策：** 将 `contract_amendment_ledgers` 从"版本管理系统"简化为"审计日志系统"
 
 ---
 
-### 9.2 详细差异说明
-
-#### D1: 合同状态差异 ⚠️ 高优先级
-
-**设计文档（Section 3.2.1, 7.1）:**
-- 合同状态：`draft` → `active` → `completed/terminated/suspended`（第 1116-1118 行）
-- `create()` 方法创建状态为 `draft` 的合同
-
-**代码实现（contracts.schema.ts:15-21, contract.service.ts:94）:**
-```typescript
-// Schema 定义
-export const contractStatusEnum = pgEnum("contract_status", [
-  "signed",  // ← 实际为 signed
-  "active",
-  "suspended",
-  "completed",
-  "terminated",
-]);
-
-// create() 方法
-status: "signed",  // ← 直接创建为 signed
-```
-
-**差异影响：**
-- 与设计文档的状态机完全不兼容
-- `draft` 状态相关的业务规则无法应用
-- 支付激活流程需要调整
-
-**建议方案：**
-1. **选项 A**（推荐）：修改代码，增加 `draft` 状态
-   - Schema 更新：`ALTER TYPE contract_status ADD VALUE 'draft' BEFORE 'signed';`
-   - ContractService 修改：`create()` 方法创建 `draft` 状态合同
-   - 添加 `sign()` 方法将 `draft` → `signed`
-
-2. **选项 B**：更新设计文档，移除 `draft` 状态
-   - 修改 Section 0.1、3.2.1、7.1
-   - 更新所有相关业务流程
-
----
-
-#### D2: 合同状态管理方法缺失 ⚠️ 高优先级
-
-**设计文档（Section 4.2）:**
-- `suspend(id, reason)` - 暂停合同
-- `resume(id)` - 恢复合同
-- `complete(id)` - 完成合同
-
-**代码实现:**
-- ❌ 以上方法均未实现
-- 仅实现了基本的 `create()`, `findOne()`, `activate()`
-
-**差异影响：**
-- 合同生命周期不完整
-- 无法处理暂停、恢复、自动完成等业务场景
-- 缺少相关事件发布（`contract.suspended`, `contract.resumed`, `contract.completed`）
-
-**实现状态检查：**
-```typescript
-// contract.service.ts 中缺少以下方法：
-- async suspend(id: string, reason: string): Promise<Contract>  // ❌ 缺失
-- async resume(id: string): Promise<Contract>                    // ❌ 缺失
-- async complete(id: string): Promise<Contract>                  // ❌ 缺失
-- async update(id: string, dto: IUpdateContractDto)             // ❌ 缺失
-- async terminate(id: string, reason: string)                   // ❌ 缺失
-```
-
----
-
-#### D3: 权益修订功能未实现 🟡 中优先级
-
-**设计文档（Section 4.2, 6.6, v2.16.8 新增）:**
-- `getEntitlementRevisions()` - 查询修订历史
-- `approveRevision()` - 审批修订
-- `rejectRevision()` - 拒绝修订
-- 完整业务规则（6.6.1-6.6.7）
-
-**代码实现:**
-- ✅ Schema 已创建：`contract-entitlement-revisions.schema.ts`
-- ❌ Service 方法未实现
-- ❌ DTO 未定义（`ApproveRevisionDto`, `RejectRevisionDto` 等）
-
-**差异影响：**
-- v2.16.8 的核心功能缺失
-- 额外权益审批流程无法工作（决策 R6）
-- 审计追溯不完整
-
-**文件检查：**
-```
-src/domains/contract/
-  ├── services/
-  │   ├── contract.service.ts              ✅ 存在
-  │   └── entitlement-revision.service.ts  ❌ 缺失 ← 需要创建
-  └── dto/
-      ├── approve-revision.dto.ts          ❌ 缺失
-      └── reject-revision.dto.ts           ❌ 缺失
-```
-
----
-
-#### D4: DTO 字段命名差异 🟡 中优先级
-
-**设计文档（Section 5.2, v2.16.4）:**
-```typescript
-interface AddEntitlementDto {
-  addOnReason: string;  // ← 文档使用 addOnReason
-  ...
-}
-```
-
-**代码实现（add-entitlement.dto.ts）:**
-```typescript
-export interface IAddEntitlementDto {
-  reason: string;  // ← 代码使用 reason
-  ...
-}
-```
-
-**影响范围：**
-- 字段命名不一致
-- 影响代码可读性和维护性
-- 与文档中的约束规则不匹配（6.2.1 要求 addOnReason 必填）
-
-**其他 DTO 差异：**
-- `ConsumeServiceDto` - `sessionId` vs `relatedBookingId`
-- `UpdateContractDto` - 缺少文档中的多个字段
-
----
-
-#### D5: 事件监听器缺失 🟡 中优先级
-
-**设计文档（Section 1.3, 2.2.2）:**
-```
-Financial Domain → Contract Domain: payment.succeeded 事件
-  └─ 触发 activate() 方法
-
-Services Domain → Contract Domain: session.completed 事件
-  └─ 触发 consumeService() 方法
-```
-
-**代码实现:**
-- ✅ Domain events 表已创建（domain_events）
-- ✅ Event publisher 定时任务存在（tasks/event-publisher.task.ts）
-- ❌ **事件监听器未实现：**
-  - `PaymentSucceededListener` - 监听支付成功
-  - `SessionCompletedListener` - 监听服务完成
-  - `SessionCancelledListener` - 监听服务取消
-
-**差异影响：**
-- 事件驱动架构不完整
-- 合同激活需要手动调用 API（而不是自动）
-- 服务消费需要手动调用（而不是监听事件）
-
-**需要创建的文件：**
-```
-src/domains/contract/events/
-  ├── listeners/
-  │   ├── payment-succeeded.listener.ts      ❌ 缺失
-  │   ├── session-completed.listener.ts      ❌ 缺失
-  │   └── session-cancelled.listener.ts      ❌ 缺失
-  └── handlers/
-      ├── contract-activation.handler.ts     ❌ 缺失
-      └── service-consumption.handler.ts    ❌ 缺失
-```
-
----
-
-#### D6: 事务支持不完整 🟢 低优先级
-
-**设计文档（v2.16.7 决策）:**
-```typescript
-// ServiceHoldService.createHold() 支持外部事务
-async createHold(dto: CreateHoldDto, tx?: DrizzleTransaction): Promise<ServiceHold>
-```
-
-**代码实现:**
-- ✅ ContractService 中使用了 `db.transaction()`
-- ⚠️ ServiceHoldService 中方法签名不一致
-- ⚠️ ServiceLedgerService 支持 `tx` 参数，但未完全利用
-
-**差异细节：**
-```typescript
-// 设计文档（Section 3.2.4, 1653 行）
-async createHold(dto: CreateHoldDto, tx?: DrizzleTransaction)
-
-// 实际代码（service-hold.service.ts）
-async createHold(dto: ICreateHoldDto): Promise<ServiceHold>  // ← 缺少 tx 参数
-```
-
----
-
-#### D7: 状态验证宽松 🟢 低优先级
-
-**多处差异：**
-
-| 场景 | 设计文档要求 | 代码实现 | 风险等级 |
-|------|--------------|----------|----------|
-| activate() | 检查 `status = 'draft'` | 检查 `status = 'signed'` | 低 |
-| consumeService() | 严格检查 contract.status = 'active' | 未检查或检查较宽松 | 中 |
-| addEntitlement() | 检查 contract.status = 'active' | 未检查 | 中 |
-| 过期时间验证 | 严格验证 `expiresAt >= effectiveAt` | 无检查 | 低 |
-
-**示例差异：**
-```typescript
-// 设计文档（6.1.2）要求：
-// ✅ 合同状态为 draft
-// ✅ 已收到 payment.succeeded 事件
-// ✅ 支付金额 >= 首付要求
-
-// 代码实现（contract.service.ts:204-207）：
-if (contract.status !== "signed") {
-  throw new ContractException("CONTRACT_NOT_DRAFT");
-}
-// 缺少：payment 验证、金额验证
-```
-
----
-
-### 9.3 差异修复决策摘要
-
-> **审查完成日期：** 2025-11-10
-> **状态：** ✅ 所有差异已讨论并决策
-
-本次审查共发现 7 项差异，已全部讨论并确定修复方案。团队选择在后续开发中采用方案 A（完整实现）来对齐设计文档与代码实现。
+### 9.2 差异修复决策（v2.16.10）
 
 #### 🔴 高优先级（必须修复）
-1. **D1 - 合同状态差异**
-   - ✅ **已决策：方案 A**（修改代码，增加 `draft` 状态）
-   - 实现内容：增加 `draft` → `signed` → `active` 状态流转
-   - 预计工作量：2-3 天
-   - 影响范围：状态机、所有业务流程
 
-2. **D2 - 状态管理方法缺失**
-   - ✅ **已决策：方案 A**（完整实现三个方法）
-   - 实现内容：`suspend()`, `resume()`, `complete()`
-   - 预计工作量：2-3 天
-   - 影响范围：合同生命周期管理
+**D1: 合同状态差异** - **方案A（修改代码）**
+- 实施方式：增加 `draft` 状态，完善状态机（draft → signed → active）
+- 工作量：2-3 天
+- 影响：高（需要数据库迁移和代码修改）
+- 风险：影响现有业务流程
 
-#### 🟡 中优先级（应尽快修复）
-3. **D3 - 权益修订功能**
-   - ✅ **已决策：方案 A**（完整实现 v2.16.8 所有功能）
-   - 实现内容：`getEntitlementRevisions()`, `approveRevision()`, `rejectRevision()`
-   - 预计工作量：3-4 天
-   - 影响范围：v2.16.8 核心功能、审计追溯
+**D2: 合同状态管理方法缺失** - **方案A（完整实现）**
+- 实施方式：实现 `suspend()`, `resume()`, `complete()` 方法
+- 工作量：2-3 天
+- 影响：高（合同生命周期完整性）
+- 依赖：需要 D1 完成后实施
 
-4. **D5 - 事件监听器**
-   - ✅ **已决策：方案 A**（完整实现所有事件监听器）
-   - 实现内容：`payment.succeeded`, `session.completed` 监听器和处理器
-   - 预计工作量：2-3 天
-   - 影响范围：事件驱动架构完整性
+#### 🟡 中优先级（建议修复）
 
-#### 🟡 中优先级（应尽快修复）
-5. **D4 - DTO 字段命名差异**
-   - ✅ **已决策：方案 A**（修改代码，统一使用设计文档命名）
-   - 实现内容：`reason` → `addOnReason`, `sessionId` → `relatedBookingId`
-   - 预计工作量：1 天
-   - 影响范围：DTO 定义、Service 接口
+**D6: 事务支持完善** - **方案A（添加 tx 参数）**
+- 实施方式：所有关键 Service 方法添加可选事务参数
+- 工作量：1 天
+- 影响：中（数据一致性）
+- 收益：支持原子性操作
 
-#### 🟢 低优先级（可延后修复）
-6. **D6 - 事务支持差异**
-   - ✅ **已决策：方案 A**（完善所有 Service 的事务支持）
-   - 实现内容：所有 Service 方法添加可选 `tx` 参数
-   - 预计工作量：1 天
-   - 影响范围：数据一致性、原子性操作
+**D3 & D4: 代码与文档对齐** - **方案B（文档更新）**
+- D3: 表名从 `revisions` → `ledgers`（与代码一致）
+- D4: 字段从 `addOnReason` → `reason`（与代码一致）
+- 状态：✅ 文档已完成更新
 
-7. **D7 - 状态验证宽松**
-   - ✅ **已决策：方案 A**（添加全面的状态验证）
-   - 实现内容：所有状态转换方法添加验证逻辑
-   - 预计工作量：0.5 天
-   - 影响范围：数据完整性、非法操作防护
+#### 🟢 低优先级（保持现状）
 
-#### 总体工作量评估
-
-| 优先级 | 项数 | 预计工作量 | 备注 |
-|--------|------|------------|------|
-| 🔴 高 | 2 项 | 4-6 天 | 核心业务流程 |
-| 🟡 中 | 3 项 | 6-8 天 | 功能完整性 |
-| 🟢 低 | 2 项 | 1.5 天 | 数据完整性优化 |
-| **总计** | **7 项** | **11.5-15.5 天** | **约 2-3 周开发量** |
-
-#### 实施建议
-
-**阶段一（第 1 周）：高优先级**
-1. 实现 D1（合同状态差异）
-2. 实现 D2（状态管理方法缺失）
-
-**阶段二（第 2-3 周）：中优先级**
-3. 实现 D3（权益修订功能）
-4. 实现 D5（事件监听器）
-5. 实现 D4（DTO 字段命名统一）
-
-**阶段三（第 4 周）：低优先级 + 优化**
-6. 实现 D6（事务支持完善）
-7. 实现 D7（状态验证）
-8. 补充单元测试和集成测试
-
-#### 风险评估
-
-**低风险项**：D4, D6, D7
-- 改动范围小，影响可控
-- 容易测试验证
-- 回滚成本低
-
-**中风险项**：D2, D5
-- 影响核心流程（状态机、事件驱动）
-- 需要集成测试
-- 需要确保事件幂等性
-
-**高风险项**：D1, D3
-- D1 影响整个业务流程（状态流转）
-- D3 是新功能（审批流程），需要完整测试
-- 建议：分批部署，充分测试
-
-#### 下一步行动
-
-团队已完成所有差异的讨论和决策，建议在下一个 Sprint 中开始实施：
-
-1. **创建实施任务**：为每个 D# 创建独立的开发任务
-2. **分配责任人**：根据团队资源分配
-3. **补充测试**：每个修复都需要单元测试覆盖
-4. **Code Review**：架构师或 Senior 审核关键改动
-5. **文档更新**：修复后同步更新设计文档
+**D7: 状态验证宽松** - **方案B（暂不优化）**
+- 决策：保持现有实现，根据测试反馈再决定是否加强验证
+- 工作量：0 天
+- 理由：当前实现基本可用，过早优化可能增加复杂度
 
 ---
 
-### 9.4 差异检测方法
-
----
-
-### 9.4 差异检测方法
-
-**自动化检测（建议）：**
-```typescript
-// 可创建脚本自动对比
-function detectDifferences() {
-  // 1. 读取接口定义
-  const interfaceMethods = parseInterface('IContractService');
-
-  // 2. 读取实际实现
-  const implementedMethods = parseService('ContractService');
-
-  // 3. 对比差异
-  const missing = interfaceMethods.filter(m => !implementedMethods.includes(m));
-
-  return {
-    missingMethods,
-    inconsistentDTOs,
-    missingEventListeners
-  };
-}
-```
-
-**手动检查清单：**
-- [ ] 接口定义 vs 实际实现（4.2 节）
-- [ ] Schema 字段 vs DTO 字段（3.2 节 vs 5.x 节）
-- [ ] 事件定义 vs 事件监听器（5.7 节 vs events/ 目录）
-- [ ] 业务规则 vs 验证逻辑（6.x 节 vs 代码实现）
-
----
-
-## 附录：历史版本变更
-
-### v2.16.9 (2025-11-10)
-
-**服务预占机制重大简化 - 移除 TTL 自动过期**
-
-**核心变更：**
-- ❌ **移除 `expiresAt` 字段**：`service_holds` 表中不再存储过期时间
-- ❌ **移除自动过期机制**：取消定时任务清理过期预占
-- ✅ **预占永不过期**：所有预占必须通过人工操作释放
-- ✅ **简化状态机**：仅保留 `active` → `released`/`cancelled` 状态转换
-
-**设计理由：**
-1. **业务完整性**：预占代表用户的预约意图，不应自动失效
-2. **减少系统复杂度**：移除不必要的定时任务和过期逻辑
-3. **人工审核重要操作**：所有释放操作需要明确确认
-4. **数据审计追溯**：保留完整的预占历史记录
-
-**影响范围：**
-- `service_holds` 表：删除 `expires_at` 列
-- `hold_status` 枚举：移除 `expired` 状态值
-- `ServiceHoldService`：`expireHolds()` 方法改为 `getLongUnreleasedHolds()`（仅监控，不自动释放）
-- `hold-cleanup.task.ts`：定时任务标记为 `@deprecated`，自动逻辑移除
-- 环境变量：`CONTRACT_HOLD_TTL_MINUTES` 和 `HOLD_CLEANUP_CRON` 标记为废弃
-
-**状态机变更：**
-
-**Before:**
-```
-active ──→ released (人工)
-   ├──→ cancelled (人工)
-   └──→ expired (定时任务，自动)
-```
-
-**After:**
-```
-active ──→ released (人工)
-   └──→ cancelled (人工)
-
-// 没有 expired 状态，没有自动过期
-```
-
-**监控建议：**
-- 实现监控告警：检查 `active` 状态超过 24 小时的预占
-- 管理员人工审核后，手动调用 `releaseHold()` 或 `cancelHold()` 释放
-
-**参考文档：**
-- Section 3.2.4: `service_holds` schema 已更新
-- Section 6.4: 业务规则已更新
-- Section 7.2: 状态机已简化
-
----
-
-### v2.16.6 (2025-11-06)
-
-**业务约束简化 - ServiceUnit 单一化**
-
-- ServiceUnit 枚举简化为单一值 `'times'`
-- 避免单位转换和验证复杂度
-- 统一计费模型，降低系统复杂度
-- 时长信息在服务定义（Catalog Domain）中说明
-
----
-
-### v2.16.5 (2025-11-06)
-
-**第二轮审查决策完成**
-
-完成了第二轮深度审查中发现的所有待决策问题（3 个重要问题 + 7 个次要问题）：
-
-**重要问题决策：**
-- **I-NEW-3**：事件发布失败重试机制 → Outbox 模式
-- **I-NEW-4**：归档查询日期范围强制验证 → 强制验证 + 默认日期范围
-- **I-NEW-6**：totalAmount 覆盖验证规则增强 → 增强验证 + 审计字段
-
-**次要问题决策：**
-- **M-NEW-1**：权限控制 → 推迟到实施阶段
-- **M-NEW-2**：余额对账定期任务 → 推迟到实施阶段
-- **M-NEW-3**：ServiceUnit 枚举精简 → 单一单位 `'times'`
-- **M-NEW-4**：归档表分区策略 → MVP 不使用分区
-- **M-NEW-5**：合同金额币种 → 单一币种 USD
-- **M-NEW-6**：错误码定义 → 定义错误码枚举 + 异常类
-- **M-NEW-7**：合同编号重置失败处理 → 自动重置 + 异常处理
-
-**新增约束：**
-- ServiceUnit 仅支持 'times'（所有服务按次数计费）
-- 合同金额仅支持 USD
-- 归档查询强制日期范围验证
-- 事件发布采用 Outbox 模式保证可靠性
-
----
-
-### v2.16.4 (2025-11-06)
-
-**第一轮设计审查完成**
-
-完成了所有基础设计问题决策（共 19 个问题：6 个关键问题 + 5 个重要问题 + 8 个次要问题）：
-
-**关键问题决策：**
-- **C1-C2**：添加 `suspend()`, `resume()`, `complete()` 方法
-- **C3**：`consumeService()` 改用 `ConsumeServiceDto` 参数
-- **C4**：`productItemType` 字段使用 `ProductItemType` 类型别名
-- **C5**：合同编号格式确定为 `CONTRACT-YYYY-MM-NNNNN`
-- **C6**：删除 Catalog Domain schema 导入，保持 DDD 域隔离
-
-**新增内容：**
-- Section 5.7: Event Payload DTOs（6 种事件类型）
-- Section 6.1.1: totalAmount 覆盖验证规则
-- Section 6.2.2: 服务消费优先级算法
-- Section 8.1: 命名约定文档
-- Section 8.2: 环境变量配置文档
-- Section 3.2.2: ServiceUnit 枚举定义
-- Section 3.2.6: 归档查询策略与性能优化
-
-**业务约束明确：**
-- 合同与产品一对一关系（不可更换产品）
-- 服务单位统一为次数 'times'
-- 总金额覆盖限制（最多 90% 折扣，最高 200% 原价）
-- 归档查询必须提供日期范围过滤
-- 预占默认 15 分钟过期，每 5 分钟清理一次
-
----
-
-## 附录：历史版本变更
-
-### v2.16.9 (2025-11-10)
-
-**服务预占机制重大简化 - 移除 TTL 自动过期**
-
-**核心变更：**
-- ❌ **移除 `expiresAt` 字段**：`service_holds` 表中不再存储过期时间
-- ❌ **移除自动过期机制**：取消定时任务清理过期预占
-- ✅ **预占永不过期**：所有预占必须通过人工操作释放
-- ✅ **简化状态机**：仅保留 `active` → `released`/`cancelled` 状态转换
-
-**设计理由：**
-1. **业务完整性**：预占代表用户的预约意图，不应自动失效
-2. **减少系统复杂度**：移除不必要的定时任务和过期逻辑
-3. **人工审核重要操作**：所有释放操作需要明确确认
-4. **数据审计追溯**：保留完整的预占历史记录
-
-**影响范围：**
-- `service_holds` 表：删除 `expires_at` 列
-- `hold_status` 枚举：移除 `expired` 状态值
-- `ServiceHoldService`：`expireHolds()` 方法改为 `getLongUnreleasedHolds()`（仅监控，不自动释放）
-- `hold-cleanup.task.ts`：定时任务标记为 `@deprecated`，自动逻辑移除
-- 环境变量：`CONTRACT_HOLD_TTL_MINUTES` 和 `HOLD_CLEANUP_CRON` 标记为废弃
-
-**状态机变更：**
-
-**Before:**
-```
-active ──→ released (人工)
-   ├──→ cancelled (人工)
-   └──→ expired (定时任务，自动)
-```
-
-**After:**
-```
-active ──→ released (人工)
-   └──→ cancelled (人工)
-
-// 没有 expired 状态，没有自动过期
-```
-
-**监控建议：**
-- 实现监控告警：检查 `active` 状态超过 24 小时的预占
-- 管理员人工审核后，手动调用 `releaseHold()` 或 `cancelHold()` 释放
-
-**参考文档：**
-- Section 3.2.4: `service_holds` schema 已更新
-- Section 6.4: 业务规则已更新
-- Section 7.2: 状态机已简化
-
----
-
-### v2.16.6 (2025-11-06)
-
-**业务约束简化 - ServiceUnit 单一化**
-
-- ServiceUnit 枚举简化为单一值 `'times'`
-- 避免单位转换和验证复杂度
-- 统一计费模型，降低系统复杂度
-- 时长信息在服务定义（Catalog Domain）中说明
-
----
-
-### v2.16.5 (2025-11-06)
-
-**第二轮审查决策完成**
-
-完成了第二轮深度审查中发现的所有待决策问题（3 个重要问题 + 7 个次要问题）：
-
-**重要问题决策：**
-- **I-NEW-3**：事件发布失败重试机制 → Outbox 模式
-- **I-NEW-4**：归档查询日期范围强制验证 → 强制验证 + 默认日期范围
-- **I-NEW-6**：totalAmount 覆盖验证规则增强 → 增强验证 + 审计字段
-
-**次要问题决策：**
-- **M-NEW-1**：权限控制 → 推迟到实施阶段
-- **M-NEW-2**：余额对账定期任务 → 推迟到实施阶段
-- **M-NEW-3**：ServiceUnit 枚举精简 → 单一单位 `'times'`
-- **M-NEW-4**：归档表分区策略 → MVP 不使用分区
-- **M-NEW-5**：合同金额币种 → 单一币种 USD
-- **M-NEW-6**：错误码定义 → 定义错误码枚举 + 异常类
-- **M-NEW-7**：合同编号重置失败处理 → 自动重置 + 异常处理
-
-**新增约束：**
-- ServiceUnit 仅支持 'times'（所有服务按次数计费）
-- 合同金额仅支持 USD
-- 归档查询强制日期范围验证
-- 事件发布采用 Outbox 模式保证可靠性
-
----
-
-### v2.16.4 (2025-11-06)
-
-**第一轮设计审查完成**
-
-完成了所有基础设计问题决策（共 19 个问题：6 个关键问题 + 5 个重要问题 + 8 个次要问题）：
-
-**关键问题决策：**
-- **C1-C2**：添加 `suspend()`, `resume()`, `complete()` 方法
-- **C3**：`consumeService()` 改用 `ConsumeServiceDto` 参数
-- **C4**：`productItemType` 字段使用 `ProductItemType` 类型别名
-- **C5**：合同编号格式确定为 `CONTRACT-YYYY-MM-NNNNN`
-- **C6**：删除 Catalog Domain schema 导入，保持 DDD 域隔离
-
-**新增内容：**
-- Section 5.7: Event Payload DTOs（6 种事件类型）
-- Section 6.1.1: totalAmount 覆盖验证规则
-- Section 6.2.2: 服务消费优先级算法
-- Section 8.1: 命名约定文档
-- Section 8.2: 环境变量配置文档
-- Section 3.2.2: ServiceUnit 枚举定义
-- Section 3.2.6: 归档查询策略与性能优化
-
-**业务约束明确：**
-- 合同与产品一对一关系（不可更换产品）
-- 服务单位统一为次数 'times'
-- 总金额覆盖限制（最多 90% 折扣，最高 200% 原价）
-- 归档查询必须提供日期范围过滤
-- 预占默认 15 分钟过期，每 5 分钟清理一次
-
----
+### 9.3 实施建议
+
+**阶段一（第 1 周）：核心状态机**
+1. 实施 D1：添加 `draft` 状态
+2. 实施 D2：实现 `suspend()`, `resume()`, `complete()`
+
+**阶段二（第 2 周）：事务支持**
+3. 实施 D6：完善所有 Service 的事务支持
+4. 补充相关单元测试
+
+**阶段三（后续版本）：架构优化**
+5. 考虑实施 D5：事件监听器（v3.x）
+6. 评估 D7：加强状态验证（根据业务需求）
+
+**注意事项：**
+- D3 和 D4 已通过文档更新解决，无需代码修改
+- D5 推迟到后续版本，降低当前开发复杂度
+- D7 保持现状，避免过度工程
 

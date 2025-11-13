@@ -59,8 +59,7 @@ export const sessions = pgTable(
 
     // Meeting information
     meetingProvider: meetingProviderEnum("meeting_provider").notNull(),
-    meetingId: varchar("meeting_id", { length: 255 }), // Third-party meeting ID
-    meetingNo: varchar("meeting_no", { length: 20 }), // Feishu meeting number (9 digits)
+    meetingNo: varchar("meeting_no", { length: 20 }), // Feishu meeting number (9 digits, key for webhook association)
     meetingUrl: text("meeting_url"), // Meeting link
     meetingPassword: varchar("meeting_password", { length: 50 }), // Meeting password
 
@@ -117,7 +116,7 @@ export const sessions = pgTable(
       table.scheduledStartTime,
     ),
     contractIdx: index("idx_session_contract").on(table.contractId),
-    meetingIdx: index("idx_session_meeting").on(table.meetingId),
+    meetingNoIdx: index("idx_session_meeting_no").on(table.meetingNo),
     statusIdx: index("idx_session_status").on(table.status),
   }),
 );

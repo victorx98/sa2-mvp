@@ -1,3 +1,5 @@
+import type { ServiceType } from "@domains/contract/common/types/enum.types";
+
 export const SESSION_BOOKED_EVENT = "session.booked";
 
 /**
@@ -9,7 +11,7 @@ export interface SessionBookedEvent {
   counselorId: string;
   studentId: string;
   mentorId: string;
-  serviceId: string;
+  serviceType: ServiceType;
   calendarSlotId: string;
   serviceHoldId: string;
   scheduledStartTime: string;
