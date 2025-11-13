@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Post, Body, HttpCode, HttpStatus, Logger } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { RegisterCommand } from "@application/commands/auth/register.command";
 import { LoginCommand } from "@application/commands/auth/login.command";
@@ -24,6 +24,7 @@ import { Public } from "@shared/decorators/public.decorator";
 @ApiTags("Authentication")
 @Controller("auth")
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
   constructor(
     // ✅ 直接注入 Application Layer 服务
     private readonly registerCommand: RegisterCommand,
@@ -52,7 +53,18 @@ export class AuthController {
     description: "Login successful",
   })
   async login(@Body() loginDto: LoginDto): Promise<AuthResultDto> {
+    this.logger.log("[API]login: ", loginDto.email);
     // ✅ 直接调用 Application Layer 服务
     return this.loginCommand.execute(loginDto);
+    // return {
+    //   accessToken: "test",
+    //   user: {
+    //     id: "test",
+    //     email: loginDto.email,
+    //     nickname: "test",
+    //     cnNickname: "test",
+    //     status: "active",
+    //   },
+    // };
   }
 }

@@ -12,7 +12,7 @@ dotenv.config();
 // import "./telemetry/opentelemetry";
 
 async function bootstrap() {
-  await ensureTelemetryStarted();
+  // await ensureTelemetryStarted();
 
   const logger = new OtelLoggerService();
   const app = await NestFactory.create(AppModule, {
@@ -21,12 +21,12 @@ async function bootstrap() {
   });
 
   app.useLogger(logger);
-  Logger.overrideLogger(logger);
+  // Logger.overrideLogger(logger);
 
   const originalClose = app.close.bind(app);
   app.close = async () => {
     await originalClose();
-    // await shutdownTelemetry();
+    await shutdownTelemetry();
   };
 
   const signalHandler = (signal: NodeJS.Signals) => {

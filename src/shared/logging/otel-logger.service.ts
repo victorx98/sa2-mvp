@@ -38,6 +38,7 @@ export class OtelLoggerService extends ConsoleLogger {
   }
 
   override log(message: any, ...optionalParams: [...any, string?]): void {
+    console.log("[OtelLoggerService]log: ", message);
     super.log(this.injectTraceContext(message), ...optionalParams);
   }
 

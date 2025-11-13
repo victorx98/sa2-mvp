@@ -23,31 +23,25 @@ let sdkStarted = false;
 let sdk: NodeSDK | null = null;
 let sdkStarting = false;
 
-const serviceName = process.env.SERVICE_NAME ?? "sa2-ddd";
-console.log('serviceName', serviceName);
+const serviceName = process.env.SERVICE_NAME;
 
 const resource = resourceFromAttributes({
   [ATTR_SERVICE_NAME]: serviceName,
-  // [ATTR_SERVICE_VERSION]:
-  //   process.env.OTEL_SERVICE_VERSION ??
-  //   process.env.SERVICE_VERSION ??
-  //   process.env.npm_package_version ??
-  //   "0.0.1",
-  // [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]:
-  //   process.env.NODE_ENV ??
-  //   "development",
+  [ATTR_SERVICE_VERSION]:
+    process.env.OTEL_SERVICE_VERSION ??
+    process.env.SERVICE_VERSION ??
+    process.env.npm_package_version ??
+    "0.0.1",
+  [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]:
+    process.env.NODE_ENV ??
+    "development",
 });
 
 function buildSdk(): NodeSDK {
-  console.log('endpoint: ', 
-    process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ??
-    process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-  );
   const traceExporter = new OTLPTraceExporter({
-    // url:
-    //   process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ??
-    //   process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-    url: 'https://otlp-gateway-prod-us-west-0.grafana.net/otlp/v1/metrics',
+    url:
+      process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ??
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
     headers: {
       Authorization: `Basic ${process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN}`,
     },
@@ -94,8 +88,8 @@ function buildSdk(): NodeSDK {
   return new NodeSDK({
     resource,
     traceExporter,
-    // metricReader,
-    // logRecordProcessor,
+    metricReader,
+    logRecordProcessor,
     instrumentations,
   });
 }
