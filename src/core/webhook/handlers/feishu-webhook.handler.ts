@@ -7,7 +7,10 @@ import { WebhookProcessingException } from "../exceptions/webhook.exception";
 import { FeishuEventExtractor } from "../extractors/feishu-event-extractor";
 import { MeetingEventService } from "@core/meeting-providers/services/meeting-event.service";
 import { WebhookEventBusService } from "../services/webhook-event-bus.service";
-import { MeetingEventCreated } from "../dto/meeting-event-created.event";
+import {
+  FeishuMeetingEventPayload,
+  DomainEventNames,
+} from "../events/domain-event-payloads";
 
 /**
  * Feishu Webhook Event Types
@@ -121,25 +124,63 @@ export class FeishuWebhookHandler implements IWebhookHandler {
     // 2. Store event in meeting_events table (with automatic deduplication)
     await this.meetingEventService.recordEvent(extractedData);
 
-    // 3. Publish domain event for subscribers (Session Domain, Comm Session, etc.)
-    const domainEvent = new MeetingEventCreated(
-      extractedData.meetingId,
-      extractedData.meetingNo,
-      extractedData.eventId,
-      extractedData.eventType,
-      extractedData.provider,
-      extractedData.operatorId,
-      extractedData.operatorRole,
-      extractedData.meetingTopic,
-      extractedData.occurredAt,
-      extractedData.eventData,
-    );
+    // 3. Build event payload with all extracted data
+    const eventPayload: FeishuMeetingEventPayload = {
+      meetingId: extractedData.meetingId,
+      meetingNo: extractedData.meetingNo,
+      eventId: extractedData.eventId,
+      eventType: extractedData.eventType,
+      provider: extractedData.provider,
+      operatorId: extractedData.operatorId,
+      operatorRole: extractedData.operatorRole,
+      meetingTopic: extractedData.meetingTopic,
+      meetingStartTime: extractedData.meetingStartTime,
+      meetingEndTime: extractedData.meetingEndTime,
+      recordingId: extractedData.recordingId,
+      recordingUrl: extractedData.recordingUrl,
+      occurredAt: extractedData.occurredAt,
+      eventData: extractedData.eventData,
+    };
 
-    await this.eventBus.publish(domainEvent);
+    // 4. Publish domain events based on event type
+    // Only publish for supported event types (meeting_started, meeting_ended, recording_ready)
+    switch (extractedData.eventType) {
+      case FeishuEventType.MEETING_STARTED:
+        await this.eventBus.emit(
+          DomainEventNames.SESSION_MEETING_STARTED,
+          eventPayload,
+        );
+        this.logger.log(
+          `Event published: ${DomainEventNames.SESSION_MEETING_STARTED}`,
+        );
+        break;
 
-    this.logger.log(
-      `Event processed and published: ${extractedData.eventType}`,
-    );
+      case FeishuEventType.MEETING_ENDED:
+        await this.eventBus.emit(
+          DomainEventNames.SESSION_MEETING_ENDED,
+          eventPayload,
+        );
+        this.logger.log(
+          `Event published: ${DomainEventNames.SESSION_MEETING_ENDED}`,
+        );
+        break;
+
+      case FeishuEventType.RECORDING_READY:
+        await this.eventBus.emit(
+          DomainEventNames.SESSION_RECORDING_READY,
+          eventPayload,
+        );
+        this.logger.log(
+          `Event published: ${DomainEventNames.SESSION_RECORDING_READY}`,
+        );
+        break;
+
+      default:
+        // Other event types are stored but not published as domain events
+        this.logger.debug(
+          `Event type ${extractedData.eventType} is stored but not published as domain event`,
+        );
+    }
   }
 
   /**

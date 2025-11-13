@@ -84,12 +84,12 @@ export class BookSessionCommand {
         );
 
         // Step 2: 创建服务预占
-        const hold = await this.serviceHoldService.createHold({
-          studentId: input.studentId,
-          serviceType: input.serviceType,
-          quantity: 1,
-          createdBy: input.counselorId,
-        }, tx);
+        // const hold = await this.serviceHoldService.createHold({
+        //   studentId: input.studentId,
+        //   serviceType: input.serviceType,
+        //   quantity: 1,
+        //   createdBy: input.counselorId,
+        // }, tx);
 
 
         // Step 3: Try to create calendar slot directly (atomic with DB constraint)
@@ -156,7 +156,7 @@ export class BookSessionCommand {
 
         return {
           session,
-          hold,
+          // hold,
           calendarSlot,
           meetingInfo,
         };
@@ -173,7 +173,8 @@ export class BookSessionCommand {
       counselorId: input.counselorId,
       serviceType: input.serviceType,
       calendarSlotId: sessionResult.calendarSlot.id,
-      serviceHoldId: sessionResult.hold.id,
+      // serviceHoldId: sessionResult.hold.id,
+      serviceHoldId: null,
       scheduledStartTime: input.scheduledStartTime.toISOString(),
       scheduledEndTime: input.scheduledEndTime.toISOString(),
       duration: input.duration,

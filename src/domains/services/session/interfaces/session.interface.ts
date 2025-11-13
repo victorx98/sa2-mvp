@@ -52,22 +52,17 @@ export interface ISessionEntity {
   scheduledStartTime: Date; // Planned start time
   scheduledDuration: number; // Planned duration in minutes
 
-  // Actual time (updated by webhook)
-  actualStartTime: Date | null; // Actual start time
-  actualEndTime: Date | null; // Actual end time
+  // Meeting time segments (list of start and end times for multi-segment sessions)
+  meetingTimeList: Array<{ startTime: Date; endTime: Date }> | null; // List of meeting time segments
+
+  // Actual service duration (sum of all meeting segments)
+  actualServiceDuration: number | null; // Actual service duration in minutes
 
   // Recordings (array, supports multiple recordings)
   recordings: IRecording[]; // Recording array
 
   // AI summary (structured data)
   aiSummary: IAISummary | null; // AI summary object
-
-  // Duration statistics
-  mentorTotalDurationSeconds: number | null; // Mentor total online duration in seconds
-  studentTotalDurationSeconds: number | null; // Student total online duration in seconds
-  effectiveTutoringDurationSeconds: number | null; // Effective tutoring duration in seconds
-  mentorJoinCount: number; // Mentor join count
-  studentJoinCount: number; // Student join count
 
   // Business fields
   sessionName: string; // Session name

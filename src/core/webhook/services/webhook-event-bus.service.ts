@@ -14,7 +14,7 @@ export class WebhookEventBusService {
   constructor(private readonly eventEmitter: EventEmitter2) {}
 
   /**
-   * Publish a domain event to all subscribers
+   * Publish a domain event to all subscribers (using event class name)
    *
    * @param event - Domain event to publish
    * @returns Promise that resolves when event is published
@@ -30,6 +30,28 @@ export class WebhookEventBusService {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to publish event ${eventName}: ${message}`);
       // Don't throw - webhook should return 200 even if publishing fails
+      // Event is already stored in database for manual retry
+    }
+  }
+
+  /**
+   * Emit a domain event with explicit event name
+   * Used for semantic event names like "services.session.meeting_started"
+   *
+   * @param eventName - Semantic event name
+   * @param payload - Event payload/data
+   * @returns Promise that resolves when event is emitted
+   */
+  async emit(eventName: string, payload: any): Promise<void> {
+    this.logger.debug(`Emitting event: ${eventName}`);
+
+    try {
+      await this.eventEmitter.emitAsync(eventName, payload);
+      this.logger.debug(`Event emitted successfully: ${eventName}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to emit event ${eventName}: ${message}`);
+      // Don't throw - webhook should return 200 even if emitting fails
       // Event is already stored in database for manual retry
     }
   }
