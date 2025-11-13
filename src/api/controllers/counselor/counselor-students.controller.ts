@@ -27,8 +27,7 @@ type CurrentUserPayload = {
  */
 @ApiTags("Counselor Portal")
 @Controller("api/counselor")
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles("counselor")
+@UseGuards(JwtAuthGuard)
 export class CounselorStudentsController {
   constructor(
     // ✅ 直接注入 Application Layer 服务
@@ -45,7 +44,6 @@ export class CounselorStudentsController {
   async getStudentList(
     @CurrentUser() user: CurrentUserPayload,
   ): Promise<StudentListItem[]> {
-    // ✅ 直接调用 Application Layer 服务
     return this.studentListQuery.findByCounselorId(user.userId);
   }
 }
