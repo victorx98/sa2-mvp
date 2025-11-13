@@ -148,7 +148,56 @@ export class WebhookVerificationService {
   }
 
   /**
-   * Verify Feishu webhook request
+   * Verify Feishu webhook request using Verification Token mode (without Encrypt Key)
+   *
+   * In Verification Token mode, Feishu sends events without computing a signature.
+   * Verification relies on:
+   * 1. Checking the token in the request body matches the configured verification token
+   * 2. Validating the timestamp to prevent replay attacks (5 minute tolerance)
+   *
+   * @param body - Request body (parsed JSON)
+   * @throws WebhookSignatureVerificationException if verification fails
+   */
+  verifyFeishuWebhookByToken(
+    body: Record<string, unknown>,
+  ): void {
+    // Extract token from request body
+    const token = (body.header as Record<string, unknown>)?.token as string || "";
+
+    if (!token) {
+      this.logger.warn("Missing Feishu verification token in request body");
+      throw new WebhookSignatureVerificationException("Feishu");
+    }
+
+    // Verify token matches configured verification token
+    if (!this.verifyFeishuToken(token)) {
+      this.logger.warn("Feishu webhook token verification failed");
+      throw new WebhookSignatureVerificationException("Feishu");
+    }
+
+    // Check timestamp to prevent replay attacks (5 minutes tolerance)
+    const createTime = (body.header as Record<string, unknown>)?.create_time as string || "";
+    if (createTime) {
+      const requestTime = parseInt(createTime, 10) / 1000; // Convert milliseconds to seconds
+      const currentTime = Math.floor(Date.now() / 1000);
+      const timeDiff = Math.abs(currentTime - requestTime);
+
+      if (timeDiff > 300) {
+        this.logger.warn(
+          `Feishu webhook timestamp too old: ${timeDiff} seconds difference`,
+        );
+        throw new WebhookSignatureVerificationException("Feishu");
+      }
+    }
+
+    this.logger.debug("Feishu webhook token verified successfully");
+  }
+
+  /**
+   * Verify Feishu webhook request using Encrypt Key mode
+   *
+   * When Encrypt Key is enabled, Feishu computes a signature using:
+   * SHA256(timestamp + nonce + encrypt_key + body) and sends it in X-Lark-Signature header
    *
    * @param headers - Request headers
    * @param body - Request body (stringified)

@@ -101,11 +101,9 @@ export class SessionService {
       throw new SessionNotFoundException("SESSION_NOT_FOUND");
     }
 
-    // 2. Check if session can be updated (not completed or cancelled)
-    if (
-      existing.status === SessionStatus.COMPLETED ||
-      existing.status === SessionStatus.CANCELLED
-    ) {
+    // 2. Check if session can be updated (not cancelled)
+    // where mentor/student may reconnect after initial disconnect
+    if (existing.status === SessionStatus.CANCELLED) {
       throw new SessionException("SESSION_CANNOT_UPDATE");
     }
 
@@ -143,6 +141,14 @@ export class SessionService {
     }
     if (dto.status !== undefined) {
       updateValues.status = dto.status;
+    }
+    // Handle meeting time list (list of meeting time segments for multi-segment sessions)
+    if (dto.meetingTimeList !== undefined) {
+      updateValues.meetingTimeList = dto.meetingTimeList;
+    }
+    // Handle actual service duration (sum of all meeting segments in minutes)
+    if (dto.actualServiceDuration !== undefined) {
+      updateValues.actualServiceDuration = dto.actualServiceDuration;
     }
 
     // 6. Update session
@@ -326,15 +332,13 @@ export class SessionService {
       meetingPassword: record.meetingPassword,
       scheduledStartTime: record.scheduledStartTime,
       scheduledDuration: record.scheduledDuration,
-      actualStartTime: record.actualStartTime,
-      actualEndTime: record.actualEndTime,
+      meetingTimeList: (record.meetingTimeList as unknown as Array<{
+        startTime: Date;
+        endTime: Date;
+      }>) || null,
+      actualServiceDuration: record.actualServiceDuration,
       recordings: (record.recordings as unknown as IRecording[]) || [],
       aiSummary: (record.aiSummary as unknown as IAISummary | null) || null,
-      mentorTotalDurationSeconds: record.mentorTotalDurationSeconds,
-      studentTotalDurationSeconds: record.studentTotalDurationSeconds,
-      effectiveTutoringDurationSeconds: record.effectiveTutoringDurationSeconds,
-      mentorJoinCount: record.mentorJoinCount,
-      studentJoinCount: record.studentJoinCount,
       sessionName: record.sessionName,
       notes: record.notes,
       status: record.status as SessionStatus,

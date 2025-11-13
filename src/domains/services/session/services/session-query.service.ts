@@ -165,15 +165,15 @@ export class SessionQueryService {
       (s) => s.status === "cancelled",
     ).length;
 
-    // Calculate total duration in hours
-    const totalDurationSeconds = sessions.reduce((sum, session) => {
-      return sum + (session.effectiveTutoringDurationSeconds || 0);
+    // Calculate total duration in minutes
+    const totalDurationMinutes = sessions.reduce((sum, session) => {
+      return sum + (session.actualServiceDuration || 0);
     }, 0);
-    const totalDurationHours = totalDurationSeconds / 3600;
+    const totalDurationHours = totalDurationMinutes / 60;
 
     // Calculate average duration in minutes
     const averageDurationMinutes =
-      completedSessions > 0 ? totalDurationSeconds / completedSessions / 60 : 0;
+      completedSessions > 0 ? totalDurationMinutes / completedSessions : 0;
 
     // Calculate completion rate
     const completionRate =
@@ -301,15 +301,13 @@ export class SessionQueryService {
       meetingPassword: record.meetingPassword,
       scheduledStartTime: record.scheduledStartTime,
       scheduledDuration: record.scheduledDuration,
-      actualStartTime: record.actualStartTime,
-      actualEndTime: record.actualEndTime,
+      meetingTimeList: (record.meetingTimeList as unknown as Array<{
+        startTime: Date;
+        endTime: Date;
+      }>) || null,
+      actualServiceDuration: record.actualServiceDuration,
       recordings: (record.recordings as unknown as any[]) || [],
       aiSummary: (record.aiSummary as unknown as any) || null,
-      mentorTotalDurationSeconds: record.mentorTotalDurationSeconds,
-      studentTotalDurationSeconds: record.studentTotalDurationSeconds,
-      effectiveTutoringDurationSeconds: record.effectiveTutoringDurationSeconds,
-      mentorJoinCount: record.mentorJoinCount,
-      studentJoinCount: record.studentJoinCount,
       sessionName: record.sessionName,
       notes: record.notes,
       status: record.status as any,
