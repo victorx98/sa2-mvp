@@ -310,8 +310,13 @@ describe("FeishuBotService Unit Tests", () => {
         meetingPassword: null,
         scheduledStartTime: new Date("2025-11-10T14:00:00Z"),
         scheduledDuration: 60,
-        actualStartTime: new Date("2025-11-10T14:02:00Z"),
-        actualEndTime: new Date("2025-11-10T15:00:00Z"),
+        meetingTimeList: [
+          {
+            startTime: new Date("2025-11-10T14:02:00Z"),
+            endTime: new Date("2025-11-10T15:00:00Z"),
+          },
+        ],
+        actualServiceDuration: 58,
         recordings: [
           {
             recordingId: "rec-123",
@@ -324,11 +329,6 @@ describe("FeishuBotService Unit Tests", () => {
           },
         ],
         aiSummary: null,
-        mentorTotalDurationSeconds: 3480,
-        studentTotalDurationSeconds: 3480,
-        effectiveTutoringDurationSeconds: 3480,
-        mentorJoinCount: 1,
-        studentJoinCount: 1,
         sessionName: "System Design Interview",
         notes: "Discussed distributed systems",
         status: SessionStatus.COMPLETED,
@@ -390,8 +390,13 @@ describe("FeishuBotService Unit Tests", () => {
         meetingPassword: null,
         scheduledStartTime: new Date(),
         scheduledDuration: 60,
-        actualStartTime: new Date(),
-        actualEndTime: new Date(),
+        meetingTimeList: [
+          {
+            startTime: new Date(),
+            endTime: new Date(),
+          },
+        ],
+        actualServiceDuration: 60,
         recordings: [
           {
             recordingId: "rec-456",
@@ -404,11 +409,6 @@ describe("FeishuBotService Unit Tests", () => {
           },
         ],
         aiSummary: null,
-        mentorTotalDurationSeconds: 3600,
-        studentTotalDurationSeconds: 3600,
-        effectiveTutoringDurationSeconds: 3600,
-        mentorJoinCount: 1,
-        studentJoinCount: 1,
         sessionName: "Mock Interview",
         notes: null,
         status: SessionStatus.COMPLETED,

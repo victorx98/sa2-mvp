@@ -186,9 +186,7 @@ export class NotificationService {
       `Sending session completed email for session: ${session.id}`,
     );
 
-    const actualDuration = session.effectiveTutoringDurationSeconds
-      ? Math.floor(session.effectiveTutoringDurationSeconds / 60)
-      : 0;
+    const actualDuration = session.actualServiceDuration || 0;
 
     const recordingUrl =
       session.recordings.length > 0 ? session.recordings[0].recordingUrl : null;
