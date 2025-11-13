@@ -1,6 +1,6 @@
 -- Financial Domain Tables
 -- 导师应付账款账本表 - Financial Domain
-CREATE TABLE "mentor_payable_ledgers" (
+CREATE TABLE IF NOT EXISTS "mentor_payable_ledgers" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"relation_id" uuid NOT NULL,
 	"source_entity" varchar(50) NOT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE "mentor_payable_ledgers" (
 );
 
 -- 导师价格表 - Financial Domain
-CREATE TABLE "mentor_prices" (
+CREATE TABLE IF NOT EXISTS "mentor_prices" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"mentor_user_id" uuid NOT NULL,
 	"service_type_code" varchar(50) NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE "mentor_prices" (
 );
 
 -- Service Types Table - Catalog Domain
-CREATE TABLE "service_types" (
+CREATE TABLE IF NOT EXISTS "service_types" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"code" varchar(50) NOT NULL,
 	"name" varchar(200) NOT NULL,
@@ -43,46 +43,72 @@ CREATE TABLE "service_types" (
 	CONSTRAINT "service_types_code_unique" UNIQUE("code")
 );
 
--- Contract Domain Changes
-ALTER TABLE "contract_amendment_ledgers" DROP CONSTRAINT "contract_amendment_ledgers_student_id_user_id_fk";
-ALTER TABLE "contract_amendment_ledgers" DROP CONSTRAINT "contract_amendment_ledgers_created_by_user_id_fk";
-ALTER TABLE "contract_service_entitlements" DROP CONSTRAINT "contract_service_entitlements_student_id_user_id_fk";
-ALTER TABLE "contract_service_entitlements" DROP CONSTRAINT "contract_service_entitlements_created_by_user_id_fk";
-ALTER TABLE "contracts" DROP CONSTRAINT "contracts_student_id_user_id_fk";
-ALTER TABLE "contracts" DROP CONSTRAINT "contracts_created_by_user_id_fk";
-
--- Contract Domain Column Type Changes
-ALTER TABLE "contract_amendment_ledgers" ALTER COLUMN "student_id" SET DATA TYPE uuid;
-ALTER TABLE "contract_amendment_ledgers" ALTER COLUMN "created_by" SET DATA TYPE uuid;
-ALTER TABLE "contract_service_entitlements" ALTER COLUMN "student_id" SET DATA TYPE uuid;
-ALTER TABLE "contract_service_entitlements" ALTER COLUMN "created_by" SET DATA TYPE uuid;
-ALTER TABLE "contracts" ALTER COLUMN "student_id" SET DATA TYPE uuid;
-ALTER TABLE "contracts" ALTER COLUMN "created_by" SET DATA TYPE uuid;
-
--- Catalog Domain Column Type Changes
-ALTER TABLE "products" ALTER COLUMN "created_by" SET DATA TYPE uuid;
-ALTER TABLE "products" ALTER COLUMN "published_by" SET DATA TYPE uuid;
-ALTER TABLE "products" ALTER COLUMN "unpublished_by" SET DATA TYPE uuid;
-ALTER TABLE "service_packages" ALTER COLUMN "created_by" SET DATA TYPE uuid;
-ALTER TABLE "services" ALTER COLUMN "created_by" SET DATA TYPE uuid;
-
--- Service Holds Table - Contract Domain
-ALTER TABLE "service_holds" ALTER COLUMN "student_id" SET DATA TYPE uuid;
-ALTER TABLE "service_holds" ALTER COLUMN "created_by" SET DATA TYPE uuid;
+-- Contract Domain Column Type Changes - 使用条件性修改和USING子句进行类型转换
+DO $$
+BEGIN
+  -- 检查contract_amendment_ledgers表的student_id列
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'contract_amendment_ledgers' AND column_name = 'student_id' AND data_type = 'character varying'
+  ) THEN
+    -- 使用USING子句进行显式类型转换
+    ALTER TABLE "contract_amendment_ledgers" ALTER COLUMN "student_id" TYPE uuid USING student_id::uuid;
+  END IF;
+  
+  -- 检查contract_amendment_ledgers表的created_by列
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'contract_amendment_ledgers' AND column_name = 'created_by' AND data_type = 'character varying'
+  ) THEN
+    ALTER TABLE "contract_amendment_ledgers" ALTER COLUMN "created_by" TYPE uuid USING created_by::uuid;
+  END IF;
+  
+  -- 检查contract_service_entitlements表的student_id列
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'contract_service_entitlements' AND column_name = 'student_id' AND data_type = 'character varying'
+  ) THEN
+    ALTER TABLE "contract_service_entitlements" ALTER COLUMN "student_id" TYPE uuid USING student_id::uuid;
+  END IF;
+  
+  -- 检查contract_service_entitlements表的created_by列
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'contract_service_entitlements' AND column_name = 'created_by' AND data_type = 'character varying'
+  ) THEN
+    ALTER TABLE "contract_service_entitlements" ALTER COLUMN "created_by" TYPE uuid USING created_by::uuid;
+  END IF;
+  
+  -- 检查contracts表的student_id列
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'contracts' AND column_name = 'student_id' AND data_type = 'character varying'
+  ) THEN
+    ALTER TABLE "contracts" ALTER COLUMN "student_id" TYPE uuid USING student_id::uuid;
+  END IF;
+  
+  -- 检查contracts表的created_by列
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'contracts' AND column_name = 'created_by' AND data_type = 'character varying'
+  ) THEN
+    ALTER TABLE "contracts" ALTER COLUMN "created_by" TYPE uuid USING created_by::uuid;
+  END IF;
+END$$;
 
 -- Add unique indexes for Financial Domain tables
 -- 导师应付账款账本表唯一索引 - Financial Domain
 -- 按次计费（原始记录）- 根据设计文档实现
-CREATE UNIQUE INDEX idx_mentor_payable_relation
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mentor_payable_relation
   ON "mentor_payable_ledgers"("relation_id", "source_entity")
   WHERE "original_id" IS NULL;
 
 -- 按包计费（原始记录）- 根据设计文档实现
-CREATE UNIQUE INDEX idx_mentor_payable_package
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mentor_payable_package
   ON "mentor_payable_ledgers"("service_package_id", "relation_id", "source_entity")
   WHERE "original_id" IS NULL
     AND "service_package_id" IS NOT NULL;
 
 -- 导师价格表唯一索引 - Financial Domain
-CREATE UNIQUE INDEX "idx_mentor_prices_service_type" ON "mentor_prices" USING btree ("mentor_user_id", "service_type_code", "service_package_id") WHERE "status" = 'active';
-CREATE UNIQUE INDEX "idx_mentor_prices_service_package" ON "mentor_prices" USING btree ("mentor_user_id", "service_package_id") WHERE "service_type_code" IS NULL AND "status" = 'active';
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_mentor_prices_service_type" ON "mentor_prices" USING btree ("mentor_user_id", "service_type_code", "service_package_id") WHERE "status" = 'active';
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_mentor_prices_service_package" ON "mentor_prices" USING btree ("mentor_user_id", "service_package_id") WHERE "service_type_code" IS NULL AND "status" = 'active';
