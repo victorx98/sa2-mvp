@@ -1,6 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { EventPublisherService, IEventPublisher } from "./event-publisher.service";
+import {
+  EventPublisherService,
+  IEventPublisher,
+} from "./event-publisher.service";
 import { DrizzleDatabase } from "@shared/types/database.types";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 
@@ -43,7 +46,7 @@ describe("EventPublisherService", () => {
     service = module.get<EventPublisherService>(EventPublisherService);
     db = module.get(DATABASE_CONNECTION);
     eventPublisher = module.get("EVENT_PUBLISHER");
-    
+
     // Spy on the logger methods
     loggerLogSpy = jest.spyOn(service["logger"], "log");
     loggerErrorSpy = jest.spyOn(service["logger"], "error");
@@ -260,7 +263,9 @@ describe("EventPublisherService", () => {
       // Assert
       expect(result).toBe(deletedEvents.length);
       expect(loggerLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining(`Cleaned up ${deletedEvents.length} old published events`),
+        expect.stringContaining(
+          `Cleaned up ${deletedEvents.length} old published events`,
+        ),
       );
     });
 
@@ -294,7 +299,7 @@ describe("EventPublisherService", () => {
           from: jest.fn().mockReturnThis(),
           where: jest.fn().mockReturnThis(),
         };
-        
+
         // Return different results based on call count
         if (callCount === 1) {
           mockQuery.where.mockResolvedValue(pendingCount);
@@ -303,7 +308,7 @@ describe("EventPublisherService", () => {
         } else {
           mockQuery.where.mockResolvedValue(failedCount);
         }
-        
+
         return mockQuery;
       });
 

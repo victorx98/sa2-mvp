@@ -1,10 +1,4 @@
-import {
-  pgTable,
-  varchar,
-  integer,
-  timestamp,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { pgTable, integer, timestamp, uuid } from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
 import { serviceTypeEnum } from "./services.schema";
 
@@ -42,9 +36,7 @@ export const contractServiceEntitlements = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
 
     // 学生ID（外键）[Student ID (foreign key)]
-    studentId: varchar("student_id", { length: 32 })
-      .notNull()
-      .references(() => userTable.id),
+    studentId: uuid("student_id").notNull(),
 
     // 服务类型[Service type]
     serviceType: serviceTypeEnum("service_type").notNull(),
@@ -67,9 +59,7 @@ export const contractServiceEntitlements = pgTable(
       .defaultNow()
       .notNull(),
 
-    createdBy: varchar("created_by", { length: 32 }).references(
-      () => userTable.id,
-    ),
+    createdBy: uuid("created_by"),
   },
 );
 

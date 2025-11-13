@@ -507,7 +507,7 @@ describe("ContractService", () => {
 
       // Act
       const result = await service.update("contract-123", {
-        totalAmount: 900.00,
+        totalAmount: 900.0,
         updatedBy: "admin-123",
       });
 
@@ -549,7 +549,7 @@ describe("ContractService", () => {
       // Act & Assert
       await expect(
         service.update("contract-123", {
-          totalAmount: 900.00,
+          totalAmount: 900.0,
         }),
       ).rejects.toThrow(ContractNotFoundException);
     });
@@ -566,7 +566,7 @@ describe("ContractService", () => {
       // Act & Assert
       await expect(
         service.update("contract-123", {
-          totalAmount: 900.00,
+          totalAmount: 900.0,
         }),
       ).rejects.toThrow(ContractException);
     });
@@ -586,7 +586,7 @@ describe("ContractService", () => {
       };
 
       jest.spyOn(service, "findOne").mockResolvedValueOnce(mockContract as any);
-      
+
       // Mock the database update operation
       const mockUpdatedContract = {
         ...mockContract,
@@ -594,7 +594,7 @@ describe("ContractService", () => {
         title: "Updated Contract Title",
         updatedAt: new Date(),
       };
-      
+
       mockDb.transaction.mockImplementation(async (callback) => {
         const mockTx = {
           update: jest.fn().mockReturnValue({
@@ -614,7 +614,7 @@ describe("ContractService", () => {
       // Act & Assert
       await expect(
         service.update("contract-123", {
-          totalAmount: 900.00,
+          totalAmount: 900.0,
           title: "Updated Contract Title",
         }),
       ).resolves.toBeDefined();

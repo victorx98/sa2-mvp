@@ -741,8 +741,6 @@ export class ProductService {
     return this.mapToProductInterface(restored);
   }
 
-
-
   /**
    * Batch update product sort order
    */

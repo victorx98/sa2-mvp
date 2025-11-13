@@ -446,28 +446,34 @@ describe("ServiceHoldService", () => {
     });
   });
 
-  describe('releaseExpiredHolds', () => {
-    it('should successfully release expired holds', async () => {
+  describe("releaseExpiredHolds", () => {
+    it("should successfully release expired holds", async () => {
       // Arrange
       const mockExpiredHolds = [
-        { id: 'hold-1', status: 'active', expiryAt: new Date('2023-01-01') },
-        { id: 'hold-2', status: 'active', expiryAt: new Date('2023-01-01') }
+        { id: "hold-1", status: "active", expiryAt: new Date("2023-01-01") },
+        { id: "hold-2", status: "active", expiryAt: new Date("2023-01-01") },
       ];
-      
+
       // Create a fresh mock for this test
       const freshMockDb = createMockDb();
       freshMockDb.limit.mockResolvedValueOnce(mockExpiredHolds);
-      
+
       // For each hold update, we need to mock the update chain
       const updateMock = {
         set: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
-        returning: jest.fn().mockResolvedValueOnce([{ ...mockExpiredHolds[0], status: 'expired' }])
-          .mockResolvedValueOnce([{ ...mockExpiredHolds[1], status: 'expired' }])
+        returning: jest
+          .fn()
+          .mockResolvedValueOnce([
+            { ...mockExpiredHolds[0], status: "expired" },
+          ])
+          .mockResolvedValueOnce([
+            { ...mockExpiredHolds[1], status: "expired" },
+          ]),
       };
-      
+
       freshMockDb.update.mockReturnValue(updateMock);
-      
+
       // Replace the service's db with our fresh mock
       (service as any).db = freshMockDb;
 
@@ -482,11 +488,11 @@ describe("ServiceHoldService", () => {
       });
     });
 
-    it('should return zero when no expired holds found', async () => {
+    it("should return zero when no expired holds found", async () => {
       // Arrange
       const freshMockDb = createMockDb();
       freshMockDb.limit.mockResolvedValueOnce([]);
-      
+
       // Replace the service's db with our fresh mock
       (service as any).db = freshMockDb;
 
@@ -501,12 +507,12 @@ describe("ServiceHoldService", () => {
       });
     });
 
-    it('should handle errors during release process', async () => {
+    it("should handle errors during release process", async () => {
       // Arrange
       const mockExpiredHolds = [
-        { id: 'hold-1', status: 'active', expiryAt: new Date('2023-01-01') }
+        { id: "hold-1", status: "active", expiryAt: new Date("2023-01-01") },
       ];
-      
+
       // Create a mock that will throw an error on update
       const mockDbWithError = {
         select: jest.fn().mockReturnThis(),
@@ -514,16 +520,16 @@ describe("ServiceHoldService", () => {
         where: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValueOnce(mockExpiredHolds),
         update: jest.fn().mockImplementation(() => {
-          throw new Error('Database error');
-        })
+          throw new Error("Database error");
+        }),
       };
-      
+
       // Replace the service's db with our error-prone mock
       (service as any).db = mockDbWithError;
-      
+
       // Mock console.error to avoid test output pollution
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-      
+      const consoleSpy = jest.spyOn(console, "error").mockImplementation();
+
       // Act
       const result = await service.releaseExpiredHolds();
 
@@ -533,7 +539,7 @@ describe("ServiceHoldService", () => {
         failedCount: 1,
         skippedCount: 0,
       });
-      
+
       // Restore console.error
       consoleSpy.mockRestore();
     });
@@ -549,7 +555,9 @@ describe("ServiceHoldService", () => {
       };
 
       // Mock the releaseExpiredHolds method
-      jest.spyOn(service, 'releaseExpiredHolds').mockResolvedValueOnce(mockResult);
+      jest
+        .spyOn(service, "releaseExpiredHolds")
+        .mockResolvedValueOnce(mockResult);
 
       // Act
       const result = await service.triggerExpiredHoldsRelease();
@@ -557,7 +565,10 @@ describe("ServiceHoldService", () => {
       // Assert
       expect(result).toEqual(mockResult);
       expect(service.releaseExpiredHolds).toHaveBeenCalledTimes(1);
-      expect(service.releaseExpiredHolds).toHaveBeenCalledWith(100, "manual-trigger");
+      expect(service.releaseExpiredHolds).toHaveBeenCalledWith(
+        100,
+        "manual-trigger",
+      );
     });
 
     it("should pass batch size parameter correctly", async () => {
@@ -569,7 +580,9 @@ describe("ServiceHoldService", () => {
       };
 
       // Mock the releaseExpiredHolds method
-      jest.spyOn(service, 'releaseExpiredHolds').mockResolvedValueOnce(mockResult);
+      jest
+        .spyOn(service, "releaseExpiredHolds")
+        .mockResolvedValueOnce(mockResult);
 
       // Act
       const result = await service.triggerExpiredHoldsRelease(50);
@@ -577,7 +590,10 @@ describe("ServiceHoldService", () => {
       // Assert
       expect(result).toEqual(mockResult);
       expect(service.releaseExpiredHolds).toHaveBeenCalledTimes(1);
-      expect(service.releaseExpiredHolds).toHaveBeenCalledWith(50, "manual-trigger");
+      expect(service.releaseExpiredHolds).toHaveBeenCalledWith(
+        50,
+        "manual-trigger",
+      );
     });
   });
 });

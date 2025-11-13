@@ -15,7 +15,15 @@ import { CreateProductDto } from "../dto/create-product.dto";
 import { UpdateProductDto } from "../dto/update-product.dto";
 import { AddProductItemDto } from "../dto/add-product-item.dto";
 import { PublishProductDto } from "../dto/publish-product.dto";
-import { ProductStatus, ProductItemType, ServiceStatus, UserType, Currency, ServiceType, BillingMode } from "../../common/interfaces/enums";
+import {
+  ProductStatus,
+  ProductItemType,
+  ServiceStatus,
+  UserType,
+  Currency,
+  ServiceType,
+  BillingMode,
+} from "../../common/interfaces/enums";
 
 describe("ProductService", () => {
   let productService: ProductService;
@@ -219,9 +227,9 @@ describe("ProductService", () => {
       mockDb.select.mockReturnValue(mockSelectChain as any);
 
       // Act & Assert
-      await expect(productService.create(createProductDto, userId)).rejects.toThrow(
-        CatalogConflictException,
-      );
+      await expect(
+        productService.create(createProductDto, userId),
+      ).rejects.toThrow(CatalogConflictException);
       expect(mockDb.select).toHaveBeenCalled();
       expect(mockDb.transaction).not.toHaveBeenCalled();
     });
@@ -316,7 +324,10 @@ describe("ProductService", () => {
 
     it("should successfully update a draft product", async () => {
       // Arrange
-      const existingProduct = createMockProduct({ status: ProductStatus.DRAFT, publishedAt: null });
+      const existingProduct = createMockProduct({
+        status: ProductStatus.DRAFT,
+        publishedAt: null,
+      });
       const updatedProduct = { ...existingProduct, ...updateProductDto };
 
       const mockSelectChain = {
@@ -335,7 +346,10 @@ describe("ProductService", () => {
       mockDb.update.mockReturnValue(mockUpdateChain as any);
 
       // Act
-      const result = await productService.update("test-product-id", updateProductDto);
+      const result = await productService.update(
+        "test-product-id",
+        updateProductDto,
+      );
 
       // Assert
       expect(result).toEqual(
@@ -369,7 +383,9 @@ describe("ProductService", () => {
 
     it("should throw error if product is deleted", async () => {
       // Arrange
-      const deletedProduct = createMockProduct({ status: ProductStatus.DELETED });
+      const deletedProduct = createMockProduct({
+        status: ProductStatus.DELETED,
+      });
 
       const mockSelectChain = {
         from: jest.fn().mockReturnThis(),
@@ -422,7 +438,10 @@ describe("ProductService", () => {
     it("should successfully add an item to a draft product", async () => {
       // Arrange
       const draftProduct = createMockProduct({ status: ProductStatus.DRAFT });
-      const mockService = createMockService({ id: "test-service-id", status: ServiceStatus.ACTIVE });
+      const mockService = createMockService({
+        id: "test-service-id",
+        status: ServiceStatus.ACTIVE,
+      });
 
       // Mock product check
       const mockSelectChain = {
@@ -457,9 +476,9 @@ describe("ProductService", () => {
       };
 
       mockDb.select
-        .mockReturnValueOnce(mockSelectChain as any)        // product check (with limit)
-        .mockReturnValueOnce(mockSelectChainService as any)  // service query in validateProductItems (no limit)
-        .mockReturnValueOnce(mockSelectChain3 as any);      // existing item check (with limit)
+        .mockReturnValueOnce(mockSelectChain as any) // product check (with limit)
+        .mockReturnValueOnce(mockSelectChainService as any) // service query in validateProductItems (no limit)
+        .mockReturnValueOnce(mockSelectChain3 as any); // existing item check (with limit)
       mockDb.insert.mockReturnValue(mockInsertChain as any);
 
       // Act
@@ -489,7 +508,9 @@ describe("ProductService", () => {
 
     it("should throw error if product is not in draft status", async () => {
       // Arrange
-      const publishedProduct = createMockProduct({ status: ProductStatus.ACTIVE });
+      const publishedProduct = createMockProduct({
+        status: ProductStatus.ACTIVE,
+      });
 
       const mockSelectChain = {
         from: jest.fn().mockReturnThis(),
@@ -533,7 +554,10 @@ describe("ProductService", () => {
     it("should throw error if item already exists in product", async () => {
       // Arrange
       const draftProduct = createMockProduct({ status: ProductStatus.DRAFT });
-      const mockService = createMockService({ id: "test-service-id", status: ServiceStatus.ACTIVE });
+      const mockService = createMockService({
+        id: "test-service-id",
+        status: ServiceStatus.ACTIVE,
+      });
       const existingItem = createMockProductItem({
         productId: "test-product-id",
         type: ProductItemType.SERVICE,
@@ -561,9 +585,9 @@ describe("ProductService", () => {
       };
 
       mockDb.select
-        .mockReturnValueOnce(mockSelectChain as any)        // product check (with limit)
-        .mockReturnValueOnce(mockSelectChainService as any)  // service query in validateProductItems (no limit)
-        .mockReturnValueOnce(mockSelectChain3 as any);      // existing item check (with limit)
+        .mockReturnValueOnce(mockSelectChain as any) // product check (with limit)
+        .mockReturnValueOnce(mockSelectChainService as any) // service query in validateProductItems (no limit)
+        .mockReturnValueOnce(mockSelectChain3 as any); // existing item check (with limit)
 
       // Act & Assert
       await expect(
@@ -637,7 +661,9 @@ describe("ProductService", () => {
 
     it("should throw error if product is not in draft status", async () => {
       // Arrange
-      const publishedProduct = createMockProduct({ status: ProductStatus.ACTIVE });
+      const publishedProduct = createMockProduct({
+        status: ProductStatus.ACTIVE,
+      });
 
       const mockSelectChain = {
         from: jest.fn().mockReturnThis(),
@@ -751,7 +777,11 @@ describe("ProductService", () => {
       mockDb.update.mockReturnValue(mockUpdateChain as any);
 
       // Act
-      const result = await productService.publish("test-product-id", publishProductDto, userId);
+      const result = await productService.publish(
+        "test-product-id",
+        publishProductDto,
+        userId,
+      );
 
       // Assert
       expect(result).toEqual(
@@ -776,14 +806,20 @@ describe("ProductService", () => {
 
       // Act & Assert
       await expect(
-        productService.publish("non-existent-id", publishProductDto, "test-user-id"),
+        productService.publish(
+          "non-existent-id",
+          publishProductDto,
+          "test-user-id",
+        ),
       ).rejects.toThrow(CatalogNotFoundException);
       expect(mockDb.select).toHaveBeenCalledTimes(1);
     });
 
     it("should throw error if product is not in draft status", async () => {
       // Arrange
-      const publishedProduct = createMockProduct({ status: ProductStatus.ACTIVE });
+      const publishedProduct = createMockProduct({
+        status: ProductStatus.ACTIVE,
+      });
 
       const mockSelectChain = {
         from: jest.fn().mockReturnThis(),
@@ -795,7 +831,11 @@ describe("ProductService", () => {
 
       // Act & Assert
       await expect(
-        productService.publish("published-product-id", publishProductDto, "test-user-id"),
+        productService.publish(
+          "published-product-id",
+          publishProductDto,
+          "test-user-id",
+        ),
       ).rejects.toThrow(CatalogException);
       expect(mockDb.select).toHaveBeenCalledTimes(1);
     });
@@ -824,7 +864,11 @@ describe("ProductService", () => {
 
       // Act & Assert
       await expect(
-        productService.publish("test-product-id", publishProductDto, "test-user-id"),
+        productService.publish(
+          "test-product-id",
+          publishProductDto,
+          "test-user-id",
+        ),
       ).rejects.toThrow(CatalogException);
       expect(mockDb.select).toHaveBeenCalledTimes(2);
     });
@@ -876,7 +920,11 @@ describe("ProductService", () => {
 
       // Act & Assert
       await expect(
-        productService.publish("test-product-id", publishProductDto, "test-user-id"),
+        productService.publish(
+          "test-product-id",
+          publishProductDto,
+          "test-user-id",
+        ),
       ).rejects.toThrow(CatalogException);
       expect(mockDb.select).toHaveBeenCalledTimes(4);
     });
@@ -912,7 +960,11 @@ describe("ProductService", () => {
       mockDb.update.mockReturnValue(mockUpdateChain as any);
 
       // Act
-      const result = await productService.unpublish("test-product-id", reason, userId);
+      const result = await productService.unpublish(
+        "test-product-id",
+        reason,
+        userId,
+      );
 
       // Assert
       expect(result).toEqual(
@@ -937,7 +989,11 @@ describe("ProductService", () => {
 
       // Act & Assert
       await expect(
-        productService.unpublish("non-existent-id", "Test reason", "test-user-id"),
+        productService.unpublish(
+          "non-existent-id",
+          "Test reason",
+          "test-user-id",
+        ),
       ).rejects.toThrow(CatalogNotFoundException);
       expect(mockDb.select).toHaveBeenCalledTimes(1);
     });
@@ -956,7 +1012,11 @@ describe("ProductService", () => {
 
       // Act & Assert
       await expect(
-        productService.unpublish("draft-product-id", "Test reason", "test-user-id"),
+        productService.unpublish(
+          "draft-product-id",
+          "Test reason",
+          "test-user-id",
+        ),
       ).rejects.toThrow(CatalogException);
       expect(mockDb.select).toHaveBeenCalledTimes(1);
     });
@@ -972,7 +1032,9 @@ describe("ProductService", () => {
   describe("revertToDraft", () => {
     it("should successfully revert an inactive product to draft", async () => {
       // Arrange
-      const inactiveProduct = createMockProduct({ status: ProductStatus.INACTIVE });
+      const inactiveProduct = createMockProduct({
+        status: ProductStatus.INACTIVE,
+      });
       const revertedProduct = {
         ...inactiveProduct,
         status: ProductStatus.DRAFT,
@@ -1049,7 +1111,10 @@ describe("ProductService", () => {
   describe("remove", () => {
     it("should successfully delete a draft product", async () => {
       // Arrange
-      const draftProduct = createMockProduct({ status: ProductStatus.DRAFT, publishedAt: null });
+      const draftProduct = createMockProduct({
+        status: ProductStatus.DRAFT,
+        publishedAt: null,
+      });
       const deletedProduct = {
         ...draftProduct,
         status: ProductStatus.DELETED,
@@ -1097,15 +1162,17 @@ describe("ProductService", () => {
       mockDb.select.mockReturnValue(mockSelectChain as any);
 
       // Act & Assert
-      await expect(
-        productService.remove("non-existent-id"),
-      ).rejects.toThrow(CatalogNotFoundException);
+      await expect(productService.remove("non-existent-id")).rejects.toThrow(
+        CatalogNotFoundException,
+      );
       expect(mockDb.select).toHaveBeenCalledTimes(1);
     });
 
     it("should throw error if product is already deleted", async () => {
       // Arrange
-      const deletedProduct = createMockProduct({ status: ProductStatus.DELETED });
+      const deletedProduct = createMockProduct({
+        status: ProductStatus.DELETED,
+      });
 
       const mockSelectChain = {
         from: jest.fn().mockReturnThis(),
@@ -1116,9 +1183,9 @@ describe("ProductService", () => {
       mockDb.select.mockReturnValue(mockSelectChain as any);
 
       // Act & Assert
-      await expect(
-        productService.remove("deleted-product-id"),
-      ).rejects.toThrow(CatalogGoneException);
+      await expect(productService.remove("deleted-product-id")).rejects.toThrow(
+        CatalogGoneException,
+      );
       expect(mockDb.select).toHaveBeenCalledTimes(1);
     });
 
@@ -1148,7 +1215,9 @@ describe("ProductService", () => {
   describe("restore", () => {
     it("should successfully restore a deleted product", async () => {
       // Arrange
-      const deletedProduct = createMockProduct({ status: ProductStatus.DELETED });
+      const deletedProduct = createMockProduct({
+        status: ProductStatus.DELETED,
+      });
       const restoredProduct = {
         ...deletedProduct,
         status: ProductStatus.DRAFT,
@@ -1196,9 +1265,9 @@ describe("ProductService", () => {
       mockDb.select.mockReturnValue(mockSelectChain as any);
 
       // Act & Assert
-      await expect(
-        productService.restore("non-existent-id"),
-      ).rejects.toThrow(CatalogNotFoundException);
+      await expect(productService.restore("non-existent-id")).rejects.toThrow(
+        CatalogNotFoundException,
+      );
       expect(mockDb.select).toHaveBeenCalledTimes(1);
     });
 
@@ -1215,9 +1284,9 @@ describe("ProductService", () => {
       mockDb.select.mockReturnValue(mockSelectChain as any);
 
       // Act & Assert
-      await expect(
-        productService.restore("active-product-id"),
-      ).rejects.toThrow(CatalogException);
+      await expect(productService.restore("active-product-id")).rejects.toThrow(
+        CatalogException,
+      );
       expect(mockDb.select).toHaveBeenCalledTimes(1);
     });
   });
@@ -1257,7 +1326,7 @@ describe("ProductService", () => {
       };
 
       mockDb.select
-        .mockReturnValueOnce(mockSelectChain as any)  // product check
+        .mockReturnValueOnce(mockSelectChain as any) // product check
         .mockReturnValueOnce(mockSelectChain2 as any) // items query
         .mockReturnValueOnce(mockSelectChain3 as any); // service query for item
 
@@ -1317,7 +1386,7 @@ describe("ProductService", () => {
       };
 
       mockDb.select
-        .mockReturnValueOnce(mockSelectChain as any)  // product check
+        .mockReturnValueOnce(mockSelectChain as any) // product check
         .mockReturnValueOnce(mockSelectChain2 as any) // items query
         .mockReturnValueOnce(mockSelectChain3 as any); // package check (serviceIds is empty)
 
@@ -1364,7 +1433,9 @@ describe("ProductService", () => {
 
     it("should throw error if no id or code is provided", async () => {
       // Act & Assert
-      await expect(productService.findOne({})).rejects.toThrow(CatalogException);
+      await expect(productService.findOne({})).rejects.toThrow(
+        CatalogException,
+      );
     });
   });
 
@@ -1373,7 +1444,7 @@ describe("ProductService", () => {
       // Arrange
       const product = createMockProduct();
       const products = [product];
-      
+
       // Mock count query - .where() directly returns array
       const mockCountSelectChain = {
         select: jest.fn().mockReturnThis(),
@@ -1400,7 +1471,7 @@ describe("ProductService", () => {
       // Act
       const result = await productService.search(
         { keyword: "test" },
-        { page: 1, pageSize: 20 }
+        { page: 1, pageSize: 20 },
       );
 
       // Assert
@@ -1418,7 +1489,7 @@ describe("ProductService", () => {
       // Arrange
       const product = createMockProduct();
       const products = [product];
-      
+
       // Mock count query - .where() directly returns array
       const mockCountSelectChain = {
         select: jest.fn().mockReturnThis(),
@@ -1456,7 +1527,7 @@ describe("ProductService", () => {
       // Arrange
       const product = createMockProduct({ name: "Matching Product" });
       const products = [product];
-      
+
       // Mock count query - .where() directly returns array
       const mockCountSelectChain = {
         select: jest.fn().mockReturnThis(),
@@ -1472,7 +1543,7 @@ describe("ProductService", () => {
         orderBy: jest.fn().mockResolvedValue(products), // orderBy returns array
       };
 
-      const selectSpy = jest.spyOn(mockDb, 'select');
+      const selectSpy = jest.spyOn(mockDb, "select");
       mockDb.select
         .mockReturnValueOnce(mockCountSelectChain as any)
         .mockReturnValueOnce(mockSearchSelectChain as any);
@@ -1553,7 +1624,9 @@ describe("ProductService", () => {
         ],
         snapshotAt: expect.any(Date),
       });
-      expect(productService.findOne).toHaveBeenCalledWith({ id: "test-product-id" });
+      expect(productService.findOne).toHaveBeenCalledWith({
+        id: "test-product-id",
+      });
       expect(mockServiceService.generateSnapshot).toHaveBeenCalledWith(
         "test-service-id",
       );
@@ -1567,7 +1640,9 @@ describe("ProductService", () => {
       await expect(
         productService.generateSnapshot("non-existent-id"),
       ).rejects.toThrow(CatalogNotFoundException);
-      expect(productService.findOne).toHaveBeenCalledWith({ id: "non-existent-id" });
+      expect(productService.findOne).toHaveBeenCalledWith({
+        id: "non-existent-id",
+      });
     });
 
     it("should successfully generate a product snapshot with service package", async () => {
@@ -1597,7 +1672,9 @@ describe("ProductService", () => {
       } as any);
 
       // Mock package snapshot generation
-      mockServicePackageService.generateSnapshot.mockResolvedValue(packageSnapshot);
+      mockServicePackageService.generateSnapshot.mockResolvedValue(
+        packageSnapshot,
+      );
 
       // Act
       const result = await productService.generateSnapshot("test-product-id");
@@ -1620,7 +1697,9 @@ describe("ProductService", () => {
         ],
         snapshotAt: expect.any(Date),
       });
-      expect(productService.findOne).toHaveBeenCalledWith({ id: "test-product-id" });
+      expect(productService.findOne).toHaveBeenCalledWith({
+        id: "test-product-id",
+      });
       expect(mockServicePackageService.generateSnapshot).toHaveBeenCalledWith(
         "test-package-id",
       );

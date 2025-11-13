@@ -85,7 +85,7 @@ export const services = pgTable("services", {
     .defaultNow()
     .notNull()
     .$onUpdate(() => new Date()),
-  createdBy: varchar("created_by", { length: 32 })
+  createdBy: uuid("created_by")
     .notNull()
     .references(() => userTable.id),
 });

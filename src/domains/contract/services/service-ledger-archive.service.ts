@@ -44,7 +44,7 @@ export class ServiceLedgerArchiveService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-  ) { }
+  ) {}
 
   /**
    * Archive old ledgers(归档旧台账)
@@ -83,9 +83,9 @@ export class ServiceLedgerArchiveService {
     } catch (error) {
       // Database connection failures are expected in unit tests and should be logged as warnings
       // 数据库连接失败在单元测试中是预期的，应记录为警告
-      this.logger.warn(`Ledger archiving task failed: ${error.message}`, { 
+      this.logger.warn(`Ledger archiving task failed: ${error.message}`, {
         error: error,
-        stack: error.stack 
+        stack: error.stack,
       });
       throw error;
     }
@@ -328,9 +328,7 @@ export class ServiceLedgerArchiveService {
 
     // 1. Validate archiveAfterDays(验证归档天数)
     if (archiveAfterDays < 1) {
-      throw new ContractException(
-        "ARCHIVE_AFTER_DAYS_TOO_SMALL",
-      );
+      throw new ContractException("ARCHIVE_AFTER_DAYS_TOO_SMALL");
     }
 
     // 2. Check for duplicate policy(检查重复策略)
@@ -367,9 +365,7 @@ export class ServiceLedgerArchiveService {
       .where(and(...conditions));
 
     if (existingPolicies.length > 0) {
-      throw new ContractConflictException(
-        "ARCHIVE_POLICY_ALREADY_EXISTS",
-      );
+      throw new ContractConflictException("ARCHIVE_POLICY_ALREADY_EXISTS");
     }
 
     // 3. Determine scope(确定范围)
@@ -426,9 +422,7 @@ export class ServiceLedgerArchiveService {
     const [policy] = policyResult;
 
     if (!policy) {
-      throw new ContractNotFoundException(
-        "ARCHIVE_POLICY_NOT_FOUND",
-      );
+      throw new ContractNotFoundException("ARCHIVE_POLICY_NOT_FOUND");
     }
 
     // 2. Validate updates(验证更新)
@@ -436,9 +430,7 @@ export class ServiceLedgerArchiveService {
       updates.archiveAfterDays !== undefined &&
       updates.archiveAfterDays < 1
     ) {
-      throw new ContractException(
-        "ARCHIVE_AFTER_DAYS_TOO_SMALL",
-      );
+      throw new ContractException("ARCHIVE_AFTER_DAYS_TOO_SMALL");
     }
 
     // 3. Map isActive to enabled field(将isActive映射到enabled字段)
@@ -485,9 +477,7 @@ export class ServiceLedgerArchiveService {
 
     // 1. Validate date range(验证日期范围)
     if (!startDate || !endDate) {
-      throw new ContractException(
-        "ARCHIVE_QUERY_REQUIRES_DATE_RANGE",
-      );
+      throw new ContractException("ARCHIVE_QUERY_REQUIRES_DATE_RANGE");
     }
 
     const daysDiff = Math.floor(
@@ -495,9 +485,7 @@ export class ServiceLedgerArchiveService {
     );
 
     if (daysDiff > ARCHIVE_MAX_DATE_RANGE_DAYS) {
-      throw new ContractException(
-        "ARCHIVE_DATE_RANGE_TOO_LARGE",
-      );
+      throw new ContractException("ARCHIVE_DATE_RANGE_TOO_LARGE");
     }
 
     // 2. Build conditions(构建条件)
