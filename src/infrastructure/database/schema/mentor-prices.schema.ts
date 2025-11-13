@@ -5,7 +5,6 @@ import {
   numeric,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { userTable } from "./user.schema";
 
 /**
  * Mentor Prices Table (导师价格配置表)
@@ -29,10 +28,6 @@ export const mentorPrices = pgTable("mentor_prices", {
   // ========== Primary Key ==========
   id: uuid("id").primaryKey().defaultRandom(),
 
-  /**
-   * Mentor User ID (with foreign key comment)
-   * References: identity.users.id
-   */
   /**
    * Mentor User ID (with foreign key comment)
    * References: identity.users.id
@@ -62,14 +57,6 @@ export const mentorPrices = pgTable("mentor_prices", {
    */
   currency: varchar("currency", { length: 3 }).notNull().default("USD"),
 
-  // ========== Package Mode (Optional) ==========
-  /**
-   * Service Package ID - From catalog domain
-   * Required when billing_mode = 'package'
-   * References catalog service package
-   */
-  servicePackageId: uuid("service_package_id"),
-
   // ========== Status & Lifecycle ==========
   /**
    * Status - Price configuration status
@@ -89,14 +76,10 @@ export const mentorPrices = pgTable("mentor_prices", {
    * Updated At - Last update timestamp
    * Updated when price or status changes
    */
-  /**
-   * Updated At - Last update timestamp
-   * Updated when price or status changes
-   */
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-  
+
   /**
    * Updated By - Operator user ID (for audit trail)
    * References: identity.users.id
@@ -119,9 +102,4 @@ export type InsertMentorPrice = typeof mentorPrices.$inferInsert;
  * 2. Query optimization
  *    CREATE INDEX idx_mentor_prices_mentor
  *    ON mentor_prices(mentor_user_id);
- *
- * 3. Package price lookup
- *    CREATE INDEX idx_mentor_prices_package
- *    ON mentor_prices(service_package_id)
- *    WHERE service_package_id IS NOT NULL;
  */

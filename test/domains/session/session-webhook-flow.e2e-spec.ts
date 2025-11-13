@@ -146,7 +146,10 @@ describe("Session Webhook Flow (e2e)", () => {
         occurredAt: new Date("2025-11-10T14:02:00Z"),
       };
 
-      await eventEmitter.emitAsync("meeting.event.created", meetingStartedPayload);
+      await eventEmitter.emitAsync(
+        "meeting.event.created",
+        meetingStartedPayload,
+      );
 
       // Verify that session lookup and update would be called
       // SessionEventSubscriber would handle this via @OnEvent decorator
@@ -180,7 +183,10 @@ describe("Session Webhook Flow (e2e)", () => {
         occurredAt: new Date("2025-11-10T14:02:15Z"),
       };
 
-      await eventEmitter.emitAsync("meeting.event.created", participantJoinPayload);
+      await eventEmitter.emitAsync(
+        "meeting.event.created",
+        participantJoinPayload,
+      );
       // SessionEventSubscriber would create session_event record
     });
 
@@ -206,7 +212,10 @@ describe("Session Webhook Flow (e2e)", () => {
         occurredAt: new Date("2025-11-10T15:00:00Z"),
       };
 
-      await eventEmitter.emitAsync("meeting.event.created", participantLeavePayload);
+      await eventEmitter.emitAsync(
+        "meeting.event.created",
+        participantLeavePayload,
+      );
     });
 
     it("should handle meeting ended event and trigger duration calculation", async () => {
@@ -245,7 +254,10 @@ describe("Session Webhook Flow (e2e)", () => {
         occurredAt: new Date("2025-11-10T15:05:00Z"),
       };
 
-      await eventEmitter.emitAsync("meeting.event.created", meetingEndedPayload);
+      await eventEmitter.emitAsync(
+        "meeting.event.created",
+        meetingEndedPayload,
+      );
     });
 
     it("should handle recording ready event", async () => {
@@ -288,11 +300,16 @@ describe("Session Webhook Flow (e2e)", () => {
         occurredAt: new Date("2025-11-10T15:10:00Z"),
       };
 
-      await eventEmitter.emitAsync("meeting.event.created", recordingReadyPayload);
+      await eventEmitter.emitAsync(
+        "meeting.event.created",
+        recordingReadyPayload,
+      );
     });
 
     it("should gracefully handle event for non-existent session", async () => {
-      (sessionService.getSessionByMeetingNo as jest.Mock).mockResolvedValue(null);
+      (sessionService.getSessionByMeetingNo as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       // Emit event for non-existent session
       const eventPayload: MeetingEventCreatedPayload = {

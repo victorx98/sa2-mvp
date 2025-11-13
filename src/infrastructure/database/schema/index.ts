@@ -28,6 +28,10 @@ export * from "./sessions.schema";
 export * from "./session-events.schema"; // Legacy, kept for backward compatibility
 export * from "./meeting-events.schema";
 
+// Financial domain
+export * from "./mentor-payable-ledgers.schema";
+export * from "./mentor-prices.schema";
+
 // Shared
 export * from "./calendar.schema";
 export * from "./notification-queue.schema";

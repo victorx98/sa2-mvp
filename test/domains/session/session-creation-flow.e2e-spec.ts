@@ -237,10 +237,7 @@ describe("Session Creation Flow (e2e)", () => {
       expect(updatedSession.meetingUrl).toBe(mockMeetingInfo.meetingUrl);
 
       // Step 5: Update calendar slot with session ID
-      await calendarService.updateSlotSessionId(
-        calendarSlot.id,
-        session.id,
-      );
+      await calendarService.updateSlotSessionId(calendarSlot.id, session.id);
 
       // Step 6: Enqueue notifications
       const scheduledTime = new Date(createDto.scheduledStartTime);

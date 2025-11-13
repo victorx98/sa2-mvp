@@ -70,7 +70,9 @@ export const sessions = pgTable(
     scheduledDuration: integer("scheduled_duration").notNull(), // Planned duration in minutes
 
     // Meeting time segments (list of meeting start and end times for multi-segment sessions)
-    meetingTimeList: jsonb("meeting_time_list").$type<Array<{ startTime: Date; endTime: Date }>>().default([]), // Array of meeting time segments
+    meetingTimeList: jsonb("meeting_time_list")
+      .$type<Array<{ startTime: Date; endTime: Date }>>()
+      .default([]), // Array of meeting time segments
 
     // Actual service duration (calculated from meeting_time_list)
     actualServiceDuration: integer("actual_service_duration"), // Actual service duration in minutes (sum of all meeting segments)

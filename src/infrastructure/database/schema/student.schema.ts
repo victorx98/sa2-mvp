@@ -14,15 +14,20 @@ export const studentTable = pgTable("student", {
   fulltimeStartdate: date("fulltime_startdate"),
   backgroundInfo: text("background_info"),
   grades: text("grades"),
-  createdTime: timestamp("created_time", { withTimezone: true, mode: "date" })
-    .defaultNow(),
+  createdTime: timestamp("created_time", {
+    withTimezone: true,
+    mode: "date",
+  }).defaultNow(),
   modifiedTime: timestamp("modified_time", { withTimezone: true, mode: "date" })
     .defaultNow()
     .$onUpdate(() => new Date()),
-  createdBy: varchar("created_by", { length: 32 }).references(() => userTable.id),
-  updatedBy: varchar("updated_by", { length: 32 }).references(() => userTable.id),
+  createdBy: varchar("created_by", { length: 32 }).references(
+    () => userTable.id,
+  ),
+  updatedBy: varchar("updated_by", { length: 32 }).references(
+    () => userTable.id,
+  ),
 });
 
 export type Student = typeof studentTable.$inferSelect;
 export type InsertStudent = typeof studentTable.$inferInsert;
-

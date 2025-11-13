@@ -4,7 +4,6 @@ import {
   varchar,
   numeric,
   timestamp,
-  pgEnum,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -137,7 +136,8 @@ export const mentorPayableLedgers = pgTable("mentor_payable_ledgers", {
 });
 
 export type MentorPayableLedger = typeof mentorPayableLedgers.$inferSelect;
-export type InsertMentorPayableLedger = typeof mentorPayableLedgers.$inferInsert;
+export type InsertMentorPayableLedger =
+  typeof mentorPayableLedgers.$inferInsert;
 
 /**
  * Unique Indexes (created in migration files):

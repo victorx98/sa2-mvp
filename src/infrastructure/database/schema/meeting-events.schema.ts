@@ -75,4 +75,3 @@ export const meetingEvents = pgTable(
 // Type inference
 export type MeetingEvent = typeof meetingEvents.$inferSelect;
 export type InsertMeetingEvent = typeof meetingEvents.$inferInsert;
-
