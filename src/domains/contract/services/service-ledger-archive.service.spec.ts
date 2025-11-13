@@ -288,7 +288,7 @@ describe("ServiceLedgerArchiveService", () => {
         where: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue([mockPolicy]),
       };
-      
+
       mockDb.select.mockReturnValueOnce(mockSelectChain);
 
       // Act
@@ -323,13 +323,13 @@ describe("ServiceLedgerArchiveService", () => {
         where: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue([]),
       };
-      
+
       const mockSelectChain2 = {
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue([mockPolicy]),
       };
-      
+
       mockDb.select
         .mockReturnValueOnce(mockSelectChain)
         .mockReturnValueOnce(mockSelectChain2);
@@ -366,23 +366,23 @@ describe("ServiceLedgerArchiveService", () => {
         where: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue([]),
       };
-      
+
       mockDb.select.mockReturnValue(mockSelectChain);
-      
+
       // Set up second call for service type policy
       const mockSelectChain2 = {
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue([]),
       };
-      
+
       // Set up third call for global policy
       const mockSelectChain3 = {
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue([mockPolicy]),
       };
-      
+
       mockDb.select
         .mockReturnValueOnce(mockSelectChain)
         .mockReturnValueOnce(mockSelectChain2)
@@ -406,19 +406,19 @@ describe("ServiceLedgerArchiveService", () => {
         where: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue([]),
       };
-      
+
       const mockSelectChain2 = {
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue([]),
       };
-      
+
       const mockSelectChain3 = {
         from: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue([]),
       };
-      
+
       mockDb.select
         .mockReturnValueOnce(mockSelectChain)
         .mockReturnValueOnce(mockSelectChain2)
@@ -455,7 +455,7 @@ describe("ServiceLedgerArchiveService", () => {
         where: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue([contractPolicy]),
       };
-      
+
       mockDb.select.mockReturnValueOnce(mockSelectChain);
 
       // Act
@@ -499,7 +499,7 @@ describe("ServiceLedgerArchiveService", () => {
         where: jest.fn().mockResolvedValue([]), // No duplicate
         limit: jest.fn().mockReturnThis(),
       };
-      
+
       mockDb.select.mockReturnValue(mockSelectChain);
       mockDb.returning.mockResolvedValueOnce([mockPolicy]);
 
@@ -539,7 +539,7 @@ describe("ServiceLedgerArchiveService", () => {
         where: jest.fn().mockResolvedValue([]), // No duplicate
         limit: jest.fn().mockReturnThis(),
       };
-      
+
       mockDb.select.mockReturnValue(mockSelectChain);
       mockDb.returning.mockResolvedValueOnce([mockPolicy]);
 
@@ -580,7 +580,7 @@ describe("ServiceLedgerArchiveService", () => {
         where: jest.fn().mockResolvedValue([]), // No duplicate
         limit: jest.fn().mockReturnThis(),
       };
-      
+
       mockDb.select.mockReturnValue(mockSelectChain);
       mockDb.returning.mockResolvedValueOnce([mockPolicy]);
 
@@ -638,7 +638,7 @@ describe("ServiceLedgerArchiveService", () => {
         where: jest.fn().mockResolvedValue([existingPolicy]), // Duplicate found
         limit: jest.fn().mockReturnThis(),
       };
-      
+
       mockDb.select.mockReturnValue(mockSelectChain);
 
       // Act & Assert
@@ -677,7 +677,7 @@ describe("ServiceLedgerArchiveService", () => {
         where: jest.fn().mockResolvedValue([]), // No duplicate
         limit: jest.fn().mockReturnThis(),
       };
-      
+
       mockTx.select.mockReturnValue(mockSelectChain);
       mockTx.returning.mockResolvedValueOnce([mockPolicy]);
 
@@ -725,7 +725,7 @@ describe("ServiceLedgerArchiveService", () => {
         where: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue([existingPolicy]),
       };
-      
+
       mockDb.select.mockReturnValue(mockSelectChain);
       mockDb.returning.mockResolvedValueOnce([updatedPolicy]);
 
@@ -750,7 +750,7 @@ describe("ServiceLedgerArchiveService", () => {
         where: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue([]),
       };
-      
+
       mockDb.select.mockReturnValue(mockSelectChain);
 
       // Act & Assert
@@ -758,7 +758,7 @@ describe("ServiceLedgerArchiveService", () => {
         ContractNotFoundException,
       );
       await expect(service.updatePolicy(policyId, updates)).rejects.toThrow(
-        CONTRACT_ERROR_MESSAGES.ARCHIVE_POLICY_NOT_FOUND
+        CONTRACT_ERROR_MESSAGES.ARCHIVE_POLICY_NOT_FOUND,
       );
     });
 
@@ -788,7 +788,7 @@ describe("ServiceLedgerArchiveService", () => {
         where: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue([existingPolicy]),
       };
-      
+
       mockDb.select.mockReturnValue(mockSelectChain);
 
       // Act & Assert
@@ -832,7 +832,7 @@ describe("ServiceLedgerArchiveService", () => {
         where: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue([existingPolicy]),
       };
-      
+
       mockTx.select.mockReturnValue(mockSelectChain);
       mockTx.returning.mockResolvedValueOnce([updatedPolicy]);
 

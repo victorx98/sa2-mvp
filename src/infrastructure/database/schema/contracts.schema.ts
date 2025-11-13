@@ -40,9 +40,7 @@ export const contracts = pgTable("contracts", {
   title: varchar("title", { length: 200 }), // Contract title (optional)
 
   // Student reference
-  studentId: varchar("student_id", { length: 32 })
-    .notNull()
-    .references(() => userTable.id, { onDelete: "restrict" }),
+  studentId: uuid("student_id").notNull(),
 
   // Product reference (UUID, no foreign key - DDD anti-corruption layer)
   productId: uuid("product_id").notNull(), // Reference to Catalog Domain product
@@ -89,9 +87,7 @@ export const contracts = pgTable("contracts", {
     .defaultNow()
     .notNull()
     .$onUpdate(() => new Date()),
-  createdBy: varchar("created_by", { length: 32 })
-    .notNull()
-    .references(() => userTable.id),
+  createdBy: uuid("created_by").notNull(),
 });
 
 // Type inference

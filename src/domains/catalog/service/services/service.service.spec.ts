@@ -291,7 +291,8 @@ describe("ServiceService (Unit Tests with Mock Data)", () => {
       };
 
       // 修复 mockDb.select 和 mockDb.update 的类型问题
-      mockDb.select = jest.fn()
+      mockDb.select = jest
+        .fn()
         .mockReturnValueOnce(mockSelectChain as any)
         .mockReturnValueOnce(mockSelectChain2 as any)
         .mockReturnValueOnce(mockSelectChain3 as any);
@@ -417,7 +418,10 @@ describe("ServiceService (Unit Tests with Mock Data)", () => {
     it("should successfully update service status to inactive", async () => {
       // Arrange
       const activeService = { ...mockService, status: ServiceStatus.ACTIVE };
-      const inactiveService = { ...mockService, status: ServiceStatus.INACTIVE };
+      const inactiveService = {
+        ...mockService,
+        status: ServiceStatus.INACTIVE,
+      };
 
       // Mock 查询结果
       const mockSelectChain = {
@@ -445,7 +449,8 @@ describe("ServiceService (Unit Tests with Mock Data)", () => {
       };
 
       // 修复 mockDb.select 的类型问题
-      mockDb.select = jest.fn()
+      mockDb.select = jest
+        .fn()
         .mockReturnValueOnce(mockSelectChain as any)
         .mockReturnValueOnce(mockSelectChain2 as any)
         .mockReturnValueOnce(mockSelectChain3 as any);
@@ -460,7 +465,10 @@ describe("ServiceService (Unit Tests with Mock Data)", () => {
 
     it("should successfully update service status to active", async () => {
       // Arrange
-      const inactiveService = { ...mockService, status: ServiceStatus.INACTIVE };
+      const inactiveService = {
+        ...mockService,
+        status: ServiceStatus.INACTIVE,
+      };
       const activeService = { ...mockService, status: ServiceStatus.ACTIVE };
 
       // Mock 查询结果
@@ -489,7 +497,8 @@ describe("ServiceService (Unit Tests with Mock Data)", () => {
       };
 
       // 修复 mockDb.select 的类型问题
-      mockDb.select = jest.fn()
+      mockDb.select = jest
+        .fn()
         .mockReturnValueOnce(mockSelectChain as any)
         .mockReturnValueOnce(mockSelectChain2 as any)
         .mockReturnValueOnce(mockSelectChain3 as any);
@@ -560,7 +569,10 @@ describe("ServiceService (Unit Tests with Mock Data)", () => {
 
     it("should successfully delete inactive service", async () => {
       // Arrange
-      const inactiveService = { ...mockService, status: ServiceStatus.INACTIVE };
+      const inactiveService = {
+        ...mockService,
+        status: ServiceStatus.INACTIVE,
+      };
       const deletedService = { ...mockService, status: ServiceStatus.DELETED };
 
       // Mock 查询结果
@@ -589,7 +601,8 @@ describe("ServiceService (Unit Tests with Mock Data)", () => {
       };
 
       // 修复 mockDb.select 的类型问题
-      mockDb.select = jest.fn()
+      mockDb.select = jest
+        .fn()
         .mockReturnValueOnce(mockSelectChain as any)
         .mockReturnValueOnce(mockSelectChain2 as any)
         .mockReturnValueOnce(mockSelectChain3 as any);
@@ -604,7 +617,10 @@ describe("ServiceService (Unit Tests with Mock Data)", () => {
 
     it("should reject deleting service that is referenced", async () => {
       // Arrange
-      const inactiveService = { ...mockService, status: ServiceStatus.INACTIVE };
+      const inactiveService = {
+        ...mockService,
+        status: ServiceStatus.INACTIVE,
+      };
 
       // Mock 查询结果
       const mockSelectChain = {
@@ -626,7 +642,8 @@ describe("ServiceService (Unit Tests with Mock Data)", () => {
       };
 
       // 修复 mockDb.select 的类型问题
-      mockDb.select = jest.fn()
+      mockDb.select = jest
+        .fn()
         .mockReturnValueOnce(mockSelectChain as any)
         .mockReturnValueOnce(mockSelectChain2 as any)
         .mockReturnValueOnce(mockSelectChain3 as any);
@@ -640,42 +657,45 @@ describe("ServiceService (Unit Tests with Mock Data)", () => {
 
   describe("restore", () => {
     it("should restore a soft deleted service", async () => {
-    // Arrange
-    const serviceId = "service-123";
-    const deletedService = {
-      ...mockService,
-      id: serviceId,
-      status: ServiceStatus.DELETED,
-    };
-    const restoredService = { ...deletedService, status: ServiceStatus.ACTIVE };
-    const mockServices = [deletedService];
-    const mockCount = [{ total: 1 }];
+      // Arrange
+      const serviceId = "service-123";
+      const deletedService = {
+        ...mockService,
+        id: serviceId,
+        status: ServiceStatus.DELETED,
+      };
+      const restoredService = {
+        ...deletedService,
+        status: ServiceStatus.ACTIVE,
+      };
+      const mockServices = [deletedService];
+      const mockCount = [{ total: 1 }];
 
-    // Mock 查询服务
-    const mockSelectChain = {
-      from: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      limit: jest.fn().mockResolvedValue(mockServices),
-    };
+      // Mock 查询服务
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue(mockServices),
+      };
 
-    const mockUpdateChain = {
-      set: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      returning: jest.fn().mockResolvedValue([restoredService]),
-    };
+      const mockUpdateChain = {
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        returning: jest.fn().mockResolvedValue([restoredService]),
+      };
 
-    // 修复 mockDb.select 的类型问题
-    mockDb.select = jest.fn().mockReturnValue(mockSelectChain as any);
-    mockDb.update = jest.fn().mockReturnValue(mockUpdateChain as any);
-    
-    // Act
-    const result = await service.restore(serviceId);
+      // 修复 mockDb.select 的类型问题
+      mockDb.select = jest.fn().mockReturnValue(mockSelectChain as any);
+      mockDb.update = jest.fn().mockReturnValue(mockUpdateChain as any);
 
-    // Assert
-    expect(result).toBeDefined();
-    expect(result.id).toBe(serviceId);
-    expect(result.status).toBe(ServiceStatus.ACTIVE);
-  });
+      // Act
+      const result = await service.restore(serviceId);
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.id).toBe(serviceId);
+      expect(result.status).toBe(ServiceStatus.ACTIVE);
+    });
 
     it("should throw an error if service does not exist", async () => {
       // Arrange
@@ -734,120 +754,123 @@ describe("ServiceService (Unit Tests with Mock Data)", () => {
       mockDb.select = jest.fn().mockReturnValue(mockSelectChain as any);
 
       // Act & Assert
-      await expect(
-        service.generateSnapshot(nonExistentId),
-      ).rejects.toThrow(CatalogNotFoundException);
+      await expect(service.generateSnapshot(nonExistentId)).rejects.toThrow(
+        CatalogNotFoundException,
+      );
     });
   });
 
   describe("search", () => {
-      it("should search services with pagination", async () => {
-        // Arrange
-        const mockServices = [mockService];
-        const mockCount = [{ total: 1 }];
+    it("should search services with pagination", async () => {
+      // Arrange
+      const mockServices = [mockService];
+      const mockCount = [{ total: 1 }];
 
-        // Mock 查询总数
-        const mockSelectChain = {
-          from: jest.fn().mockReturnThis(),
-          where: jest.fn().mockResolvedValue(mockCount),
-        };
+      // Mock 查询总数
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockResolvedValue(mockCount),
+      };
 
-        // Mock 查询数据
-        const mockSelectChain2 = {
-          from: jest.fn().mockReturnThis(),
-          where: jest.fn().mockReturnThis(),
-          orderBy: jest.fn().mockReturnThis(),
-          limit: jest.fn().mockReturnThis(),
-          offset: jest.fn().mockResolvedValue(mockServices),
-        };
+      // Mock 查询数据
+      const mockSelectChain2 = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        offset: jest.fn().mockResolvedValue(mockServices),
+      };
 
-        // 修复 mockDb.select 的类型问题
-        mockDb.select = jest.fn()
-          .mockReturnValueOnce(mockSelectChain as any) // 第一次调用：查询总数
-          .mockReturnValueOnce(mockSelectChain2 as any); // 第二次调用：查询数据
+      // 修复 mockDb.select 的类型问题
+      mockDb.select = jest
+        .fn()
+        .mockReturnValueOnce(mockSelectChain as any) // 第一次调用：查询总数
+        .mockReturnValueOnce(mockSelectChain2 as any); // 第二次调用：查询数据
 
-        const filters = {};
-        const pagination = { page: 1, pageSize: 10 };
+      const filters = {};
+      const pagination = { page: 1, pageSize: 10 };
 
-        // Act
-        const result = await service.search(filters, pagination);
+      // Act
+      const result = await service.search(filters, pagination);
 
-        // Assert
-        expect(result.data).toBeDefined();
-        expect(result.total).toBeGreaterThan(0);
-        expect(result.page).toBe(1);
-        expect(result.pageSize).toBe(10);
-        expect(result.totalPages).toBeGreaterThan(0);
-      });
-
-      it("should filter services by status", async () => {
-        // Arrange
-        const mockServices = [mockService];
-        const mockCount = [{ total: 1 }];
-
-        // Mock 查询总数
-        const mockSelectChain = {
-          from: jest.fn().mockReturnThis(),
-          where: jest.fn().mockResolvedValue(mockCount),
-        };
-
-        // Mock 查询数据（无分页）
-        const mockSelectChain2 = {
-          from: jest.fn().mockReturnThis(),
-          where: jest.fn().mockReturnThis(),
-          orderBy: jest.fn().mockResolvedValue(mockServices),
-        };
-
-        // 修复 mockDb.select 的类型问题
-        mockDb.select = jest.fn()
-          .mockReturnValueOnce(mockSelectChain as any) // 第一次调用：查询总数
-          .mockReturnValueOnce(mockSelectChain2 as any); // 第二次调用：查询数据（无分页）
-
-        const filters = { status: ServiceStatus.ACTIVE };
-
-        // Act
-        const result = await service.search(filters);
-
-        // Assert
-        expect(
-          result.data.every((s) => s.status === ServiceStatus.ACTIVE),
-        ).toBe(true);
-      });
-
-      it("should filter services by billing mode", async () => {
-        // Arrange
-        const mockServices = [mockService];
-        const mockCount = [{ total: 1 }];
-
-        // Mock 查询总数
-        const mockSelectChain = {
-          from: jest.fn().mockReturnThis(),
-          where: jest.fn().mockResolvedValue(mockCount),
-        };
-
-        // Mock 查询数据（无分页）
-        const mockSelectChain2 = {
-          from: jest.fn().mockReturnThis(),
-          where: jest.fn().mockReturnThis(),
-          orderBy: jest.fn().mockResolvedValue(mockServices),
-        };
-
-        // 修复 mockDb.select 的类型问题
-        mockDb.select = jest.fn()
-          .mockReturnValueOnce(mockSelectChain as any) // 第一次调用：查询总数
-          .mockReturnValueOnce(mockSelectChain2 as any); // 第二次调用：查询数据（无分页）
-
-        const filters = { billingMode: BillingMode.ONE_TIME };
-
-        // Act
-        const result = await service.search(filters);
-
-        // Assert
-        expect(
-          result.data.every((s) => s.billingMode === BillingMode.ONE_TIME),
-        ).toBe(true);
-      });
+      // Assert
+      expect(result.data).toBeDefined();
+      expect(result.total).toBeGreaterThan(0);
+      expect(result.page).toBe(1);
+      expect(result.pageSize).toBe(10);
+      expect(result.totalPages).toBeGreaterThan(0);
     });
+
+    it("should filter services by status", async () => {
+      // Arrange
+      const mockServices = [mockService];
+      const mockCount = [{ total: 1 }];
+
+      // Mock 查询总数
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockResolvedValue(mockCount),
+      };
+
+      // Mock 查询数据（无分页）
+      const mockSelectChain2 = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockResolvedValue(mockServices),
+      };
+
+      // 修复 mockDb.select 的类型问题
+      mockDb.select = jest
+        .fn()
+        .mockReturnValueOnce(mockSelectChain as any) // 第一次调用：查询总数
+        .mockReturnValueOnce(mockSelectChain2 as any); // 第二次调用：查询数据（无分页）
+
+      const filters = { status: ServiceStatus.ACTIVE };
+
+      // Act
+      const result = await service.search(filters);
+
+      // Assert
+      expect(result.data.every((s) => s.status === ServiceStatus.ACTIVE)).toBe(
+        true,
+      );
+    });
+
+    it("should filter services by billing mode", async () => {
+      // Arrange
+      const mockServices = [mockService];
+      const mockCount = [{ total: 1 }];
+
+      // Mock 查询总数
+      const mockSelectChain = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockResolvedValue(mockCount),
+      };
+
+      // Mock 查询数据（无分页）
+      const mockSelectChain2 = {
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockResolvedValue(mockServices),
+      };
+
+      // 修复 mockDb.select 的类型问题
+      mockDb.select = jest
+        .fn()
+        .mockReturnValueOnce(mockSelectChain as any) // 第一次调用：查询总数
+        .mockReturnValueOnce(mockSelectChain2 as any); // 第二次调用：查询数据（无分页）
+
+      const filters = { billingMode: BillingMode.ONE_TIME };
+
+      // Act
+      const result = await service.search(filters);
+
+      // Assert
+      expect(
+        result.data.every((s) => s.billingMode === BillingMode.ONE_TIME),
+      ).toBe(true);
+    });
+  });
 
   describe("findAvailableServices", () => {
     it("should return only active services", async () => {

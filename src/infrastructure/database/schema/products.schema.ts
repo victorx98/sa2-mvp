@@ -92,15 +92,11 @@ export const products = pgTable("products", {
     .defaultNow()
     .notNull()
     .$onUpdate(() => new Date()),
-  createdBy: varchar("created_by", { length: 32 })
+  createdBy: uuid("created_by")
     .notNull()
     .references(() => userTable.id),
-  publishedBy: varchar("published_by", { length: 32 }).references(
-    () => userTable.id,
-  ),
-  unpublishedBy: varchar("unpublished_by", { length: 32 }).references(
-    () => userTable.id,
-  ),
+  publishedBy: uuid("published_by").references(() => userTable.id),
+  unpublishedBy: uuid("unpublished_by").references(() => userTable.id),
 });
 
 // 类型推断

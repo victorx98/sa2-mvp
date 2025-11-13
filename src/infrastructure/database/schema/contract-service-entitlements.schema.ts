@@ -1,10 +1,4 @@
-import {
-  pgTable,
-  varchar,
-  integer,
-  timestamp,
-  serial,
-} from "drizzle-orm/pg-core";
+import { pgTable, integer, timestamp, uuid } from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
 import { serviceTypeEnum } from "./services.schema";
 
@@ -38,13 +32,11 @@ import { serviceTypeEnum } from "./services.schema";
 export const contractServiceEntitlements = pgTable(
   "contract_service_entitlements",
   {
-    // 唯一主键[Unique primary key]
-    id: serial("id").primaryKey(),
+    // Primary key
+    id: uuid("id").primaryKey().defaultRandom(),
 
     // 学生ID（外键）[Student ID (foreign key)]
-    studentId: varchar("student_id", { length: 32 })
-      .notNull()
-      .references(() => userTable.id),
+    studentId: uuid("student_id").notNull(),
 
     // 服务类型[Service type]
     serviceType: serviceTypeEnum("service_type").notNull(),
@@ -67,9 +59,7 @@ export const contractServiceEntitlements = pgTable(
       .defaultNow()
       .notNull(),
 
-    createdBy: varchar("created_by", { length: 32 }).references(
-      () => userTable.id,
-    ),
+    createdBy: uuid("created_by"),
   },
 );
 
@@ -77,20 +67,3 @@ export type ContractServiceEntitlement =
   typeof contractServiceEntitlements.$inferSelect;
 export type InsertContractServiceEntitlement =
   typeof contractServiceEntitlements.$inferInsert;
-
-/*
- * Indexes (在 contract_indexes.sql 中创建):
- *
- * 1. 按学生查询所有权益 (Query all entitlements by student)
- *    CREATE INDEX idx_entitlements_by_student
- *    ON contract_service_entitlements(student_id, service_type);
- *
- * 2. 按学生 + 可用余额过滤 (Filter by student + available balance)
- *    CREATE INDEX idx_entitlements_available_balance
- *    ON contract_service_entitlements(student_id, service_type, available_quantity)
- *    WHERE available_quantity > 0;
- *
- * 3. 按服务类型统计 (Statistics by service type)
- *    CREATE INDEX idx_entitlements_by_service_type
- *    ON contract_service_entitlements(service_type, student_id);
- */

@@ -1,7 +1,6 @@
 import {
   pgTable,
   uuid,
-  varchar,
   integer,
   timestamp,
   text,
@@ -56,9 +55,7 @@ export const contractAmendmentLedgers = pgTable("contract_amendment_ledgers", {
   id: uuid("id").defaultRandom().primaryKey(),
 
   // 关联学生 (Associated student)
-  studentId: varchar("student_id", { length: 32 })
-    .notNull()
-    .references(() => userTable.id),
+  studentId: uuid("student_id").notNull(),
 
   // 服务类型 (Service type)
   serviceType: serviceTypeEnum("service_type").notNull(),
@@ -79,9 +76,7 @@ export const contractAmendmentLedgers = pgTable("contract_amendment_ledgers", {
   attachments: json("attachments").$type<string[]>(),
 
   // 操作人 (Operator)
-  createdBy: varchar("created_by", { length: 32 })
-    .notNull()
-    .references(() => userTable.id),
+  createdBy: uuid("created_by").notNull(),
 
   // 时间戳 (Timestamp)
   createdAt: timestamp("created_at", { withTimezone: true })
