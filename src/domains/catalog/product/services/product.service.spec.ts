@@ -15,7 +15,6 @@ import { CreateProductDto } from "../dto/create-product.dto";
 import { UpdateProductDto } from "../dto/update-product.dto";
 import { AddProductItemDto } from "../dto/add-product-item.dto";
 import { PublishProductDto } from "../dto/publish-product.dto";
-import { ProductFilterDto } from "../dto/product-filter.dto";
 import { ProductStatus, ProductItemType, ServiceStatus, UserType, Currency, ServiceType, BillingMode } from "../../common/interfaces/enums";
 
 describe("ProductService", () => {

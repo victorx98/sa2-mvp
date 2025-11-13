@@ -275,12 +275,10 @@ export class ContractService {
         (entitlement) => ({
           studentId: updatedContract.studentId,
           serviceType: entitlement.serviceType as ServiceType,
-          source: "product" as const,
           totalQuantity: entitlement.totalQuantity,
           availableQuantity: entitlement.totalQuantity,
           serviceSnapshot: entitlement.serviceSnapshot as never,
           originItems: entitlement.originItems as never,
-          expiresAt: updatedContract.expiresAt,
         }),
       );
 
@@ -913,12 +911,10 @@ export class ContractService {
         .values({
           studentId,
           serviceType: serviceType as ServiceType,
-          source: ledgerType,
           totalQuantity: quantityChanged,
           consumedQuantity: 0,
           heldQuantity: 0,
           availableQuantity: quantityChanged, // Immediately available(立即可用)
-          expiresAt: contract?.expiresAt, // Inherit contract expiration if available(如果合约可用则继承合约到期时间)
           createdBy,
         })
         .onConflictDoUpdate({
