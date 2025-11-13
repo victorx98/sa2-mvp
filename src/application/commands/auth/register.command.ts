@@ -2,9 +2,9 @@ import { Injectable, ConflictException, Inject } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 import {
-  IUserRepository,
-  USER_REPOSITORY,
-} from "@domains/identity/user/user-repository.interface";
+  IUserService,
+  USER_SERVICE,
+} from "@domains/identity/user/user-interface";
 import { RegisterDto } from "@api/dto/request/register.dto";
 import { AuthResultDto } from "./dto/auth-result.dto";
 
@@ -16,7 +16,7 @@ import { AuthResultDto } from "./dto/auth-result.dto";
  * 3. 返回业务数据（不是前端格式）
  *
  * 设计原则：
- * ✅ 注入 Domain Service/Repository
+ * ✅ 注入 Domain Service
  * ✅ 包含业务规则验证
  * ✅ 返回业务 DTO（可被多个 BFF 复用）
  * ❌ 不返回前端特定格式
@@ -25,14 +25,14 @@ import { AuthResultDto } from "./dto/auth-result.dto";
 @Injectable()
 export class RegisterCommand {
   constructor(
-    @Inject(USER_REPOSITORY)
-    private readonly userRepository: IUserRepository,
+    @Inject(USER_SERVICE)
+    private readonly userService: IUserService,
     private readonly jwtService: JwtService,
   ) {}
 
   async execute(registerDto: RegisterDto): Promise<AuthResultDto> {
     // Step 1: 检查用户是否已存在
-    const existingUserByEmail = await this.userRepository.findByEmail(
+    const existingUserByEmail = await this.userService.findByEmail(
       registerDto.email,
     );
     if (existingUserByEmail) {
@@ -43,7 +43,7 @@ export class RegisterCommand {
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
     // Step 3: 创建用户
-    const user = await this.userRepository.create({
+    const user = await this.userService.create({
       ...registerDto,
       password: hashedPassword,
     });

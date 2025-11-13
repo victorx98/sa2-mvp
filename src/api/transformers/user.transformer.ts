@@ -1,4 +1,4 @@
-import { User } from "@domains/identity/user/user.interface";
+import { User } from "@domains/identity/user/user-interface";
 import { UserResponseDto } from "@api/dto/response/user-response.dto";
 
 export class UserTransformer {

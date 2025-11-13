@@ -1,9 +1,10 @@
 import { Controller, Post, Body, HttpCode, HttpStatus } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
-import { AuthBffService } from "@operations/common-portal/auth/auth.service";
+import { RegisterCommand } from "@application/commands/auth/register.command";
+import { LoginCommand } from "@application/commands/auth/login.command";
 import { RegisterDto } from "@api/dto/request/register.dto";
 import { LoginDto } from "@api/dto/request/login.dto";
-import { AuthResponseDto } from "@operations/common-portal/auth/dto/auth-response.dto";
+import { AuthResultDto } from "@application/commands/auth/dto/auth-result.dto";
 import { Public } from "@shared/decorators/public.decorator";
 
 /**
@@ -11,21 +12,22 @@ import { Public } from "@shared/decorators/public.decorator";
  * 职责：
  * 1. 定义 HTTP 路由
  * 2. 提取请求参数
- * 3. 调用 BFF Service
+ * 3. 调用 Application Layer 服务
  * 4. 返回 HTTP 响应
  *
  * 设计原则：
  * ✅ 薄 Controller，只做路由
- * ✅ 注入 BFF Service（Operations Layer）
+ * ✅ 直接注入 Application Layer 服务
  * ❌ 不包含业务逻辑
- * ❌ 不直接调用 Application/Domain Layer
+ * ❌ 不进行数据转换（由 Application Layer 负责）
  */
 @ApiTags("Authentication")
 @Controller("auth")
 export class AuthController {
   constructor(
-    // ✅ 注入 BFF Service
-    private readonly authBffService: AuthBffService,
+    // ✅ 直接注入 Application Layer 服务
+    private readonly registerCommand: RegisterCommand,
+    private readonly loginCommand: LoginCommand,
   ) {}
 
   @Public()
@@ -35,11 +37,10 @@ export class AuthController {
   @ApiResponse({
     status: 201,
     description: "Registration successful",
-    type: AuthResponseDto,
   })
-  async register(@Body() registerDto: RegisterDto): Promise<AuthResponseDto> {
-    // ✅ 直接调用 BFF Service，返回前端格式
-    return this.authBffService.register(registerDto);
+  async register(@Body() registerDto: RegisterDto): Promise<AuthResultDto> {
+    // ✅ 直接调用 Application Layer 服务
+    return this.registerCommand.execute(registerDto);
   }
 
   @Public()
@@ -49,10 +50,9 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: "Login successful",
-    type: AuthResponseDto,
   })
-  async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
-    // ✅ 直接调用 BFF Service，返回前端格式
-    return this.authBffService.login(loginDto);
+  async login(@Body() loginDto: LoginDto): Promise<AuthResultDto> {
+    // ✅ 直接调用 Application Layer 服务
+    return this.loginCommand.execute(loginDto);
   }
 }
