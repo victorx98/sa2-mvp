@@ -57,13 +57,15 @@ export class CalendarService {
 
       const startTime = new Date(dto.startTime);
       const endTime = new Date(startTime.getTime() + dto.durationMinutes * 60000);
-      const timeRangeStr = `[${startTime.toISOString()}, ${endTime.toISOString()})`;
 
       // Use transaction or provided executor
       const executor: DrizzleExecutor = tx ?? this.db;
 
       // Perform direct INSERT - let PostgreSQL EXCLUDE constraint handle conflicts
       // NOTE: Table name is 'calendar' (not 'calendar_slots'), column 'type' (not 'slot_type')
+      // Build tstzrange inline to avoid parameter expansion issues
+      const tstzrangeValue = `tstzrange('${startTime.toISOString()}'::timestamptz, '${endTime.toISOString()}'::timestamptz, '[)')`;
+      
       const result = await executor.execute(sql`
         INSERT INTO calendar (
           user_id,
@@ -77,7 +79,7 @@ export class CalendarService {
         ) VALUES (
           ${dto.userId},
           ${dto.userType},
-          tstzrange(${startTime.toISOString()}, ${endTime.toISOString()}, '[)'),
+          ${sql.raw(tstzrangeValue)},
           ${dto.durationMinutes},
           ${dto.sessionId || null},
           ${dto.slotType},
@@ -136,12 +138,13 @@ export class CalendarService {
 
     // Query for overlapping booked slots (user_type not needed, only user_id + time_range)
     // NOTE: Table name is 'calendar' (not 'calendar_slots')
+    const tstzrangeValue = `tstzrange('${startTime.toISOString()}'::timestamptz, '${endTime.toISOString()}'::timestamptz, '[)')`;
     const result = await this.db.execute(sql`
       SELECT COUNT(*) as count
       FROM calendar
       WHERE user_id = ${userId}
         AND status = ${SlotStatus.BOOKED}
-        AND time_range && tstzrange(${startTime.toISOString()}, ${endTime.toISOString()}, '[)')
+        AND time_range && ${sql.raw(tstzrangeValue)}
     `);
 
     const count = parseInt((result.rows[0] as { count: string }).count);
@@ -208,13 +211,14 @@ export class CalendarService {
     }
 
     // NOTE: Table name is 'calendar' (not 'calendar_slots'), column is 'user_type' (not 'calendar_user_type')
+    const dateTstzrangeValue = `tstzrange('${dateFrom.toISOString()}'::timestamptz, '${dateTo.toISOString()}'::timestamptz, '[)')`;
     const result = await this.db.execute(sql`
       SELECT *
       FROM calendar
       WHERE user_id = ${dto.userId}
         AND user_type = ${dto.userType}
         AND status = ${SlotStatus.BOOKED}
-        AND time_range && tstzrange(${dateFrom.toISOString()}, ${dateTo.toISOString()}, '[)')
+        AND time_range && ${sql.raw(dateTstzrangeValue)}
       ORDER BY time_range
     `);
 
@@ -260,6 +264,7 @@ export class CalendarService {
 
       try {
         // NOTE: Table name is 'calendar' (not 'calendar_slots'), column 'user_type' (not 'calendar_user_type'), 'type' (not 'slot_type')
+        const newTstzrangeValue = `tstzrange('${newStartTime.toISOString()}'::timestamptz, '${newEndTime.toISOString()}'::timestamptz, '[)')`;
         const result = await tx.execute(sql`
           INSERT INTO calendar (
             user_id,
@@ -273,7 +278,7 @@ export class CalendarService {
           ) VALUES (
             ${oldSlot.userId},
             ${oldSlot.userType},
-            tstzrange(${newStartTime.toISOString()}, ${newEndTime.toISOString()}, '[)'),
+            ${sql.raw(newTstzrangeValue)},
             ${newDurationMinutes},
             ${oldSlot.sessionId},
             ${oldSlot.slotType},
