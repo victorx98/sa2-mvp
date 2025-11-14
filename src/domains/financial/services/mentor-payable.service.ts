@@ -181,7 +181,7 @@ export class MentorPayableService implements IMentorPayableService {
         amount: String(totalAmount ?? 0), // Convert numeric to string to match schema
         currency: mentorPrice.currency,
         servicePackageId: dto.servicePackageId,
-        createdBy: "system",
+        createdBy: dto.mentorUserId, // Use valid UUID from DTO
       };
 
       // 插入记录

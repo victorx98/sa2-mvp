@@ -46,24 +46,17 @@ describe("ServicePackageService (Integration with Real Database)", () => {
     db = moduleRef.get<NodePgDatabase<typeof schema>>(DATABASE_CONNECTION);
     fixtures = createTestFixtures(db);
 
-    // Clean up any existing test data first
-    await fixtures.cleanupAll();
-
     // Create test user
     const user = await fixtures.createUser();
     testUserId = user.id;
   }, 30000); // Increase timeout for beforeAll hook
 
   afterAll(async () => {
-    // Clean up all test data
-    await fixtures.cleanupAll();
 
     await moduleRef.close();
   }, 30000); // Increase timeout for afterAll hook
 
   afterEach(async () => {
-    // Clean up catalog data after each test to avoid unique constraint violations
-    await fixtures.cleanupAllCatalogData();
   });
 
   describe("create", () => {

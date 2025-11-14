@@ -13,7 +13,7 @@ import {
   BillingMode,
 } from "@domains/catalog/common/interfaces/enums";
 import { CatalogException } from "@domains/catalog/common/exceptions/catalog.exception";
-import { createTestFixtures, TestFixtures } from "../utils/test-fixtures";
+import { createTestFixtures, TestFixtures } from "../../utils/test-fixtures";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "@infrastructure/database/schema";
 
@@ -41,22 +41,16 @@ describe("ServiceService Integration Tests", () => {
     db = moduleRef.get<NodePgDatabase<typeof schema>>(DATABASE_CONNECTION);
     fixtures = createTestFixtures(db);
 
-    // Clean up and create test user
-    await fixtures.cleanupAll();
     const user = await fixtures.createUser();
     testUserId = user.id;
   });
 
   afterAll(async () => {
-    // Clean up all test data
-    await fixtures.cleanupAll();
 
     await moduleRef.close();
   });
 
   beforeEach(async () => {
-    // Clean up catalog data before each test to avoid unique constraint violations
-    await fixtures.cleanupAllCatalogData();
   });
 
   describe("创建服务 (create)", () => {

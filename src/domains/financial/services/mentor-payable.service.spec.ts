@@ -364,7 +364,7 @@ describe("MentorPayableService", () => {
       expect(result).toBeDefined();
       expect(result?.id).toBe("price-123");
       expect(result?.price).toBe(100.0);
-      expect(result?.isActive).toBe(true);
+      expect(result?.status).toBe("active");
     });
 
     it("should return null when mentor price not found", async () => {

@@ -207,7 +207,11 @@ describe("Session Cancellation Flow (e2e)", () => {
       );
       expect(
         notificationService.sendSessionCancelledEmail,
-      ).toHaveBeenCalledWith(cancelledSession);
+      ).toHaveBeenCalledWith(
+        cancelledSession,
+        "student@example.com",
+        "mentor@example.com",
+      );
     });
 
     it("should successfully cancel a session with mentor-requested reason", async () => {

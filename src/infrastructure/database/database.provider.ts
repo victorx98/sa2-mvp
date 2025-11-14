@@ -58,6 +58,8 @@ export const databaseProviders = [
         ssl: {
           rejectUnauthorized: false, // Required for Supabase
         },
+        // Increase connection timeout for test environment
+        connectionTimeoutMillis: isTest ? 10000 : 30000, // 10 seconds for tests, 30 seconds for production
         ...(isTest && {
           max: 5, // Limit connections in test environment
           idleTimeoutMillis: 30000,

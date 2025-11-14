@@ -16,7 +16,7 @@ import {
   BillingMode,
 } from "@domains/catalog/common/interfaces/enums";
 import { CatalogException } from "@domains/catalog/common/exceptions/catalog.exception";
-import { createTestFixtures, TestFixtures } from "../utils/test-fixtures";
+import { createTestFixtures, TestFixtures } from "../../utils/test-fixtures";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "@infrastructure/database/schema";
 
@@ -54,8 +54,6 @@ describe("ServicePackageService Integration Tests", () => {
     db = moduleRef.get<NodePgDatabase<typeof schema>>(DATABASE_CONNECTION);
     fixtures = createTestFixtures(db);
 
-    // Clean up and create test user
-    await fixtures.cleanupAll();
     const user = await fixtures.createUser();
     testUserId = user.id;
 
@@ -86,15 +84,11 @@ describe("ServicePackageService Integration Tests", () => {
   });
 
   afterAll(async () => {
-    // Clean up all test data
-    await fixtures.cleanupAll();
 
     await moduleRef.close();
   });
 
   beforeEach(async () => {
-    // Clean up and recreate test services before each test
-    await fixtures.cleanupAllCatalogData();
 
     const gapAnalysis = await serviceService.create(
       {

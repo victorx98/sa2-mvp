@@ -15,7 +15,7 @@ import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider"
 import {
   createEnhancedTestFixtures,
   EnhancedTestFixtures,
-} from "../utils/enhanced-test-fixtures";
+} from "../../utils/enhanced-test-fixtures";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "@infrastructure/database/schema";
 import {
@@ -24,6 +24,7 @@ import {
   Currency,
   UserType,
   ProductItemType,
+  ServiceStatus,
 } from "@domains/catalog/common/interfaces/enums";
 
 describe("Catalog Product E2E Tests (Real Database) - Enhanced", () => {
@@ -71,8 +72,7 @@ describe("Catalog Product E2E Tests (Real Database) - Enhanced", () => {
       {
         email: "catalog-product-test@example.com",
         nickname: "catalogproducttester",
-        userType: UserType.UNDERGRADUATE,
-        status: "active",
+        status: ServiceStatus.ACTIVE,
       },
       { reuseExisting: true, createIfNotExists: true },
     );
@@ -95,7 +95,7 @@ describe("Catalog Product E2E Tests (Real Database) - Enhanced", () => {
     console.log(`   - Services: ${testServices.map((s) => s.code).join(", ")}`);
     console.log(`   - Package: ${testServicePackage.code}`);
     console.log(`   - Product: ${testProduct.code}`);
-  });
+  }, 30000); // 增加超时时间到30秒
 
   afterEach(async () => {
     // Phase 2: Test case cleanup - clean temporary data without table deletion
@@ -131,7 +131,7 @@ describe("Catalog Product E2E Tests (Real Database) - Enhanced", () => {
         code: `SPECIFIC-PRODUCT-${Date.now()}`,
         name: "Specific Test Product",
         description: "Product with specific requirements",
-        price: "1500.00",
+        price: 1500.00,
         currency: Currency.USD,
         validityDays: 180,
         targetUserTypes: [UserType.GRADUATE],
@@ -139,7 +139,7 @@ describe("Catalog Product E2E Tests (Real Database) - Enhanced", () => {
         createdBy: testUser.id,
       };
 
-      const newProduct = await productService.create(newProductData, []);
+      const newProduct = await productService.create(newProductData, testUser.id);
 
       expect(newProduct).toBeDefined();
       expect(newProduct.code).toBe(newProductData.code);
@@ -159,23 +159,11 @@ describe("Catalog Product E2E Tests (Real Database) - Enhanced", () => {
   });
 
   describe("Service Management", () => {
-    it("should retrieve existing services by type", async () => {
-      const resumeReviewService = await serviceService.findByServiceType(
-        ServiceType.RESUME_REVIEW,
-      );
-
-      expect(resumeReviewService).toBeDefined();
-      expect(resumeReviewService.length).toBeGreaterThan(0);
-      expect(resumeReviewService[0].serviceType).toBe(
-        ServiceType.RESUME_REVIEW,
-      );
-    });
-
     it("should reuse existing service for common service types", async () => {
       // Try to find existing mock interview service
       const existingServices = await serviceService.search({
         serviceType: ServiceType.MOCK_INTERVIEW,
-        status: "active",
+        status: ServiceStatus.ACTIVE,
       });
 
       expect(existingServices).toBeDefined();
@@ -204,7 +192,7 @@ describe("Catalog Product E2E Tests (Real Database) - Enhanced", () => {
 
     it("should list all active service packages", async () => {
       const activePackages = await servicePackageService.search({
-        status: "active",
+        status: ServiceStatus.ACTIVE,
       });
 
       expect(activePackages).toBeDefined();

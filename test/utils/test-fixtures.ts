@@ -10,12 +10,13 @@ import {
 } from "@domains/catalog/common/interfaces/enums";
 import * as bcrypt from "bcrypt";
 import { sql } from "drizzle-orm";
+import { randomUUID } from "crypto";
 
 /**
  * Test fixture factory for creating test data in database
  */
 export class TestFixtures {
-  constructor(private db: NodePgDatabase<typeof schema>) {}
+  constructor(private db: NodePgDatabase<typeof schema>) { }
 
   /**
    * Create a test user in database
@@ -25,7 +26,7 @@ export class TestFixtures {
   ): Promise<typeof schema.userTable.$inferSelect> {
     const timestamp = Date.now();
     const defaultUser = {
-      id: `user-${timestamp}`,
+      id: randomUUID(),
       email: `test-${timestamp}@example.com`,
       password: await bcrypt.hash("Test123456", 10),
       username: `testuser-${timestamp}`,

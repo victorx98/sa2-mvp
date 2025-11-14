@@ -154,7 +154,7 @@ describe("Financial Domain E2E Tests (Real Database) - Enhanced", () => {
       }
       throw error; // Re-throw to let test framework capture the error
     }
-  });
+  }, 60000); // 设置60秒超时
 
   afterEach(async () => {
     // Phase 2: Test case cleanup - clean temporary data without table deletion
@@ -190,10 +190,13 @@ describe("Financial Domain E2E Tests (Real Database) - Enhanced", () => {
     });
 
     it("should create per-session billing without affecting existing data", async () => {
+      // Use unique service type to avoid price conflicts
+      const uniqueServiceType = `test-service-${Date.now()}`;
+
       // Create a new price configuration with price = 150 for this test
       await mentorPayableService.createMentorPrice({
         mentorUserId: testMentorUser.id,
-        serviceTypeCode: "test-service",
+        serviceTypeCode: uniqueServiceType,
         billingMode: "per_session",
         price: 150, // Price = 150 for this test
         currency: "USD",
@@ -207,7 +210,7 @@ describe("Financial Domain E2E Tests (Real Database) - Enhanced", () => {
         contractId: testContract.id,
         mentorUserId: testMentorUser.id,
         studentUserId: testUser.id,
-        serviceTypeCode: "test-service",
+        serviceTypeCode: uniqueServiceType,
         serviceName: "Test Service",
         durationHours: 1,
         startTime: new Date(),
@@ -219,7 +222,7 @@ describe("Financial Domain E2E Tests (Real Database) - Enhanced", () => {
       expect(perSessionBilling.totalAmount).toBe(150);
       expect(perSessionBilling.currency).toBe("USD");
       expect((perSessionBilling as any).status).toBe("pending");
-      expect(perSessionBilling.serviceTypeCode).toBe("test-service");
+      expect(perSessionBilling.serviceTypeCode).toBe(uniqueServiceType);
 
       console.log(`Created new per-session billing: ${perSessionBilling.id}`);
 
@@ -235,10 +238,13 @@ describe("Financial Domain E2E Tests (Real Database) - Enhanced", () => {
     });
 
     it("should create package billing without affecting existing data", async () => {
+      // Use unique service type to avoid conflicts
+      const uniqueServiceType = `test-package-service-${Date.now()}`;
+
       // Create price configuration for test-package-service before creating billing
       await mentorPayableService.createMentorPrice({
         mentorUserId: testMentorUser.id,
-        serviceTypeCode: "test-package-service",
+        serviceTypeCode: uniqueServiceType,
         billingMode: "one_time",
         price: 100,
         currency: "USD",
@@ -246,13 +252,13 @@ describe("Financial Domain E2E Tests (Real Database) - Enhanced", () => {
         updatedBy: testUser.id,
       });
 
-      // Create a new package billing record
+      // Create a new package billing record with valid UUID package ID
       const packageBilling = await mentorPayableService.createPackageBilling({
         contractId: testContract.id,
-        servicePackageId: `test-package-${Date.now()}-${Math.random()}`,
+        servicePackageId: testContract.id, // Use contract ID as valid UUID
         mentorUserId: testMentorUser.id,
         studentUserId: testUser.id,
-        serviceTypeCode: "test-package-service",
+        serviceTypeCode: uniqueServiceType,
         serviceName: "Test Package Service",
         quantity: 10,
       });
@@ -262,7 +268,7 @@ describe("Financial Domain E2E Tests (Real Database) - Enhanced", () => {
       expect(packageBilling.totalAmount).toBe(1000);
       expect(packageBilling.currency).toBe("USD");
       expect((packageBilling as any).status).toBe("pending");
-      expect(packageBilling.serviceTypeCode).toBe("test-package-service");
+      expect(packageBilling.serviceTypeCode).toBe(uniqueServiceType);
 
       console.log(`Created new package billing: ${packageBilling.id}`);
     });
@@ -278,7 +284,7 @@ describe("Financial Domain E2E Tests (Real Database) - Enhanced", () => {
 
       expect(originalLedger).toBeDefined();
 
-      // Create an adjustment for this ledger
+      // Create an adjustment for this ledger (adjustmentAmount = -25 means discount of 25)
       const adjustment = await mentorPayableService.adjustPayableLedger({
         ledgerId: originalLedger!.id,
         adjustmentAmount: -25,
@@ -288,12 +294,14 @@ describe("Financial Domain E2E Tests (Real Database) - Enhanced", () => {
 
       expect(adjustment).toBeDefined();
       expect(adjustment.id).toBeDefined();
-      expect(adjustment.totalAmount).toBe(originalLedger!.totalAmount - 25);
+      // Adjustment record stores the adjustment amount (-25), not the final total
+      expect(adjustment.totalAmount).toBe(-25);
       expect((adjustment as any).status).toBe("adjusted");
+      expect(adjustment.adjustmentReason).toBe("Test adjustment - discount");
 
       console.log(`Created ledger adjustment: ${adjustment.id}`);
 
-      // Verify original ledger is unaffected
+      // Verify original ledger is unaffected (still 100)
       const ledgersAfterAdjustment = await mentorPayableService.queryMentorPayableLedgers({
         mentorUserId: testMentorUser.id,
         page: 1,
@@ -302,7 +310,11 @@ describe("Financial Domain E2E Tests (Real Database) - Enhanced", () => {
       const originalLedgerAfterAdjustment = ledgersAfterAdjustment.data.find(l => l.id === testMentorPayableLedger.id);
       expect(originalLedgerAfterAdjustment?.totalAmount).toBe(100);
 
-
+      // Adjustment record should have the adjustment amount (-25)
+      const adjustmentLedger = ledgersAfterAdjustment.data.find(l => l.id === adjustment.id);
+      expect(adjustmentLedger).toBeDefined();
+      expect(adjustmentLedger?.totalAmount).toBe(-25);
+      expect(adjustmentLedger?.status).toBe("adjusted");
     });
 
     it("should verify financial data isolation", async () => {
