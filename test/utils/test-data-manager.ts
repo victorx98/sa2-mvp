@@ -269,26 +269,11 @@ export class TestDataManager {
         };
         
         // 使用原始的SQL插入，避免TypeScript类型检查
-        // 使用Drizzle ORM正确的execute方法格式
-        const params = {
-          code: newService.code,
-          serviceType: newService.serviceType,
-          name: newService.name,
-          description: newService.description,
-          billingMode: newService.billingMode,
-          requiresEvaluation: newService.requiresEvaluation,
-          requiresMentorAssignment: newService.requiresMentorAssignment,
-          status: newService.status,
-          createdBy: newService.createdBy,
-          createdAt: newService.createdAt,
-          updatedAt: newService.updatedAt
-        };
-        
         await this.db.execute(
           sql`
             INSERT INTO services 
             (code, service_type, name, description, billing_mode, requires_evaluation, requires_mentor_assignment, status, created_by, created_at, updated_at)
-            VALUES (${params.code}, ${params.serviceType}, ${params.name}, ${params.description}, ${params.billingMode}, ${params.requiresEvaluation}, ${params.requiresMentorAssignment}, ${params.status}, ${params.createdBy}, ${params.createdAt}, ${params.updatedAt})
+            VALUES (${newService.code}, ${newService.serviceType}, ${newService.name}, ${newService.description}, ${newService.billingMode}, ${newService.requiresEvaluation}, ${newService.requiresMentorAssignment}, ${newService.status}, ${newService.createdBy}, ${newService.createdAt}, ${newService.updatedAt})
           `
         );
         
