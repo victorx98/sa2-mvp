@@ -1,5 +1,5 @@
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import * as schema from "@infrastructure/database/schema";
 import {
   ServiceType,
@@ -63,6 +63,28 @@ export class TestFixtures {
       ...overrides,
     };
 
+    // 检查是否已存在相同类型的服务，无论状态如何
+    const existingService = await this.db
+      .select()
+      .from(schema.services)
+      .where(eq(schema.services.serviceType, defaultService.serviceType))
+      .limit(1);
+    
+    if (existingService.length > 0) {
+      // 如果存在相同类型的服务，但状态不同，则更新状态
+      if (existingService[0].status !== defaultService.status) {
+        const [updatedService] = await this.db
+          .update(schema.services)
+          .set({ status: defaultService.status })
+          .where(eq(schema.services.id, existingService[0].id))
+          .returning();
+        return updatedService;
+      }
+      // 如果状态也相同，直接返回
+      return existingService[0];
+    }
+    
+    // 否则创建新服务
     const [service] = await this.db
       .insert(schema.services)
       .values(defaultService)
