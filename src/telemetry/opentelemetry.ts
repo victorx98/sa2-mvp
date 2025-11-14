@@ -22,6 +22,7 @@ if (process.env.OTEL_LOG_LEVEL) {
 let sdkStarted = false;
 let sdk: NodeSDK | null = null;
 let sdkStarting = false;
+let startupError: Error | null = null;
 
 const serviceName = process.env.SERVICE_NAME;
 
@@ -96,34 +97,53 @@ function buildSdk(): NodeSDK {
 
 export async function ensureTelemetryStarted(): Promise<void> {
   if (!isTelemetryEnabled) {
+    console.log('OpenTelemetry is disabled (OTEL_ENABLED=false or NODE_ENV=development)');
     return;
   }
 
-  if (sdkStarted || sdkStarting) {
+  if (sdkStarted) {
+    return;
+  }
+
+  if (sdkStarting) {
+    console.warn('OpenTelemetry SDK is already starting...');
+    return;
+  }
+
+  if (!serviceName) {
+    console.warn('SERVICE_NAME environment variable is not set. Telemetry will not start.');
     return;
   }
 
   if (!sdk) {
-    sdk = buildSdk();
+    try {
+      sdk = buildSdk();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Failed to build OpenTelemetry SDK:', errorMessage);
+      startupError = error instanceof Error ? error : new Error(errorMessage);
+      return;
+    }
   }
 
   sdkStarting = true;
   try {
     sdk.start();
-    console.log('OTEL SDK started');
+    console.log(`OpenTelemetry SDK started successfully for service: ${serviceName}`);
     sdkStarted = true;
+    startupError = null;
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error("Failed to start OpenTelemetry SDK", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Failed to start OpenTelemetry SDK:', errorMessage);
+    console.error('Application will continue without telemetry. Check your OTEL_EXPORTER_OTLP_ENDPOINT configuration.');
+
+    startupError = error instanceof Error ? error : new Error(errorMessage);
     sdk = null;
-    throw error;
+
+    // Don't throw - allow application to start without telemetry
   } finally {
     sdkStarting = false;
   }
-  const tracer = trace.getTracer('test');
-  const span = tracer.startSpan('test-span');
-  span.end();
-  console.log('Trace sent!');
 }
 
 export async function shutdownTelemetry(): Promise<void> {
@@ -137,13 +157,34 @@ export async function shutdownTelemetry(): Promise<void> {
 
   try {
     await sdk.shutdown();
+    console.log('OpenTelemetry SDK shut down successfully');
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error("Error shutting down OpenTelemetry SDK", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error shutting down OpenTelemetry SDK:', errorMessage);
   } finally {
     sdkStarted = false;
     sdk = null;
   }
+}
+
+/**
+ * Get the current status of OpenTelemetry SDK
+ * Useful for health checks and monitoring
+ */
+export function getTelemetryStatus(): {
+  enabled: boolean;
+  started: boolean;
+  starting: boolean;
+  error: Error | null;
+  serviceName: string | undefined;
+} {
+  return {
+    enabled: isTelemetryEnabled,
+    started: sdkStarted,
+    starting: sdkStarting,
+    error: startupError,
+    serviceName,
+  };
 }
 
 ensureTelemetryStarted().catch((error) => {
