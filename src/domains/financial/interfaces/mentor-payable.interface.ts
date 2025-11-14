@@ -189,11 +189,5 @@ export interface IMentorPayableService {
     dto: IAdjustPayableLedgerDTO,
   ): Promise<IMentorPayableLedger>;
 
-  /**
-   * 检查是否为重复事件
-   * @param eventId 事件ID
-   * @param eventType 事件类型
-   * @returns 是否为重复事件
-   */
-  isDuplicate(eventId: string, eventType: string): Promise<boolean>;
+
 }

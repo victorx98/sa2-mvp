@@ -136,9 +136,7 @@ export class ServiceLedgerArchiveService {
     const executor: DrizzleExecutor = tx ?? this.db;
     const conditions: SQL[] = [lt(schema.serviceLedgers.createdAt, cutoffDate)];
 
-    // Note: serviceLedgers table doesn't have contractId field (removed in v2.16.12)
     // We'll filter by contractId later after fetching contract entitlements
-    // (注意：serviceLedgers表没有contractId字段（在v2.16.12中移除）
     // 我们将在获取合同权益后通过contractId进行过滤)
 
     if (serviceType) {
@@ -215,8 +213,6 @@ export class ServiceLedgerArchiveService {
       .values(ledgersToArchiveWithContractId);
 
     // 5. Optionally delete from main table(可选择从主表删除)
-    // NOTE: Using inArray instead of ANY syntax for better Drizzle ORM compatibility
-    // (注意: 使用 inArray 而非 ANY 语法，以获得更好的 Drizzle ORM 兼容性)
     if (deleteAfterArchive) {
       const ledgerIds = ledgersToArchiveWithContractId.map((l) => l.id);
       await executor

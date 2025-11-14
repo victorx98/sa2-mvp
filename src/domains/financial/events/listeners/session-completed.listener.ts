@@ -57,19 +57,6 @@ export class SessionCompletedListener implements OnModuleInit {
         );
       }
 
-      // 检查是否为重复事件
-      if (
-        await this.mentorPayableService.isDuplicate(
-          event.sessionId,
-          "services.session.completed",
-        )
-      ) {
-        this.logger.warn(
-          `Duplicate session completed event detected for session: ${event.sessionId}. Skipping processing.`,
-        );
-        return;
-      }
-
       // 如果需要评价后计费，则等待评价事件
       if (event.requiredEvaluation) {
         this.logger.log(
@@ -112,19 +99,6 @@ export class SessionCompletedListener implements OnModuleInit {
         throw new Error(
           `Invalid session evaluated event data for session: ${event.sessionId}. Required fields missing.`,
         );
-      }
-
-      // 检查是否为重复事件
-      if (
-        await this.mentorPayableService.isDuplicate(
-          event.sessionId,
-          "services.session.evaluated",
-        )
-      ) {
-        this.logger.warn(
-          `Duplicate session evaluated event detected for session: ${event.sessionId}. Skipping processing.`,
-        );
-        return;
       }
 
       // 路由到相应的计费逻辑

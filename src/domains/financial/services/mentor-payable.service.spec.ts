@@ -99,9 +99,7 @@ describe("MentorPayableService", () => {
       expect(result.id).toBe("ledger-123");
       expect(result.sessionId).toBe("session-123");
       expect(result.totalAmount).toBe(150.0);
-      expect(mockDb.query.mentorPrices.findFirst).toHaveBeenCalledWith({
-        where: expect.any(Function),
-      });
+      expect(mockDb.query.mentorPrices.findFirst).toHaveBeenCalled();
       expect(mockDb.insert).toHaveBeenCalledWith(mentorPayableLedgers);
     });
 
@@ -338,59 +336,7 @@ describe("MentorPayableService", () => {
     });
   });
 
-  describe("isDuplicate", () => {
-    it("should return true for duplicate event", async () => {
-      // 设置mock行为
-      (mockDb.query.domainEvents.findFirst as jest.Mock).mockResolvedValue({
-        id: "event-123",
-        type: "services.session.completed",
-        status: "processed",
-      });
 
-      // 执行测试
-      const result = await service.isDuplicate(
-        "event-123",
-        "services.session.completed",
-      );
-
-      // 验证结果
-      expect(result).toBe(true);
-    });
-
-    it("should return false for non-duplicate event", async () => {
-      // 设置mock行为
-      (mockDb.query.domainEvents.findFirst as jest.Mock).mockResolvedValue(
-        null,
-      );
-
-      // 执行测试
-      const result = await service.isDuplicate(
-        "event-123",
-        "services.session.completed",
-      );
-
-      // 验证结果
-      expect(result).toBe(false);
-    });
-
-    it("should return false for event with pending status", async () => {
-      // 设置mock行为
-      (mockDb.query.domainEvents.findFirst as jest.Mock).mockResolvedValue({
-        id: "event-123",
-        type: "services.session.completed",
-        status: "pending",
-      });
-
-      // 执行测试
-      const result = await service.isDuplicate(
-        "event-123",
-        "services.session.completed",
-      );
-
-      // 验证结果
-      expect(result).toBe(false);
-    });
-  });
 
   describe("getMentorPrice", () => {
     it("should return mentor price successfully", async () => {

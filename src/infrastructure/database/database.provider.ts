@@ -5,6 +5,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import * as dns from "dns";
 import { promisify } from "util";
 import * as schema from "./schema";
+import { createEnhancedDatabaseUrl } from "drizzle.config";
 
 const resolve4 = promisify(dns.resolve4);
 const logger = new Logger("DatabaseProvider");
@@ -16,7 +17,8 @@ export const databaseProviders = [
     provide: DATABASE_CONNECTION,
     inject: [ConfigService],
     useFactory: async (configService: ConfigService) => {
-      const connectionString = configService.get<string>("DATABASE_URL");
+      // const connectionString = configService.get<string>("DATABASE_URL");
+      const connectionString = createEnhancedDatabaseUrl();
       const isTest =
         process.env.NODE_ENV === "test" ||
         process.env.JEST_WORKER_ID !== undefined;

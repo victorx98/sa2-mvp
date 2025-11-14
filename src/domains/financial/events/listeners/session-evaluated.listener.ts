@@ -45,18 +45,8 @@ export class SessionEvaluatedListener implements OnModuleInit {
         throw new Error(errorMessage);
       }
 
-      // 检查是否为重复事件
-      if (
-        await this.mentorPayableService.isDuplicate(
-          event.sessionId,
-          "services.session.evaluated",
-        )
-      ) {
-        this.logger.warn(
-          `Duplicate session evaluated event detected: ${event.sessionId}. Skipping processing.`,
-        );
-        return;
-      }
+      // 注意：由于financial domain未采用Outbox模式，移除了domainEvents重复检查
+      // Note: DomainEvents duplicate check removed as financial domain doesn't use Outbox pattern
 
       // 路由到相应的计费逻辑
       await this.routeBilling(event);

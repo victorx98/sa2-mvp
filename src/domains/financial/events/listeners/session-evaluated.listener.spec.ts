@@ -14,7 +14,6 @@ const createMockMentorPayableService = (): IMentorPayableService => ({
   createPerSessionBilling: jest.fn(),
   createPackageBilling: jest.fn(),
   adjustPayableLedger: jest.fn(),
-  isDuplicate: jest.fn(),
 });
 
 describe("SessionEvaluatedListener", () => {
@@ -78,9 +77,18 @@ describe("SessionEvaluatedListener", () => {
 
     it("should route to per-session billing successfully after evaluation", async () => {
       // 设置mock行为
-      (mockMentorPayableService.isDuplicate as jest.Mock).mockResolvedValue(
-        false,
-      );
+      (mockMentorPayableService.createPerSessionBilling as jest.Mock).mockResolvedValue({
+        id: "ledger-123",
+        contractId: "contract-123",
+        mentorId: "mentor-123",
+        studentId: "student-123",
+        serviceType: "CS_INTERVIEW",
+        serviceName: "CS面试辅导",
+        quantity: 1,
+        totalAmount: 150.0,
+        currency: "USD",
+        status: "pending",
+      });
       (
         mockMentorPayableService.createPerSessionBilling as jest.Mock
       ).mockResolvedValue({
@@ -93,10 +101,6 @@ describe("SessionEvaluatedListener", () => {
       await listener.handleSessionEvaluated(mockEvent);
 
       // 验证结果
-      expect(mockMentorPayableService.isDuplicate).toHaveBeenCalledWith(
-        "session-123",
-        "services.session.evaluated",
-      );
       expect(
         mockMentorPayableService.createPerSessionBilling,
       ).toHaveBeenCalledWith({
@@ -147,9 +151,6 @@ describe("SessionEvaluatedListener", () => {
       });
 
       // 设置mock行为
-      (mockMentorPayableService.isDuplicate as jest.Mock).mockResolvedValue(
-        false,
-      );
       (
         mockMentorPayableService.createPackageBilling as jest.Mock
       ).mockResolvedValue({
@@ -217,11 +218,6 @@ describe("SessionEvaluatedListener", () => {
         reviewedAt: new Date("2024-01-01T12:00:00Z"),
       });
 
-      // 设置mock行为
-      (mockMentorPayableService.isDuplicate as jest.Mock).mockResolvedValue(
-        false,
-      );
-
       // 执行测试
       await listener.handleSessionEvaluated(packageEventNotComplete);
 
@@ -234,19 +230,29 @@ describe("SessionEvaluatedListener", () => {
       ).not.toHaveBeenCalled();
     });
 
-    it("should handle duplicate event", async () => {
+    it("should handle event processing without duplicate check", async () => {
+
       // 设置mock行为
-      (mockMentorPayableService.isDuplicate as jest.Mock).mockResolvedValue(
-        true,
-      );
+      (mockMentorPayableService.createPerSessionBilling as jest.Mock).mockResolvedValue({
+        id: "ledger-123",
+        contractId: "contract-123",
+        mentorId: "mentor-123",
+        studentId: "student-123",
+        serviceType: "CS_INTERVIEW",
+        serviceName: "CS面试辅导",
+        quantity: 1,
+        totalAmount: 150.0,
+        currency: "USD",
+        status: "pending",
+      });
 
       // 执行测试
       await listener.handleSessionEvaluated(mockEvent);
 
-      // 验证结果
+      // 验证结果 - 应该正常处理事件
       expect(
         mockMentorPayableService.createPerSessionBilling,
-      ).not.toHaveBeenCalled();
+      ).toHaveBeenCalled();
       expect(
         mockMentorPayableService.createPackageBilling,
       ).not.toHaveBeenCalled();
@@ -272,11 +278,6 @@ describe("SessionEvaluatedListener", () => {
         reviewedAt: new Date(),
       });
 
-      // 设置mock行为
-      (mockMentorPayableService.isDuplicate as jest.Mock).mockResolvedValue(
-        false,
-      );
-
       // 执行测试并验证错误
       await expect(
         listener.handleSessionEvaluated(invalidEvent),
@@ -285,9 +286,6 @@ describe("SessionEvaluatedListener", () => {
 
     it("should handle billing creation failure", async () => {
       // 设置mock行为
-      (mockMentorPayableService.isDuplicate as jest.Mock).mockResolvedValue(
-        false,
-      );
       (
         mockMentorPayableService.createPerSessionBilling as jest.Mock
       ).mockRejectedValue(new Error("Billing creation failed"));

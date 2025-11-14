@@ -324,51 +324,7 @@ export class MentorPayableService implements IMentorPayableService {
     }
   }
 
-  /**
-   * 检查是否为重复事件
-   * @param eventId 事件ID
-   * @param eventType 事件类型
-   * @returns 是否为重复事件
-   *
-   * @remarks 金融交易的幂等性检查非常重要，防止重复处理导致的财务风险
-   */
-  public async isDuplicate(
-    eventId: string,
-    eventType: string,
-  ): Promise<boolean> {
-    try {
-      // 输入验证
-      if (!eventId) {
-        this.logger.warn("Empty eventId provided to isDuplicate check");
-        return false; // 安全起见，当eventId为空时返回false
-      }
 
-      // 检查domain_events表中是否已经处理过该事件
-      const existingEvent = await this.db.query.domainEvents.findFirst({
-        where: eq(schema.domainEvents.id, eventId),
-      });
-
-      // 如果事件已存在并且状态为已发布，则为重复事件
-      const isDuplicateEvent =
-        existingEvent !== undefined && existingEvent.status === "published";
-
-      if (isDuplicateEvent) {
-        this.logger.log(
-          `Duplicate event detected: ${eventId} of type: ${eventType}`,
-        );
-      }
-
-      return isDuplicateEvent;
-    } catch (error) {
-      this.logger.error(
-        `Error checking duplicate event: ${eventId}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-      // 错误情况下返回true表示是重复的，避免重复处理导致的财务风险
-      // 这是一个安全考量：宁可漏处理一次，也不要重复处理产生财务错误
-      return true;
-    }
-  }
 
   /**
    * 获取导师价格

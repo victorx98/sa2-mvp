@@ -4,18 +4,9 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 // 增强的数据库URL配置，添加更多连接参数以解决连接问题
-const createEnhancedDatabaseUrl = (): string => {
-  // 直接从环境变量解析数据库连接参数
-  const dbParams = {
-    user: process.env.POSTGRES_USER || 'postgres.gexkpohuuqewswljbguf',
-    password: process.env.POSTGRES_PASSWORD || 'Abc@123456',
-    host: process.env.POSTGRES_HOST || 'aws-1-us-east-2.pooler.supabase.com',
-    port: parseInt(process.env.POSTGRES_PORT || '6543', 10),
-    database: process.env.POSTGRES_DATABASE || 'postgres',
-  };
-  
-  // 构建包含所有参数的连接字符串
-  const baseUrl = `postgresql://${encodeURIComponent(dbParams.user)}:${encodeURIComponent(dbParams.password)}@${dbParams.host}:${dbParams.port}/${dbParams.database}`;
+export const createEnhancedDatabaseUrl = (): string => {
+  // 从环境变量获取基础URL，默认使用Supabase连接字符串
+  const baseUrl = process.env.POSTGRES_URL || `postgresql://postgres.gexkpohuuqewswljbguf:Abc@123456@aws-1-us-east-2.pooler.supabase.com:6543/postgres`;
   
   // 添加全面的连接参数，包括重试逻辑和连接池设置
   const connectionParams = [

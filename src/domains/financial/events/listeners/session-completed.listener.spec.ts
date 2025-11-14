@@ -8,7 +8,6 @@ import { SessionCompletedEvent } from "@domains/financial/events/types/financial
 const mockMentorPayableService = {
   createPerSessionBilling: jest.fn(),
   createPackageBilling: jest.fn(),
-  isDuplicate: jest.fn(),
 };
 
 const mockEventEmitter = {
@@ -70,9 +69,6 @@ describe("SessionCompletedListener", () => {
 
     it("should route to per-session billing successfully", async () => {
       // 设置mock行为
-      (mockMentorPayableService.isDuplicate as jest.Mock).mockResolvedValue(
-        false,
-      );
       (
         mockMentorPayableService.createPerSessionBilling as jest.Mock
       ).mockResolvedValue({
@@ -85,10 +81,6 @@ describe("SessionCompletedListener", () => {
       await listener.handleSessionCompleted(mockEvent);
 
       // 验证结果
-      expect(mockMentorPayableService.isDuplicate).toHaveBeenCalledWith(
-        "session-123",
-        "services.session.completed",
-      );
       expect(
         mockMentorPayableService.createPerSessionBilling,
       ).toHaveBeenCalledWith({
@@ -136,9 +128,6 @@ describe("SessionCompletedListener", () => {
       });
 
       // 设置mock行为
-      (mockMentorPayableService.isDuplicate as jest.Mock).mockResolvedValue(
-        false,
-      );
       (
         mockMentorPayableService.createPackageBilling as jest.Mock
       ).mockResolvedValue({
@@ -205,11 +194,6 @@ describe("SessionCompletedListener", () => {
         packageCompletedSessions: 8, // 未完成所有会话
       });
 
-      // 设置mock行为
-      (mockMentorPayableService.isDuplicate as jest.Mock).mockResolvedValue(
-        false,
-      );
-
       // 执行测试
       await listener.handleSessionCompleted(packageEventNotComplete);
 
@@ -240,10 +224,6 @@ describe("SessionCompletedListener", () => {
         requiredEvaluation: true,
       });
 
-      // 设置mock行为
-      (mockMentorPayableService.isDuplicate as jest.Mock).mockResolvedValue(
-        false,
-      );
 
       // 执行测试
       await listener.handleSessionCompleted(evaluationEvent);
@@ -257,19 +237,14 @@ describe("SessionCompletedListener", () => {
       ).not.toHaveBeenCalled();
     });
 
-    it("should handle duplicate event", async () => {
-      // 设置mock行为
-      (mockMentorPayableService.isDuplicate as jest.Mock).mockResolvedValue(
-        true,
-      );
-
+    it("should handle event processing without duplicate check", async () => {
       // 执行测试
       await listener.handleSessionCompleted(mockEvent);
 
-      // 验证结果
+      // 验证结果 - 应该正常处理事件
       expect(
         mockMentorPayableService.createPerSessionBilling,
-      ).not.toHaveBeenCalled();
+      ).toHaveBeenCalled();
       expect(
         mockMentorPayableService.createPackageBilling,
       ).not.toHaveBeenCalled();
@@ -293,11 +268,6 @@ describe("SessionCompletedListener", () => {
         completedAt: new Date("2024-01-01T11:30:00Z"),
         requiredEvaluation: false,
       });
-
-      // 设置mock行为
-      (mockMentorPayableService.isDuplicate as jest.Mock).mockResolvedValue(
-        false,
-      );
 
       // 执行测试并验证错误
       await expect(
