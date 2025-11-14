@@ -1,7 +1,7 @@
 # Calendar Module API 快速参考
 
 **文档版本**: v3.5  
-**更新日期**: 2025-11-11  
+**更新日期**: 2025-11-14  
 **目标受众**: 后端开发、API集成  
 **阅读时间**: 5分钟  
 **基于实现版本**: calendar.service.ts、create-slot.dto.ts、query-slot.dto.ts
@@ -31,11 +31,12 @@ src/core/calendar/
 |-----|------|------|-----|
 | `createSlotDirect(dto, tx?)` | CreateSlotDto, tx?: DrizzleTransaction | ICalendarSlotEntity \| null | 原子操作创建时间段，冲突返回null |
 | `isSlotAvailable(userId, userType, startTime, durationMinutes)` | userId: UUID, userType: UserType, startTime: Date, durationMinutes: Integer | boolean | 检查时间段可用性（仅UI用途） |
-| `releaseSlot(slotId)` | slotId: UUID | ICalendarSlotEntity | 释放时间段（status → cancelled） |
+| `releaseSlot(id)` | id: UUID | ICalendarSlotEntity | 释放时间段（status → cancelled） |
 | `getBookedSlots(dto)` | QuerySlotDto | ICalendarSlotEntity[] | 批量查询用户的已占用时段 |
-| `rescheduleSlot(oldSlotId, newStartTime, newDurationMinutes)` | oldSlotId: UUID, newStartTime: Date, newDurationMinutes: Integer | ICalendarSlotEntity \| null | 改期操作（事务：释放旧+占用新） |
-| `getSlotById(slotId)` | slotId: UUID | ICalendarSlotEntity \| null | 根据ID查询单个时间段 |
+| `rescheduleSlot(id, newStartTime, newDurationMinutes)` | id: UUID, newStartTime: Date, newDurationMinutes: Integer | ICalendarSlotEntity \| null | 改期操作（事务：释放旧+占用新） |
+| `getSlotById(id)` | id: UUID | ICalendarSlotEntity \| null | 根据ID查询单个时间段 |
 | `getSlotBySessionId(sessionId)` | sessionId: UUID | ICalendarSlotEntity \| null | 根据session_id查询时间段 |
+| `updateSlotSessionId(id, sessionId, tx?)` | id: UUID, sessionId: UUID, tx?: DrizzleTransaction | ICalendarSlotEntity | 将session_id关联到时间段记录 |
 | `blockTimeSlot(userId, userType, startTime, durationMinutes, reason)` | userId: UUID, userType: UserType, startTime: Date, durationMinutes: Integer, reason: String | ICalendarSlotEntity \| null | 用户设置不可用时间 |
 
 ---
@@ -188,19 +189,27 @@ const slots = await calendarService.getBookedSlots({
 
 ### 释放时间段
 ```typescript
-const released = await calendarService.releaseSlot('uuid-slot-123');
+const released = await calendarService.releaseSlot('uuid-slot-id');
 ```
 
 ### 改期操作
 ```typescript
 const newSlot = await calendarService.rescheduleSlot(
-  'uuid-slot-old',
+  'uuid-slot-id',
   new Date('2025-11-16T14:00:00Z'),
   60
 );
 if (!newSlot) {
   // 新时间段冲突，改期失败
 }
+```
+
+### 更新时间段关联session_id
+```typescript
+const updatedSlot = await calendarService.updateSlotSessionId(
+  'uuid-slot-id',
+  'uuid-session-456'
+);
 ```
 
 ---
