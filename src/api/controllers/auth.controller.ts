@@ -40,6 +40,7 @@ export class AuthController {
     description: "Registration successful",
   })
   async register(@Body() registerDto: RegisterDto): Promise<AuthResultDto> {
+    this.logger.log(`[API]register: ${registerDto.email}`);
     // ✅ 直接调用 Application Layer 服务
     return this.registerCommand.execute(registerDto);
   }
@@ -53,6 +54,7 @@ export class AuthController {
     description: "Login successful",
   })
   async login(@Body() loginDto: LoginDto): Promise<AuthResultDto> {
+    this.logger.log(`[API]login: ${loginDto.email}`);
     // ✅ 直接调用 Application Layer 服务
     return this.loginCommand.execute(loginDto);
   }
