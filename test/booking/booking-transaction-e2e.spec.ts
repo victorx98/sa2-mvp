@@ -3,20 +3,19 @@ jest.setTimeout(60000);
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigModule } from "@nestjs/config";
 import { EventEmitterModule } from "@nestjs/event-emitter";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import { v4 as uuidv4 } from "uuid";
+import { eq } from "drizzle-orm";
 import { BookSessionCommand } from "../../src/application/commands/booking/book-session.command";
 import { CalendarService } from "../../src/core/calendar";
 import { MeetingProviderModule } from "../../src/core/meeting-providers/meeting-provider.module";
 import { SessionService } from "../../src/domains/services/session/services/session.service";
-// import { ContractService } from "../../src/domains/contract/services/contract.service";
-import { ContractService } from "../../src/domains/contract/contract.service";
+import { ContractService } from "../../src/domains/contract/services/contract.service";
 import { DATABASE_CONNECTION } from "../../src/infrastructure/database/database.provider";
 import { DatabaseModule } from "../../src/infrastructure/database/database.module";
 import { BookSessionInput } from "../../src/application/commands/booking/dto/book-session-input.dto";
 import { ServiceHoldService } from "../../src/domains/contract/services/service-hold.service";
 import * as schema from "../../src/infrastructure/database/schema";
-import { eq } from "drizzle-orm";
-import { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { v4 as uuidv4 } from "uuid";
 
 /**
  * E2E 集成测试：验证预约会话的完整流程
@@ -40,7 +39,6 @@ describe("BookSessionCommand - E2E Integration Test", () => {
     counselor: uuidv4(),
     student: uuidv4(),
     mentor: uuidv4(),
-    contract: uuidv4(),
     service: uuidv4(),
   };
 
@@ -64,7 +62,6 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         {
           provide: ServiceHoldService,
           useValue: {
-            createHold: jest.fn(),
             releaseHold: jest.fn(),
             cancelHold: jest.fn(),
             getLongUnreleasedHolds: jest.fn(),
@@ -110,10 +107,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         counselorId: testIds.counselor,
         studentId: testIds.student,
         mentorId: testIds.mentor,
-        contractId: testIds.contract,
-        serviceType: "session",
-        scheduledStartTime: new Date("2025-12-15T10:00:00Z"),
-        scheduledEndTime: new Date("2025-12-15T11:00:00Z"),
+        scheduledStartTime: "2025-12-15T10:00:00Z",
         duration: 60,
         topic: `${testPrefix} - E2E Success Test`,
         meetingProvider: "feishu",
@@ -237,10 +231,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         counselorId: testIds.counselor,
         studentId: uuidv4(), // 使用新的student ID避免冲突
         mentorId: uuidv4(), // 使用新的mentor ID
-        contractId: testIds.contract,
-        serviceType: "session",
-        scheduledStartTime: new Date("2025-12-16T10:00:00Z"),
-        scheduledEndTime: new Date("2025-12-16T11:00:00Z"),
+        scheduledStartTime: "2025-12-16T10:00:00Z",
         duration: 60,
         topic: `${testPrefix} - E2E Rollback Test`,
         meetingProvider: "invalid_provider" as any, // 使用无效的provider触发失败
@@ -308,10 +299,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         counselorId: testIds.counselor,
         studentId: firstStudentId,
         mentorId: firstMentorId,
-        contractId: testIds.contract,
-        serviceType: "session",
-        scheduledStartTime: new Date("2025-12-17T10:00:00Z"),
-        scheduledEndTime: new Date("2025-12-17T11:00:00Z"),
+        scheduledStartTime: "2025-12-17T10:00:00Z",
         duration: 60,
         topic: `${testPrefix} - First Booking`,
         meetingProvider: "feishu",
@@ -327,10 +315,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         counselorId: testIds.counselor,
         studentId: uuidv4(),
         mentorId: firstMentorId, // 相同的mentor
-        contractId: testIds.contract,
-        serviceType: "session",
-        scheduledStartTime: new Date("2025-12-17T10:00:00Z"), // 相同的时间
-        scheduledEndTime: new Date("2025-12-17T11:00:00Z"),
+        scheduledStartTime: "2025-12-17T10:00:00Z", // 相同的时间
         duration: 60,
         topic: `${testPrefix} - Conflict Booking`,
         meetingProvider: "feishu",
@@ -382,10 +367,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         counselorId: testIds.counselor,
         studentId: uuidv4(),
         mentorId: uuidv4(),
-        contractId: testIds.contract,
-        serviceType: "session",
-        scheduledStartTime: new Date("2025-12-18T10:00:00Z"),
-        scheduledEndTime: new Date("2025-12-18T11:00:00Z"),
+        scheduledStartTime: "2025-12-18T10:00:00Z",
         duration: 60,
         topic: `${testPrefix} - Consistency Test`,
         meetingProvider: "feishu",

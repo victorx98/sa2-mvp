@@ -15,7 +15,6 @@ export interface SessionBookedEvent {
   calendarSlotId: string;
   serviceHoldId: string;
   scheduledStartTime: string;
-  scheduledEndTime: string;
   duration: number;
   meetingProvider?: string;
   meetingPassword?: string;
