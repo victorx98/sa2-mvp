@@ -72,7 +72,7 @@ export const serviceHolds = pgTable("service_holds", {
   id: uuid("id").defaultRandom().primaryKey(),
 
   // 关联学生（移除 contract_id，只关联学生）[Associated student (removed contract_id, only associate with student)]
-  studentId: varchar("student_id", { length: 32 })
+  studentId: uuid("student_id")
     .notNull()
     .references(() => userTable.id),
 
@@ -87,7 +87,7 @@ export const serviceHolds = pgTable("service_holds", {
 
   // 关联预约 (Related booking)
   relatedBookingId: uuid("related_booking_id"),
-  
+
   // 过期时间 (Expiration time)
   expiryAt: timestamp("expiry_at", { withTimezone: true }), // null表示永不过期 [null means never expires]
 
@@ -102,7 +102,7 @@ export const serviceHolds = pgTable("service_holds", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-  createdBy: varchar("created_by", { length: 32 })
+  createdBy: uuid("created_by")
     .notNull()
     .references(() => userTable.id),
 });

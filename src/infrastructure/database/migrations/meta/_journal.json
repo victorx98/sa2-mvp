@@ -50,6 +50,20 @@
       "when": 1762924250976,
       "tag": "0006_sparkling_rafael_vega",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1763006997985,
+      "tag": "0007_aberrant_tusk",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1763007509930,
+      "tag": "0008_free_catseye",
+      "breakpoints": true
     }
   ]
 }
