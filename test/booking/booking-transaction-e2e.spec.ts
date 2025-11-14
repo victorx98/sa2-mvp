@@ -270,7 +270,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         timeRange: `[${savedMentorSlotRaw.timeRange.start.toISOString()}, ${savedMentorSlotRaw.timeRange.end.toISOString()})`,
       };
       expect(savedMentorSlot.id).toBe(result.mentorCalendarSlotId);
-      // expect(savedMentorSlot.sessionId).toBe(result.sessionId);  // 创建时候传入undefined，等其他途径再更新
+      expect(savedMentorSlot.sessionId).toBe(result.sessionId);
       expect(savedMentorSlot.slotType).toBeDefined();
       expect(savedMentorSlot.status).toBeDefined();
 
@@ -477,7 +477,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         timeRange: `[${mentorCalendarSlot[0].timeRange.start.toISOString()}, ${mentorCalendarSlot[0].timeRange.end.toISOString()})`,
       };
 
-      // expect(normalizedSlot.sessionId).toBe(result.sessionId); // 创建时候传入undefined，等其他途径再更新
+      expect(normalizedSlot.sessionId).toBe(result.sessionId);
       console.log("✓ Calendar slot linked to session:", {
         slotId: normalizedSlot.id,
         sessionId: normalizedSlot.sessionId,
@@ -498,9 +498,11 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         )
         .where(eq(schema.sessions.id, result.sessionId));
 
-      expect(joinedData).toHaveLength(1);
+      expect(joinedData).toHaveLength(2);
       expect(joinedData[0].sessionId).toBe(result.sessionId);
-      expect(joinedData[0].slotId).toBe(result.mentorCalendarSlotId);
+      expect([result.mentorCalendarSlotId, result.studentCalendarSlotId].includes(joinedData[0].slotId)).toBe(true);
+      expect(joinedData[1].sessionId).toBe(result.sessionId);
+      expect([result.mentorCalendarSlotId, result.studentCalendarSlotId].includes(joinedData[1].slotId)).toBe(true);
       console.log("✓ JOIN query successful:", joinedData[0]);
 
       // 清理

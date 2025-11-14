@@ -164,8 +164,9 @@ export class BookSessionCommand {
         );
 
         // Step 7: Update calendar slot with session ID
-        const [updatedMentorCalendarSlot, updatedStudentCalendarSlot] = await Promise.all([this.calendarService.updateSlotSessionId(
-          mentorCalendarSlot.id,
+        const [updatedMentorCalendarSlot, updatedStudentCalendarSlot] = await Promise.all([
+          this.calendarService.updateSlotSessionId(
+            mentorCalendarSlot.id,
             session.id,
             tx,
           ),
