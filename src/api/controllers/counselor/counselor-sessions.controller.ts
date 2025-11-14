@@ -50,36 +50,12 @@ class BookSessionRequestDto {
   mentorId: string;
 
   @ApiProperty({
-    description: "Contract ID",
-    example: "123e4567-e89b-12d3-a456-426614174002",
-  })
-  @IsString()
-  @IsNotEmpty()
-  contractId: string;
-
-  @ApiProperty({
-    description: "Service ID",
-    example: "service-1v1-session",
-  })
-  @IsString()
-  @IsNotEmpty()
-  serviceId: string;
-
-  @ApiProperty({
     description: "Session start time (ISO 8601 format)",
     example: "2025-11-10T14:00:00Z",
   })
   @IsDateString()
   @IsNotEmpty()
   scheduledStartTime: string;
-
-  @ApiProperty({
-    description: "Session end time (ISO 8601 format)",
-    example: "2025-11-10T15:00:00Z",
-  })
-  @IsDateString()
-  @IsNotEmpty()
-  scheduledEndTime: string;
 
   @ApiProperty({
     description: "Session duration (minutes)",
@@ -170,15 +146,11 @@ export class CounselorSessionsController {
   ): Promise<BookSessionOutput> {
     // ✅ 直接调用 Application Layer 服务
     // 将前端 DTO 转换为 BookSessionInput
-    // 注意：serviceType 暂时硬编码为 'session'，未来需要从 serviceId 查询
     const input: BookSessionInput = {
       counselorId: user.id,
       studentId: dto.studentId,
       mentorId: dto.mentorId,
-      contractId: dto.contractId,
-      serviceType: "session" as any, // TODO: 从 serviceId 查询 serviceType
-      scheduledStartTime: new Date(dto.scheduledStartTime),
-      scheduledEndTime: new Date(dto.scheduledEndTime),
+      scheduledStartTime: dto.scheduledStartTime,
       duration: dto.duration,
       topic: dto.topic,
       meetingProvider: dto.meetingProvider,

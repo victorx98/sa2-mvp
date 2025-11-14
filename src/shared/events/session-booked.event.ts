@@ -12,10 +12,10 @@ export interface SessionBookedEvent {
   studentId: string;
   mentorId: string;
   serviceType: ServiceType;
-  calendarSlotId: string;
+  mentorCalendarSlotId: string;
+  studentCalendarSlotId: string;
   serviceHoldId: string;
   scheduledStartTime: string;
-  scheduledEndTime: string;
   duration: number;
   meetingProvider?: string;
   meetingPassword?: string;
