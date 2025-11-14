@@ -95,20 +95,29 @@ export class BookSessionCommand {
 
         // Step 3: Try to create calendar slot directly (atomic with DB constraint)
         // Let the database EXCLUDE constraint handle conflicts
-        const calendarSlot = await this.calendarService.createSlotDirect(
-          {
+        const [mentorCalendarSlot, studentCalendarSlot] = await Promise.all([
+          this.calendarService.createSlotDirect({
             userId: input.mentorId,
             userType: UserType.MENTOR,
             startTime: input.scheduledStartTime,
             durationMinutes: input.duration,
             slotType: SlotType.SESSION,
             sessionId: undefined, // Will be updated after session creation
-          },
-          tx,
-        );
+          }, tx),
+          this.calendarService.createSlotDirect({
+            userId: input.studentId,
+            userType: UserType.STUDENT,
+            startTime: input.scheduledStartTime,
+            durationMinutes: input.duration,
+            slotType: SlotType.SESSION,
+            sessionId: undefined, // Will be updated after session creation
+          }, tx)
+        ]);
         
-        if (!calendarSlot) {
+        if (!mentorCalendarSlot) {
           throw new TimeConflictException("The mentor already has a conflict");
+        } if (!studentCalendarSlot) {
+          throw new TimeConflictException("The student already has a conflict");
         }
 
         // Step 5: 创建会议链接（在事务内，先创建）
@@ -157,7 +166,8 @@ export class BookSessionCommand {
         return {
           session,
           hold,
-          calendarSlot,
+          mentorCalendarSlot,
+          studentCalendarSlot,
           meetingInfo,
         };
       });
@@ -172,7 +182,8 @@ export class BookSessionCommand {
       mentorId: input.mentorId,
       counselorId: input.counselorId,
       serviceType: 'session' as ServiceType,
-      calendarSlotId: sessionResult.calendarSlot.id,
+      mentorCalendarSlotId: sessionResult.mentorCalendarSlot.id,
+      studentCalendarSlotId: sessionResult.studentCalendarSlot.id,
       serviceHoldId: sessionResult.hold.id,
       scheduledStartTime: input.scheduledStartTime,
       duration: input.duration,

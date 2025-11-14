@@ -12,7 +12,8 @@ export interface SessionBookedEvent {
   studentId: string;
   mentorId: string;
   serviceType: ServiceType;
-  calendarSlotId: string;
+  mentorCalendarSlotId: string;
+  studentCalendarSlotId: string;
   serviceHoldId: string;
   scheduledStartTime: string;
   duration: number;
