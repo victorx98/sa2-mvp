@@ -6,15 +6,16 @@
 
 /**
  * 导师应付账款记录接口
+ * Note: This interface maps to mentor_payable_ledgers table which does NOT have contract_id column
+ * The relation_id field links to sessions, classes, or other entities based on source_entity
  */
 export interface IMentorPayableLedger {
   // 记录ID
   id: string;
 
-  // 关联信息
-  sessionId?: string;
-  classId?: string;
-  contractId: string;
+  // 关联信息 (relation_id links to different entities based on source_entity)
+  sessionId?: string; // When sourceEntity = 'session', this is the relation_id
+  classId?: string; // When sourceEntity = 'class', this is the relation_id
   mentorUserId: string;
   studentUserId: string;
 
@@ -93,17 +94,22 @@ export interface IMentorPrice {
 
   // 服务信息
   serviceTypeCode: string;
+  servicePackageId?: string; // 服务包ID(可选)
 
   // 价格信息
   price: number;
   currency: string;
 
+  // 状态信息
+  status: string; // 使用字符串类型，与数据库表结构一致
+
+  // 审计信息
+  createdBy?: string; // 创建者ID(可选)
+  updatedBy?: string; // 更新者ID(可选)
+
   // 时间信息
   createdAt: Date;
   updatedAt: Date;
-
-  // 状态信息
-  isActive: boolean;
 }
 
 /**
@@ -161,6 +167,20 @@ export interface IAdjustPayableLedgerDTO {
 }
 
 /**
+ * 创建导师价格DTO(DTO for creating mentor price)
+ * Uses billingModeEnum values: one_time, per_session, staged
+ */
+export interface ICreateMentorPriceDTO {
+  mentorUserId: string;
+  serviceTypeCode: string;
+  billingMode: "one_time" | "per_session" | "staged";
+  price: number;
+  currency?: string;
+  status?: "active" | "inactive";
+  updatedBy?: string;
+}
+
+/**
  * 导师应付账款服务接口
  */
 export interface IMentorPayableService {
@@ -189,5 +209,26 @@ export interface IMentorPayableService {
     dto: IAdjustPayableLedgerDTO,
   ): Promise<IMentorPayableLedger>;
 
+  /**
+   * 创建导师价格配置
+   * @param dto 创建导师价格DTO
+   * @returns 创建的导师价格记录
+   */
+  createMentorPrice(dto: ICreateMentorPriceDTO): Promise<IMentorPrice>;
+
+  /**
+   * Query mentor payable ledgers with pagination and filtering
+   * @param params Query parameters including filters and pagination
+   * @returns Paginated list of mentor payable ledgers
+   */
+  queryMentorPayableLedgers(params: {
+    mentorUserId?: string;
+    startDate?: Date;
+    endDate?: Date;
+    sourceEntity?: "session" | "contract";
+    status?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<{ data: IMentorPayableLedger[]; total: number }>;
 
 }

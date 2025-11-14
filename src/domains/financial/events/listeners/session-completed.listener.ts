@@ -6,10 +6,10 @@
  * 支持按次计费和包计费两种模式，并处理评价后计费场景
  */
 
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit, Inject } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { MentorPayableService } from "@domains/financial/services/mentor-payable.service";
+import type { IMentorPayableService } from "@domains/financial/interfaces/mentor-payable.interface";
 import {
   SessionCompletedEvent,
   SessionEvaluatedEvent,
@@ -25,7 +25,8 @@ export class SessionCompletedListener implements OnModuleInit {
 
   constructor(
     private readonly eventEmitter: EventEmitter2,
-    private readonly mentorPayableService: MentorPayableService,
+    @Inject("IMentorPayableService")
+    private readonly mentorPayableService: IMentorPayableService,
   ) {}
 
   /**

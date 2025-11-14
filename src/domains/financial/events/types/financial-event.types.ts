@@ -1,5 +1,5 @@
 /**
- * Financial Domain Event Types(金融领域事件类型定义)
+ * 金融领域事件类型定义
  *
  * 定义金融领域所有标准化事件类型和数据结构
  * 严格按照 mentor_payable_service_interface.md 文档要求定义
@@ -35,27 +35,27 @@ export interface IFinancialEvent {
 export class SessionCompletedEvent implements IFinancialEvent {
   @IsUUID()
   @IsNotEmpty()
-  readonly eventId: string;
+  readonly eventId!: string;
 
   @IsString()
   @IsNotEmpty()
-  readonly eventType: string;
+  readonly eventType!: string;
 
   @IsDate()
   @IsNotEmpty()
-  readonly eventTimestamp: Date;
+  readonly eventTimestamp!: Date;
 
   @IsString()
   @IsNotEmpty()
-  readonly eventVersion: string;
+  readonly eventVersion!: string;
 
   @IsUUID()
   @IsNotEmpty()
-  readonly sessionId: string;
+  readonly sessionId!: string;
 
   @IsUUID()
   @IsNotEmpty()
-  readonly mentorUserId: string;
+  readonly mentorUserId!: string;
 
   @IsUUID()
   @IsOptional()
@@ -63,19 +63,19 @@ export class SessionCompletedEvent implements IFinancialEvent {
 
   @IsString()
   @IsNotEmpty()
-  readonly mentorName: string;
+  readonly mentorName!: string;
 
   @IsString()
   @IsNotEmpty()
-  readonly studentName: string;
+  readonly studentName!: string;
 
   @IsString()
   @IsNotEmpty()
-  readonly serviceTypeCode: string;
+  readonly serviceTypeCode!: string;
 
   @IsString()
   @IsNotEmpty()
-  readonly serviceName: string;
+  readonly serviceName!: string;
 
   @IsNumber()
   @IsOptional()
@@ -83,11 +83,11 @@ export class SessionCompletedEvent implements IFinancialEvent {
 
   @IsDate()
   @IsNotEmpty()
-  readonly completedAt: Date;
+  readonly completedAt!: Date;
 
   @IsBoolean()
   @IsNotEmpty()
-  readonly requiredEvaluation: boolean;
+  readonly requiredEvaluation!: boolean;
 
   @IsUUID()
   @IsOptional()
@@ -115,47 +115,47 @@ export class SessionCompletedEvent implements IFinancialEvent {
 export class SessionEvaluatedEvent implements IFinancialEvent {
   @IsUUID()
   @IsNotEmpty()
-  readonly eventId: string;
+  readonly eventId!: string;
 
   @IsString()
   @IsNotEmpty()
-  readonly eventType: string;
+  readonly eventType!: string;
 
   @IsDate()
   @IsNotEmpty()
-  readonly eventTimestamp: Date;
+  readonly eventTimestamp!: Date;
 
   @IsString()
   @IsNotEmpty()
-  readonly eventVersion: string;
+  readonly eventVersion!: string;
 
   @IsUUID()
   @IsNotEmpty()
-  readonly sessionId: string;
+  readonly sessionId!: string;
 
   @IsUUID()
   @IsNotEmpty()
-  readonly mentorUserId: string;
+  readonly mentorUserId!: string;
 
   @IsUUID()
   @IsNotEmpty()
-  readonly studentUserId: string;
+  readonly studentUserId!: string;
 
   @IsString()
   @IsNotEmpty()
-  readonly mentorName: string;
+  readonly mentorName!: string;
 
   @IsString()
   @IsNotEmpty()
-  readonly studentName: string;
+  readonly studentName!: string;
 
   @IsString()
   @IsNotEmpty()
-  readonly serviceTypeCode: string;
+  readonly serviceTypeCode!: string;
 
   @IsString()
   @IsNotEmpty()
-  readonly serviceName: string;
+  readonly serviceName!: string;
 
   @IsNumber()
   @IsOptional()
@@ -163,25 +163,25 @@ export class SessionEvaluatedEvent implements IFinancialEvent {
 
   @IsDate()
   @IsNotEmpty()
-  readonly reviewedAt: Date;
+  readonly reviewedAt!: Date;
 
   @IsUUID()
   @IsNotEmpty()
-  readonly contractId: string;
+  readonly contractId!: string;
 
   @IsDate()
   @IsNotEmpty()
-  readonly startTime: Date;
+  readonly startTime!: Date;
 
   @IsDate()
   @IsNotEmpty()
-  readonly endTime: Date;
+  readonly endTime!: Date;
 
   @IsNumber()
   @Min(1)
   @Max(5)
   @IsNotEmpty()
-  readonly rating: number;
+  readonly rating!: number;
 
   @IsString()
   @IsOptional()

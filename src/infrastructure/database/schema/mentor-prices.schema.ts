@@ -16,12 +16,13 @@ import {
  * Design Principles:
  * 1. Mentor-specific: Each mentor can have different prices
  * 2. Service-specific: Different prices per service type
- * 3. Billing mode support: per_session, per_hour, package
+ * 3. Package-based pricing: Optional linking to service packages
  * 4. Status tracking: Active/inactive price configurations
+ * 5. Audit trail: Track creator and last updater
  *
  * Usage:
  * - Session Domain queries this table when session completes
- * - Returns billing mode and price for event publishing
+ * - Returns price for event publishing
  * - Financial Domain uses event data, not this table (avoid cross-domain queries)
  */
 export const mentorPrices = pgTable("mentor_prices", {
@@ -40,6 +41,12 @@ export const mentorPrices = pgTable("mentor_prices", {
    * Purpose: Snapshots service type at the time of pricing (no foreign key - ACL principle)
    */
   serviceTypeCode: varchar("service_type_code", { length: 50 }).notNull(),
+
+  /**
+   * Service Package ID - Optional reference to service package
+   * Purpose: Link to specific service package if pricing is package-based
+   */
+  servicePackageId: uuid("service_package_id"),
 
   /**
    * Unit Price - Price per session/hour/package
@@ -71,6 +78,12 @@ export const mentorPrices = pgTable("mentor_prices", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
+
+  /**
+   * Created By - Creator user ID (for audit trail)
+   * References: identity.users.id
+   */
+  createdBy: uuid("created_by"),
 
   /**
    * Updated At - Last update timestamp

@@ -24,7 +24,13 @@
       "@operations/*": ["src/operations/*"],
       "@infrastructure/*": ["src/infrastructure/*"],
       "@api/*": ["src/api/*"],
-      "@shared/*": ["src/shared/*"]
+      "@shared/*": ["src/shared/*"],
+      "test/utils/*": ["test/utils/*"],
+      "@test/*": ["test/*"]
     }
-  }
+  },
+  "include": [
+    "src/**/*",
+    "test/**/*"
+  ]
 }

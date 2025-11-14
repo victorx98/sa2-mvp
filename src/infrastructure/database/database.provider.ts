@@ -5,7 +5,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import * as dns from "dns";
 import { promisify } from "util";
 import * as schema from "./schema";
-import { createEnhancedDatabaseUrl } from "drizzle.config";
+import { createEnhancedDatabaseUrl } from "../../../drizzle.config";
 
 const resolve4 = promisify(dns.resolve4);
 const logger = new Logger("DatabaseProvider");

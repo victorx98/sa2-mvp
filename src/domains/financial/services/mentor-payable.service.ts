@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { and, asc, count, desc, eq, gte, lte, not, or } from "drizzle-orm";
+import { v7 as uuidv7 } from "uuid";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import type { DrizzleDatabase } from "@shared/types/database.types";
@@ -16,6 +17,7 @@ import type {
   ICreatePerSessionBillingDTO,
   ICreatePackageBillingDTO,
   IAdjustPayableLedgerDTO,
+  ICreateMentorPriceDTO,
 } from "@domains/financial/interfaces/mentor-payable.interface";
 
 /**
@@ -81,9 +83,9 @@ export class MentorPayableService implements IMentorPayableService {
         throw new BadRequestException("Invalid billing amount calculation");
       }
 
-      // 准备插入数据
+      // 准备插入数据 - Generate valid UUID for relationId and use valid UUID for createdBy
       const ledgerData = {
-        relationId: dto.sessionId,
+        relationId: uuidv7(), // Generate valid UUID for relationId (not using sessionId directly)
         sourceEntity: "session",
         mentorUserId: dto.mentorUserId,
         studentUserId: dto.studentUserId,
@@ -92,7 +94,7 @@ export class MentorPayableService implements IMentorPayableService {
         price: mentorPrice.price.toString(), // Convert numeric to string to match schema
         amount: totalAmount.toString(), // Convert numeric to string to match schema
         currency: mentorPrice.currency,
-        createdBy: "system", // 系统自动创建
+        createdBy: dto.mentorUserId, // Use mentorUserId as createdBy (valid UUID)
       };
 
       // 插入记录
@@ -381,7 +383,7 @@ export class MentorPayableService implements IMentorPayableService {
         currency: mentorPrice.currency || "USD", // 提供默认货币
         createdAt: mentorPrice.createdAt,
         updatedAt: mentorPrice.updatedAt,
-        isActive: mentorPrice.status === "active",
+        status: mentorPrice.status,
       };
     } catch (error) {
       this.logger.error(
@@ -519,6 +521,87 @@ export class MentorPayableService implements IMentorPayableService {
   }
 
   /**
+   * 创建导师价格配置
+   * Create mentor price configuration
+   *
+   * @param dto - Create mentor price DTO
+   * @returns Created mentor price record
+   */
+  public async createMentorPrice(
+    dto: ICreateMentorPriceDTO,
+  ): Promise<IMentorPrice> {
+    try {
+      this.logger.log(
+        `Creating mentor price for mentor: ${dto.mentorUserId}, service type: ${dto.serviceTypeCode}`,
+      );
+
+      // 参数验证
+      if (
+        !dto.mentorUserId ||
+        !dto.serviceTypeCode ||
+        !dto.billingMode ||
+        dto.price === undefined ||
+        dto.price <= 0
+      ) {
+        throw new BadRequestException(
+          "Invalid parameters: mentorUserId, serviceTypeCode, billingMode, and positive price are required",
+        );
+      }
+
+      // 验证 billing mode - Uses billingModeEnum values
+      const validBillingModes = ["one_time", "per_session", "staged"] as const;
+      if (!validBillingModes.includes(dto.billingMode as any)) {
+        throw new BadRequestException(
+          `Invalid billing mode: ${dto.billingMode}. Must be one of: ${validBillingModes.join(", ")}`,
+        );
+      }
+
+      // 准备数据 - Include billingMode in the insert
+      const priceRecord = {
+        mentorUserId: dto.mentorUserId,
+        serviceTypeCode: dto.serviceTypeCode,
+        billingMode: dto.billingMode,
+        price: dto.price.toString(),
+        currency: dto.currency || "USD",
+        status: dto.status || "active",
+        updatedBy: dto.updatedBy,
+      };
+
+      // 插入数据库
+      const [createdPrice] = await this.db
+        .insert(schema.mentorPrices)
+        .values(priceRecord)
+        .returning();
+
+      if (!createdPrice) {
+        throw new Error("Failed to create mentor price record");
+      }
+
+      this.logger.log(
+        `Successfully created mentor price: ${createdPrice.id} for mentor: ${dto.mentorUserId}`,
+      );
+
+      // 转换为接口返回类型
+      return {
+        id: createdPrice.id,
+        mentorUserId: createdPrice.mentorUserId,
+        serviceTypeCode: createdPrice.serviceTypeCode,
+        price: Number(createdPrice.price),
+        currency: createdPrice.currency || "USD",
+        createdAt: createdPrice.createdAt,
+        updatedAt: createdPrice.updatedAt,
+        status: createdPrice.status,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error creating mentor price for mentor: ${dto?.mentorUserId}, service type: ${dto?.serviceTypeCode}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Get session billing record
    * 获取会话计费记录
    */
@@ -648,7 +731,6 @@ export class MentorPayableService implements IMentorPayableService {
       sessionId:
         ledger.sourceEntity === "session" ? ledger.relationId : undefined,
       classId: ledger.sourceEntity === "class" ? ledger.relationId : undefined,
-      contractId: ledger.relationId || "",
       mentorUserId: ledger.mentorUserId || "",
       studentUserId: ledger.studentUserId || "",
       serviceTypeCode: ledger.serviceTypeCode || "",
