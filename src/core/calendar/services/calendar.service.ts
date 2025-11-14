@@ -360,13 +360,13 @@ export class CalendarService {
    * Update slot with session ID
    * Used when slot is created without session ID and needs to be linked later
    *
-   * @param slotId - Slot ID
+   * @param id - Calendar slot ID
    * @param sessionId - Session ID to link
    * @returns Updated ICalendarSlotEntity
    * @throws CalendarNotFoundException if slot doesn't exist
    */
   async updateSlotSessionId(
-    slotId: string,
+    id: string,
     sessionId: string,
     tx?: DrizzleTransaction,
   ): Promise<ICalendarSlotEntity> {
@@ -374,12 +374,12 @@ export class CalendarService {
     const result = await executor.execute(sql`
       UPDATE calendar
       SET session_id = ${sessionId}, updated_at = NOW()
-      WHERE id = ${slotId}
+      WHERE id = ${id}
       RETURNING *
     `);
 
     if (result.rows.length === 0) {
-      throw new CalendarNotFoundException(`Slot not found: ${slotId}`);
+      throw new CalendarNotFoundException(`Slot not found: ${id}`);
     }
 
     return this.mapToEntity(result.rows[0]);

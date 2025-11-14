@@ -154,10 +154,17 @@ export class BookSessionCommand {
           tx,
         );
 
+        // Step 7: Update calendar slot with session ID
+        const updatedSlot = await this.calendarService.updateSlotSessionId(
+          calendarSlot.id,
+          session.id,
+          tx,
+        );
+
         return {
           session,
           hold,
-          calendarSlot,
+          calendarSlot: updatedSlot,
           meetingInfo,
         };
       });
