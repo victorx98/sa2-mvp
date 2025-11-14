@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { eq } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import { v4 as uuidv4 } from "uuid";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import type {
@@ -204,15 +205,10 @@ export class UserService implements IUserService {
 
   /**
    * Generate a unique user ID
-   * Uses timestamp-based ID generation
-   * TODO: Consider using a proper ID generator (e.g., nanoid, uuid) in production
+   * Uses UUID v4 for generating unique identifiers
    */
   private generateId(): string {
-    // Generate ID using timestamp
-    // Format: user-{timestamp}
-    // Note: This is a simple implementation. In production, consider using a proper ID generator
-    const timestamp = Date.now();
-    return `user-${timestamp}`;
+    return uuidv4();
   }
 }
 
