@@ -135,20 +135,11 @@ export class SessionController {
   ): Promise<BookSessionOutput> {
     // ✅ 直接调用 Application Layer 服务
     // 注意：对于学生自己预约，暂时使用学生的 ID 作为 counselorId
-    // 未来可能需要调整业务逻辑
-    const startTime = new Date(bookSessionDto.startTime);
-    const endTime = new Date(
-      startTime.getTime() + bookSessionDto.duration * 60000,
-    );
-
     const input: BookSessionInput = {
       counselorId: user.id, // TODO: 学生自己预约时，可能需要不同的处理
       studentId: bookSessionDto.studentId,
       mentorId: bookSessionDto.mentorId,
-      contractId: bookSessionDto.contractId,
-      serviceType: bookSessionDto.serviceType || ("session" as any),
-      scheduledStartTime: startTime,
-      scheduledEndTime: endTime,
+      scheduledStartTime: bookSessionDto.startTime,
       duration: bookSessionDto.duration,
       topic: bookSessionDto.name,
       meetingProvider: bookSessionDto.provider,

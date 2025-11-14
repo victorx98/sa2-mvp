@@ -14,6 +14,7 @@ import { SessionService } from "@domains/services/session/services/session.servi
 import { ServiceHoldService } from "@domains/contract/services/service-hold.service";
 import { BookSessionInput } from "./dto/book-session-input.dto";
 import { BookSessionOutput } from "./dto/book-session-output.dto";
+import type { ServiceType } from "@domains/contract/common/types/enum.types";
 import { TimeConflictException } from "@shared/exceptions";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import type {
@@ -86,7 +87,7 @@ export class BookSessionCommand {
         // Step 2: 创建服务预占
         const hold = await this.serviceHoldService.createHold({
           studentId: input.studentId,
-          serviceType: input.serviceType,
+          serviceType: 'session' as ServiceType,
           quantity: 1,
           createdBy: input.counselorId,
         }, tx);
@@ -94,20 +95,29 @@ export class BookSessionCommand {
 
         // Step 3: Try to create calendar slot directly (atomic with DB constraint)
         // Let the database EXCLUDE constraint handle conflicts
-        const calendarSlot = await this.calendarService.createSlotDirect(
-          {
+        const [mentorCalendarSlot, studentCalendarSlot] = await Promise.all([
+          this.calendarService.createSlotDirect({
             userId: input.mentorId,
             userType: UserType.MENTOR,
-            startTime: input.scheduledStartTime.toISOString(),
+            startTime: input.scheduledStartTime,
             durationMinutes: input.duration,
             slotType: SlotType.SESSION,
             sessionId: undefined, // Will be updated after session creation
-          },
-          tx,
-        );
+          }, tx),
+          this.calendarService.createSlotDirect({
+            userId: input.studentId,
+            userType: UserType.STUDENT,
+            startTime: input.scheduledStartTime,
+            durationMinutes: input.duration,
+            slotType: SlotType.SESSION,
+            sessionId: undefined, // Will be updated after session creation
+          }, tx)
+        ]);
         
-        if (!calendarSlot) {
+        if (!mentorCalendarSlot) {
           throw new TimeConflictException("The mentor already has a conflict");
+        } if (!studentCalendarSlot) {
+          throw new TimeConflictException("The student already has a conflict");
         }
 
         // Step 5: 创建会议链接（在事务内，先创建）
@@ -125,7 +135,7 @@ export class BookSessionCommand {
             )
             .createMeeting({
               topic: input.topic,
-              startTime: input.scheduledStartTime,
+              startTime: new Date(input.scheduledStartTime),
               duration: input.duration,
               hostUserId: input.mentorId,
             });
@@ -142,8 +152,7 @@ export class BookSessionCommand {
           {
             studentId: input.studentId,
             mentorId: input.mentorId,
-            contractId: input.contractId,
-            scheduledStartTime: input.scheduledStartTime.toISOString(),
+            scheduledStartTime: input.scheduledStartTime,
             scheduledDuration: input.duration,
             sessionName: input.topic,
             meetingProvider: input.meetingProvider as MeetingProvider,
@@ -155,16 +164,24 @@ export class BookSessionCommand {
         );
 
         // Step 7: Update calendar slot with session ID
-        const updatedSlot = await this.calendarService.updateSlotSessionId(
-          calendarSlot.id,
-          session.id,
-          tx,
-        );
+        const [updatedMentorCalendarSlot, updatedStudentCalendarSlot] = await Promise.all([
+          this.calendarService.updateSlotSessionId(
+            mentorCalendarSlot.id,
+            session.id,
+            tx,
+          ),
+          this.calendarService.updateSlotSessionId(
+            studentCalendarSlot.id,
+            session.id,
+            tx,
+          ),
+        ]);
 
         return {
           session,
           hold,
-          calendarSlot: updatedSlot,
+          mentorCalendarSlot: updatedMentorCalendarSlot,
+          studentCalendarSlot: updatedStudentCalendarSlot,
           meetingInfo,
         };
       });
@@ -178,11 +195,11 @@ export class BookSessionCommand {
       studentId: input.studentId,
       mentorId: input.mentorId,
       counselorId: input.counselorId,
-      serviceType: input.serviceType,
-      calendarSlotId: sessionResult.calendarSlot.id,
+      serviceType: 'session' as ServiceType,
+      mentorCalendarSlotId: sessionResult.mentorCalendarSlot.id,
+      studentCalendarSlotId: sessionResult.studentCalendarSlot.id,
       serviceHoldId: sessionResult.hold.id,
-      scheduledStartTime: input.scheduledStartTime.toISOString(),
-      scheduledEndTime: input.scheduledEndTime.toISOString(),
+      scheduledStartTime: input.scheduledStartTime,
       duration: input.duration,
       meetingUrl: sessionResult.meetingInfo.meetingUrl,
       meetingProvider: sessionResult.meetingInfo.provider,
