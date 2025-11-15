@@ -98,13 +98,18 @@ export class OtelLoggerService extends ConsoleLogger {
     invokeSuper: (message: unknown, optionalParams: unknown[]) => void,
   ): void {
     const { formattedMessage, superParams } = this.prepareConsoleArguments(level, message, optionalParams);
-    this.emitOtelLog(level, message, optionalParams);
+    this.emitOtelLog(level, formattedMessage, message, optionalParams);
 
     const messageWithTrace = this.injectTraceContext(formattedMessage);
     invokeSuper(messageWithTrace, superParams);
   }
 
-  private emitOtelLog(level: LogLevel, message: unknown, optionalParams: unknown[]): void {
+  private emitOtelLog(
+    level: LogLevel,
+    formattedMessage: unknown,
+    originalMessage: unknown,
+    optionalParams: unknown[],
+  ): void {
     const severityNumber = this.mapSeverity(level);
     const spanContext = getActiveSpanContext();
     const attributes: LogAttributes = {};
@@ -122,7 +127,7 @@ export class OtelLoggerService extends ConsoleLogger {
       attributes["spanId"] = spanContext.spanId;
     }
 
-    const inputError = this.extractError(message, optionalParams);
+    const inputError = this.extractError(originalMessage, optionalParams);
     if (inputError) {
       attributes["exception.type"] = inputError.name;
       attributes["exception.message"] = inputError.message;
@@ -131,12 +136,13 @@ export class OtelLoggerService extends ConsoleLogger {
       }
     }
 
-    const body = this.formatForSpan(message);
+    const messageForBody = formattedMessage ?? originalMessage;
+    const body = this.formatForSpan(messageForBody);
     try {
       this.otelLogger.emit({
         severityNumber,
         severityText: level.toUpperCase(),
-        body: body ?? (message === undefined ? "undefined" : String(message)),
+        body: body ?? (messageForBody === undefined ? "undefined" : String(messageForBody)),
         attributes,
         timestamp: Date.now(),
         context: spanContext ? trace.setSpan(context.active(), trace.wrapSpanContext(spanContext)) : context.active(),

@@ -41,13 +41,15 @@ const resource = resourceFromAttributes({
 });
 
 function buildSdk(): NodeSDK {
+  const authHeaders = process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN
+    ? { Authorization: `Basic ${process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN}` }
+    : undefined;
+
   const traceExporter = new OTLPTraceExporter({
     url:
       process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ??
       process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-    headers: {
-      Authorization: `Basic ${process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN}`,
-    },
+    ...(authHeaders ? { headers: authHeaders } : {}),
   });
 
   const metricReader = new PeriodicExportingMetricReader({
@@ -55,9 +57,7 @@ function buildSdk(): NodeSDK {
       url:
         process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT ??
         process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-      headers: {
-        Authorization: `Basic ${process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN}`,
-      },
+      ...(authHeaders ? { headers: authHeaders } : {}),
     }),
   });
 
@@ -66,9 +66,7 @@ function buildSdk(): NodeSDK {
       url:
         process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT ??
         process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-      headers: {
-        Authorization: `Basic ${process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN}`,
-      },
+      ...(authHeaders ? { headers: authHeaders } : {}),
     }),
   );
 
