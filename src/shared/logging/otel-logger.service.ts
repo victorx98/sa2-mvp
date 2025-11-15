@@ -1,5 +1,6 @@
 import { ConsoleLogger, ConsoleLoggerOptions, Injectable, LogLevel } from "@nestjs/common";
-import { SpanContext, SpanStatusCode, trace } from "@opentelemetry/api";
+import { context, SpanContext, trace } from "@opentelemetry/api";
+import { logs, Logger as OtelLogEmitter, SeverityNumber, LogAttributes } from "@opentelemetry/api-logs";
 import { formatWithOptions } from "util";
 
 type JsonLogObject = ReturnType<ConsoleLogger["getJsonLogObject"]>;
@@ -20,43 +21,52 @@ function getActiveSpanContext(): SpanContext | null {
 
 @Injectable()
 export class OtelLoggerService extends ConsoleLogger {
-  private readonly tracer = trace.getTracer("logger");
+  private readonly otelLogger: OtelLogEmitter;
 
   constructor();
   constructor(context: string);
   constructor(options: ConsoleLoggerOptions);
   constructor(context: string, options: ConsoleLoggerOptions);
   constructor(contextOrOptions?: string | ConsoleLoggerOptions, options?: ConsoleLoggerOptions) {
-    const context = typeof contextOrOptions === "string" ? contextOrOptions : undefined;
+    const contextLabel = typeof contextOrOptions === "string" ? contextOrOptions : undefined;
     const resolvedOptions =
       typeof contextOrOptions === "string" ? options : (contextOrOptions as ConsoleLoggerOptions | undefined);
-    super(context, resolvedOptions);
+    super(contextLabel, resolvedOptions);
+    this.otelLogger = logs.getLogger("sa2-mvp-logger");
   }
 
   override log(message: any, ...optionalParams: [...any, string?]): void {
-    this.logWithSpan("log", message, optionalParams, (msg, params) => super.log(msg, ...(params as [...any, string?])));
+    this.logInternal("log", message, optionalParams, (msg, params) =>
+      super.log(msg, ...(params as [...any, string?])),
+    );
   }
 
   override error(message: any, ...optionalParams: [...any, string?, string?]): void {
-    this.logWithSpan("error", message, optionalParams, (msg, params) =>
+    this.logInternal("error", message, optionalParams, (msg, params) =>
       super.error(msg, ...(params as [...any, string?, string?])),
     );
   }
 
   override warn(message: any, ...optionalParams: [...any, string?]): void {
-    this.logWithSpan("warn", message, optionalParams, (msg, params) => super.warn(msg, ...(params as [...any, string?])));
+    this.logInternal("warn", message, optionalParams, (msg, params) =>
+      super.warn(msg, ...(params as [...any, string?])),
+    );
   }
 
   override debug(message: any, ...optionalParams: [...any, string?]): void {
-    super.debug(this.injectTraceContext(message), ...optionalParams);
+    this.logInternal("debug", message, optionalParams, (msg, params) =>
+      super.debug(msg, ...(params as [...any, string?])),
+    );
   }
 
   override verbose(message: any, ...optionalParams: [...any, string?]): void {
-    super.verbose(this.injectTraceContext(message), ...optionalParams);
+    this.logInternal("verbose", message, optionalParams, (msg, params) =>
+      super.verbose(msg, ...(params as [...any, string?])),
+    );
   }
 
   override fatal(message: any, ...optionalParams: [...any, string?]): void {
-    this.logWithSpan("fatal", message, optionalParams, (msg, params) =>
+    this.logInternal("fatal", message, optionalParams, (msg, params) =>
       super.fatal(msg, ...(params as [...any, string?])),
     );
   }
@@ -81,53 +91,87 @@ export class OtelLoggerService extends ConsoleLogger {
     return base;
   }
 
-  // Wrap high-signal log levels in dedicated spans so they surface in trace backends.
-  private logWithSpan(
+  private logInternal(
     level: LogLevel,
     message: unknown,
     optionalParams: unknown[],
     invokeSuper: (message: unknown, optionalParams: unknown[]) => void,
   ): void {
     const { formattedMessage, superParams } = this.prepareConsoleArguments(level, message, optionalParams);
+    this.emitOtelLog(level, formattedMessage, message, optionalParams);
 
-    this.tracer.startActiveSpan(this.buildSpanName(level), (span) => {
-      try {
-        span.setAttribute("logger.level", level);
-        if (this.context) {
-          span.setAttribute("logger.context", this.context);
-        }
+    const messageWithTrace = this.injectTraceContext(formattedMessage);
+    invokeSuper(messageWithTrace, superParams);
+  }
 
-        const messageForSpan = this.formatForSpan(message);
-        if (messageForSpan !== undefined) {
-          span.setAttribute("logger.message", messageForSpan);
-        }
+  private emitOtelLog(
+    level: LogLevel,
+    formattedMessage: unknown,
+    originalMessage: unknown,
+    optionalParams: unknown[],
+  ): void {
+    const severityNumber = this.mapSeverity(level);
+    const spanContext = getActiveSpanContext();
+    const attributes: LogAttributes = {};
 
-        if (optionalParams.length > 0) {
-          span.setAttribute("logger.optional_param_count", optionalParams.length);
-        }
+    if (this.context) {
+      attributes["logger.context"] = this.context;
+    }
 
-        const inputError = this.extractError(message, optionalParams);
-        if (inputError) {
-          span.recordException(inputError);
-          span.setStatus({ code: SpanStatusCode.ERROR, message: inputError.message });
-        } else if (level === "error" || level === "fatal") {
-          span.setStatus({
-            code: SpanStatusCode.ERROR,
-            message: typeof message === "string" ? message : undefined,
-          });
-        }
+    if (optionalParams.length > 0) {
+      attributes["logger.optional_param_count"] = optionalParams.length;
+    }
 
-        const messageWithTrace = this.injectTraceContext(formattedMessage);
-        invokeSuper(messageWithTrace, superParams);
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        span.recordException(err);
-        span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
-        throw error;
-      } finally {
-        span.end();
+    if (spanContext) {
+      attributes["traceId"] = spanContext.traceId;
+      attributes["spanId"] = spanContext.spanId;
+    }
+
+    const inputError = this.extractError(originalMessage, optionalParams);
+    if (inputError) {
+      attributes["exception.type"] = inputError.name;
+      attributes["exception.message"] = inputError.message;
+      if (inputError.stack) {
+        attributes["exception.stacktrace"] = inputError.stack;
       }
-    });
+    }
+
+    const messageForBody = formattedMessage ?? originalMessage;
+    const body = this.formatForSpan(messageForBody);
+    try {
+      this.otelLogger.emit({
+        severityNumber,
+        severityText: level.toUpperCase(),
+        body: body ?? (messageForBody === undefined ? "undefined" : String(messageForBody)),
+        attributes,
+        timestamp: Date.now(),
+        context: spanContext ? trace.setSpan(context.active(), trace.wrapSpanContext(spanContext)) : context.active(),
+      });
+    } catch (error) {
+      // Swallow emitter failures to avoid infinite recursion in logging.
+      // Use console.debug directly to avoid triggering this logger again.
+      if (process.env.OTEL_LOG_LEVEL === "DEBUG") {
+        console.debug("[OtelLogger] Failed to emit log to OTLP:", error instanceof Error ? error.message : error);
+      }
+    }
+  }
+
+  private mapSeverity(level: LogLevel): SeverityNumber {
+    switch (level) {
+      case "fatal":
+        return SeverityNumber.FATAL;
+      case "error":
+        return SeverityNumber.ERROR;
+      case "warn":
+        return SeverityNumber.WARN;
+      case "debug":
+        return SeverityNumber.DEBUG;
+      case "verbose":
+        return SeverityNumber.TRACE;
+      case "log":
+      default:
+        return SeverityNumber.INFO;
+    }
   }
 
   private injectTraceContext(message: unknown): unknown {
@@ -149,11 +193,6 @@ export class OtelLoggerService extends ConsoleLogger {
     }
 
     return `${String(message)} [traceId=${spanContext.traceId} spanId=${spanContext.spanId}]`;
-  }
-
-  private buildSpanName(level: LogLevel): string {
-    const contextLabel = this.context ?? "Logger";
-    return `${contextLabel}.${level}`;
   }
 
   private formatForSpan(message: unknown): string | undefined {
