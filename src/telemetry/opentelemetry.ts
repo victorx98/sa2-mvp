@@ -1,4 +1,4 @@
-import { diag, DiagConsoleLogger, DiagLogLevel, trace } from "@opentelemetry/api";
+import { diag, DiagConsoleLogger, DiagLogLevel } from "@opentelemetry/api";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
@@ -7,10 +7,9 @@ import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { resourceFromAttributes } from "@opentelemetry/resources";
-import { ATTR_SERVICE_NAME, ATTR_SERVER_ADDRESS, ATTR_SERVICE_VERSION, SEMRESATTRS_DEPLOYMENT_ENVIRONMENT } from "@opentelemetry/semantic-conventions";
+import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION, SEMRESATTRS_DEPLOYMENT_ENVIRONMENT } from "@opentelemetry/semantic-conventions";
 
-const isTelemetryEnabled =
-  process.env.OTEL_ENABLED !== "false" && process.env.NODE_ENV !== "development";
+const isTelemetryEnabled = process.env.OTEL_ENABLED !== "false";
 
 if (process.env.OTEL_LOG_LEVEL) {
   const logLevel = process.env.OTEL_LOG_LEVEL.toUpperCase();
@@ -24,7 +23,10 @@ let sdk: NodeSDK | null = null;
 let sdkStarting = false;
 let startupError: Error | null = null;
 
-const serviceName = process.env.SERVICE_NAME;
+const serviceName =
+  process.env.SERVICE_NAME ??
+  process.env.npm_package_name ??
+  "sa2-mvp";
 
 const resource = resourceFromAttributes({
   [ATTR_SERVICE_NAME]: serviceName,
@@ -97,7 +99,7 @@ function buildSdk(): NodeSDK {
 
 export async function ensureTelemetryStarted(): Promise<void> {
   if (!isTelemetryEnabled) {
-    console.log('OpenTelemetry is disabled (OTEL_ENABLED=false or NODE_ENV=development)');
+    console.log('OpenTelemetry is disabled (OTEL_ENABLED=false)');
     return;
   }
 
@@ -107,11 +109,6 @@ export async function ensureTelemetryStarted(): Promise<void> {
 
   if (sdkStarting) {
     console.warn('OpenTelemetry SDK is already starting...');
-    return;
-  }
-
-  if (!serviceName) {
-    console.warn('SERVICE_NAME environment variable is not set. Telemetry will not start.');
     return;
   }
 
@@ -128,7 +125,7 @@ export async function ensureTelemetryStarted(): Promise<void> {
 
   sdkStarting = true;
   try {
-    sdk.start();
+    await sdk.start();
     console.log(`OpenTelemetry SDK started successfully for service: ${serviceName}`);
     sdkStarted = true;
     startupError = null;
@@ -186,8 +183,3 @@ export function getTelemetryStatus(): {
     serviceName,
   };
 }
-
-ensureTelemetryStarted().catch((error) => {
-  // eslint-disable-next-line no-console
-  console.error("Unhandled error starting OpenTelemetry SDK", error);
-});

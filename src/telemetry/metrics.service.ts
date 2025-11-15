@@ -35,6 +35,7 @@ export class MetricsService {
   // Service consumption metrics
   private readonly serviceConsumedCounter: Counter;
   private readonly serviceBalanceGauge: UpDownCounter;
+  private readonly operationDurationHistogram: Histogram;
 
   constructor() {
     // Initialize booking metrics
@@ -142,6 +143,11 @@ export class MetricsService {
         unit: 'units',
       },
     );
+
+    this.operationDurationHistogram = this.meter.createHistogram('operation.duration', {
+      description: 'Duration of operations',
+      unit: 'ms',
+    });
   }
 
   // Booking metrics methods
@@ -235,17 +241,13 @@ export class MetricsService {
    * timer.end('operation.name', { operation: 'booking' });
    * ```
    */
-  startTimer(): { end: (metricName: string, attributes?: Record<string, string | number>) => void } {
+  startTimer(): { end: (metricName?: string, attributes?: Record<string, string | number>) => void } {
     const start = Date.now();
-    const histogram = this.meter.createHistogram('operation.duration', {
-      description: 'Duration of operations',
-      unit: 'ms',
-    });
 
     return {
       end: (metricName?: string, attributes?: Record<string, string | number>) => {
         const duration = Date.now() - start;
-        histogram.record(duration, {
+        this.operationDurationHistogram.record(duration, {
           ...attributes,
           operation: metricName || 'unknown',
         });
