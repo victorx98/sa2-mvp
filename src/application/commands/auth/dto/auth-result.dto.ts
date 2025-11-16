@@ -5,11 +5,15 @@
  */
 export interface AuthResultDto {
   accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  tokenType: string;
   user: {
     id: string;
     email: string;
     nickname?: string;
     cnNickname?: string;
-    status: string;
+    status?: string;
+    roles: string[];
   };
 }

@@ -2,17 +2,16 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { UserService } from "./user-service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
-import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 describe("UserService", () => {
   let service: UserService;
-  let db: NodePgDatabase<typeof schema>;
 
   const mockDb = {
     select: jest.fn(),
     insert: jest.fn(),
     update: jest.fn(),
-    delete: jest.fn(),
+    transaction: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -27,7 +26,6 @@ describe("UserService", () => {
     }).compile();
 
     service = module.get<UserService>(UserService);
-    db = module.get<NodePgDatabase<typeof schema>>(DATABASE_CONNECTION);
   });
 
   afterEach(() => {
@@ -131,46 +129,11 @@ describe("UserService", () => {
     });
   });
 
-  describe("findByEmailWithPassword", () => {
-    it("should return user with password when found", async () => {
-      const mockUser = {
-        id: "user-1",
-        email: "test@example.com",
-        nickname: "Test User",
-        cnNickname: null,
-        gender: null,
-        status: "active",
-        country: null,
-        password: "hashed-password",
-        createdTime: new Date(),
-        modifiedTime: new Date(),
-        createdBy: null,
-        updatedBy: null,
-      };
-
-      const mockQuery = {
-        from: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockResolvedValue([mockUser]),
-      };
-
-      mockDb.select.mockReturnValue(mockQuery);
-
-      const result = await service.findByEmailWithPassword(
-        "test@example.com",
-      );
-
-      expect(result).toBeDefined();
-      expect(result?.email).toBe("test@example.com");
-      expect(result?.password).toBe("hashed-password");
-    });
-  });
-
   describe("create", () => {
     it("should create a new user", async () => {
       const newUser = {
+        id: "user-2",
         email: "newuser@example.com",
-        password: "hashed-password",
         nickname: "New User",
         status: "active",
       };
@@ -183,7 +146,6 @@ describe("UserService", () => {
         gender: null,
         status: "active",
         country: null,
-        password: "hashed-password",
         createdTime: new Date(),
         modifiedTime: new Date(),
         createdBy: null,
@@ -201,8 +163,19 @@ describe("UserService", () => {
 
       expect(result).toBeDefined();
       expect(result.email).toBe("newuser@example.com");
+      expect(result.id).toBe("user-2");
       expect(mockDb.insert).toHaveBeenCalled();
-      expect(mockInsert.values).toHaveBeenCalled();
+      expect(mockInsert.values).toHaveBeenCalledWith({
+        id: "user-2",
+        email: "newuser@example.com",
+        nickname: "New User",
+        cnNickname: null,
+        gender: null,
+        status: "active",
+        country: null,
+        createdBy: null,
+        updatedBy: null,
+      });
       expect(mockInsert.returning).toHaveBeenCalled();
     });
 
@@ -217,15 +190,80 @@ describe("UserService", () => {
       );
     });
 
-    it("should throw error when password is missing", async () => {
+    // Password validation removed - Supabase manages credentials
+  });
+
+  describe("createWithRoles", () => {
+    it("should create user and assign roles within a transaction", async () => {
       const newUser = {
-        email: "newuser@example.com",
-        nickname: "New User",
+        id: "user-3",
+        email: "roleuser@example.com",
+        nickname: "Role User",
       };
 
-      await expect(service.create(newUser as any)).rejects.toThrow(
-        "Password is required",
+      const mockCreatedUser = {
+        id: "user-3",
+        email: "roleuser@example.com",
+        nickname: "Role User",
+        cnNickname: null,
+        gender: null,
+        status: "active",
+        country: null,
+        createdTime: new Date(),
+        modifiedTime: new Date(),
+        createdBy: null,
+        updatedBy: null,
+      };
+
+      const mockUserInsert = {
+        values: jest.fn().mockReturnThis(),
+        returning: jest.fn().mockResolvedValue([mockCreatedUser]),
+      };
+
+      const mockRoleInsert = {
+        values: jest.fn().mockResolvedValue(undefined),
+      };
+
+      const rolesQuery = {
+        from: jest.fn().mockReturnValue({
+          where: jest
+            .fn()
+            .mockResolvedValue([{ roleId: "student" }, { roleId: "mentor" }]),
+        }),
+      };
+
+      const mockTransaction = {
+        insert: jest
+          .fn()
+          .mockReturnValueOnce(mockUserInsert)
+          .mockReturnValueOnce(mockRoleInsert),
+        select: jest.fn().mockReturnValue(rolesQuery),
+      };
+
+      mockDb.transaction.mockImplementation(async (callback) =>
+        callback(mockTransaction as unknown as NodePgDatabase<typeof schema>),
       );
+
+      const result = await service.createWithRoles(newUser, [
+        "student",
+        "mentor",
+      ]);
+
+      expect(result).toBeDefined();
+      expect(result.roles).toEqual(["student", "mentor"]);
+      expect(mockDb.transaction).toHaveBeenCalled();
+      expect(mockTransaction.insert).toHaveBeenCalledTimes(2);
+    });
+
+    it("should throw error when roles array is empty", async () => {
+      const newUser = {
+        id: "user-4",
+        email: "emptyroles@example.com",
+      };
+
+      await expect(
+        service.createWithRoles(newUser as any, []),
+      ).rejects.toThrow("At least one role is required");
     });
   });
 
@@ -244,7 +282,6 @@ describe("UserService", () => {
         gender: null,
         status: "inactive",
         country: null,
-        password: "hashed-password",
         createdTime: new Date(),
         modifiedTime: new Date(),
         createdBy: null,
@@ -257,17 +294,26 @@ describe("UserService", () => {
         returning: jest.fn().mockResolvedValue([mockUpdatedUser]),
       };
 
+      const rolesQuery = {
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([{ roleId: "mentor" }]),
+        }),
+      };
+
       mockDb.update.mockReturnValue(mockUpdate);
+      mockDb.select.mockReturnValue(rolesQuery);
 
       const result = await service.update("user-1", updateData);
 
       expect(result).toBeDefined();
       expect(result.nickname).toBe("Updated User");
       expect(result.status).toBe("inactive");
+      expect(result.roles).toEqual(["mentor"]);
       expect(mockDb.update).toHaveBeenCalled();
       expect(mockUpdate.set).toHaveBeenCalled();
       expect(mockUpdate.where).toHaveBeenCalled();
       expect(mockUpdate.returning).toHaveBeenCalled();
+      expect(mockDb.select).toHaveBeenCalled();
     });
 
     it("should throw error when user not found", async () => {
@@ -285,4 +331,3 @@ describe("UserService", () => {
     });
   });
 });
-

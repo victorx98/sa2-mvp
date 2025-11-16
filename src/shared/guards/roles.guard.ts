@@ -35,10 +35,7 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
-    // 检查用户角色是否匹配（支持多角色）
-    // TODO: 实现用户角色管理后，从user.roles获取角色列表
-    // 目前简化处理，假设user对象有role字段
-    const userRoles = user.roles || [user.role];
+    const userRoles: string[] = Array.isArray(user.roles) ? user.roles : [];
 
     return requiredRoles.some((role) => userRoles.includes(role));
   }

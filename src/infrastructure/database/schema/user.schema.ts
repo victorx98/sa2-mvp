@@ -16,8 +16,8 @@ export const userTable = pgTable("user", {
     .notNull()
     .defaultNow()
     .$onUpdate(() => new Date()),
-  createdBy: varchar("created_by", { length: 32 }),
-  updatedBy: varchar("updated_by", { length: 32 }),
+  createdBy: uuid("created_by"),
+  updatedBy: uuid("updated_by"),
 });
 
 export type User = typeof userTable.$inferSelect;

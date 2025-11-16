@@ -1,27 +1,38 @@
+import type { DrizzleTransaction } from "@shared/types/database.types";
+
 /**
  * User Interface
  * 用户实体接口定义
  */
 export interface User {
   id: string;
+  email: string;
   gender?: string;
   nickname?: string;
   cnNickname?: string;
   status?: string;
-  email?: string;
   country?: string;
   createdTime?: Date;
   modifiedTime?: Date;
   createdBy?: string;
   updatedBy?: string;
+  roles?: string[];
 }
 
 /**
- * User with Password Interface
- * 包含密码的用户实体接口
+ * Create User Input
+ * 创建用户所需字段
  */
-export interface UserWithPassword extends User {
-  password: string;
+export interface CreateUserInput {
+  id: string;
+  email: string;
+  nickname?: string;
+  cnNickname?: string;
+  gender?: string;
+  status?: string;
+  country?: string;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 /**
@@ -30,10 +41,24 @@ export interface UserWithPassword extends User {
  */
 export interface IUserService {
   findById(id: string): Promise<User | null>;
+  findByIdWithRoles(id: string): Promise<User | null>;
   findByEmail(email: string): Promise<User | null>;
-  findByEmailWithPassword(email: string): Promise<UserWithPassword | null>;
-  create(user: Partial<UserWithPassword>): Promise<User>;
-  update(id: string, user: Partial<User>): Promise<User>;
+  create(user: CreateUserInput, tx?: DrizzleTransaction): Promise<User>;
+  createWithRoles(
+    user: CreateUserInput,
+    roles: string[],
+    tx?: DrizzleTransaction,
+  ): Promise<User>;
+  assignRoles(
+    userId: string,
+    roles: string[],
+    tx?: DrizzleTransaction,
+  ): Promise<string[]>;
+  getRolesByUserId(
+    userId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<string[]>;
+  update(id: string, user: Partial<CreateUserInput>): Promise<User>;
 }
 
 /**
@@ -41,4 +66,3 @@ export interface IUserService {
  * 用于依赖注入的 token
  */
 export const USER_SERVICE = Symbol("USER_SERVICE");
-

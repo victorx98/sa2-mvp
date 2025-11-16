@@ -1,8 +1,4 @@
 import { Module } from "@nestjs/common";
-import { JwtModule } from "@nestjs/jwt";
-import { ConfigModule, ConfigService } from "@nestjs/config";
-import { PassportModule } from "@nestjs/passport";
-import type { StringValue } from "ms";
 
 // Infrastructure
 import { DatabaseModule } from "@infrastructure/database/database.module";
@@ -31,9 +27,6 @@ import { SessionModule } from "@domains/services/session/session.module";
 import { ContractModule } from "@domains/contract/contract.module";
 import { QueryModule } from "@domains/query/query.module";
 
-// Shared
-import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";
-
 /**
  * Application Layer - Root Module
  * 职责：
@@ -50,19 +43,6 @@ import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";
     SessionModule, // Domain层：Session
     ContractModule, // Domain层：Contract
     QueryModule, // Domain层：Query (跨域查询)
-    PassportModule.register({ defaultStrategy: "jwt" }),
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>("JWT_SECRET"),
-        signOptions: {
-          expiresIn: (configService.get<string>("JWT_EXPIRATION") || "24h") as
-            | StringValue
-            | number,
-        },
-      }),
-      inject: [ConfigService],
-    }),
   ],
   providers: [
     // Core Services
@@ -79,9 +59,6 @@ import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";
 
     // Commands (兼容层)
     AuthCommandService,
-
-    // Shared
-    JwtStrategy,
   ],
   exports: [
     // Core Services
@@ -104,10 +81,6 @@ import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";
 
     // Commands (兼容层 - 保持向后兼容)
     AuthCommandService,
-
-    // Shared
-    JwtStrategy,
-    PassportModule,
   ],
 })
 export class ApplicationModule {}

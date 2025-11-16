@@ -18,11 +18,12 @@ import { USER_SERVICE } from "./user-interface";
  * - Dependency Injection - 依赖注入
  *
  * 实现的服务：
- * ✅ UserService - 用户数据访问服务（5个方法）
+ * ✅ UserService - 用户数据访问服务
  *   - findById - 根据ID查找用户
+ *   - findByIdWithRoles - 根据ID查找用户并返回角色
  *   - findByEmail - 根据邮箱查找用户
- *   - findByEmailWithPassword - 根据邮箱查找用户（包含密码）
- *   - create - 创建新用户
+ *   - create/createWithRoles - 创建新用户
+ *   - assignRoles - 分配角色
  *   - update - 更新用户信息
  */
 @Module({
@@ -44,4 +45,3 @@ import { USER_SERVICE } from "./user-interface";
   ],
 })
 export class UserModule {}
-

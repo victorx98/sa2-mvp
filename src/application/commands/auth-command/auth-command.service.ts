@@ -33,9 +33,12 @@ export class AuthCommandService {
   }
 
   async validateUser(userId: string): Promise<any> {
-    const user = await this.userService.findById(userId);
+    const user = await this.userService.findByIdWithRoles(userId);
     if (!user) {
       throw new UnauthorizedException("User not found");
+    }
+    if (user.status && user.status !== "active") {
+      throw new UnauthorizedException("User account is not active");
     }
     return user;
   }

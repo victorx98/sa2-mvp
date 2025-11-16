@@ -8,7 +8,11 @@ import type {
   DrizzleExecutor,
   DrizzleTransaction,
 } from "@shared/types/database.types";
-import { IUserService, User, UserWithPassword } from "./user-interface";
+import {
+  CreateUserInput,
+  IUserService,
+  User,
+} from "./user-interface";
 
 /**
  * User Service
@@ -43,6 +47,24 @@ export class UserService implements IUserService {
   }
 
   /**
+   * Find user by ID with roles
+   *
+   * @param id - User ID
+   * @returns User entity including roles or null
+   */
+  async findByIdWithRoles(id: string): Promise<User | null> {
+    const user = await this.findById(id);
+    if (!user) {
+      return null;
+    }
+    const roles = await this.getRolesByUserId(id);
+    return {
+      ...user,
+      roles,
+    };
+  }
+
+  /**
    * Find user by email
    *
    * @param email - User email
@@ -59,41 +81,17 @@ export class UserService implements IUserService {
   }
 
   /**
-   * Find user by email with password
-   *
-   * @param email - User email
-   * @returns User entity with password or null
-   */
-  async findByEmailWithPassword(
-    email: string,
-  ): Promise<UserWithPassword | null> {
-    const [user] = await this.db
-      .select()
-      .from(schema.userTable)
-      .where(eq(schema.userTable.email, email))
-      .limit(1);
-
-    return user ? this.mapToUserWithPassword(user) : null;
-  }
-
-  /**
    * Create a new user
    *
-   * @param user - User data (email and password are required)
+   * @param user - User data (email is required)
    * @param tx - Optional transaction
    * @returns Created user entity
-   * @throws Error if email or password is missing
+   * @throws Error if email is missing
    */
-  async create(
-    user: Partial<UserWithPassword>,
-    tx?: DrizzleTransaction,
-  ): Promise<User> {
+  async create(user: CreateUserInput, tx?: DrizzleTransaction): Promise<User> {
     // Validate required fields
     if (!user.email) {
       throw new Error("Email is required");
-    }
-    if (!user.password) {
-      throw new Error("Password is required");
     }
 
     const executor: DrizzleExecutor = tx ?? this.db;
@@ -101,9 +99,8 @@ export class UserService implements IUserService {
     const [created] = await executor
       .insert(schema.userTable)
       .values({
-        id: user.id || this.generateId(),
+        id: user.id || uuidv4(),
         email: user.email,
-        password: user.password,
         nickname: user.nickname || null,
         cnNickname: user.cnNickname || null,
         gender: user.gender || null,
@@ -118,6 +115,96 @@ export class UserService implements IUserService {
   }
 
   /**
+   * Create a new user with roles in a transactional way
+   *
+   * @param user - User data
+   * @param roles - Roles to assign
+   * @param tx - Optional transaction
+   * @returns Created user entity with roles
+   */
+  async createWithRoles(
+    user: CreateUserInput,
+    roles: string[],
+    tx?: DrizzleTransaction,
+  ): Promise<User> {
+    if (!roles || roles.length === 0) {
+      throw new Error("At least one role is required");
+    }
+
+    if (tx) {
+      const createdUser = await this.create(user, tx);
+      await this.assignRoles(createdUser.id, roles, tx);
+      return {
+        ...createdUser,
+        roles: await this.getRolesByUserId(createdUser.id, tx),
+      };
+    }
+
+    return this.db.transaction(async (transaction) => {
+      const createdUser = await this.create(user, transaction);
+      await this.assignRoles(createdUser.id, roles, transaction);
+      return {
+        ...createdUser,
+        roles: await this.getRolesByUserId(createdUser.id, transaction),
+      };
+    });
+  }
+
+  /**
+   * Assign roles to user
+   *
+   * @param userId - User ID
+   * @param roles - Roles to assign
+   * @param tx - Optional transaction
+   * @returns Assigned roles
+   */
+  async assignRoles(
+    userId: string,
+    roles: string[],
+    tx?: DrizzleTransaction,
+  ): Promise<string[]> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+    const uniqueRoles = Array.from(new Set(roles));
+
+    if (uniqueRoles.length === 0) {
+      return [];
+    }
+
+    await executor.insert(schema.userRolesTable).values(
+      uniqueRoles.map((role) => ({
+        id: uuidv4(),
+        userId,
+        roleId: role,
+        status: "active",
+      })),
+    );
+
+    return uniqueRoles;
+  }
+
+  /**
+   * Get user roles by user ID
+   *
+   * @param userId - User ID
+   * @param tx - Optional transaction
+   * @returns Array of role IDs
+   */
+  async getRolesByUserId(
+    userId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<string[]> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+    const result = await executor
+      .select({
+        roleId: schema.userRolesTable.roleId,
+      })
+      .from(schema.userRolesTable)
+      .where(eq(schema.userRolesTable.userId, userId));
+
+    return result.map((row) => row.roleId);
+  }
+
+  /**
    * Update user
    *
    * @param id - User ID
@@ -127,7 +214,7 @@ export class UserService implements IUserService {
    */
   async update(
     id: string,
-    user: Partial<User>,
+    user: Partial<CreateUserInput>,
     tx?: DrizzleTransaction,
   ): Promise<User> {
     const executor: DrizzleExecutor = tx ?? this.db;
@@ -169,7 +256,10 @@ export class UserService implements IUserService {
       throw new Error(`User with id ${id} not found`);
     }
 
-    return this.mapToUser(updated);
+    return {
+      ...this.mapToUser(updated),
+      roles: await this.getRolesByUserId(id, tx),
+    };
   }
 
   /**
@@ -178,7 +268,7 @@ export class UserService implements IUserService {
   private mapToUser(record: typeof schema.userTable.$inferSelect): User {
     return {
       id: record.id,
-      email: record.email || undefined,
+      email: record.email || "",
       nickname: record.nickname || undefined,
       cnNickname: record.cnNickname || undefined,
       gender: record.gender || undefined,
@@ -190,25 +280,4 @@ export class UserService implements IUserService {
       updatedBy: record.updatedBy || undefined,
     };
   }
-
-  /**
-   * Map database record to UserWithPassword entity
-   */
-  private mapToUserWithPassword(
-    record: typeof schema.userTable.$inferSelect,
-  ): UserWithPassword {
-    return {
-      ...this.mapToUser(record),
-      password: record.password || "",
-    };
-  }
-
-  /**
-   * Generate a unique user ID
-   * Uses UUID v4 for generating unique identifiers
-   */
-  private generateId(): string {
-    return uuidv4();
-  }
 }
-
