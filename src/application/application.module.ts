@@ -21,6 +21,7 @@ import { AuthCommandService } from "./commands/auth-command/auth-command.service
 // Core Services (从main分支)
 import { CalendarService } from "@core/calendar";
 import { MeetingProviderModule } from "@core/meeting-providers";
+import { TelemetryModule } from "@telemetry/telemetry.module";
 
 // Domain Services
 import { SessionModule } from "@domains/services/session/session.module";
@@ -39,6 +40,7 @@ import { QueryModule } from "@domains/query/query.module";
   imports: [
     DatabaseModule, // 导入数据库模块，提供事务支持
     MeetingProviderModule, // 导入会议提供者模块
+    TelemetryModule, // 提供 MetricsService 等遥测服务
     UserModule, // Domain层：User (Identity)
     SessionModule, // Domain层：Session
     ContractModule, // Domain层：Contract

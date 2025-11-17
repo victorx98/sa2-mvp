@@ -1,4 +1,4 @@
-import { diag, DiagConsoleLogger, DiagLogLevel, trace } from "@opentelemetry/api";
+import { diag, DiagConsoleLogger, DiagLogLevel } from "@opentelemetry/api";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
@@ -7,10 +7,9 @@ import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { resourceFromAttributes } from "@opentelemetry/resources";
-import { ATTR_SERVICE_NAME, ATTR_SERVER_ADDRESS, ATTR_SERVICE_VERSION, SEMRESATTRS_DEPLOYMENT_ENVIRONMENT } from "@opentelemetry/semantic-conventions";
+import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION, SEMRESATTRS_DEPLOYMENT_ENVIRONMENT } from "@opentelemetry/semantic-conventions";
 
-const isTelemetryEnabled =
-  process.env.OTEL_ENABLED !== "false" && process.env.NODE_ENV !== "development";
+const isTelemetryEnabled = process.env.OTEL_ENABLED !== "false";
 
 if (process.env.OTEL_LOG_LEVEL) {
   const logLevel = process.env.OTEL_LOG_LEVEL.toUpperCase();
@@ -22,8 +21,12 @@ if (process.env.OTEL_LOG_LEVEL) {
 let sdkStarted = false;
 let sdk: NodeSDK | null = null;
 let sdkStarting = false;
+let startupError: Error | null = null;
 
-const serviceName = process.env.SERVICE_NAME;
+const serviceName =
+  process.env.SERVICE_NAME ??
+  process.env.npm_package_name ??
+  "sa2-mvp";
 
 const resource = resourceFromAttributes({
   [ATTR_SERVICE_NAME]: serviceName,
@@ -38,13 +41,15 @@ const resource = resourceFromAttributes({
 });
 
 function buildSdk(): NodeSDK {
+  const authHeaders = process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN
+    ? { Authorization: `Basic ${process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN}` }
+    : undefined;
+
   const traceExporter = new OTLPTraceExporter({
     url:
       process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ??
       process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-    headers: {
-      Authorization: `Basic ${process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN}`,
-    },
+    ...(authHeaders ? { headers: authHeaders } : {}),
   });
 
   const metricReader = new PeriodicExportingMetricReader({
@@ -52,9 +57,7 @@ function buildSdk(): NodeSDK {
       url:
         process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT ??
         process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-      headers: {
-        Authorization: `Basic ${process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN}`,
-      },
+      ...(authHeaders ? { headers: authHeaders } : {}),
     }),
   });
 
@@ -63,9 +66,7 @@ function buildSdk(): NodeSDK {
       url:
         process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT ??
         process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-      headers: {
-        Authorization: `Basic ${process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN}`,
-      },
+      ...(authHeaders ? { headers: authHeaders } : {}),
     }),
   );
 
@@ -96,34 +97,48 @@ function buildSdk(): NodeSDK {
 
 export async function ensureTelemetryStarted(): Promise<void> {
   if (!isTelemetryEnabled) {
+    console.log('OpenTelemetry is disabled (OTEL_ENABLED=false)');
     return;
   }
 
-  if (sdkStarted || sdkStarting) {
+  if (sdkStarted) {
+    return;
+  }
+
+  if (sdkStarting) {
+    console.warn('OpenTelemetry SDK is already starting...');
     return;
   }
 
   if (!sdk) {
-    sdk = buildSdk();
+    try {
+      sdk = buildSdk();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Failed to build OpenTelemetry SDK:', errorMessage);
+      startupError = error instanceof Error ? error : new Error(errorMessage);
+      return;
+    }
   }
 
   sdkStarting = true;
   try {
-    sdk.start();
-    console.log('OTEL SDK started');
+    await sdk.start();
+    console.log(`OpenTelemetry SDK started successfully for service: ${serviceName}`);
     sdkStarted = true;
+    startupError = null;
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error("Failed to start OpenTelemetry SDK", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Failed to start OpenTelemetry SDK:', errorMessage);
+    console.error('Application will continue without telemetry. Check your OTEL_EXPORTER_OTLP_ENDPOINT configuration.');
+
+    startupError = error instanceof Error ? error : new Error(errorMessage);
     sdk = null;
-    throw error;
+
+    // Don't throw - allow application to start without telemetry
   } finally {
     sdkStarting = false;
   }
-  const tracer = trace.getTracer('test');
-  const span = tracer.startSpan('test-span');
-  span.end();
-  console.log('Trace sent!');
 }
 
 export async function shutdownTelemetry(): Promise<void> {
@@ -137,16 +152,32 @@ export async function shutdownTelemetry(): Promise<void> {
 
   try {
     await sdk.shutdown();
+    console.log('OpenTelemetry SDK shut down successfully');
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error("Error shutting down OpenTelemetry SDK", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error shutting down OpenTelemetry SDK:', errorMessage);
   } finally {
     sdkStarted = false;
     sdk = null;
   }
 }
 
-ensureTelemetryStarted().catch((error) => {
-  // eslint-disable-next-line no-console
-  console.error("Unhandled error starting OpenTelemetry SDK", error);
-});
+/**
+ * Get the current status of OpenTelemetry SDK
+ * Useful for health checks and monitoring
+ */
+export function getTelemetryStatus(): {
+  enabled: boolean;
+  started: boolean;
+  starting: boolean;
+  error: Error | null;
+  serviceName: string | undefined;
+} {
+  return {
+    enabled: isTelemetryEnabled,
+    started: sdkStarted,
+    starting: sdkStarting,
+    error: startupError,
+    serviceName,
+  };
+}

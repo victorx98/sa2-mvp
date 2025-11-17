@@ -25,6 +25,8 @@ import {
   SessionBookedEvent,
   SESSION_BOOKED_EVENT,
 } from "@shared/events/session-booked.event";
+import { Trace, addSpanAttributes, addSpanEvent } from "@shared/decorators/trace.decorator";
+import { MetricsService } from "@telemetry/metrics.service";
 
 /**
  * Application Layer - Book Session Command
@@ -54,6 +56,7 @@ export class BookSessionCommand {
     private readonly meetingProviderFactory: MeetingProviderFactory,
     private readonly eventEmitter: EventEmitter2,
     private readonly serviceHoldService: ServiceHoldService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   /**
@@ -61,10 +64,25 @@ export class BookSessionCommand {
    * @param input 预约输入参数
    * @returns 预约结果
    */
+  @Trace({
+    name: 'booking.session.execute',
+    attributes: { 'operation.type': 'booking' },
+  })
   async execute(input: BookSessionInput): Promise<BookSessionOutput> {
+    const bookingStartTime = Date.now();
+
     this.logger.log(
       `开始预约会话: studentId=${input.studentId}, mentorId=${input.mentorId}`,
     );
+
+    // Add attributes to the span
+    addSpanAttributes({
+      'student.id': input.studentId,
+      'mentor.id': input.mentorId,
+      'counselor.id': input.counselorId,
+      'session.duration': input.duration,
+      'meeting.provider': input.meetingProvider || 'feishu',
+    });
 
     // Step 1: 检查顾问权限（事务外）
     // TODO: 实现 CounselorAssignmentService 后添加
@@ -79,6 +97,8 @@ export class BookSessionCommand {
     // Step 2-7: 在事务中执行（包括创建会议链接）
     let sessionResult;
     try {
+      addSpanEvent('booking.transaction.start');
+
       sessionResult = await this.db.transaction(async (tx: DrizzleTransaction) => {
         this.logger.debug(
           "Starting database transaction, including meeting creation",
@@ -185,8 +205,27 @@ export class BookSessionCommand {
           meetingInfo,
         };
       });
+
+      // Transaction succeeded
+      addSpanEvent('booking.transaction.success');
+      addSpanAttributes({
+        'session.id': sessionResult.session.id,
+        'hold.id': sessionResult.hold.id,
+      });
     } catch (error) {
       this.logger.error(`Book session transaction rollback: ${error.message}`, error.stack);
+
+      // Record failure event and metric
+      addSpanEvent('booking.transaction.failed', {
+        error_message: error.message,
+      });
+
+      this.metricsService.recordBookingFailure(error.message, {
+        student_id: input.studentId,
+        mentor_id: input.mentorId,
+        error_type: error.constructor.name,
+      });
+
       throw error;
     }
 
@@ -210,6 +249,25 @@ export class BookSessionCommand {
       `Emitting session booked event for session ${sessionResult.session.id}`,
     );
     this.eventEmitter.emit(SESSION_BOOKED_EVENT, bookResult);
+
+    // Record successful booking metrics
+    const bookingDuration = Date.now() - bookingStartTime;
+    this.metricsService.recordSessionBooked({
+      student_id: input.studentId,
+      mentor_id: input.mentorId,
+      meeting_provider: input.meetingProvider || 'feishu',
+      duration_minutes: input.duration,
+    });
+    this.metricsService.recordBookingDuration(bookingDuration, {
+      student_id: input.studentId,
+      mentor_id: input.mentorId,
+    });
+
+    addSpanEvent('booking.completed', {
+      session_id: sessionResult.session.id,
+      duration_ms: bookingDuration,
+    });
+
     return {
       ...bookResult,
       status: sessionResult.session.status,
