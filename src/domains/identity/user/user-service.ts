@@ -153,7 +153,7 @@ export class UserService implements IUserService {
 
     if (tx) {
       const createdUser = await this.create(user, tx);
-      await this.assignRoles(createdUser.id, roles, tx);
+      await this.authorizeRoles(createdUser.id, roles, tx);
       return {
         ...createdUser,
         roles: await this.getRolesByUserId(createdUser.id, tx),
@@ -162,7 +162,7 @@ export class UserService implements IUserService {
 
     return this.db.transaction(async (transaction) => {
       const createdUser = await this.create(user, transaction);
-      await this.assignRoles(createdUser.id, roles, transaction);
+      await this.authorizeRoles(createdUser.id, roles, transaction);
       return {
         ...createdUser,
         roles: await this.getRolesByUserId(createdUser.id, transaction),
@@ -178,7 +178,7 @@ export class UserService implements IUserService {
    * @param tx - Optional transaction
    * @returns Assigned roles
    */
-  async assignRoles(
+  async authorizeRoles(
     userId: string,
     roles: string[],
     tx?: DrizzleTransaction,

@@ -49,7 +49,7 @@ export interface IUserService {
     roles: string[],
     tx?: DrizzleTransaction,
   ): Promise<User>;
-  assignRoles(
+  authorizeRoles(
     userId: string,
     roles: string[],
     tx?: DrizzleTransaction,

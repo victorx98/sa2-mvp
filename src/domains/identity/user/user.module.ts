@@ -23,7 +23,7 @@ import { USER_SERVICE } from "./user-interface";
  *   - findByIdWithRoles - 根据ID查找用户并返回角色
  *   - findByEmail - 根据邮箱查找用户
  *   - create/createWithRoles - 创建新用户
- *   - assignRoles - 分配角色
+ *   - authorizeRoles - 分配角色
  *   - update - 更新用户信息
  */
 @Module({
