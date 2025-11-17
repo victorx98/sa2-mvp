@@ -53,11 +53,31 @@ export class UserService implements IUserService {
    * @returns User entity including roles or null
    */
   async findByIdWithRoles(id: string): Promise<User | null> {
-    const user = await this.findById(id);
-    if (!user) {
+    const rows = await this.db
+      .select({
+        user: schema.userTable,
+        roleId: schema.userRolesTable.roleId,
+      })
+      .from(schema.userTable)
+      .leftJoin(
+        schema.userRolesTable,
+        eq(schema.userRolesTable.userId, schema.userTable.id),
+      )
+      .where(eq(schema.userTable.id, id));
+
+    if (rows.length === 0 || !rows[0].user) {
       return null;
     }
-    const roles = await this.getRolesByUserId(id);
+
+    const user = this.mapToUser(rows[0].user);
+    const roles = Array.from(
+      new Set(
+        rows
+          .map((row) => row.roleId)
+          .filter((roleId): roleId is string => !!roleId),
+      ),
+    );
+
     return {
       ...user,
       roles,
