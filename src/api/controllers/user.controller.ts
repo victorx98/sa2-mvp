@@ -4,6 +4,7 @@ import { UserQueryService } from "@application/queries/user-query.service";
 import { User } from "@domains/identity/user/user-interface";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
+import { ApiPrefix } from "@api/api.constants";
 
 /**
  * API Layer - User Controller
@@ -20,7 +21,7 @@ import { CurrentUser } from "@shared/decorators/current-user.decorator";
  * ❌ 不进行数据转换（由 Application Layer 负责）
  */
 @ApiTags("Users")
-@Controller("users")
+@Controller(`${ApiPrefix}/users`)
 @UseGuards(JwtAuthGuard)
 export class UserController {
   constructor(

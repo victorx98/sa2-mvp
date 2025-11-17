@@ -22,6 +22,7 @@ import {
 } from "class-validator";
 import { ServiceType } from "@domains/contract/common/types/enum.types";
 import { serviceTypeEnum } from "@infrastructure/database/schema/services.schema";
+import { ApiPrefix } from "@api/api.constants";
 
 /**
  * API Layer - Book Session Request DTO
@@ -102,7 +103,7 @@ class BookSessionDto {
  * 暂时使用学生的 ID 作为 counselorId，未来可能需要调整
  */
 @ApiTags("Sessions")
-@Controller("sessions")
+@Controller(`${ApiPrefix}/sessions`)
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class SessionController {
