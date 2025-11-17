@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { SessionCompletedListener } from "./session-completed.listener";
-import { MentorPayableService } from "@domains/financial/services/mentor-payable.service";
+import type { IMentorPayableService } from "@domains/financial/interfaces/mentor-payable.interface";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { SessionCompletedEvent } from "@domains/financial/events/types/financial-event.types";
 
@@ -8,6 +8,9 @@ import { SessionCompletedEvent } from "@domains/financial/events/types/financial
 const mockMentorPayableService = {
   createPerSessionBilling: jest.fn(),
   createPackageBilling: jest.fn(),
+  adjustPayableLedger: jest.fn(),
+  createMentorPrice: jest.fn(),
+  queryMentorPayableLedgers: jest.fn(),
 };
 
 const mockEventEmitter = {
@@ -17,14 +20,14 @@ const mockEventEmitter = {
 
 describe("SessionCompletedListener", () => {
   let listener: SessionCompletedListener;
-  let mentorPayableService: MentorPayableService;
+  let mentorPayableService: IMentorPayableService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SessionCompletedListener,
         {
-          provide: MentorPayableService,
+          provide: "IMentorPayableService",
           useValue: mockMentorPayableService,
         },
         {
@@ -36,7 +39,7 @@ describe("SessionCompletedListener", () => {
 
     listener = module.get<SessionCompletedListener>(SessionCompletedListener);
     mentorPayableService =
-      module.get<MentorPayableService>(MentorPayableService);
+      module.get<IMentorPayableService>("IMentorPayableService");
 
     // 清除所有mock的调用历史
     jest.clearAllMocks();

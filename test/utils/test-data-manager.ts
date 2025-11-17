@@ -307,7 +307,7 @@ export class TestDataManager {
       [
         {
           type: ProductItemType.SERVICE,
-          referenceId: services[2].id,
+          referenceId: services[0].id,
           quantity: 1,
         },
         {

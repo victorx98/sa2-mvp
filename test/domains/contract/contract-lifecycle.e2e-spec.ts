@@ -7,6 +7,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { ContractModule } from "@domains/contract/contract.module";
+import { ProductModule } from "@domains/catalog/product/product.module";
 import { ContractService } from "@domains/contract/services/contract.service";
 import { ServiceHoldService } from "@domains/contract/services/service-hold.service";
 import { ServiceLedgerService } from "@domains/contract/services/service-ledger.service";
@@ -47,6 +48,7 @@ describe("Contract Lifecycle E2E Tests (Real Database) - Enhanced", () => {
 				}),
 				DatabaseModule,
 				ContractModule,
+				ProductModule,
 			],
 		}).compile();
 

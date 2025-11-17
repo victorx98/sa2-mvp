@@ -5,15 +5,12 @@ import { SessionEvaluatedEvent } from "@domains/financial/events/types/financial
 import { FinancialModule } from "@domains/financial/financial.module";
 
 // Mock services
-const mockEventPublisher = {
-  subscribe: jest.fn(),
-  publish: jest.fn(),
-};
-// Mock services
 const createMockMentorPayableService = (): IMentorPayableService => ({
   createPerSessionBilling: jest.fn(),
   createPackageBilling: jest.fn(),
   adjustPayableLedger: jest.fn(),
+  createMentorPrice: jest.fn(),
+  queryMentorPayableLedgers: jest.fn(),
 });
 
 describe("SessionEvaluatedListener", () => {

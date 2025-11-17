@@ -2,7 +2,6 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { SessionCompletedListener } from "./session-completed.listener";
 import { ContractService } from "../../services/contract.service";
-import { IEventPublisher } from "../../services/event-publisher.service";
 import { ISessionCompletedEvent } from "../../common/types/event.types";
 
 // Suppress Logger for tests
@@ -13,15 +12,10 @@ jest.spyOn(Logger.prototype, "warn").mockImplementation(() => {});
 describe("SessionCompletedListener", () => {
   let listener: SessionCompletedListener;
   let mockContractService: any;
-  let mockEventPublisher: any;
 
   beforeEach(async () => {
     mockContractService = {
       consumeService: jest.fn(),
-    };
-
-    mockEventPublisher = {
-      subscribe: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -31,10 +25,6 @@ describe("SessionCompletedListener", () => {
           provide: ContractService,
           useValue: mockContractService,
         },
-        {
-          provide: "EVENT_PUBLISHER",
-          useValue: mockEventPublisher,
-        },
       ],
     }).compile();
 
@@ -43,19 +33,6 @@ describe("SessionCompletedListener", () => {
 
   afterEach(() => {
     jest.clearAllMocks();
-  });
-
-  describe("onModuleInit", () => {
-    it("should subscribe to session.completed events", () => {
-      // Act
-      listener.onModuleInit();
-
-      // Assert
-      expect(mockEventPublisher.subscribe).toHaveBeenCalledWith(
-        "session.completed",
-        expect.any(Function),
-      );
-    });
   });
 
   describe("handleSessionCompleted", () => {
@@ -76,7 +53,7 @@ describe("SessionCompletedListener", () => {
       };
 
       // Act
-      await listener["handleSessionCompleted"](event);
+      await listener.handleSessionCompleted(event);
 
       // Assert
       expect(mockContractService.consumeService).toHaveBeenCalledWith({
@@ -107,7 +84,7 @@ describe("SessionCompletedListener", () => {
       };
 
       // Act
-      await listener["handleSessionCompleted"](event);
+      await listener.handleSessionCompleted(event);
 
       // Assert
       expect(mockContractService.consumeService).toHaveBeenCalledWith({
@@ -137,7 +114,7 @@ describe("SessionCompletedListener", () => {
       };
 
       // Act
-      await listener["handleSessionCompleted"](event);
+      await listener.handleSessionCompleted(event);
 
       // Assert
       expect(mockContractService.consumeService).toHaveBeenCalledWith({
@@ -166,7 +143,7 @@ describe("SessionCompletedListener", () => {
       } as any;
 
       // Act
-      await listener["handleSessionCompleted"](event);
+      await listener.handleSessionCompleted(event);
 
       // Assert
       expect(mockContractService.consumeService).not.toHaveBeenCalled();
@@ -187,7 +164,7 @@ describe("SessionCompletedListener", () => {
       } as any;
 
       // Act
-      await listener["handleSessionCompleted"](event);
+      await listener.handleSessionCompleted(event);
 
       // Assert
       expect(mockContractService.consumeService).not.toHaveBeenCalled();

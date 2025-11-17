@@ -1,6 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { EventEmitter } from "events";
-import type { DomainEvent } from "@infrastructure/database/schema";
 import type { IDomainEventData } from "../common/types/event.types";
 
 /**
@@ -23,7 +22,7 @@ export class EventBusService {
    * 发布事件到本地总线
    * @param event 领域事件
    */
-  publish(event: DomainEvent): void {
+  publish(event: IDomainEventData): void {
     this.logger.debug(`[EventBus] Publishing: ${event.eventType}`);
     this.emitter.emit(event.eventType, event);
   }

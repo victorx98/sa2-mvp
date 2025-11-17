@@ -1,6 +1,15 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { EventBusService } from "./event-bus.service";
-import type { DomainEvent } from "@infrastructure/database/schema";
+
+// Define a simple event interface for testing
+interface TestEvent {
+  id: string;
+  eventType: string;
+  aggregateId: string;
+  aggregateType: string;
+  payload: any;
+  timestamp: Date;
+}
 
 describe("EventBusService", () => {
   let service: EventBusService;
@@ -24,20 +33,14 @@ describe("EventBusService", () => {
       const eventData = { id: 1, name: "Test Event" };
       const mockHandler = jest.fn();
 
-      // Create a proper DomainEvent object
-      const event: DomainEvent = {
+      // Create a proper TestEvent object
+      const event: TestEvent = {
         id: "test-id",
         eventType: eventName,
         aggregateId: "test-aggregate-id",
         aggregateType: "Test",
         payload: eventData,
-        status: "pending",
-        createdAt: new Date(),
-        publishedAt: new Date(),
-        retryCount: 0,
-        maxRetries: 3,
-        errorMessage: null,
-        metadata: null,
+        timestamp: new Date(),
       };
 
       service.subscribe(eventName, mockHandler);
@@ -56,20 +59,14 @@ describe("EventBusService", () => {
       const mockHandler1 = jest.fn();
       const mockHandler2 = jest.fn();
 
-      // Create a proper DomainEvent object
-      const event: DomainEvent = {
+      // Create a proper TestEvent object
+      const event: TestEvent = {
         id: "test-id",
         eventType: eventName,
         aggregateId: "test-aggregate-id",
         aggregateType: "Test",
         payload: eventData,
-        status: "pending",
-        createdAt: new Date(),
-        publishedAt: new Date(),
-        retryCount: 0,
-        maxRetries: 3,
-        errorMessage: null,
-        metadata: null,
+        timestamp: new Date(),
       };
 
       service.subscribe(eventName, mockHandler1);
@@ -88,20 +85,14 @@ describe("EventBusService", () => {
       const eventName = "test.event";
       const eventData = { id: 1, name: "Test Event" };
 
-      // Create a proper DomainEvent object
-      const event: DomainEvent = {
+      // Create a proper TestEvent object
+      const event: TestEvent = {
         id: "test-id",
         eventType: eventName,
         aggregateId: "test-aggregate-id",
         aggregateType: "Test",
         payload: eventData,
-        status: "pending",
-        createdAt: new Date(),
-        publishedAt: new Date(),
-        retryCount: 0,
-        maxRetries: 3,
-        errorMessage: null,
-        metadata: null,
+        timestamp: new Date(),
       };
 
       // Act & Assert

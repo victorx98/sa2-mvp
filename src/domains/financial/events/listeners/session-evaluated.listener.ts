@@ -45,9 +45,6 @@ export class SessionEvaluatedListener implements OnModuleInit {
         throw new Error(errorMessage);
       }
 
-      // 注意：由于financial domain未采用Outbox模式，移除了domainEvents重复检查
-      // Note: DomainEvents duplicate check removed as financial domain doesn't use Outbox pattern
-
       // 路由到相应的计费逻辑
       await this.routeBilling(event);
 

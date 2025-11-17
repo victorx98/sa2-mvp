@@ -1,6 +1,6 @@
-import { Injectable, Logger, OnModuleInit, Inject } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
+import { OnEvent } from "@nestjs/event-emitter";
 import { ContractService } from "../../services/contract.service";
-import { IEventPublisher } from "../../services/event-publisher.service";
 import type { ServiceType } from "../../common/types/enum.types";
 import type { ISessionCompletedEvent } from "../../common/types/event.types";
 
@@ -10,32 +10,21 @@ import type { ISessionCompletedEvent } from "../../common/types/event.types";
  * Listens for session.completed events and automatically consumes service(监听session.completed事件并在导师完成会话时自动消费服务权利)
  * entitlements when a session is completed by the mentor.
  *
- * Outbox Pattern: Events are published by the Session Service and this(出站模式：事件由会话服务发布，此监听器消费它们以扣除服务权利)
- * listener consumes them to deduct service entitlements.
+ * Event-driven Architecture: Uses NestJS EventEmitter2 for loose coupling(事件驱动架构：使用NestJS EventEmitter2实现松耦合)
+ * between Contract Domain and Session Domain.
  */
 @Injectable()
-export class SessionCompletedListener implements OnModuleInit {
+export class SessionCompletedListener {
   private readonly logger = new Logger(SessionCompletedListener.name);
 
-  constructor(
-    private readonly contractService: ContractService,
-    @Inject("EVENT_PUBLISHER") private readonly eventPublisher: IEventPublisher,
-  ) {}
-
-  onModuleInit() {
-    // Subscribe to session.completed events(订阅session.completed事件)
-    this.eventPublisher.subscribe("session.completed", (event: any) =>
-      this.handleSessionCompleted(event),
-    );
-
-    this.logger.log("SessionCompletedListener initialized");
-  }
+  constructor(private readonly contractService: ContractService) {}
 
   /**
    * Handle session.completed event(处理session.completed事件)
    * @param event The session completed event(会话完成事件)
    */
-  private async handleSessionCompleted(
+  @OnEvent("session.completed", { async: true })
+  async handleSessionCompleted(
     event: ISessionCompletedEvent,
   ): Promise<void> {
     try {

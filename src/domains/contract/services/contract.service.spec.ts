@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ContractService } from "./contract.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
   ContractException,
   ContractNotFoundException,
@@ -9,6 +10,7 @@ import {
 describe("ContractService", () => {
   let service: ContractService;
   let mockDb: any;
+  let mockEventEmitter: jest.Mocked<EventEmitter2>;
 
   // Mock database connection
   const createMockDb = () => ({
@@ -46,6 +48,12 @@ describe("ContractService", () => {
 
   beforeEach(async () => {
     mockDb = createMockDb();
+    mockEventEmitter = {
+      emit: jest.fn(),
+      on: jest.fn(),
+      once: jest.fn(),
+      removeAllListeners: jest.fn(),
+    } as any;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -53,6 +61,10 @@ describe("ContractService", () => {
         {
           provide: DATABASE_CONNECTION,
           useValue: mockDb,
+        },
+        {
+          provide: EventEmitter2,
+          useValue: mockEventEmitter,
         },
       ],
     }).compile();
@@ -113,6 +125,14 @@ describe("ContractService", () => {
       expect(result.contractNumber).toBe(mockContractNumber);
       expect(mockDb.execute).toHaveBeenCalledTimes(1);
       expect(mockDb.transaction).toHaveBeenCalledTimes(1);
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith("contract.signed", {
+        contractId: mockContract.id,
+        contractNumber: mockContractNumber,
+        studentId: createContractDto.studentId,
+        productId: createContractDto.productId,
+        totalAmount: mockContract.totalAmount,
+        signedAt: mockContract.signedAt,
+      });
     });
 
     it("should throw exception for invalid price", async () => {
@@ -192,6 +212,7 @@ describe("ContractService", () => {
       const mockContract = {
         id: "contract-123",
         contractNumber: "CONTRACT-2025-01-00001",
+        studentId: "student-123",
         status: "signed",
         productSnapshot: {
           items: [
@@ -233,6 +254,12 @@ describe("ContractService", () => {
       // Assert
       expect(result).toBeDefined();
       expect(result.status).toBe("active");
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith("contract.activated", {
+        contractId: mockContract.id,
+        contractNumber: mockContract.contractNumber,
+        activatedAt: expect.any(Date),
+        entitlementsCreated: expect.any(Number),
+      });
     });
 
     it("should throw exception when contract not found", async () => {
@@ -249,7 +276,11 @@ describe("ContractService", () => {
       // Arrange
       const mockContract = {
         id: "contract-123",
+        contractNumber: "CONTRACT-2025-01-00001",
         status: "active", // Already active
+        productSnapshot: {
+          items: [],
+        },
       };
 
       jest.spyOn(service, "findOne").mockResolvedValueOnce(mockContract as any);
@@ -266,6 +297,7 @@ describe("ContractService", () => {
       // Arrange
       const mockContract = {
         id: "contract-123",
+        contractNumber: "CONTRACT-2025-01-00001",
         status: "active",
       };
 
@@ -288,12 +320,20 @@ describe("ContractService", () => {
       // Assert
       expect(result).toBeDefined();
       expect(result.status).toBe("terminated");
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith("contract.terminated", {
+        contractId: mockContract.id,
+        contractNumber: mockContract.contractNumber,
+        reason: "Customer request",
+        terminatedBy: "admin-123",
+        terminatedAt: expect.any(Date),
+      });
     });
 
     it("should throw exception when reason not provided", async () => {
       // Arrange
       const mockContract = {
         id: "contract-123",
+        contractNumber: "CONTRACT-2025-01-00001",
         status: "active",
       };
 
@@ -311,6 +351,7 @@ describe("ContractService", () => {
       // Arrange
       const mockContract = {
         id: "contract-123",
+        contractNumber: "CONTRACT-2025-01-00001",
         status: "active",
       };
 
@@ -333,6 +374,13 @@ describe("ContractService", () => {
       // Assert
       expect(result).toBeDefined();
       expect(result.status).toBe("suspended");
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith("contract.suspended", {
+        contractId: mockContract.id,
+        contractNumber: mockContract.contractNumber,
+        reason: "Payment issue",
+        suspendedBy: "admin-123",
+        suspendedAt: expect.any(Date),
+      });
     });
 
     it("should throw exception when contract not active", async () => {
@@ -355,9 +403,10 @@ describe("ContractService", () => {
     it("should resume contract successfully", async () => {
       // Arrange
       const mockContract = {
-        id: "contract-123",
-        status: "suspended",
-      };
+      id: "contract-123",
+      contractNumber: "CONTRACT-2025-01-00001",
+      status: "suspended",
+    };
 
       const mockResumedContract = {
         ...mockContract,
@@ -374,6 +423,12 @@ describe("ContractService", () => {
       // Assert
       expect(result).toBeDefined();
       expect(result.status).toBe("active");
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith("contract.resumed", {
+        contractId: mockContract.id,
+        contractNumber: mockContract.contractNumber,
+        resumedBy: "admin-123",
+        resumedAt: expect.any(Date),
+      });
       expect(result.suspendedAt).toBeNull();
     });
 
@@ -381,6 +436,7 @@ describe("ContractService", () => {
       // Arrange
       const mockContract = {
         id: "contract-123",
+        contractNumber: "CONTRACT-2025-01-00001",
         status: "active",
       };
 
@@ -399,6 +455,7 @@ describe("ContractService", () => {
       const mockContract = {
         id: "contract-123",
         status: "active",
+        contractNumber: "CONTRACT-2025-01-00001",
       };
 
       const mockCompletedContract = {
@@ -416,6 +473,13 @@ describe("ContractService", () => {
       // Assert
       expect(result).toBeDefined();
       expect(result.status).toBe("completed");
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith("contract.completed", {
+        contractId: mockContract.id,
+        contractNumber: mockContract.contractNumber,
+        completedBy: "admin-123",
+        completedAt: expect.any(Date),
+        isAutoCompleted: false,
+      });
     });
 
     it("should throw exception when contract not active", async () => {
@@ -428,7 +492,7 @@ describe("ContractService", () => {
       jest.spyOn(service, "findOne").mockResolvedValueOnce(mockContract as any);
 
       // Act & Assert
-      await expect(service.complete("contract-123")).rejects.toThrow(
+      await expect(service.complete("contract-123", "admin-123")).rejects.toThrow(
         ContractException,
       );
     });
@@ -460,6 +524,13 @@ describe("ContractService", () => {
       expect(result).toBeDefined();
       expect(result.status).toBe("signed");
       expect(result.signedAt).toBeDefined();
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith("contract.signed", {
+        contractId: mockContract.id,
+        contractNumber: "CONTRACT-2025-01-00001",
+        studentId: "student-123",
+        signedAt: expect.any(Date),
+        signedBy: "admin-123",
+      });
     });
 
     it("should throw exception when contract not found", async () => {
@@ -611,13 +682,24 @@ describe("ContractService", () => {
         return await callback(mockTx);
       });
 
-      // Act & Assert
-      await expect(
-        service.update("contract-123", {
-          totalAmount: 900.0,
-          title: "Updated Contract Title",
-        }),
-      ).resolves.toBeDefined();
+      // Act
+      const result = await service.update("contract-123", {
+        totalAmount: 900.0,
+        title: "Updated Contract Title",
+      });
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.totalAmount).toBe("900.00");
+      expect(result.title).toBe("Updated Contract Title");
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith("contract.updated", {
+        contractId: mockContract.id,
+        contractNumber: mockContract.contractNumber,
+        updatedBy: expect.any(String),
+        updateReason: expect.any(String),
+        updatedAt: expect.any(Date),
+        updatedFields: expect.any(Object),
+      });
     });
   });
 
@@ -791,6 +873,153 @@ describe("ContractService", () => {
       expect(result).toBeDefined();
       expect(result.data).toHaveLength(1);
       expect(mockDb.select).toHaveBeenCalled();
+    });
+  });
+
+  describe("addAmendmentLedger", () => {
+    it("should add entitlement and publish event", async () => {
+      // Arrange
+      const studentId = "student-123";
+      const contractId = "contract-123";
+      const serviceType = "consultation";
+      const quantityChanged = 5;
+      const ledgerType = "addon";
+      const reason = "Additional consultation hours";
+      const description = "Adding 5 consultation hours";
+      const attachments = ["file1.pdf", "file2.pdf"];
+      const createdBy = "admin-123";
+
+      const mockContract = {
+        id: contractId,
+        contractNumber: "CN-2023-001",
+        studentId,
+        status: "active",
+      };
+
+      const mockEntitlement = {
+        studentId,
+        serviceType,
+        totalQuantity: 5,
+        consumedQuantity: 0,
+        heldQuantity: 0,
+        availableQuantity: 5,
+        createdBy,
+      };
+
+      // Mock findOne method to return the contract
+      jest.spyOn(service, "findOne").mockResolvedValueOnce(mockContract as any);
+
+      // Mock transaction
+      mockDb.transaction.mockImplementation(async (callback) => {
+        const mockTx = {
+          insert: jest.fn().mockReturnValue({
+            values: jest.fn().mockReturnValue({
+              onConflictDoUpdate: jest.fn().mockReturnValue({
+                returning: jest.fn().mockResolvedValue([mockEntitlement]),
+              }),
+            }),
+          }),
+        };
+        return await callback(mockTx);
+      });
+
+      // Act
+      const result = await service.addAmendmentLedger({
+        studentId,
+        contractId,
+        serviceType,
+        ledgerType,
+        quantityChanged,
+        reason,
+        description,
+        attachments,
+        createdBy,
+      });
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.studentId).toBe(studentId);
+      expect(result.serviceType).toBe(serviceType);
+      expect(result.totalQuantity).toBe(5);
+      expect(result.availableQuantity).toBe(5);
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith("entitlement.added", {
+        contractId,
+        entitlementId: `${studentId}-${serviceType}`,
+        serviceType,
+        quantity: quantityChanged,
+        source: ledgerType,
+        reason,
+        status: "active",
+      });
+    });
+
+    it("should throw error if contract is not active", async () => {
+      // Arrange
+      const studentId = "student-123";
+      const contractId = "contract-123";
+      const serviceType = "consultation";
+      const quantityChanged = 5;
+      const ledgerType = "addon";
+      const reason = "Additional consultation hours";
+      const createdBy = "admin-123";
+
+      const mockContract = {
+        id: contractId,
+        contractNumber: "CN-2023-001",
+        studentId,
+        status: "draft", // Not active
+      };
+
+      // Mock findOne method to return the contract
+      jest.spyOn(service, "findOne").mockResolvedValueOnce(mockContract as any);
+
+      // Act & Assert
+      try {
+        await service.addAmendmentLedger({
+          studentId,
+          contractId,
+          serviceType,
+          ledgerType,
+          quantityChanged,
+          reason,
+          createdBy,
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(ContractException);
+        expect(error.code).toBe("CONTRACT_NOT_ACTIVE");
+        expect(error.message).toBe("Contract is not active");
+      }
+    });
+
+    it("should throw error if contract not found", async () => {
+      // Arrange
+      const studentId = "student-123";
+      const contractId = "contract-123";
+      const serviceType = "consultation";
+      const quantityChanged = 5;
+      const ledgerType = "addon";
+      const reason = "Additional consultation hours";
+      const createdBy = "admin-123";
+
+      // Mock findOne method to return null (contract not found)
+      jest.spyOn(service, "findOne").mockResolvedValueOnce(null);
+
+      // Act & Assert
+      try {
+        await service.addAmendmentLedger({
+          studentId,
+          contractId,
+          serviceType,
+          ledgerType,
+          quantityChanged,
+          reason,
+          createdBy,
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(ContractNotFoundException);
+        expect(error.code).toBe("CONTRACT_NOT_FOUND");
+        expect(error.message).toBe("Contract not found");
+      }
     });
   });
 });

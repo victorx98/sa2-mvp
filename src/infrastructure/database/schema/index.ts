@@ -17,7 +17,6 @@ export * from "./product-items.schema";
 export * from "./contracts.schema";
 export * from "./contract-service-entitlements.schema";
 export * from "./contract-amendment-ledgers.schema";
-export * from "./domain-events.schema";
 export * from "./service-holds.schema";
 export * from "./service-ledger-archive-policies.schema";
 export * from "./service-ledgers-archive.schema";

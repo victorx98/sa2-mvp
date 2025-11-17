@@ -452,7 +452,6 @@ export class TestFixtures {
     // Clean up tables in reverse dependency order
     // Use try-catch to handle tables that might not exist yet
     const tables = [
-      schema.domainEvents,
       schema.serviceHolds,
       schema.serviceLedgers,
       schema.contractServiceEntitlements,
