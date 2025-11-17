@@ -11,7 +11,7 @@ import {
   serviceLedgerTypeEnum,
   serviceLedgerSourceEnum,
 } from "./service-ledgers.schema";
-import { serviceTypeEnum } from "./services.schema";
+import { serviceTypes } from "./service-types.schema";
 
 /**
  * Service ledgers archive table
@@ -49,7 +49,7 @@ export const serviceLedgersArchive = pgTable("service_ledgers_archive", {
   studentId: varchar("student_id", { length: 32 }).notNull(),
 
   // Service type
-  serviceType: serviceTypeEnum("service_type").notNull(),
+  serviceType: varchar("service_type", { length: 50 }).notNull(), // Reference to service_types.code (no FK in archive table)
 
   // Quantity change
   quantity: integer("quantity").notNull(),

@@ -19,10 +19,7 @@ import { SessionCompletedListener } from "./events/listeners/session-completed.l
  * - Dependency Injection(依赖注入)
  */
 @Module({
-  imports: [
-    EventEmitterModule.forRoot(),
-    DatabaseModule,
-  ],
+  imports: [EventEmitterModule.forRoot(), DatabaseModule],
   providers: [
     // Core services - Using custom token for interface-based injection
     {

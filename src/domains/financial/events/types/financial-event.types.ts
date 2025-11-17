@@ -71,7 +71,7 @@ export class SessionCompletedEvent implements IFinancialEvent {
 
   @IsString()
   @IsNotEmpty()
-  readonly serviceTypeCode!: string;
+  readonly serviceTypeId!: string; // Updated field name from serviceTypeCode
 
   @IsString()
   @IsNotEmpty()
@@ -151,7 +151,7 @@ export class SessionEvaluatedEvent implements IFinancialEvent {
 
   @IsString()
   @IsNotEmpty()
-  readonly serviceTypeCode!: string;
+  readonly serviceTypeId!: string; // Updated field name from serviceTypeCode
 
   @IsString()
   @IsNotEmpty()
@@ -160,32 +160,6 @@ export class SessionEvaluatedEvent implements IFinancialEvent {
   @IsNumber()
   @IsOptional()
   readonly durationHours?: number;
-
-  @IsDate()
-  @IsNotEmpty()
-  readonly reviewedAt!: Date;
-
-  @IsUUID()
-  @IsNotEmpty()
-  readonly contractId!: string;
-
-  @IsDate()
-  @IsNotEmpty()
-  readonly startTime!: Date;
-
-  @IsDate()
-  @IsNotEmpty()
-  readonly endTime!: Date;
-
-  @IsNumber()
-  @Min(1)
-  @Max(5)
-  @IsNotEmpty()
-  readonly rating!: number;
-
-  @IsString()
-  @IsOptional()
-  readonly ratingComment?: string;
 
   @IsUUID()
   @IsOptional()

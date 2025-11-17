@@ -320,13 +320,16 @@ describe("ContractService", () => {
       // Assert
       expect(result).toBeDefined();
       expect(result.status).toBe("terminated");
-      expect(mockEventEmitter.emit).toHaveBeenCalledWith("contract.terminated", {
-        contractId: mockContract.id,
-        contractNumber: mockContract.contractNumber,
-        reason: "Customer request",
-        terminatedBy: "admin-123",
-        terminatedAt: expect.any(Date),
-      });
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        "contract.terminated",
+        {
+          contractId: mockContract.id,
+          contractNumber: mockContract.contractNumber,
+          reason: "Customer request",
+          terminatedBy: "admin-123",
+          terminatedAt: expect.any(Date),
+        },
+      );
     });
 
     it("should throw exception when reason not provided", async () => {
@@ -403,10 +406,10 @@ describe("ContractService", () => {
     it("should resume contract successfully", async () => {
       // Arrange
       const mockContract = {
-      id: "contract-123",
-      contractNumber: "CONTRACT-2025-01-00001",
-      status: "suspended",
-    };
+        id: "contract-123",
+        contractNumber: "CONTRACT-2025-01-00001",
+        status: "suspended",
+      };
 
       const mockResumedContract = {
         ...mockContract,
@@ -492,9 +495,9 @@ describe("ContractService", () => {
       jest.spyOn(service, "findOne").mockResolvedValueOnce(mockContract as any);
 
       // Act & Assert
-      await expect(service.complete("contract-123", "admin-123")).rejects.toThrow(
-        ContractException,
-      );
+      await expect(
+        service.complete("contract-123", "admin-123"),
+      ).rejects.toThrow(ContractException);
     });
   });
 

@@ -1,6 +1,6 @@
 import type { ServiceType } from "@domains/contract/common/types/enum.types";
 
-export const SESSION_BOOKED_EVENT = "session.booked";
+export const SESSION_BOOKED_EVENT = "services.session.booked";
 
 /**
  * Application-level Event - Session Booked

@@ -8,6 +8,7 @@ export * from "./student-counselor.schema";
 
 // Catalog domain
 export * from "./services.schema";
+export * from "./service-types.schema";
 export * from "./service-packages.schema";
 export * from "./service-package-items.schema";
 export * from "./products.schema";

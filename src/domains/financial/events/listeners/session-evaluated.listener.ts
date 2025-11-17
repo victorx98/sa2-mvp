@@ -14,7 +14,7 @@ export class SessionEvaluatedListener implements OnModuleInit {
   constructor(
     @Inject("IMentorPayableService")
     private readonly mentorPayableService: IMentorPayableService,
-  ) {}
+  ) { }
 
   /**
    * 模块初始化时设置事件监听
@@ -47,10 +47,6 @@ export class SessionEvaluatedListener implements OnModuleInit {
 
       // 路由到相应的计费逻辑
       await this.routeBilling(event);
-
-      this.logger.log(
-        `Successfully processed session evaluated event: ${event.sessionId}, rating: ${event.rating}`,
-      );
     } catch (error) {
       this.logger.error(
         `Error processing session evaluated event: ${event.sessionId}`,
@@ -106,18 +102,13 @@ export class SessionEvaluatedListener implements OnModuleInit {
       // 准备计费数据 - 确保包含所有必需的接口字段
       const billingDto = {
         sessionId: event.sessionId,
-        contractId: event.contractId,
         mentorUserId: event.mentorUserId,
         studentUserId: event.studentUserId,
-        serviceTypeCode: event.serviceTypeCode,
+        serviceTypeId: event.serviceTypeId, // Updated field name from serviceTypeCode to serviceTypeId
         serviceName: event.serviceName,
         durationHours: event.durationHours,
-        startTime: event.startTime,
-        endTime: event.endTime,
         metadata: {
           sessionId: event.sessionId,
-          rating: event.rating,
-          ratingComment: event.ratingComment,
         },
       };
 
@@ -164,17 +155,15 @@ export class SessionEvaluatedListener implements OnModuleInit {
 
       // 准备计费数据 - 确保包含所有必需的接口字段
       const billingDto = {
-        contractId: event.contractId,
         servicePackageId: event.servicePackageId,
         mentorUserId: event.mentorUserId,
         studentUserId: event.studentUserId,
-        serviceTypeCode: event.serviceTypeCode,
+        serviceTypeId: event.serviceTypeId, // Updated field name from serviceTypeCode to serviceTypeId
         serviceName: event.serviceName,
         quantity: 1,
         metadata: {
           sessionId: event.sessionId,
           packageTotalSessions: event.packageTotalSessions,
-          rating: event.rating,
         },
       };
 
@@ -203,19 +192,13 @@ export class SessionEvaluatedListener implements OnModuleInit {
   private validateEventData(event: SessionEvaluatedEvent): boolean {
     return !!(
       event.sessionId &&
-      event.contractId &&
       event.mentorUserId &&
       event.studentUserId &&
       event.mentorName &&
       event.studentName &&
-      event.serviceTypeCode &&
+      event.serviceTypeId && // Still using serviceTypeId in event validation
       event.serviceName &&
-      event.durationHours &&
-      event.startTime &&
-      event.endTime &&
-      event.rating !== undefined &&
-      event.rating >= 1 &&
-      event.rating <= 5
+      event.durationHours
     );
   }
 }

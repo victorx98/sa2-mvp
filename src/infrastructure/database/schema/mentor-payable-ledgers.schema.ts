@@ -5,6 +5,7 @@ import {
   numeric,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { serviceTypes } from "./service-types.schema";
 
 /**
  * Mentor Payable Ledgers Table (导师应付账款流水表)
@@ -63,9 +64,9 @@ export const mentorPayableLedgers = pgTable("mentor_payable_ledgers", {
   // ========== Service Snapshot ==========
   /**
    * Service Type Code - References service_types.code
-   * Purpose: Snapshots service type at the time of billing (no foreign key - ACL principle)
+   * Purpose: Links to service type configuration
    */
-  serviceTypeCode: varchar("service_type_code", { length: 50 }).notNull(),
+  serviceTypeCode: varchar("service_type_code", { length: 50 }).notNull().references(() => serviceTypes.code),
 
   /**
    * Service Name - Human-readable service name
@@ -158,7 +159,11 @@ export type InsertMentorPayableLedger =
  *    CREATE INDEX idx_mentor_payable_mentor
  *    ON mentor_payable_ledgers(mentor_user_id);
  *
- * 4. Adjustment chain query
+ * 4. Service type lookup
+ *    CREATE INDEX idx_mentor_payable_service_type
+ *    ON mentor_payable_ledgers(service_type_code);
+ *
+ * 5. Adjustment chain query
  *    CREATE INDEX idx_mentor_payable_original
  *    ON mentor_payable_ledgers(original_id)
  *    WHERE original_id IS NOT NULL;

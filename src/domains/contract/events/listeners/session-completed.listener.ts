@@ -24,9 +24,7 @@ export class SessionCompletedListener {
    * @param event The session completed event(会话完成事件)
    */
   @OnEvent("session.completed", { async: true })
-  async handleSessionCompleted(
-    event: ISessionCompletedEvent,
-  ): Promise<void> {
+  async handleSessionCompleted(event: ISessionCompletedEvent): Promise<void> {
     try {
       const { payload } = event;
 

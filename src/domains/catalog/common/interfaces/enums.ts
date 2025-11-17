@@ -1,25 +1,3 @@
-// Service type enum
-export enum ServiceType {
-  // One-on-one services
-  GAP_ANALYSIS = "gap_analysis",
-  RESUME_REVIEW = "resume_review",
-  RECOMMENDATION_LETTER = "recommendation_letter",
-  RECOMMENDATION_LETTER_ONLINE = "recommendation_letter_online",
-  SESSION = "session",
-  MOCK_INTERVIEW = "mock_interview",
-
-  // Group services
-  CLASS_SESSION = "class_session",
-
-  // Special services
-  INTERNAL_REFERRAL = "internal_referral",
-  CONTRACT_SIGNING_ASSISTANCE = "contract_signing_assistance",
-  PROXY_APPLICATION = "proxy_application",
-
-  // Other
-  OTHER_SERVICE = "other_service",
-}
-
 // Billing mode enum
 export enum BillingMode {
   ONE_TIME = "one_time", // Per-time billing (e.g. resume review)

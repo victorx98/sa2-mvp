@@ -13,7 +13,6 @@ import {
 } from "../common/exceptions/contract.exception";
 import { CreateHoldDto } from "../dto/create-hold.dto";
 import type { ServiceHold } from "@infrastructure/database/schema";
-import type { ServiceType } from "../common/types/enum.types";
 
 @Injectable()
 export class ServiceHoldService {
@@ -54,7 +53,7 @@ export class ServiceHoldService {
           eq(schema.contractServiceEntitlements.studentId, studentId),
           eq(
             schema.contractServiceEntitlements.serviceType,
-            serviceType as ServiceType,
+            serviceType,
           ),
         ),
       )
@@ -80,7 +79,7 @@ export class ServiceHoldService {
       .insert(schema.serviceHolds)
       .values({
         studentId,
-        serviceType: serviceType as ServiceType,
+        serviceType: serviceType,
         quantity,
         status: "active",
         relatedBookingId: null, // Always null on creation (v2.16.11)
@@ -177,7 +176,7 @@ export class ServiceHoldService {
       .where(
         and(
           eq(schema.serviceHolds.studentId, studentId),
-          eq(schema.serviceHolds.serviceType, serviceType as ServiceType),
+          eq(schema.serviceHolds.serviceType, serviceType),
           eq(schema.serviceHolds.status, "active"),
         ),
       );

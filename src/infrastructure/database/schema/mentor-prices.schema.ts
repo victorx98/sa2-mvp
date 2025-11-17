@@ -2,117 +2,69 @@ import {
   pgTable,
   uuid,
   varchar,
-  numeric,
+  decimal,
   timestamp,
+  boolean,
+  index,
+  primaryKey,
 } from "drizzle-orm/pg-core";
+import { mentorTable } from "./mentor.schema";
+import { serviceTypes } from "./service-types.schema";
 
 /**
- * Mentor Prices Table (导师价格配置表)
- *
- * Purpose:
- * Stores mentor service pricing configurations
- * Used by Session Domain to determine billing amounts when publishing SessionCompletedEvent
- *
- * Design Principles:
- * 1. Mentor-specific: Each mentor can have different prices
- * 2. Service-specific: Different prices per service type
- * 3. Package-based pricing: Optional linking to service packages
- * 4. Status tracking: Active/inactive price configurations
- * 5. Audit trail: Track creator and last updater
- *
- * Usage:
- * - Session Domain queries this table when session completes
- * - Returns price for event publishing
- * - Financial Domain uses event data, not this table (avoid cross-domain queries)
+ * 导师价格表
+ * 
+ * 设计原则：
+ * 1. 价格配置与导师和服务类型关联
+ * 2. 支持多种计费模式
+ * 3. 价格历史可追溯
+ * 4. 价格变更需要审批
+ * 
+ * 注意事项：
+ * 1. 价格变更需要创建新记录，而不是更新现有记录
+ * 2. 价格变更需要审批流程
+ * 3. 价格变更需要通知相关方
+ * 4. 价格变更需要记录变更原因
+ * 5. 价格变更需要记录变更人
+ * 6. 价格变更需要记录变更时间
+ * 7. 价格变更需要记录变更前的值
+ * 8. 价格变更需要记录变更后的值
+ * 9. 价格变更需要记录变更的影响范围
+ * 10. 价格变更需要记录变更的影响对象
  */
-export const mentorPrices = pgTable("mentor_prices", {
-  // ========== Primary Key ==========
-  id: uuid("id").primaryKey().defaultRandom(),
-
-  /**
-   * Mentor User ID (with foreign key comment)
-   * References: identity.users.id
-   */
-  mentorUserId: uuid("mentor_user_id").notNull(),
-
-  // ========== Service & Billing ==========
-  /**
-   * Service Type Code - References service_types.code
-   * Purpose: Snapshots service type at the time of pricing (no foreign key - ACL principle)
-   */
-  serviceTypeCode: varchar("service_type_code", { length: 50 }).notNull(),
-
-  /**
-   * Service Package ID - Optional reference to service package
-   * Purpose: Link to specific service package if pricing is package-based
-   */
-  servicePackageId: uuid("service_package_id"),
-
-  /**
-   * Unit Price - Price per session/hour/package
-   * Precision: 12 digits total, 1 decimal place
-   * Examples:
-   *   - per_session: 100.0 (per session)
-   *   - per_hour: 50.0 (per hour)
-   *   - package: 2000.0 (total package price)
-   */
-  price: numeric("price", { precision: 12, scale: 1 }).notNull(),
-
-  /**
-   * Currency - ISO 4217 currency code
-   * Default: USD
-   */
-  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
-
-  // ========== Status & Lifecycle ==========
-  /**
-   * Status - Price configuration status
-   * active: Currently active and usable
-   * inactive: No longer active (price history)
-   */
-  status: varchar("status", { length: 20 }).notNull().default("active"),
-
-  /**
-   * Created At - Record creation timestamp
-   */
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-
-  /**
-   * Created By - Creator user ID (for audit trail)
-   * References: identity.users.id
-   */
-  createdBy: uuid("created_by"),
-
-  /**
-   * Updated At - Last update timestamp
-   * Updated when price or status changes
-   */
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-
-  /**
-   * Updated By - Operator user ID (for audit trail)
-   * References: identity.users.id
-   */
-  updatedBy: uuid("updated_by"),
-});
+export const mentorPrices = pgTable(
+  "mentor_prices",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    mentorUserId: varchar("mentor_user_id", { length: 32 })
+      .references(() => mentorTable.userId, { onDelete: "cascade" })
+      .notNull(),
+    serviceTypeCode: varchar("service_type_code", { length: 50 }) // 使用serviceTypeCode引用service_types.code
+      .notNull()
+      .references(() => serviceTypes.code, { onDelete: "cascade" }),
+    billingMode: varchar("billing_mode", { length: 20 }).notNull(), // 'one_time', 'per_session', 'staged'
+    price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+    currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+    status: varchar("status", { length: 20 }).notNull().default("active"), // 'active', 'inactive'
+    updatedBy: varchar("updated_by", { length: 32 }).references(() => mentorTable.userId),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    // 复合索引：导师ID + 服务类型代码 + 状态
+    mentorServiceTypeIdx: index("idx_mentor_service_type").on(
+      table.mentorUserId,
+      table.serviceTypeCode,
+      table.status,
+    ),
+    // 导师ID索引
+    mentorIdx: index("idx_mentor_prices_mentor").on(table.mentorUserId),
+    // 服务类型代码索引
+    serviceTypeIdx: index("idx_mentor_prices_service_type").on(table.serviceTypeCode),
+    // 状态索引
+    statusIdx: index("idx_mentor_prices_status").on(table.status),
+  }),
+);
 
 export type MentorPrice = typeof mentorPrices.$inferSelect;
 export type InsertMentorPrice = typeof mentorPrices.$inferInsert;
-
-/**
- * Unique Indexes (created in migration files):
- *
- * 1. Unique price per mentor + service type
- *    Ensures each mentor has one active price per service type
- *    CREATE UNIQUE INDEX idx_mentor_price_unique
- *    ON mentor_prices(mentor_user_id, service_type_code)
- *    WHERE status = 'active';
- *
- * 2. Query optimization
- *    CREATE INDEX idx_mentor_prices_mentor
- *    ON mentor_prices(mentor_user_id);
- */

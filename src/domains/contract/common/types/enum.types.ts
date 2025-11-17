@@ -3,15 +3,6 @@
  * These types are derived from database schema enums
  */
 
-import { serviceTypeEnum } from "@infrastructure/database/schema/services.schema";
-
-/**
- * Service type - directly imported from database schema
- * This ensures type consistency with the database enum
- */
-export { serviceTypeEnum };
-export type ServiceType = (typeof serviceTypeEnum.enumValues)[number];
-
 /**
  * Contract status enum values from contracts.schema.ts
  */

@@ -38,8 +38,9 @@ describe("SessionCompletedListener", () => {
     }).compile();
 
     listener = module.get<SessionCompletedListener>(SessionCompletedListener);
-    mentorPayableService =
-      module.get<IMentorPayableService>("IMentorPayableService");
+    mentorPayableService = module.get<IMentorPayableService>(
+      "IMentorPayableService",
+    );
 
     // 清除所有mock的调用历史
     jest.clearAllMocks();
@@ -63,7 +64,7 @@ describe("SessionCompletedListener", () => {
       studentUserId: "student-123",
       mentorName: "张导师",
       studentName: "李同学",
-      serviceTypeCode: "CS_INTERVIEW",
+      serviceTypeId: "550e8400-e29b-41d4-a716-446655440000", // 使用uuid
       serviceName: "CS面试辅导",
       durationHours: 1.5,
       completedAt: new Date("2024-01-01T11:30:00Z"),
@@ -91,7 +92,7 @@ describe("SessionCompletedListener", () => {
         sessionId: "session-123",
         mentorUserId: "mentor-123",
         studentUserId: "student-123",
-        serviceTypeCode: "CS_INTERVIEW",
+        serviceTypeId: "CS_INTERVIEW", // Updated field name from serviceTypeCode
         serviceName: "CS面试辅导",
         durationHours: 1.5,
         startTime: mockEvent.completedAt,
@@ -120,7 +121,7 @@ describe("SessionCompletedListener", () => {
         studentUserId: "student-124",
         mentorName: "王导师",
         studentName: "赵同学",
-        serviceTypeCode: "CS_COURSE",
+        serviceTypeId: "550e8400-e29b-41d4-a716-446655440000", // 使用uuid
         serviceName: "CS课程包",
         durationHours: 2,
         completedAt: new Date("2024-01-01T12:00:00Z"),
@@ -158,7 +159,7 @@ describe("SessionCompletedListener", () => {
         servicePackageId: "package-123",
         mentorUserId: "mentor-124",
         studentUserId: "student-124",
-        serviceTypeCode: "CS_COURSE",
+        serviceTypeId: "CS_COURSE", // Updated field name from serviceTypeCode
         serviceName: "CS课程包",
         quantity: 1,
         metadata: expect.objectContaining({
@@ -187,7 +188,7 @@ describe("SessionCompletedListener", () => {
         studentUserId: "student-125",
         mentorName: "王导师",
         studentName: "赵同学",
-        serviceTypeCode: "CS_COURSE",
+        serviceTypeId: "550e8400-e29b-41d4-a716-446655440000", // 使用uuid
         serviceName: "CS课程包",
         durationHours: 2,
         completedAt: new Date("2024-01-01T12:00:00Z"),
@@ -220,13 +221,12 @@ describe("SessionCompletedListener", () => {
         studentUserId: "student-123",
         mentorName: "张导师",
         studentName: "李同学",
-        serviceTypeCode: "CS_INTERVIEW",
+        serviceTypeId: "550e8400-e29b-41d4-a716-446655440000", // 使用uuid
         serviceName: "CS面试辅导",
         durationHours: 1.5,
         completedAt: new Date("2024-01-01T11:30:00Z"),
         requiredEvaluation: true,
       });
-
 
       // 执行测试
       await listener.handleSessionCompleted(evaluationEvent);
@@ -265,7 +265,7 @@ describe("SessionCompletedListener", () => {
         studentUserId: "student-123",
         mentorName: "张导师",
         studentName: "李同学",
-        serviceTypeCode: "CS_INTERVIEW",
+        serviceTypeId: "550e8400-e29b-41d4-a716-446655440000", // 使用uuid
         serviceName: "CS面试辅导",
         durationHours: 1.5,
         completedAt: new Date("2024-01-01T11:30:00Z"),

@@ -63,7 +63,7 @@ export class MentorPayableService implements IMentorPayableService {
         throw new BadRequestException("Duration must be greater than zero");
       }
 
-      // 获取导师价格
+      // 获取导师价格 - 使用serviceTypeCode查询mentorPrices表
       const mentorPrice = await this.getMentorPrice(
         dto.mentorUserId,
         dto.serviceTypeCode,
@@ -83,13 +83,13 @@ export class MentorPayableService implements IMentorPayableService {
         throw new BadRequestException("Invalid billing amount calculation");
       }
 
-      // 准备插入数据 - Generate valid UUID for relationId and use valid UUID for createdBy
+      // 准备插入数据 - 使用serviceTypeCode字段引用service_types.code
       const ledgerData = {
         relationId: uuidv7(), // Generate valid UUID for relationId (not using sessionId directly)
         sourceEntity: "session",
         mentorUserId: dto.mentorUserId,
         studentUserId: dto.studentUserId,
-        serviceTypeCode: dto.serviceTypeCode,
+        serviceTypeCode: dto.serviceTypeCode, // 使用serviceTypeCode字段引用service_types.code
         serviceName: dto.serviceName,
         price: mentorPrice.price.toString(), // Convert numeric to string to match schema
         amount: totalAmount.toString(), // Convert numeric to string to match schema
@@ -134,8 +134,8 @@ export class MentorPayableService implements IMentorPayableService {
       // 输入验证
       if (
         !dto.mentorUserId ||
-        !dto.contractId ||
         !dto.serviceTypeCode ||
+        !dto.contractId ||
         !dto.studentUserId
       ) {
         throw new BadRequestException(
@@ -147,7 +147,7 @@ export class MentorPayableService implements IMentorPayableService {
         throw new BadRequestException("Quantity must be greater than zero");
       }
 
-      // 获取导师价格
+      // 获取导师价格 - 使用serviceTypeCode查询mentorPrices表
       const mentorPrice = await this.getMentorPrice(
         dto.mentorUserId,
         dto.serviceTypeCode,
@@ -169,13 +169,13 @@ export class MentorPayableService implements IMentorPayableService {
         );
       }
 
-      // 准备插入数据
+      // 准备插入数据 - 使用serviceTypeCode字段引用service_types.code
       const ledgerData = {
         relationId: dto.contractId,
         sourceEntity: "contract",
         mentorUserId: dto.mentorUserId,
         studentUserId: dto.studentUserId,
-        serviceTypeCode: dto.serviceTypeCode,
+        serviceTypeCode: dto.serviceTypeCode, // 使用serviceTypeCode字段引用service_types.code
         serviceName: dto.serviceName,
         price: String(mentorPrice.price ?? 0), // Convert numeric to string to match schema
         amount: String(totalAmount ?? 0), // Convert numeric to string to match schema
@@ -200,7 +200,7 @@ export class MentorPayableService implements IMentorPayableService {
         contractId: dto.contractId,
         mentorUserId: dto.mentorUserId,
         studentUserId: dto.studentUserId,
-        serviceTypeCode: dto.serviceTypeCode,
+        serviceTypeCode: dto.serviceTypeCode, // 使用serviceTypeCode字段
         serviceName: dto.serviceName,
         quantity: dto.quantity,
         unitPrice,
@@ -289,14 +289,14 @@ export class MentorPayableService implements IMentorPayableService {
         );
       }
 
-      // Prepare adjustment record
+      // Prepare adjustment record - 使用serviceTypeCode字段引用service_types.code
       const adjustmentData: any = {
         originalId: dto.ledgerId,
         relationId: originalLedger.relationId,
         sourceEntity: originalLedger.sourceEntity,
         mentorUserId: originalLedger.mentorUserId,
         studentUserId: originalLedger.studentUserId || undefined,
-        serviceTypeCode: originalLedger.serviceTypeCode,
+        serviceTypeCode: originalLedger.serviceTypeCode, // 使用serviceTypeCode字段引用service_types.code
         serviceName: originalLedger.serviceName,
         price: originalLedger.price.toString(), // Convert numeric to string to match schema
         amount: adjustmentAmount, // This is the adjustment value (can be negative for refunds)
@@ -326,41 +326,50 @@ export class MentorPayableService implements IMentorPayableService {
     }
   }
 
-
-
   /**
    * 获取导师价格
    * @param mentorId 导师ID
-   * @param serviceType 服务类型
+   * @param serviceTypeCode 服务类型代码(引用service_types.code)
    * @returns 导师价格或null
    *
    * @remarks 价格查询是金融计算的基础，需要确保返回准确的数值
    */
   public async getMentorPrice(
     mentorId: string,
-    serviceType: string,
+    serviceTypeCode: string,
   ): Promise<IMentorPrice | null> {
     try {
       // 输入验证
-      if (!mentorId || !serviceType) {
+      if (!mentorId || !serviceTypeCode) {
         this.logger.warn(
-          "Empty mentorId or serviceType provided to getMentorPrice",
+          "Empty mentorId or serviceTypeCode provided to getMentorPrice",
         );
         return null;
       }
 
-      // 查询导师的有效价格
+      // 查询导师的有效价格 - 通过service_types.code关联mentorPrices表
+      // 需要先通过serviceTypeCode查询service_types表获取id，再查询mentorPrices表
+      const serviceType = await this.db.query.serviceTypes.findFirst({
+        where: eq(schema.serviceTypes.code, serviceTypeCode),
+      });
+
+      if (!serviceType) {
+        this.logger.warn(`Service type not found for code: ${serviceTypeCode}`);
+        return null;
+      }
+
+      // 使用serviceTypeCode查询mentorPrices表
       const mentorPrice = await this.db.query.mentorPrices.findFirst({
         where: and(
           eq(schema.mentorPrices.mentorUserId, mentorId),
-          eq(schema.mentorPrices.serviceTypeCode, serviceType),
+          eq(schema.mentorPrices.serviceTypeCode, serviceTypeCode), // 使用serviceTypeCode
           eq(schema.mentorPrices.status, "active"),
         ),
       });
 
       if (!mentorPrice) {
         this.logger.debug(
-          `No active price found for mentor: ${mentorId}, service type: ${serviceType}`,
+          `No active price found for mentor: ${mentorId}, service type code: ${serviceTypeCode}`,
         );
         return null;
       }
@@ -369,7 +378,7 @@ export class MentorPayableService implements IMentorPayableService {
       const priceValue = Number(mentorPrice.price);
       if (isNaN(priceValue) || priceValue <= 0) {
         this.logger.warn(
-          `Invalid price value found for mentor: ${mentorId}, service type: ${serviceType}, price: ${mentorPrice.price}`,
+          `Invalid price value found for mentor: ${mentorId}, service type code: ${serviceTypeCode}, price: ${mentorPrice.price}`,
         );
         return null;
       }
@@ -378,7 +387,7 @@ export class MentorPayableService implements IMentorPayableService {
       return {
         id: mentorPrice.id,
         mentorUserId: mentorPrice.mentorUserId,
-        serviceTypeCode: mentorPrice.serviceTypeCode,
+        serviceTypeCode: serviceTypeCode, // 返回serviceTypeCode
         price: priceValue,
         currency: mentorPrice.currency || "USD", // 提供默认货币
         createdAt: mentorPrice.createdAt,
@@ -387,7 +396,7 @@ export class MentorPayableService implements IMentorPayableService {
       };
     } catch (error) {
       this.logger.error(
-        `Error getting mentor price for mentor: ${mentorId}, service type: ${serviceType}`,
+        `Error getting mentor price for mentor: ${mentorId}, service type code: ${serviceTypeCode}`,
         error instanceof Error ? error.stack : undefined,
       );
       throw error;
@@ -556,10 +565,21 @@ export class MentorPayableService implements IMentorPayableService {
         );
       }
 
-      // 准备数据 - Include billingMode in the insert
+      // 通过serviceTypeCode查询service_types表获取id
+      const serviceType = await this.db.query.serviceTypes.findFirst({
+        where: eq(schema.serviceTypes.code, dto.serviceTypeCode),
+      });
+
+      if (!serviceType) {
+        throw new BadRequestException(
+          `Service type not found for code: ${dto.serviceTypeCode}`,
+        );
+      }
+
+      // 准备数据 - 使用serviceType.id引用service_types表
       const priceRecord = {
         mentorUserId: dto.mentorUserId,
-        serviceTypeCode: dto.serviceTypeCode,
+        serviceTypeCode: dto.serviceTypeCode, // 使用serviceTypeCode引用service_types.code
         billingMode: dto.billingMode,
         price: dto.price.toString(),
         currency: dto.currency || "USD",
@@ -585,7 +605,7 @@ export class MentorPayableService implements IMentorPayableService {
       return {
         id: createdPrice.id,
         mentorUserId: createdPrice.mentorUserId,
-        serviceTypeCode: createdPrice.serviceTypeCode,
+        serviceTypeCode: dto.serviceTypeCode, // 返回serviceTypeCode而不是serviceType.id
         price: Number(createdPrice.price),
         currency: createdPrice.currency || "USD",
         createdAt: createdPrice.createdAt,
@@ -594,7 +614,7 @@ export class MentorPayableService implements IMentorPayableService {
       };
     } catch (error) {
       this.logger.error(
-        `Error creating mentor price for mentor: ${dto?.mentorUserId}, service type: ${dto?.serviceTypeCode}`,
+        `Error creating mentor price for mentor: ${dto?.mentorUserId}, service type code: ${dto?.serviceTypeCode}`,
         error instanceof Error ? error.stack : undefined,
       );
       throw error;
@@ -656,7 +676,7 @@ export class MentorPayableService implements IMentorPayableService {
       contractId: ledger.relationId || "",
       mentorUserId: ledger.mentorUserId || "",
       studentUserId: ledger.studentUserId || "",
-      serviceTypeCode: ledger.serviceTypeCode || "",
+      serviceTypeCode: ledger.serviceTypeCode || "", // 使用serviceTypeCode
       serviceName: ledger.serviceName || undefined,
       quantity: 1, // 服务包默认数量为1
       unitPrice: safeNumberConversion(ledger.price, 0),
@@ -733,7 +753,7 @@ export class MentorPayableService implements IMentorPayableService {
       classId: ledger.sourceEntity === "class" ? ledger.relationId : undefined,
       mentorUserId: ledger.mentorUserId || "",
       studentUserId: ledger.studentUserId || "",
-      serviceTypeCode: ledger.serviceTypeCode || "",
+      serviceTypeCode: ledger.serviceTypeCode || "", // 使用serviceTypeCode
       serviceName: ledger.serviceName || undefined,
       durationHours: safeNumberConversion(ledger.price, 0),
       unitPrice: safeNumberConversion(ledger.price, 0),

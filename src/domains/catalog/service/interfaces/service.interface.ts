@@ -1,5 +1,4 @@
 import {
-  ServiceType,
   BillingMode,
   ServiceStatus,
 } from "../../common/interfaces/enums";
@@ -8,7 +7,7 @@ import {
 export interface IService {
   id: string;
   code: string;
-  serviceType: ServiceType;
+  serviceType: string; // Service type (references service_types.code field)
   name: string;
   description?: string;
   coverImage?: string;

@@ -101,7 +101,7 @@ export class TestDataManager {
     const [service] = await this.db
       .select()
       .from(schema.services)
-      .where(eq(schema.services.status, 'active'))
+      .where(eq(schema.services.status, "active"))
       .limit(1);
 
     return service || null;
@@ -242,10 +242,10 @@ export class TestDataManager {
     let allServices = await this.db
       .select()
       .from(schema.services)
-      .where(eq(schema.services.status, 'active'));
-    
+      .where(eq(schema.services.status, "active"));
+
     let services;
-    
+
     if (allServices.length > 0) {
       // 如果有现有的服务，就使用它们中的第一个
       services = [allServices[0]];
@@ -256,37 +256,37 @@ export class TestDataManager {
         // 尝试插入一个服务，使用最可能有效的服务类型
         const newService = {
           code: `test-service-${Date.now()}`,
-          serviceType: 'resume_review', // 假设这是一个有效的枚举值
-          name: 'Test Service',
-          description: 'Test service description',
-          billingMode: 'one_time',
+          serviceType: "resume_review", // 假设这是一个有效的枚举值
+          name: "Test Service",
+          description: "Test service description",
+          billingMode: "one_time",
           requiresEvaluation: false,
           requiresMentorAssignment: true,
-          status: 'active',
+          status: "active",
           createdBy: userId,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
-        
+
         // 使用原始的SQL插入，避免TypeScript类型检查
         await this.db.execute(
           sql`
             INSERT INTO services 
             (code, service_type, name, description, billing_mode, requires_evaluation, requires_mentor_assignment, status, created_by, created_at, updated_at)
             VALUES (${newService.code}, ${newService.serviceType}, ${newService.name}, ${newService.description}, ${newService.billingMode}, ${newService.requiresEvaluation}, ${newService.requiresMentorAssignment}, ${newService.status}, ${newService.createdBy}, ${newService.createdAt}, ${newService.updatedAt})
-          `
+          `,
         );
-        
+
         // 重新获取服务
         allServices = await this.db
           .select()
           .from(schema.services)
-          .where(eq(schema.services.status, 'active'));
-        
+          .where(eq(schema.services.status, "active"));
+
         if (allServices.length > 0) {
           services = [allServices[0]];
         } else {
-          throw new Error('无法创建所需的服务记录');
+          throw new Error("无法创建所需的服务记录");
         }
       } catch (error) {
         // 如果插入失败，尝试使用另一种方法

@@ -41,8 +41,8 @@ export class CreateServiceDto {
   code: string; // Service code, e.g. 'resume_review'
 
   @IsNotEmpty()
-  @IsEnum(ServiceType)
-  serviceType: ServiceType; // Service type
+  @IsString()
+  serviceType: string; // Service type (references service_types.code)
 
   // Basic information
   @IsNotEmpty()

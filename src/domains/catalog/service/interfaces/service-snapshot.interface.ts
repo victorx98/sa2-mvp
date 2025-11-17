@@ -1,11 +1,11 @@
-import { ServiceType, BillingMode } from "../../common/interfaces/enums";
+import { BillingMode } from "../../common/interfaces/enums";
 
 // Service snapshot interface (used for contracts)
 export interface IServiceSnapshot {
   serviceId: string;
   serviceName: string;
   serviceCode: string;
-  serviceType: ServiceType;
+  serviceType: string; // Service type (references service_types.code)
   billingMode: BillingMode;
   requiresEvaluation: boolean;
   requiresMentorAssignment: boolean;

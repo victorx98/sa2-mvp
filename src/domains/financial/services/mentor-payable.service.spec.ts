@@ -12,12 +12,17 @@ const mockDb = {
     },
     mentorPayableLedgers: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
     },
     domainEvents: {
       findFirst: jest.fn(),
     },
+    serviceTypes: {
+      findFirst: jest.fn(),
+    },
   },
   insert: jest.fn(),
+  select: jest.fn(),
 } as unknown as DrizzleDatabase;
 
 describe("MentorPayableService", () => {
@@ -48,17 +53,26 @@ describe("MentorPayableService", () => {
         contractId: "contract-123",
         mentorUserId: "mentor-123",
         studentUserId: "student-123",
-        serviceTypeCode: "CS_INTERVIEW",
+        serviceTypeCode: "CS_INTERVIEW", // 使用serviceTypeCode引用service_types.code
         serviceName: "CS面试辅导",
         durationHours: 1.5,
         startTime: new Date("2024-01-01T10:00:00Z"),
         endTime: new Date("2024-01-01T11:30:00Z"),
       };
 
+      const mockServiceType = {
+        id: "service-type-123",
+        code: "CS_INTERVIEW",
+        name: "CS面试辅导",
+        description: "计算机科学面试辅导",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
       const mockPrice = {
         id: "price-123",
         mentorUserId: "mentor-123",
-        serviceTypeCode: "CS_INTERVIEW",
+        serviceTypeCode: "CS_INTERVIEW", // 使用serviceTypeCode引用service_types.code
         price: 100.0,
         currency: "USD",
         status: "active",
@@ -72,7 +86,7 @@ describe("MentorPayableService", () => {
         sourceEntity: "session",
         mentorUserId: "mentor-123",
         studentUserId: "student-123",
-        serviceTypeCode: "CS_INTERVIEW",
+        serviceTypeCode: "CS_INTERVIEW", // 使用serviceTypeCode引用service_types.code
         serviceName: "CS面试辅导",
         price: 100.0,
         amount: 150.0,
@@ -82,6 +96,9 @@ describe("MentorPayableService", () => {
       };
 
       // 设置mock行为
+      (mockDb.query.serviceTypes.findFirst as jest.Mock).mockResolvedValue(
+        mockServiceType,
+      );
       (mockDb.query.mentorPrices.findFirst as jest.Mock).mockResolvedValue(
         mockPrice,
       );
@@ -99,6 +116,7 @@ describe("MentorPayableService", () => {
       expect(result.id).toBe("ledger-123");
       expect(result.sessionId).toBe("session-123");
       expect(result.totalAmount).toBe(150.0);
+      expect(mockDb.query.serviceTypes.findFirst).toHaveBeenCalled();
       expect(mockDb.query.mentorPrices.findFirst).toHaveBeenCalled();
       expect(mockDb.insert).toHaveBeenCalledWith(mentorPayableLedgers);
     });
@@ -110,13 +128,25 @@ describe("MentorPayableService", () => {
         contractId: "contract-123",
         mentorUserId: "mentor-123",
         studentUserId: "student-123",
-        serviceTypeCode: "CS_INTERVIEW",
+        serviceTypeCode: "CS_INTERVIEW", // 使用serviceTypeCode引用service_types.code
         durationHours: 1.5,
         startTime: new Date(),
         endTime: new Date(),
       };
 
+      const mockServiceType = {
+        id: "service-type-123",
+        code: "CS_INTERVIEW",
+        name: "CS面试辅导",
+        description: "计算机科学面试辅导",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
       // 设置mock行为
+      (mockDb.query.serviceTypes.findFirst as jest.Mock).mockResolvedValue(
+        mockServiceType,
+      );
       (mockDb.query.mentorPrices.findFirst as jest.Mock).mockResolvedValue(
         null,
       );
@@ -125,6 +155,8 @@ describe("MentorPayableService", () => {
       await expect(service.createPerSessionBilling(mockDto)).rejects.toThrow(
         "No active price found for mentor: mentor-123 and service type: CS_INTERVIEW",
       );
+      expect(mockDb.query.serviceTypes.findFirst).toHaveBeenCalled();
+      expect(mockDb.query.mentorPrices.findFirst).toHaveBeenCalled();
     });
   });
 
@@ -135,16 +167,25 @@ describe("MentorPayableService", () => {
         contractId: "contract-123",
         mentorUserId: "mentor-123",
         studentUserId: "student-123",
-        serviceTypeCode: "CS_COURSE",
+        serviceTypeCode: "CS_COURSE", // 使用serviceTypeCode引用service_types.code
         serviceName: "CS课程包",
         quantity: 10,
         servicePackageId: "package-123",
       };
 
+      const mockServiceType = {
+        id: "service-type-123",
+        code: "CS_COURSE",
+        name: "CS课程",
+        description: "计算机科学课程",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
       const mockPrice = {
         id: "price-123",
         mentorUserId: "mentor-123",
-        serviceTypeCode: "CS_COURSE",
+        serviceTypeCode: "CS_COURSE", // 使用serviceTypeCode引用service_types.code
         price: 200.0,
         currency: "USD",
         status: "active",
@@ -158,7 +199,7 @@ describe("MentorPayableService", () => {
         sourceEntity: "contract",
         mentorUserId: "mentor-123",
         studentUserId: "student-123",
-        serviceTypeCode: "CS_COURSE",
+        serviceTypeCode: "CS_COURSE", // 使用serviceTypeCode引用service_types.code
         serviceName: "CS课程包",
         price: 200.0,
         amount: 2000.0,
@@ -169,6 +210,9 @@ describe("MentorPayableService", () => {
       };
 
       // 设置mock行为
+      (mockDb.query.serviceTypes.findFirst as jest.Mock).mockResolvedValue(
+        mockServiceType,
+      );
       (mockDb.query.mentorPrices.findFirst as jest.Mock).mockResolvedValue(
         mockPrice,
       );
@@ -187,6 +231,8 @@ describe("MentorPayableService", () => {
       expect(result.totalAmount).toBe(2000.0);
       expect(result.quantity).toBe(10);
       expect(result.status).toBe("pending");
+      expect(mockDb.query.serviceTypes.findFirst).toHaveBeenCalled();
+      expect(mockDb.query.mentorPrices.findFirst).toHaveBeenCalled();
     });
   });
 
@@ -206,7 +252,7 @@ describe("MentorPayableService", () => {
         sourceEntity: "session",
         mentorUserId: "mentor-123",
         studentUserId: "student-123",
-        serviceTypeCode: "CS_INTERVIEW",
+        serviceTypeCode: "CS_INTERVIEW", // 使用serviceTypeCode引用service_types.code
         serviceName: "CS面试辅导",
         price: 100.0,
         amount: 100.0,
@@ -222,7 +268,7 @@ describe("MentorPayableService", () => {
         sourceEntity: "session",
         mentorUserId: "mentor-123",
         studentUserId: "student-123",
-        serviceTypeCode: "CS_INTERVIEW",
+        serviceTypeCode: "CS_INTERVIEW", // 使用serviceTypeCode引用service_types.code
         serviceName: "CS面试辅导",
         price: 100.0,
         amount: -20.0, // 调整值为-20（实际退款金额）
@@ -268,7 +314,7 @@ describe("MentorPayableService", () => {
         sourceEntity: "session",
         mentorUserId: "mentor-456",
         studentUserId: "student-456",
-        serviceTypeCode: "CAREER_CONSULTATION",
+        serviceTypeCode: "CAREER_CONSULTATION", // 使用serviceTypeCode引用service_types.code
         serviceName: "职业规划咨询",
         price: 200.0,
         amount: 200.0,
@@ -284,7 +330,7 @@ describe("MentorPayableService", () => {
         sourceEntity: "session",
         mentorUserId: "mentor-456",
         studentUserId: "student-456",
-        serviceTypeCode: "CAREER_CONSULTATION",
+        serviceTypeCode: "CAREER_CONSULTATION", // 使用serviceTypeCode引用service_types.code
         serviceName: "职业规划咨询",
         price: 200.0,
         amount: 50.0, // 调整值为50（实际补扣金额）
@@ -336,15 +382,22 @@ describe("MentorPayableService", () => {
     });
   });
 
-
-
   describe("getMentorPrice", () => {
     it("should return mentor price successfully", async () => {
       // 准备测试数据
+      const mockServiceType = {
+        id: "service-type-123",
+        code: "CS_INTERVIEW",
+        name: "CS面试辅导",
+        description: "计算机科学面试辅导",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
       const mockPrice = {
         id: "price-123",
         mentorUserId: "mentor-123",
-        serviceTypeCode: "CS_INTERVIEW",
+        serviceTypeCode: "CS_INTERVIEW", // 使用serviceTypeCode引用service_types.code
         price: 100.0,
         currency: "USD",
         status: "active",
@@ -353,6 +406,9 @@ describe("MentorPayableService", () => {
       };
 
       // 设置mock行为
+      (mockDb.query.serviceTypes.findFirst as jest.Mock).mockResolvedValue(
+        mockServiceType,
+      );
       (mockDb.query.mentorPrices.findFirst as jest.Mock).mockResolvedValue(
         mockPrice,
       );
@@ -365,10 +421,25 @@ describe("MentorPayableService", () => {
       expect(result?.id).toBe("price-123");
       expect(result?.price).toBe(100.0);
       expect(result?.status).toBe("active");
+      expect(mockDb.query.serviceTypes.findFirst).toHaveBeenCalled();
+      expect(mockDb.query.mentorPrices.findFirst).toHaveBeenCalled();
     });
 
     it("should return null when mentor price not found", async () => {
+      // 准备测试数据
+      const mockServiceType = {
+        id: "service-type-123",
+        code: "CS_INTERVIEW",
+        name: "CS面试辅导",
+        description: "计算机科学面试辅导",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
       // 设置mock行为
+      (mockDb.query.serviceTypes.findFirst as jest.Mock).mockResolvedValue(
+        mockServiceType,
+      );
       (mockDb.query.mentorPrices.findFirst as jest.Mock).mockResolvedValue(
         null,
       );
@@ -378,6 +449,26 @@ describe("MentorPayableService", () => {
 
       // 验证结果
       expect(result).toBeNull();
+      expect(mockDb.query.serviceTypes.findFirst).toHaveBeenCalled();
+      expect(mockDb.query.mentorPrices.findFirst).toHaveBeenCalled();
+    });
+
+    it("should return null when service type not found", async () => {
+      // 设置mock行为
+      (mockDb.query.serviceTypes.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
+
+      // 执行测试
+      const result = await service.getMentorPrice(
+        "mentor-123",
+        "UNKNOWN_SERVICE",
+      );
+
+      // 验证结果
+      expect(result).toBeNull();
+      expect(mockDb.query.serviceTypes.findFirst).toHaveBeenCalled();
+      expect(mockDb.query.mentorPrices.findFirst).not.toHaveBeenCalled();
     });
   });
 });

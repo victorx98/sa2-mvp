@@ -24,7 +24,6 @@ import { IService } from "../interfaces/service.interface";
 import { IServiceDetail } from "../interfaces/service-detail.interface";
 import { IServiceSnapshot } from "../interfaces/service-snapshot.interface";
 import {
-  ServiceType,
   BillingMode,
   ServiceStatus,
 } from "../../common/interfaces/enums";
@@ -472,7 +471,7 @@ export class ServiceService {
     return {
       id: record.id,
       code: record.code,
-      serviceType: record.serviceType as ServiceType,
+      serviceType: record.serviceType as string,
       name: record.name,
       description: record.description,
       coverImage: record.coverImage,

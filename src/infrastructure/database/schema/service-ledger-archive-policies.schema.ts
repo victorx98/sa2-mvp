@@ -6,9 +6,10 @@ import {
   timestamp,
   text,
   pgEnum,
+  varchar,
 } from "drizzle-orm/pg-core";
 import { contracts } from "./contracts.schema";
-import { serviceTypeEnum } from "./services.schema";
+import { serviceTypes } from "./service-types.schema";
 
 // Archive policy scope enum
 export const archivePolicyScopeEnum = pgEnum("archive_policy_scope", [
@@ -53,7 +54,7 @@ export const serviceLedgerArchivePolicies = pgTable(
 
     // Associated entity (varies by scope)
     contractId: uuid("contract_id").references(() => contracts.id), // Required when scope='contract'
-    serviceType: serviceTypeEnum("service_type"), // Required when scope='service_type'
+    serviceType: varchar("service_type", { length: 50 }).references(() => serviceTypes.code), // Required when scope='service_type'
 
     // Archive rules
     archiveAfterDays: integer("archive_after_days").notNull().default(90), // Archive after N days

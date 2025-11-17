@@ -12,8 +12,8 @@ export class ServiceFilterDto {
   keyword?: string; // Keyword search (name, code, description)
 
   @IsOptional()
-  @IsEnum(ServiceType)
-  serviceType?: ServiceType; // Filter by service type
+  @IsString()
+  serviceType?: string; // Filter by service type (references service_types.code)
 
   @IsOptional()
   @IsEnum(BillingMode)

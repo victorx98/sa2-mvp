@@ -45,7 +45,7 @@ describe("ServiceService (Unit Tests with Mock Data)", () => {
   const mockService = {
     id: testServiceId,
     code: testServiceCode,
-    serviceType: ServiceType.RESUME_REVIEW,
+    serviceType: "resume_review",
     name: testServiceName,
     description: testServiceDescription,
     coverImage: "https://example.com/image.jpg",
@@ -148,7 +148,7 @@ describe("ServiceService (Unit Tests with Mock Data)", () => {
       // Arrange
       const createDto = {
         code: testServiceCode,
-        serviceType: ServiceType.RESUME_REVIEW,
+        serviceType: "resume_review",
         name: testServiceName,
         description: testServiceDescription,
         billingMode: BillingMode.ONE_TIME,
@@ -189,7 +189,7 @@ describe("ServiceService (Unit Tests with Mock Data)", () => {
       expect(result.code).toBe(createDto.code);
       expect(result.status).toBe(ServiceStatus.ACTIVE);
       expect(result.createdBy).toBe(testUserId);
-      expect(result.serviceType).toBe(ServiceType.RESUME_REVIEW);
+      expect(result.serviceType).toBe("resume_review");
     });
 
     it("should reject duplicate service code", async () => {
@@ -197,7 +197,7 @@ describe("ServiceService (Unit Tests with Mock Data)", () => {
       const code = "unique_code";
       const createDto = {
         code,
-        serviceType: ServiceType.MOCK_INTERVIEW,
+        serviceType: "mock_interview",
         name: "Another Service",
         billingMode: BillingMode.ONE_TIME,
       };
@@ -221,7 +221,7 @@ describe("ServiceService (Unit Tests with Mock Data)", () => {
       // Arrange
       const createDto = {
         code: "another_code",
-        serviceType: ServiceType.SESSION,
+        serviceType: "session",
         name: "1-on-1 Session",
         billingMode: BillingMode.PER_SESSION,
         defaultUnit: ServiceUnit.HOURS,

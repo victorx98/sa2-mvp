@@ -7,7 +7,7 @@ import {
   pgEnum,
 } from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
-import { serviceTypeEnum } from "./services.schema";
+import { serviceTypes } from "./service-types.schema";
 
 /**
  * 预占状态枚举 (Hold status enum)
@@ -77,7 +77,7 @@ export const serviceHolds = pgTable("service_holds", {
     .references(() => userTable.id),
 
   // 服务类型 (Service type)
-  serviceType: serviceTypeEnum("service_type").notNull(),
+  serviceType: varchar("service_type", { length: 50 }).notNull().references(() => serviceTypes.code), // Reference to service_types.code
 
   // 预占数量 (Hold quantity)
   quantity: integer("quantity").notNull().default(1),

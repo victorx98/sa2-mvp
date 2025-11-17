@@ -14,7 +14,6 @@ import {
   CatalogGoneException,
 } from "../../common/exceptions/catalog.exception";
 import {
-  ServiceType,
   BillingMode,
   ServiceStatus,
 } from "../../common/interfaces/enums";
@@ -388,6 +387,9 @@ export class ServicePackageService {
       conditions.push(eq(schema.servicePackages.code, where.code));
     }
 
+    // Exclude deleted packages from normal queries
+    conditions.push(ne(schema.servicePackages.status, "deleted"));
+
     const result = await this.db
       .select()
       .from(schema.servicePackages)
@@ -706,11 +708,11 @@ export class ServicePackageService {
     return {
       id: record.id,
       code: record.code,
-      serviceType: record.serviceType as ServiceType,
+      serviceType: record.serviceType,
       name: record.name,
       description: record.description,
       coverImage: record.coverImage,
-      billingMode: record.billingMode as BillingMode,
+      billingMode: record.billingMode as BillingMode, // [修复] 明确转换为BillingMode枚举类型
       requiresEvaluation: record.requiresEvaluation,
       requiresMentorAssignment: record.requiresMentorAssignment,
       status: record.status as ServiceStatus,

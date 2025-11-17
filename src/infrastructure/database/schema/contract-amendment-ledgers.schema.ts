@@ -6,9 +6,10 @@ import {
   text,
   json,
   pgEnum,
+  varchar,
 } from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
-import { serviceTypeEnum } from "./services.schema";
+import { serviceTypes } from "./service-types.schema";
 
 /**
  * - addon: 促成签约 (To facilitate contract signing)
@@ -58,7 +59,7 @@ export const contractAmendmentLedgers = pgTable("contract_amendment_ledgers", {
   studentId: uuid("student_id").notNull(),
 
   // 服务类型 (Service type)
-  serviceType: serviceTypeEnum("service_type").notNull(),
+  serviceType: varchar("service_type", { length: 50 }).notNull().references(() => serviceTypes.code),
 
   // 变更类型 (Type of change)
   ledgerType: amendmentLedgerTypeEnum("ledger_type").notNull(),

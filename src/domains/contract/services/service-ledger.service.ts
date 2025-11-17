@@ -18,7 +18,6 @@ import type {
   IRecordAdjustmentDto,
   IBalanceInfo,
 } from "../interfaces/service-ledger.interface";
-import type { ServiceType } from "../common/types/enum.types";
 
 @Injectable()
 export class ServiceLedgerService {
@@ -56,7 +55,7 @@ export class ServiceLedgerService {
           eq(schema.contractServiceEntitlements.studentId, studentId),
           eq(
             schema.contractServiceEntitlements.serviceType,
-            serviceType as ServiceType,
+            serviceType,
           ),
         ),
       );
@@ -80,7 +79,7 @@ export class ServiceLedgerService {
       .insert(schema.serviceLedgers)
       .values({
         studentId,
-        serviceType: serviceType as ServiceType,
+        serviceType: serviceType,
         quantity: -quantity, // Negative for consumption(负值表示消耗)
         type: "consumption",
         source: "booking_completed",
@@ -123,7 +122,7 @@ export class ServiceLedgerService {
           eq(schema.contractServiceEntitlements.studentId, studentId),
           eq(
             schema.contractServiceEntitlements.serviceType,
-            serviceType as ServiceType,
+            serviceType,
           ),
         ),
       );
@@ -142,7 +141,7 @@ export class ServiceLedgerService {
       .insert(schema.serviceLedgers)
       .values({
         studentId,
-        serviceType: serviceType as ServiceType,
+        serviceType: serviceType,
         quantity,
         type: "adjustment",
         source: "manual_adjustment",
@@ -174,7 +173,7 @@ export class ServiceLedgerService {
           eq(schema.contractServiceEntitlements.studentId, studentId),
           eq(
             schema.contractServiceEntitlements.serviceType,
-            serviceType as ServiceType,
+            serviceType,
           ),
         ),
       );

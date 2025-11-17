@@ -197,7 +197,7 @@ export class SessionCompletedListener implements OnModuleInit {
         sessionId: event.sessionId,
         mentorUserId: event.mentorUserId,
         studentUserId: event.studentUserId,
-        serviceTypeCode: event.serviceTypeCode,
+        serviceTypeId: event.serviceTypeId, // Updated field name from serviceTypeCode
         serviceName: event.serviceName,
         durationHours: event.durationHours || 0,
         startTime: event.completedAt,
@@ -241,20 +241,16 @@ export class SessionCompletedListener implements OnModuleInit {
 
       // 准备计费数据
       const billingDto = {
-        contractId: event.contractId,
         sessionId: event.sessionId,
         mentorUserId: event.mentorUserId,
         studentUserId: event.studentUserId,
-        serviceTypeCode: event.serviceTypeCode,
+        serviceTypeId: event.serviceTypeId, // Updated field name from serviceTypeCode
         serviceName: event.serviceName,
         durationHours: event.durationHours || 0,
-        startTime: event.startTime,
-        endTime: event.endTime,
         metadata: {
           eventType: "services.session.evaluated",
           mentorName: event.mentorName,
           studentName: event.studentName,
-          reviewedAt: event.reviewedAt,
         },
       };
 
@@ -305,7 +301,7 @@ export class SessionCompletedListener implements OnModuleInit {
         servicePackageId: event.servicePackageId,
         mentorUserId: event.mentorUserId,
         studentUserId: event.studentUserId,
-        serviceTypeCode: event.serviceTypeCode,
+        serviceTypeId: event.serviceTypeId, // Updated field name from serviceTypeCode
         serviceName: event.serviceName,
         quantity: 1,
         metadata: {
@@ -361,18 +357,16 @@ export class SessionCompletedListener implements OnModuleInit {
 
       // 准备计费数据
       const billingDto = {
-        contractId: event.contractId,
         servicePackageId: event.servicePackageId,
         mentorUserId: event.mentorUserId,
         studentUserId: event.studentUserId,
-        serviceTypeCode: event.serviceTypeCode,
+        serviceTypeId: event.serviceTypeId, // Updated field name from serviceTypeCode
         serviceName: event.serviceName,
         quantity: 1,
         metadata: {
           eventType: "services.session.evaluated",
           mentorName: event.mentorName,
           studentName: event.studentName,
-          reviewedAt: event.reviewedAt,
           packageTotalSessions: event.packageTotalSessions,
           packageCompletedSessions: event.packageCompletedSessions,
         },
@@ -404,7 +398,7 @@ export class SessionCompletedListener implements OnModuleInit {
     const {
       sessionId,
       mentorUserId,
-      serviceTypeCode,
+      serviceTypeId, // Still using serviceTypeId in event validation
       serviceName,
       completedAt,
       requiredEvaluation,
@@ -414,7 +408,7 @@ export class SessionCompletedListener implements OnModuleInit {
     if (
       !sessionId ||
       !mentorUserId ||
-      !serviceTypeCode ||
+      !serviceTypeId || // Replaced serviceTypeCode with serviceTypeId
       !serviceName ||
       !completedAt ||
       requiredEvaluation === undefined
@@ -441,31 +435,21 @@ export class SessionCompletedListener implements OnModuleInit {
   private validateEvaluatedEventData(event: SessionEvaluatedEvent): boolean {
     const {
       sessionId,
-      contractId,
       mentorUserId,
       studentUserId,
-      serviceTypeCode,
+      serviceTypeId, // Still using serviceTypeId in event validation
       serviceName,
       durationHours,
-      startTime,
-      endTime,
-      rating,
     } = event;
 
     // 检查必要字段
     if (
       !sessionId ||
-      !contractId ||
       !mentorUserId ||
       !studentUserId ||
-      !serviceTypeCode ||
+      !serviceTypeId || // Replaced serviceTypeCode with serviceTypeId
       !serviceName ||
-      durationHours === undefined ||
-      !startTime ||
-      !endTime ||
-      rating === undefined ||
-      rating < 1 ||
-      rating > 5
+      durationHours === undefined
     ) {
       return false;
     }

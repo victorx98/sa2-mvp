@@ -2,7 +2,6 @@ import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { eq, and } from "drizzle-orm";
 import * as schema from "@infrastructure/database/schema";
 import {
-  ServiceType,
   BillingMode,
   Currency,
   UserType,
@@ -16,7 +15,7 @@ import { randomUUID } from "crypto";
  * Test fixture factory for creating test data in database
  */
 export class TestFixtures {
-  constructor(private db: NodePgDatabase<typeof schema>) { }
+  constructor(private db: NodePgDatabase<typeof schema>) {}
 
   /**
    * Create a test user in database
@@ -50,7 +49,7 @@ export class TestFixtures {
     const timestamp = Date.now();
     const defaultService = {
       code: `TEST-SERVICE-${timestamp}`,
-      serviceType: ServiceType.GAP_ANALYSIS,
+      serviceType: "mock_interview",
       name: `Test Service ${timestamp}`,
       description: "Test service description",
       billingMode: BillingMode.ONE_TIME,
@@ -69,7 +68,7 @@ export class TestFixtures {
       .from(schema.services)
       .where(eq(schema.services.serviceType, defaultService.serviceType))
       .limit(1);
-    
+
     if (existingService.length > 0) {
       // 如果存在相同类型的服务，但状态不同，则更新状态
       if (existingService[0].status !== defaultService.status) {
@@ -83,7 +82,7 @@ export class TestFixtures {
       // 如果状态也相同，直接返回
       return existingService[0];
     }
-    
+
     // 否则创建新服务
     const [service] = await this.db
       .insert(schema.services)
@@ -101,7 +100,7 @@ export class TestFixtures {
     count: number,
     baseOverrides: Partial<typeof schema.services.$inferInsert> = {},
   ): Promise<Array<typeof schema.services.$inferSelect>> {
-    const serviceTypes = Object.values(ServiceType);
+    const serviceTypes = ["mock_interview", "gap_analysis"];
 
     if (count > serviceTypes.length) {
       throw new Error(

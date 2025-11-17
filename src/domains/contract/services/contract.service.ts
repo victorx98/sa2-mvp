@@ -23,7 +23,6 @@ import type {
   IEntitlementAggregation,
 } from "../common/types/snapshot.types";
 import type {
-  ServiceType,
   ContractStatusEnum,
   CurrencyEnum,
 } from "../common/types/enum.types";
@@ -187,105 +186,108 @@ export class ContractService {
     }
 
     // 3. Update status and create entitlements(3. 更新状态并创建权利)
-    const [updatedContract, entitlements] = await this.db.transaction(async (tx) => {
-      const [contract] = await tx
-        .update(schema.contracts)
-        .set({
-          status: "active",
-          activatedAt: new Date(),
-        })
-        .where(eq(schema.contracts.id, id))
-        .returning();
+    const [updatedContract, entitlements] = await this.db.transaction(
+      async (tx) => {
+        const [contract] = await tx
+          .update(schema.contracts)
+          .set({
+            status: "active",
+            activatedAt: new Date(),
+          })
+          .where(eq(schema.contracts.id, id))
+          .returning();
 
-      // 4. Create service entitlements from product snapshot(4. 从产品快照创建服务权利)
-      const productSnapshot =
-        contract.productSnapshot as unknown as IProductSnapshot;
-      const entitlementMap = new Map<string, IEntitlementAggregation>();
+        // 4. Create service entitlements from product snapshot(4. 从产品快照创建服务权利)
+        const productSnapshot =
+          contract.productSnapshot as unknown as IProductSnapshot;
+        const entitlementMap = new Map<string, IEntitlementAggregation>();
 
-      // Parse product items and aggregate by service type(解析产品项并按服务类型聚合)
-      for (const item of productSnapshot.items || []) {
-        if (item.productItemType === "service" && item.service) {
-          const serviceType = item.service.serviceType;
-          const existing = entitlementMap.get(serviceType);
-
-          if (existing) {
-            existing.totalQuantity += item.quantity;
-            existing.originItems.push({
-              productItemType: "service",
-              productItemId: item.productItemId,
-              quantity: item.quantity,
-            });
-          } else {
-            entitlementMap.set(serviceType, {
-              serviceType: serviceType as ServiceType,
-              totalQuantity: item.quantity,
-              serviceSnapshot: item.service,
-              originItems: [
-                {
-                  productItemType: "service",
-                  productItemId: item.productItemId,
-                  quantity: item.quantity,
-                },
-              ],
-            });
-          }
-        } else if (
-          item.productItemType === "service_package" &&
-          item.servicePackage
-        ) {
-          // Expand service package items(展开服务包项)
-          for (const pkgItem of item.servicePackage.items || []) {
-            const serviceType = pkgItem.service.serviceType;
-            const quantity = item.quantity * pkgItem.quantity; // Product quantity * package item quantity(产品数量 * 包项数量)
+        // Parse product items and aggregate by service type(解析产品项并按服务类型聚合)
+        for (const item of productSnapshot.items || []) {
+          if (item.productItemType === "service" && item.service) {
+            const serviceType = item.service.serviceType;
             const existing = entitlementMap.get(serviceType);
 
             if (existing) {
-              existing.totalQuantity += quantity;
+              existing.totalQuantity += item.quantity;
               existing.originItems.push({
-                productItemType: "service_package",
+                productItemType: "service",
                 productItemId: item.productItemId,
-                quantity,
-                servicePackageName: item.servicePackage.servicePackageName,
+                quantity: item.quantity,
               });
             } else {
               entitlementMap.set(serviceType, {
-                serviceType: serviceType as ServiceType,
-                totalQuantity: quantity,
-                serviceSnapshot: pkgItem.service,
+                serviceType: serviceType as string,
+                totalQuantity: item.quantity,
+                serviceSnapshot: item.service,
                 originItems: [
                   {
-                    productItemType: "service_package",
+                    productItemType: "service",
                     productItemId: item.productItemId,
-                    quantity,
-                    servicePackageName: item.servicePackage.servicePackageName,
+                    quantity: item.quantity,
                   },
                 ],
               });
             }
+          } else if (
+            item.productItemType === "service_package" &&
+            item.servicePackage
+          ) {
+            // Expand service package items(展开服务包项)
+            for (const pkgItem of item.servicePackage.items || []) {
+              const serviceType = pkgItem.service.serviceType;
+              const quantity = item.quantity * pkgItem.quantity; // Product quantity * package item quantity(产品数量 * 包项数量)
+              const existing = entitlementMap.get(serviceType);
+
+              if (existing) {
+                existing.totalQuantity += quantity;
+                existing.originItems.push({
+                  productItemType: "service_package",
+                  productItemId: item.productItemId,
+                  quantity,
+                  servicePackageName: item.servicePackage.servicePackageName,
+                });
+              } else {
+                entitlementMap.set(serviceType, {
+                  serviceType: serviceType as string,
+                  totalQuantity: quantity,
+                  serviceSnapshot: pkgItem.service,
+                  originItems: [
+                    {
+                      productItemType: "service_package",
+                      productItemId: item.productItemId,
+                      quantity,
+                      servicePackageName:
+                        item.servicePackage.servicePackageName,
+                    },
+                  ],
+                });
+              }
+            }
           }
         }
-      }
 
-      // Insert entitlements(插入权利)
-      const entitlements = Array.from(entitlementMap.values()).map(
-        (entitlement) => ({
-          studentId: contract.studentId,
-          serviceType: entitlement.serviceType as ServiceType,
-          totalQuantity: entitlement.totalQuantity,
-          availableQuantity: entitlement.totalQuantity,
-          serviceSnapshot: entitlement.serviceSnapshot as never,
-          originItems: entitlement.originItems as never,
-        }),
-      );
+        // Insert entitlements(插入权利)
+        const entitlements = Array.from(entitlementMap.values()).map(
+          (entitlement) => ({
+            studentId: contract.studentId,
+            serviceType: entitlement.serviceType as string,
+            totalQuantity: entitlement.totalQuantity,
+            availableQuantity: entitlement.totalQuantity,
+            serviceSnapshot: entitlement.serviceSnapshot as never,
+            originItems: entitlement.originItems as never,
+          }),
+        );
 
-      if (entitlements.length > 0) {
-        await tx
-          .insert(schema.contractServiceEntitlements)
-          .values(entitlements);
-      }
+        if (entitlements.length > 0) {
+          await tx
+            .insert(schema.contractServiceEntitlements)
+            .values(entitlements);
+        }
 
-      return [contract, entitlements];
-    });
+        return [contract, entitlements];
+      },
+    );
 
     // 5. Publish event using EventEmitter2(5. 使用EventEmitter2发布事件)
     this.eventEmitter.emit("contract.activated", {
@@ -337,7 +339,7 @@ export class ContractService {
             eq(schema.contractServiceEntitlements.studentId, studentId),
             eq(
               schema.contractServiceEntitlements.serviceType,
-              serviceType as ServiceType,
+              serviceType as string,
             ),
           ),
         )
@@ -374,7 +376,7 @@ export class ContractService {
         // Note: No contractId in service_ledgers anymore (student-level tracking)
         await tx.insert(schema.serviceLedgers).values({
           studentId: studentId,
-          serviceType: serviceType as ServiceType,
+          serviceType: serviceType as string,
           quantity: -deductAmount,
           type: "consumption",
           source: "booking_completed",
@@ -779,7 +781,7 @@ export class ContractService {
       conditions.push(
         eq(
           schema.contractServiceEntitlements.serviceType,
-          serviceType as ServiceType,
+          serviceType as string,
         ),
       );
     }
@@ -867,7 +869,7 @@ export class ContractService {
         .insert(schema.contractServiceEntitlements)
         .values({
           studentId,
-          serviceType: serviceType as ServiceType,
+          serviceType: serviceType as string,
           totalQuantity: quantityChanged,
           consumedQuantity: 0,
           heldQuantity: 0,
@@ -894,7 +896,7 @@ export class ContractService {
       // Create amendment ledger record (audit trail)(创建权益变更台账记录(审计跟踪))
       await tx.insert(schema.contractAmendmentLedgers).values({
         studentId,
-        serviceType: serviceType as ServiceType,
+        serviceType: serviceType as string,
         ledgerType,
         quantityChanged,
         reason,
@@ -912,7 +914,7 @@ export class ContractService {
       // Create service ledger entry for audit trail(创建服务流水记录用于审计跟踪)
       await tx.insert(schema.serviceLedgers).values({
         studentId,
-        serviceType: serviceType as ServiceType,
+        serviceType: serviceType as string,
         type: "adjustment",
         source: "manual_adjustment",
         quantity: quantityChanged,
