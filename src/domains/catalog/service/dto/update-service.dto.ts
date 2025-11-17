@@ -37,7 +37,15 @@ export class UpdateServiceDto {
   // Basic information (optional update)
   @IsOptional()
   @IsString()
+  code: string;
+
+  @IsOptional()
+  @IsString()
   name?: string;
+
+  @IsOptional()
+  @IsString()
+  serviceType?: string;
 
   @IsOptional()
   @IsString()

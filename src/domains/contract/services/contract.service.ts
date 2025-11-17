@@ -13,7 +13,6 @@ import { UpdateContractDto } from "../dto/update-contract.dto";
 import { FindOneContractDto } from "../dto/find-one-contract.dto";
 import { ConsumeServiceDto } from "../dto/consume-service.dto";
 import { AddAmendmentLedgerDto } from "../dto/add-amendment-ledger.dto";
-import type { ContractAmendmentLedger } from "@infrastructure/database/schema";
 import { calculateExpirationDate } from "../common/utils/date.utils";
 import { validatePrice } from "../common/utils/validation.utils";
 import type { Contract } from "@infrastructure/database/schema";
@@ -27,9 +26,6 @@ import type {
   CurrencyEnum,
 } from "../common/types/enum.types";
 import type { ContractServiceEntitlement } from "@infrastructure/database/schema";
-
-// Type alias for backward compatibility - ContractEntitlementRevision now maps to contract_amendment_ledgers table
-type ContractEntitlementRevision = ContractAmendmentLedger;
 
 @Injectable()
 export class ContractService {

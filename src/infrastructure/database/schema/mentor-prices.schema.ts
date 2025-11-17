@@ -13,13 +13,13 @@ import { serviceTypes } from "./service-types.schema";
 
 /**
  * 导师价格表
- * 
+ *
  * 设计原则：
  * 1. 价格配置与导师和服务类型关联
  * 2. 支持多种计费模式
  * 3. 价格历史可追溯
  * 4. 价格变更需要审批
- * 
+ *
  * 注意事项：
  * 1. 价格变更需要创建新记录，而不是更新现有记录
  * 2. 价格变更需要审批流程
@@ -46,7 +46,9 @@ export const mentorPrices = pgTable(
     price: decimal("price", { precision: 10, scale: 2 }).notNull(),
     currency: varchar("currency", { length: 3 }).notNull().default("USD"),
     status: varchar("status", { length: 20 }).notNull().default("active"), // 'active', 'inactive'
-    updatedBy: varchar("updated_by", { length: 32 }).references(() => mentorTable.userId),
+    updatedBy: varchar("updated_by", { length: 32 }).references(
+      () => mentorTable.userId,
+    ),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -60,7 +62,9 @@ export const mentorPrices = pgTable(
     // 导师ID索引
     mentorIdx: index("idx_mentor_prices_mentor").on(table.mentorUserId),
     // 服务类型代码索引
-    serviceTypeIdx: index("idx_mentor_prices_service_type").on(table.serviceTypeCode),
+    serviceTypeIdx: index("idx_mentor_prices_service_type").on(
+      table.serviceTypeCode,
+    ),
     // 状态索引
     statusIdx: index("idx_mentor_prices_status").on(table.status),
   }),

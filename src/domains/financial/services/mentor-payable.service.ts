@@ -14,11 +14,13 @@ import type {
   IMentorPayableLedger,
   IPackageBilling,
   IMentorPrice,
-  ICreatePerSessionBillingDTO,
-  ICreatePackageBillingDTO,
-  IAdjustPayableLedgerDTO,
-  ICreateMentorPriceDTO,
 } from "@domains/financial/interfaces/mentor-payable.interface";
+import {
+  CreatePerSessionBillingDto,
+  CreatePackageBillingDto,
+  AdjustPayableLedgerDto,
+  CreateMentorPriceDto,
+} from "@domains/financial/dto";
 
 /**
  * Mentor Payable Service(导师应付账款服务)
@@ -40,7 +42,7 @@ export class MentorPayableService implements IMentorPayableService {
    * @returns 创建的应付账款记录
    */
   public async createPerSessionBilling(
-    dto: ICreatePerSessionBillingDTO,
+    dto: CreatePerSessionBillingDto,
   ): Promise<IMentorPayableLedger> {
     try {
       this.logger.log(
@@ -124,7 +126,7 @@ export class MentorPayableService implements IMentorPayableService {
    * @returns 创建的服务包计费记录
    */
   public async createPackageBilling(
-    dto: ICreatePackageBillingDTO,
+    dto: CreatePackageBillingDto,
   ): Promise<IPackageBilling> {
     try {
       this.logger.log(
@@ -241,7 +243,7 @@ export class MentorPayableService implements IMentorPayableService {
    *         最终结果: 100 + (-50) + 20 = 70 USD
    */
   public async adjustPayableLedger(
-    dto: IAdjustPayableLedgerDTO,
+    dto: AdjustPayableLedgerDto,
   ): Promise<IMentorPayableLedger> {
     try {
       this.logger.log(`Adjusting payable ledger: ${dto.ledgerId}`);
@@ -537,7 +539,7 @@ export class MentorPayableService implements IMentorPayableService {
    * @returns Created mentor price record
    */
   public async createMentorPrice(
-    dto: ICreateMentorPriceDTO,
+    dto: CreateMentorPriceDto,
   ): Promise<IMentorPrice> {
     try {
       this.logger.log(

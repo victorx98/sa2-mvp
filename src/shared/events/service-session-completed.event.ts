@@ -1,6 +1,5 @@
 export const SERVICE_SESSION_COMPLETED_EVENT = "services.session.completed";
 
-
 export interface ServiceSessionCompletedEvent {
   /**
    * Unique identifier for the session [会话的唯一标识符]

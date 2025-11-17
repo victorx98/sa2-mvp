@@ -167,7 +167,7 @@ export interface IGenerateContractNumberResult {
  * Used when deriving entitlements from product snapshot
  */
 export interface IEntitlementAggregation {
-  serviceType: ServiceType;
+  serviceType: string;
   totalQuantity: number;
   serviceSnapshot: IServiceSnapshot;
   originItems: IOriginItem[];

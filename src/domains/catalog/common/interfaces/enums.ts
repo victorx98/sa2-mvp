@@ -6,6 +6,9 @@ export enum BillingMode {
   PACKAGE = "package", // Package billing (sold as whole)
 }
 
+// Re-export ServiceType from database schema
+export type { ServiceType } from "@infrastructure/database/schema/service-types.schema";
+
 // Unit enum
 export enum ServiceUnit {
   TIMES = "times", // Times

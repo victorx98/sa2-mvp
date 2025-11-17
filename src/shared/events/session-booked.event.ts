@@ -1,5 +1,3 @@
-import type { ServiceType } from "@infrastructure/database/schema/service-types.schema";
-
 export const SESSION_BOOKED_EVENT = "services.session.booked";
 
 /**
@@ -11,7 +9,7 @@ export interface SessionBookedEvent {
   counselorId: string;
   studentId: string;
   mentorId: string;
-  serviceType: ServiceType;
+  serviceType: string; // 服务类型代码，如"session", "mock_interview"
   calendarSlotId: string;
   serviceHoldId: string;
   scheduledStartTime: string;

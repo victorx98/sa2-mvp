@@ -31,7 +31,9 @@ export const services = pgTable("services", {
 
   // 服务标识
   code: varchar("code", { length: 100 }).notNull().unique(), // 服务编码，如 'resume_review'
-  serviceType: varchar("service_type", { length: 50 }).notNull().references(() => serviceTypes.code), // Reference to service_types.code
+  serviceType: varchar("service_type", { length: 50 })
+    .notNull()
+    .references(() => serviceTypes.code), // Reference to service_types.code
 
   // 基本信息
   name: varchar("name", { length: 200 }).notNull(), // 服务名称，如 '简历修改'

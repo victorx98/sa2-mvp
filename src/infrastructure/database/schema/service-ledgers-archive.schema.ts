@@ -14,7 +14,7 @@ import {
 import { serviceTypes } from "./service-types.schema";
 
 /**
- * Service ledgers archive table
+ * Service ledgers archive table [DEPRECATED]
  * Cold-hot data separation for historical ledger records
  *
  * Key features:
@@ -39,50 +39,56 @@ import { serviceTypes } from "./service-types.schema";
  * - Maintains same schema as service_ledgers for transparent UNION ALL queries
  * - Additional archivedAt timestamp tracks when record was archived
  * - Original ID preserved for referential integrity
+ *
+ * v2.17.0: DEPRECATED - Cold-hot data separation removed
+ * @deprecated Since v2.17.0, cold-hot data separation has been removed. This table is renamed to service_ledgers_archive_deprecated.
  */
-export const serviceLedgersArchive = pgTable("service_ledgers_archive", {
-  // Primary key (preserves original ID)
-  id: uuid("id").primaryKey(),
+export const serviceLedgersArchive = pgTable(
+  "service_ledgers_archive_deprecated",
+  {
+    // Primary key (preserves original ID)
+    id: uuid("id").primaryKey(),
 
-  // Contract and student reference (no FK - archived data)
-  contractId: uuid("contract_id").notNull(),
-  studentId: varchar("student_id", { length: 32 }).notNull(),
+    // Contract and student reference (no FK - archived data)
+    contractId: uuid("contract_id").notNull(),
+    studentId: varchar("student_id", { length: 32 }).notNull(),
 
-  // Service type
-  serviceType: varchar("service_type", { length: 50 }).notNull(), // Reference to service_types.code (no FK in archive table)
+    // Service type
+    serviceType: varchar("service_type", { length: 50 }).notNull(), // Reference to service_types.code (no FK in archive table)
 
-  // Quantity change
-  quantity: integer("quantity").notNull(),
+    // Quantity change
+    quantity: integer("quantity").notNull(),
 
-  // Ledger type and source
-  type: serviceLedgerTypeEnum("type").notNull(),
-  source: serviceLedgerSourceEnum("source").notNull(),
+    // Ledger type and source
+    type: serviceLedgerTypeEnum("type").notNull(),
+    source: serviceLedgerSourceEnum("source").notNull(),
 
-  // Balance snapshot
-  balanceAfter: integer("balance_after").notNull(),
+    // Balance snapshot
+    balanceAfter: integer("balance_after").notNull(),
 
-  // Related business records
-  relatedHoldId: uuid("related_hold_id"),
-  relatedBookingId: uuid("related_booking_id"),
+    // Related business records
+    relatedHoldId: uuid("related_hold_id"),
+    relatedBookingId: uuid("related_booking_id"),
 
-  // Audit fields
-  reason: text("reason"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-  createdBy: varchar("created_by", { length: 32 }).notNull(),
+    // Audit fields
+    reason: text("reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    createdBy: varchar("created_by", { length: 32 }).notNull(),
 
-  // Metadata
-  metadata: json("metadata").$type<{
-    originalBalance?: number;
-    operatorIp?: string;
-    approvedBy?: string;
-    [key: string]: any;
-  }>(),
+    // Metadata
+    metadata: json("metadata").$type<{
+      originalBalance?: number;
+      operatorIp?: string;
+      approvedBy?: string;
+      [key: string]: any;
+    }>(),
 
-  // Archive information
-  archivedAt: timestamp("archived_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+    // Archive information
+    archivedAt: timestamp("archived_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+);
 
 // Type inference
 export type ServiceLedgerArchive = typeof serviceLedgersArchive.$inferSelect;

@@ -1,4 +1,10 @@
-import { pgTable, integer, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  integer,
+  timestamp,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
 import { serviceTypes } from "./service-types.schema";
 
@@ -39,7 +45,9 @@ export const contractServiceEntitlements = pgTable(
     studentId: uuid("student_id").notNull(),
 
     // 服务类型[Service type]
-    serviceType: varchar("service_type", { length: 50 }).notNull().references(() => serviceTypes.code), // Reference to service_types.code
+    serviceType: varchar("service_type", { length: 50 })
+      .notNull()
+      .references(() => serviceTypes.code), // Reference to service_types.code
 
     // 权益数量（触发器自动维护）[Entitlement quantities (maintained by triggers automatically)]
     totalQuantity: integer("total_quantity").notNull().default(0), // 总权益（初始 + 额外）[Total entitlement (initial + additional)]

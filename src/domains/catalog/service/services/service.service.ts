@@ -23,10 +23,7 @@ import { FindOneServiceDto } from "../dto/find-one-service.dto";
 import { IService } from "../interfaces/service.interface";
 import { IServiceDetail } from "../interfaces/service-detail.interface";
 import { IServiceSnapshot } from "../interfaces/service-snapshot.interface";
-import {
-  BillingMode,
-  ServiceStatus,
-} from "../../common/interfaces/enums";
+import { BillingMode, ServiceStatus } from "../../common/interfaces/enums";
 import { buildLikePattern } from "../../common/utils/sql.utils";
 
 @Injectable()
@@ -70,25 +67,25 @@ export class ServiceService {
       throw new CatalogConflictException("SERVICE_TYPE_DUPLICATE");
     }
 
-    // 3. Create service
-    const [service] = await executor
+    // 2. Create service
+    const [created] = await executor
       .insert(schema.services)
       .values({
         code: dto.code,
-        serviceType: dto.serviceType,
+        serviceType: dto.serviceType as string, // Type conversion to ensure it's a string
         name: dto.name,
         description: dto.description,
         coverImage: dto.coverImage,
         billingMode: dto.billingMode,
         requiresEvaluation: dto.requiresEvaluation ?? false,
-        requiresMentorAssignment: dto.requiresMentorAssignment ?? true,
-        status: "active",
+        requiresMentorAssignment: dto.requiresMentorAssignment ?? false,
         metadata: dto.metadata,
+        status: "inactive",
         createdBy: userId,
       })
       .returning();
 
-    return this.mapToServiceInterface(service);
+    return this.mapToServiceInterface(created[0]);
   }
 
   /**
@@ -125,7 +122,15 @@ export class ServiceService {
     const [updated] = await executor
       .update(schema.services)
       .set({
-        ...dto,
+        code: dto.code,
+        serviceType: dto.serviceType,
+        name: dto.name,
+        description: dto.description,
+        coverImage: dto.coverImage,
+        billingMode: dto.billingMode,
+        requiresEvaluation: dto.requiresEvaluation,
+        requiresMentorAssignment: dto.requiresMentorAssignment,
+        metadata: dto.metadata,
         updatedAt: new Date(),
       })
       .where(eq(schema.services.id, id))
@@ -155,7 +160,9 @@ export class ServiceService {
     }
 
     if (filter.serviceType) {
-      conditions.push(eq(schema.services.serviceType, filter.serviceType));
+      conditions.push(
+        eq(schema.services.serviceType, filter.serviceType as string),
+      );
     }
 
     if (filter.billingMode) {

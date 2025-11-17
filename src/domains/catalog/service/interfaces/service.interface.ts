@@ -1,7 +1,4 @@
-import {
-  BillingMode,
-  ServiceStatus,
-} from "../../common/interfaces/enums";
+import { BillingMode, ServiceStatus } from "../../common/interfaces/enums";
 
 // Service 基础接口
 export interface IService {

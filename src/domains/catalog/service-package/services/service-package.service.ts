@@ -13,10 +13,7 @@ import {
   CatalogConflictException,
   CatalogGoneException,
 } from "../../common/exceptions/catalog.exception";
-import {
-  BillingMode,
-  ServiceStatus,
-} from "../../common/interfaces/enums";
+import { BillingMode, ServiceStatus } from "../../common/interfaces/enums";
 import { PaginationDto } from "../../common/dto/pagination.dto";
 import { SortDto } from "../../common/dto/sort.dto";
 import { PaginatedResult } from "../../common/interfaces/paginated-result.interface";

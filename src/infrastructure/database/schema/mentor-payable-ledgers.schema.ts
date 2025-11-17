@@ -66,7 +66,9 @@ export const mentorPayableLedgers = pgTable("mentor_payable_ledgers", {
    * Service Type Code - References service_types.code
    * Purpose: Links to service type configuration
    */
-  serviceTypeCode: varchar("service_type_code", { length: 50 }).notNull().references(() => serviceTypes.code),
+  serviceTypeCode: varchar("service_type_code", { length: 50 })
+    .notNull()
+    .references(() => serviceTypes.code),
 
   /**
    * Service Name - Human-readable service name

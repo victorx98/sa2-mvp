@@ -1,9 +1,6 @@
 import { Module } from "@nestjs/common";
-import { EventEmitterModule } from "@nestjs/event-emitter";
 import { DatabaseModule } from "@infrastructure/database/database.module";
 import { MentorPayableService } from "./services/mentor-payable.service";
-import { SessionEvaluatedListener } from "./events/listeners/session-evaluated.listener";
-import { SessionCompletedListener } from "./events/listeners/session-completed.listener";
 
 /**
  * Financial Domain Module(财务领域模块)
@@ -19,16 +16,13 @@ import { SessionCompletedListener } from "./events/listeners/session-completed.l
  * - Dependency Injection(依赖注入)
  */
 @Module({
-  imports: [EventEmitterModule.forRoot(), DatabaseModule],
+  imports: [DatabaseModule],
   providers: [
     // Core services - Using custom token for interface-based injection
     {
       provide: "IMentorPayableService",
       useClass: MentorPayableService,
     },
-    // Event listeners
-    SessionEvaluatedListener,
-    SessionCompletedListener,
   ],
   exports: [
     // Export the service with custom token for dependency injection

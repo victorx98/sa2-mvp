@@ -77,7 +77,9 @@ export const serviceHolds = pgTable("service_holds", {
     .references(() => userTable.id),
 
   // 服务类型 (Service type)
-  serviceType: varchar("service_type", { length: 50 }).notNull().references(() => serviceTypes.code), // Reference to service_types.code
+  serviceType: varchar("service_type", { length: 50 })
+    .notNull()
+    .references(() => serviceTypes.code), // Reference to service_types.code
 
   // 预占数量 (Hold quantity)
   quantity: integer("quantity").notNull().default(1),

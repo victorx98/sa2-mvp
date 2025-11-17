@@ -59,7 +59,9 @@ export const contractAmendmentLedgers = pgTable("contract_amendment_ledgers", {
   studentId: uuid("student_id").notNull(),
 
   // 服务类型 (Service type)
-  serviceType: varchar("service_type", { length: 50 }).notNull().references(() => serviceTypes.code),
+  serviceType: varchar("service_type", { length: 50 })
+    .notNull()
+    .references(() => serviceTypes.code),
 
   // 变更类型 (Type of change)
   ledgerType: amendmentLedgerTypeEnum("ledger_type").notNull(),

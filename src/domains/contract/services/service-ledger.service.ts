@@ -53,10 +53,7 @@ export class ServiceLedgerService {
       .where(
         and(
           eq(schema.contractServiceEntitlements.studentId, studentId),
-          eq(
-            schema.contractServiceEntitlements.serviceType,
-            serviceType,
-          ),
+          eq(schema.contractServiceEntitlements.serviceType, serviceType),
         ),
       );
 
@@ -120,10 +117,7 @@ export class ServiceLedgerService {
       .where(
         and(
           eq(schema.contractServiceEntitlements.studentId, studentId),
-          eq(
-            schema.contractServiceEntitlements.serviceType,
-            serviceType,
-          ),
+          eq(schema.contractServiceEntitlements.serviceType, serviceType),
         ),
       );
 
@@ -171,10 +165,7 @@ export class ServiceLedgerService {
       .where(
         and(
           eq(schema.contractServiceEntitlements.studentId, studentId),
-          eq(
-            schema.contractServiceEntitlements.serviceType,
-            serviceType,
-          ),
+          eq(schema.contractServiceEntitlements.serviceType, serviceType),
         ),
       );
 
@@ -208,6 +199,14 @@ export class ServiceLedgerService {
    *
    * @change {v2.16.12} Removed contractId filter, now primary query is studentId + serviceType
    */
+  /**
+   * Query ledgers [冷热数据分离已移除]
+   * - Simplified to query only main table(简化为仅查询主表)
+   * - Removed archive-related logic(移除了归档相关逻辑)
+   *
+   * @change {v2.16.12} Removed contractId filter, now primary query is studentId + serviceType
+   * @change {v2.17.0} Removed includeArchive parameter and archive-related logic
+   */
   async queryLedgers(
     filter: {
       studentId?: string;
@@ -215,11 +214,10 @@ export class ServiceLedgerService {
       startDate?: Date;
       endDate?: Date;
     },
-    options?: { includeArchive?: boolean; limit?: number; offset?: number },
+    options?: { limit?: number; offset?: number },
   ): Promise<ServiceLedger[]> {
-    const { studentId, serviceType } = filter;
-    let { startDate, endDate } = filter;
-    const { includeArchive = false, limit = 50, offset = 0 } = options || {};
+    const { studentId, serviceType, startDate, endDate } = filter;
+    const { limit = 50, offset = 0 } = options || {};
 
     // Validate at least one filter criteria
     if (!studentId && !serviceType) {
@@ -229,52 +227,13 @@ export class ServiceLedgerService {
       );
     }
 
-    // Validate date range for archive queries (Decision I5)(验证归档查询的日期范围[决策I5])
-    if (includeArchive) {
-      // Require date range when querying archive(查询归档时需要日期范围)
-      if (!startDate && !endDate) {
-        throw new ContractException("ARCHIVE_QUERY_REQUIRES_DATE_RANGE");
-      }
-
-      // Auto-complete missing boundary (set to 1 year range)(自动补全缺失的边界[设置为1年范围])
-      const now = new Date();
-
-      if (!startDate && endDate) {
-        // Only endDate provided: set startDate to 1 year before endDate(仅提供结束日期: 将开始日期设置为结束日期前1年)
-        startDate = new Date(endDate.getTime() - 365 * 24 * 60 * 60 * 1000);
-      } else if (startDate && !endDate) {
-        // Only startDate provided: set endDate to 1 year after startDate (max: now)(仅提供开始日期: 将结束日期设置为开始日期后1年 [最大: 当前时间])
-        const oneYearAfterStart = new Date(
-          startDate.getTime() + 365 * 24 * 60 * 60 * 1000,
-        );
-        endDate = oneYearAfterStart < now ? oneYearAfterStart : now;
-      }
-
-      // Validate range does not exceed 1 year(验证范围不超过1年)
-      if (startDate && endDate) {
-        const daysDiff =
-          (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-        if (daysDiff > 365) {
-          throw new ContractException("ARCHIVE_DATE_RANGE_TOO_LARGE");
-        }
-        if (daysDiff < 0) {
-          throw new ContractException(
-            "INVALID_QUERY",
-            "startDate must be before endDate",
-          );
-        }
-      }
-    }
-
     // Build WHERE conditions(构建WHERE条件)
     const conditions: SQL[] = [];
     if (studentId) {
       conditions.push(eq(schema.serviceLedgers.studentId, studentId));
     }
     if (serviceType) {
-      conditions.push(
-        eq(schema.serviceLedgers.serviceType, serviceType),
-      );
+      conditions.push(eq(schema.serviceLedgers.serviceType, serviceType));
     }
     if (startDate) {
       conditions.push(gte(schema.serviceLedgers.createdAt, startDate));
@@ -283,8 +242,8 @@ export class ServiceLedgerService {
       conditions.push(lte(schema.serviceLedgers.createdAt, endDate));
     }
 
-    // Query main table(查询主表)
-    const query = this.db
+    // Query main table only(仅查询主表)
+    const result = await this.db
       .select()
       .from(schema.serviceLedgers)
       .where(and(...conditions))
@@ -292,49 +251,7 @@ export class ServiceLedgerService {
       .limit(limit)
       .offset(offset);
 
-    // If includeArchive is false, just query main table(如果includeArchive为false, 仅查询主表)
-    if (!includeArchive) {
-      return await query;
-    }
-
-    // includeArchive = true: Use UNION ALL to query both main and archive tables(includeArchive = true: 使用UNION ALL查询主表和归档表)
-    // Build SQL conditions for UNION ALL query(为UNION ALL查询构建SQL条件)
-    const sqlConditions: SQL[] = [];
-    if (studentId) {
-      sqlConditions.push(sql`student_id = ${studentId}`);
-    }
-    if (serviceType) {
-      sqlConditions.push(sql`service_type = ${serviceType}`);
-    }
-    if (startDate) {
-      sqlConditions.push(sql`created_at >= ${startDate}`);
-    }
-    if (endDate) {
-      sqlConditions.push(sql`created_at <= ${endDate}`);
-    }
-
-    // If no conditions, use a default condition (always true)(如果没有条件, 使用默认条件[始终为真])
-    const whereClause =
-      sqlConditions.length > 0 ? sql.join(sqlConditions, sql` AND `) : sql`1=1`;
-
-    // UNION ALL query combining main and archive tables(结合主表和归档表的UNION ALL查询)
-    const unionQuery = sql`
-      (
-        SELECT * FROM service_ledgers
-        WHERE ${whereClause}
-      )
-      UNION ALL
-      (
-        SELECT * FROM service_ledgers_archive
-        WHERE ${whereClause}
-      )
-      ORDER BY created_at DESC
-      LIMIT ${limit}
-      OFFSET ${offset}
-    `;
-
-    const result = await this.db.execute(unionQuery);
-    return result.rows as ServiceLedger[];
+    return result;
   }
 
   /**
@@ -355,10 +272,7 @@ export class ServiceLedgerService {
       .where(
         and(
           eq(schema.contractServiceEntitlements.studentId, studentId),
-          eq(
-            schema.contractServiceEntitlements.serviceType,
-            serviceType,
-          ),
+          eq(schema.contractServiceEntitlements.serviceType, serviceType),
         ),
       );
 

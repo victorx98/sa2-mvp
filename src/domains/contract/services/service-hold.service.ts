@@ -51,10 +51,7 @@ export class ServiceHoldService {
       .where(
         and(
           eq(schema.contractServiceEntitlements.studentId, studentId),
-          eq(
-            schema.contractServiceEntitlements.serviceType,
-            serviceType,
-          ),
+          eq(schema.contractServiceEntitlements.serviceType, serviceType),
         ),
       )
       .for("update");

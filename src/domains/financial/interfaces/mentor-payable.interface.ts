@@ -117,7 +117,6 @@ export interface IMentorPrice {
  */
 export interface ICreatePerSessionBillingDTO {
   sessionId: string;
-  contractId: string;
   mentorUserId: string;
   studentUserId: string;
   serviceTypeCode: string; // Service type code (references service_types.code field)
@@ -198,9 +197,7 @@ export interface IMentorPayableService {
    * @param dto 服务包计费DTO
    * @returns 创建的服务包计费记录
    */
-  createPackageBilling(
-    dto: ICreatePackageBillingDTO,
-  ): Promise<IPackageBilling>;
+  createPackageBilling(dto: ICreatePackageBillingDTO): Promise<IPackageBilling>;
 
   /**
    * 调整应付账款
@@ -243,31 +240,23 @@ export interface IMentorPayableService {
    * @param dto - Create mentor price DTO
    * @returns Created mentor price record
    */
-  createMentorPrice(
-    dto: ICreateMentorPriceDTO,
-  ): Promise<IMentorPrice>;
+  createMentorPrice(dto: ICreateMentorPriceDTO): Promise<IMentorPrice>;
 
   /**
    * Get session billing record
    * 获取会话计费记录
    */
-  getSessionBilling(
-    sessionId: string,
-  ): Promise<IMentorPayableLedger | null>;
+  getSessionBilling(sessionId: string): Promise<IMentorPayableLedger | null>;
 
   /**
    * Get package billing records
    * 获取服务包计费记录
    */
-  getPackageBilling(
-    contractId: string,
-  ): Promise<IPackageBilling | null>;
+  getPackageBilling(contractId: string): Promise<IPackageBilling | null>;
 
   /**
    * Get adjustment chain records
    * 获取调整记录链
    */
-  getAdjustmentChain(
-    originalLedgerId: string,
-  ): Promise<IMentorPayableLedger[]>;
+  getAdjustmentChain(originalLedgerId: string): Promise<IMentorPayableLedger[]>;
 }

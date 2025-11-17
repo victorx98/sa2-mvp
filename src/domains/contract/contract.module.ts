@@ -1,12 +1,9 @@
 import { Module } from "@nestjs/common";
-import { EventEmitterModule } from "@nestjs/event-emitter";
 import { DatabaseModule } from "@infrastructure/database/database.module";
 import { ContractService } from "./services/contract.service";
 import { ServiceLedgerService } from "./services/service-ledger.service";
 import { ServiceHoldService } from "./services/service-hold.service";
 import { ServiceLedgerArchiveService } from "./services/service-ledger-archive.service";
-import { EventBusService } from "./events/event-bus.service";
-import { SessionCompletedListener } from "./events/listeners/session-completed.listener";
 
 /**
  * Contract Domain Module(合约领域模块)
@@ -41,17 +38,13 @@ import { SessionCompletedListener } from "./events/listeners/session-completed.l
  * - DTOs: 6 validation DTOs(DTO：6个验证DTO)
  */
 @Module({
-  imports: [DatabaseModule, EventEmitterModule.forRoot()],
+  imports: [DatabaseModule],
   providers: [
     // Core services
     ContractService,
     ServiceLedgerService,
     ServiceHoldService,
     ServiceLedgerArchiveService,
-    // Event bus (local EventEmitter implementation)
-    EventBusService,
-    // Event listeners
-    SessionCompletedListener,
   ],
   exports: [
     ContractService,

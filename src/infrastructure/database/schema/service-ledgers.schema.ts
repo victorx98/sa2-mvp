@@ -66,7 +66,9 @@ export const serviceLedgers = pgTable("service_ledgers", {
     .references(() => userTable.id),
 
   // 服务类型 (Service type)
-  serviceType: varchar("service_type", { length: 50 }).notNull().references(() => serviceTypes.code), // Reference to service_types.code
+  serviceType: varchar("service_type", { length: 50 })
+    .notNull()
+    .references(() => serviceTypes.code), // Reference to service_types.code
 
   // 数量变化（负数=消费，正数=退款/调整）(Quantity change - negative=consumption, positive=refund/adjustment)
   quantity: integer("quantity").notNull(),
