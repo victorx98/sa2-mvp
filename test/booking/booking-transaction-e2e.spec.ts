@@ -16,6 +16,7 @@ import { DatabaseModule } from "../../src/infrastructure/database/database.modul
 import { BookSessionInput } from "../../src/application/commands/booking/dto/book-session-input.dto";
 import { ServiceHoldService } from "../../src/domains/contract/services/service-hold.service";
 import * as schema from "../../src/infrastructure/database/schema";
+import { TelemetryModule } from "../../src/telemetry/telemetry.module";
 
 /**
  * E2E 集成测试：验证预约会话的完整流程
@@ -115,6 +116,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         DatabaseModule,
         MeetingProviderModule,
         EventEmitterModule.forRoot(),
+        TelemetryModule,
       ],
       providers: [
         BookSessionCommand,

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { eq, and, lt, isNotNull } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
@@ -17,6 +17,8 @@ import type { ServiceType } from "../common/types/enum.types";
 
 @Injectable()
 export class ServiceHoldService {
+  private readonly logger = new Logger(ServiceHoldService.name);
+
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
@@ -273,7 +275,11 @@ export class ServiceHoldService {
 
           releasedCount++;
         } catch (error) {
-          console.error(`Failed to release expired hold ${hold.id}:`, error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          this.logger.error(
+            `Failed to release expired hold ${hold.id}: ${errorMessage}`,
+            error instanceof Error ? error.stack : undefined,
+          );
           failedCount++;
         }
       }
@@ -283,7 +289,8 @@ export class ServiceHoldService {
         skippedCount = 1;
       }
     } catch (error) {
-      console.error("Error in releaseExpiredHolds:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Error in releaseExpiredHolds: ${errorMessage}`, error instanceof Error ? error.stack : undefined);
       failedCount++;
     }
 
