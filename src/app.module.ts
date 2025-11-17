@@ -3,6 +3,7 @@ import { EventEmitterModule } from "@nestjs/event-emitter";
 import { ConfigModule } from "@nestjs/config";
 import { DatabaseModule } from "./infrastructure/database/database.module";
 import { ApiModule } from "./api/api.module";
+import { SupabaseAuthModule } from "./infrastructure/auth/supabase-auth.module";
 import { TelemetryModule } from "./telemetry/telemetry.module";
 
 /**
@@ -27,6 +28,7 @@ import { TelemetryModule } from "./telemetry/telemetry.module";
 
     // 基础设施层
     DatabaseModule,
+    SupabaseAuthModule,
     TelemetryModule,
 
     // API 层（包含 Operations、Application、Domain 的依赖）

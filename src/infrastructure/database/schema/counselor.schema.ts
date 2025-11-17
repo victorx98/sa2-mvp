@@ -1,10 +1,8 @@
-import { pgTable, varchar, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, varchar, timestamp, uuid } from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
 
 export const counselorTable = pgTable("counselor", {
-  id: varchar("id", { length: 32 }).primaryKey(),
-  userId: varchar("user_id", { length: 32 }).references(() => userTable.id),
-  status: varchar("status", { length: 50 }),
+  id: uuid("id").defaultRandom().primaryKey(),
   createdTime: timestamp("created_time", { withTimezone: true, mode: "date" })
     .defaultNow(),
   modifiedTime: timestamp("modified_time", { withTimezone: true, mode: "date" })

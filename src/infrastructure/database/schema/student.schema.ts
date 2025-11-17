@@ -1,9 +1,8 @@
-import { pgTable, varchar, timestamp, text, date } from "drizzle-orm/pg-core";
+import { pgTable, varchar, timestamp, text, date, uuid } from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
 
 export const studentTable = pgTable("student", {
-  id: varchar("id", { length: 32 }).primaryKey(),
-  userId: varchar("user_id", { length: 32 }).references(() => userTable.id),
+  id: uuid("id").defaultRandom().primaryKey(),
   status: varchar("status", { length: 50 }),
   underMajor: varchar("under_major", { length: 100 }),
   underCollege: varchar("under_college", { length: 100 }),
@@ -19,10 +18,9 @@ export const studentTable = pgTable("student", {
   modifiedTime: timestamp("modified_time", { withTimezone: true, mode: "date" })
     .defaultNow()
     .$onUpdate(() => new Date()),
-  createdBy: varchar("created_by", { length: 32 }).references(() => userTable.id),
-  updatedBy: varchar("updated_by", { length: 32 }).references(() => userTable.id),
+  createdBy: uuid("created_by").references(() => userTable.id),
+  updatedBy: uuid("updated_by").references(() => userTable.id),
 });
 
 export type Student = typeof studentTable.$inferSelect;
 export type InsertStudent = typeof studentTable.$inferInsert;
-

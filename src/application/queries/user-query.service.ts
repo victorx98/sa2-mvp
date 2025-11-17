@@ -13,7 +13,7 @@ export class UserQueryService {
   ) {}
 
   async getUserById(id: string): Promise<User> {
-    const user = await this.userService.findById(id);
+    const user = await this.userService.findByIdWithRoles(id);
     if (!user) {
       throw new NotFoundException("User not found");
     }
@@ -25,6 +25,10 @@ export class UserQueryService {
     if (!user) {
       throw new NotFoundException("User not found");
     }
-    return user;
+    const roles = await this.userService.getRolesByUserId(user.id);
+    return {
+      ...user,
+      roles,
+    };
   }
 }

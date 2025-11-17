@@ -1,10 +1,5 @@
-import {
-  IsEmail,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  MinLength,
-} from "class-validator";
+import { IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, MinLength } from "class-validator";
+import { USER_ROLES } from "@domains/identity/user/user.constants";
 
 export class RegisterDto {
   @IsEmail()
@@ -31,4 +26,9 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   country?: string;
+
+  @IsNotEmpty()
+  @IsString()
+  @IsIn(USER_ROLES)
+  role: string;
 }

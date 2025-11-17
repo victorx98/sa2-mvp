@@ -1,9 +1,8 @@
-import { pgTable, varchar, timestamp, text, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, varchar, timestamp, text, doublePrecision, uuid } from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
 
 export const mentorTable = pgTable("mentor", {
-  id: varchar("id", { length: 32 }).primaryKey(),
-  userId: varchar("user_id", { length: 32 }).references(() => userTable.id),
+  id: uuid("id").defaultRandom().primaryKey(),
   status: varchar("status", { length: 50 }),
   type: varchar("type", { length: 20 }),
   company: varchar("company", { length: 100 }),
@@ -18,10 +17,9 @@ export const mentorTable = pgTable("mentor", {
   modifiedTime: timestamp("modified_time", { withTimezone: true, mode: "date" })
     .defaultNow()
     .$onUpdate(() => new Date()),
-  createdBy: varchar("created_by", { length: 32 }).references(() => userTable.id),
-  updatedBy: varchar("updated_by", { length: 32 }).references(() => userTable.id),
+  createdBy: uuid("created_by").references(() => userTable.id),
+  updatedBy: uuid("updated_by").references(() => userTable.id),
 });
 
 export type Mentor = typeof mentorTable.$inferSelect;
 export type InsertMentor = typeof mentorTable.$inferInsert;
-

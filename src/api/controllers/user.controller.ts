@@ -5,10 +5,6 @@ import { User } from "@domains/identity/user/user-interface";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 
-type CurrentUserPayload = {
-  userId: string;
-};
-
 /**
  * API Layer - User Controller
  * 职责：
@@ -38,11 +34,8 @@ export class UserController {
     status: 200,
     description: "User retrieved successfully",
   })
-  async getCurrentUser(
-    @CurrentUser() user: CurrentUserPayload,
-  ): Promise<User> {
-    // ✅ 直接调用 Application Layer 服务
-    return this.userQueryService.getUserById(user.userId);
+  async getCurrentUser(@CurrentUser() user: User): Promise<User> {
+    return user;
   }
 
   @Get(":id")
