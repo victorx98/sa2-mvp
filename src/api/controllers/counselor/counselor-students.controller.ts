@@ -24,7 +24,8 @@ import { User } from "@domains/identity/user/user-interface";
  */
 @ApiTags("Counselor Portal")
 @Controller("api/counselor")
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('counselor')
 export class CounselorStudentsController {
   constructor(
     // ✅ 直接注入 Application Layer 服务

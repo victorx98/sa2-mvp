@@ -13,6 +13,8 @@ import {
   ApiBearerAuth,
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
+import { RolesGuard } from "@shared/guards/roles.guard";
+import { Roles } from "@shared/decorators/roles.decorator";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import { User } from "@domains/identity/user/user-interface";
 import { BookSessionCommand } from "@application/commands/booking/book-session.command";
@@ -95,7 +97,8 @@ class BookSessionRequestDto {
  */
 @ApiTags("Counselor Portal - Sessions")
 @Controller("api/counselor/sessions")
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('counselor')
 @ApiBearerAuth()
 export class CounselorSessionsController {
   constructor(
