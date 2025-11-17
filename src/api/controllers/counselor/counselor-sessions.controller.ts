@@ -29,6 +29,7 @@ import {
   Min,
   IsOptional,
 } from "class-validator";
+import { ApiPrefix } from "@api/api.constants";
 
 /**
  * API Layer - Book Session Request DTO
@@ -96,7 +97,7 @@ class BookSessionRequestDto {
  * 4. 返回HTTP响应
  */
 @ApiTags("Counselor Portal - Sessions")
-@Controller("api/counselor/sessions")
+@Controller(`${ApiPrefix}/counselor/sessions`)
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('counselor')
 @ApiBearerAuth()
