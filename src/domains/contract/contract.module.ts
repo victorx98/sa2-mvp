@@ -3,7 +3,6 @@ import { DatabaseModule } from "@infrastructure/database/database.module";
 import { ContractService } from "./services/contract.service";
 import { ServiceLedgerService } from "./services/service-ledger.service";
 import { ServiceHoldService } from "./services/service-hold.service";
-import { ServiceLedgerArchiveService } from "./services/service-ledger-archive.service";
 
 /**
  * Contract Domain Module(合约领域模块)
@@ -44,13 +43,11 @@ import { ServiceLedgerArchiveService } from "./services/service-ledger-archive.s
     ContractService,
     ServiceLedgerService,
     ServiceHoldService,
-    ServiceLedgerArchiveService,
   ],
   exports: [
     ContractService,
     ServiceLedgerService,
     ServiceHoldService,
-    ServiceLedgerArchiveService,
   ],
 })
 export class ContractModule {}

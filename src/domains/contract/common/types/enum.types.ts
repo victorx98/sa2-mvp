@@ -1,12 +1,4 @@
 /**
- * Enum Types for Contract Domain
- * These types are derived from database schema enums
- */
-
-// Re-export ServiceType from database schema
-export type { ServiceType } from "@infrastructure/database/schema/service-types.schema";
-
-/**
  * Contract status enum values from contracts.schema.ts
  */
 export type ContractStatusEnum =

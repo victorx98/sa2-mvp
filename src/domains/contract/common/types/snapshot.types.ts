@@ -1,11 +1,3 @@
-/**
- * Snapshot Types for Contract Domain
- * Immutable snapshots of Catalog Domain entities at contract creation time
- * Design pattern: Anti-Corruption Layer (DDD)
- */
-
-import { ServiceType } from "./enum.types";
-
 // ============================================================================
 // Product Snapshot Types
 // ============================================================================
