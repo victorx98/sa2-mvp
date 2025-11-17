@@ -1,10 +1,12 @@
 import { Controller, Get, Param, UseGuards } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiOkResponse } from "@nestjs/swagger";
 import { UserQueryService } from "@application/queries/user-query.service";
 import { User } from "@domains/identity/user/user-interface";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import { ApiPrefix } from "@api/api.constants";
+import { UserResponseDto } from "@api/dto/response/user-response.dto";
+import { plainToInstance } from "class-transformer";
 
 /**
  * API Layer - User Controller
@@ -31,22 +33,34 @@ export class UserController {
 
   @Get("me")
   @ApiOperation({ summary: "Get current authenticated user" })
-  @ApiResponse({
-    status: 200,
+  @ApiOkResponse({
     description: "User retrieved successfully",
+    type: UserResponseDto,
   })
-  async getCurrentUser(@CurrentUser() user: User): Promise<User> {
-    return user;
+  async getCurrentUser(@CurrentUser() user: User): Promise<UserResponseDto> {
+    return this.toUserResponseDto(user);
   }
 
   @Get(":id")
   @ApiOperation({ summary: "Get user by ID" })
-  @ApiResponse({
-    status: 200,
+  @ApiOkResponse({
     description: "User retrieved successfully",
+    type: UserResponseDto,
   })
-  async getUserById(@Param("id") id: string): Promise<User> {
+  async getUserById(@Param("id") id: string): Promise<UserResponseDto> {
     // ✅ 直接调用 Application Layer 服务
-    return this.userQueryService.getUserById(id);
+    const user = await this.userQueryService.getUserById(id);
+    return this.toUserResponseDto(user);
+  }
+
+  private toUserResponseDto(user: User): UserResponseDto {
+    return plainToInstance(
+      UserResponseDto,
+      {
+        ...user,
+        roles: user.roles ?? [],
+      },
+      { enableImplicitConversion: false },
+    );
   }
 }
