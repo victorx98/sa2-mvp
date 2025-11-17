@@ -6,10 +6,7 @@ import { Roles } from "@shared/decorators/roles.decorator";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import { StudentListQuery } from "@application/queries/student/student-list.query";
 import { StudentListItem } from "@domains/query/services/student-query.service";
-
-type CurrentUserPayload = {
-  userId: string;
-};
+import { User } from "@domains/identity/user/user-interface";
 
 /**
  * API Layer - Mentor Students Controller
@@ -43,10 +40,9 @@ export class MentorStudentsController {
     type: Array,
   })
   async getStudentList(
-    @CurrentUser() user: CurrentUserPayload,
+    @CurrentUser() user: User,
   ): Promise<StudentListItem[]> {
     // ✅ 直接调用 Application Layer 服务
-    return this.studentListQuery.findByMentorId(user.userId);
+    return this.studentListQuery.findByMentorId(user.id);
   }
 }
-

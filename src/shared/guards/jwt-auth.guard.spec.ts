@@ -1,60 +1,84 @@
-import { ExecutionContext } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
+import { ExecutionContext, UnauthorizedException } from "@nestjs/common";
 import { JwtAuthGuard } from "./jwt-auth.guard";
+import { SupabaseAuthService } from "@infrastructure/auth/supabase-auth.service";
+import type { IUserService } from "@domains/identity/user/user-interface";
+
+const createExecutionContext = (request: any): ExecutionContext =>
+  ({
+    switchToHttp: () => ({
+      getRequest: () => request,
+    }),
+    getHandler: jest.fn(),
+    getClass: jest.fn(),
+  }) as unknown as ExecutionContext;
 
 describe("JwtAuthGuard", () => {
   let guard: JwtAuthGuard;
   let reflector: Reflector;
+  let supabaseAuthService: jest.Mocked<SupabaseAuthService>;
+  let userService: jest.Mocked<IUserService>;
 
   beforeEach(() => {
     reflector = new Reflector();
-    guard = new JwtAuthGuard(reflector);
+    supabaseAuthService = {
+      getUserByToken: jest.fn(),
+    } as unknown as jest.Mocked<SupabaseAuthService>;
+
+    userService = {
+      findByIdWithRoles: jest.fn(),
+    } as unknown as jest.Mocked<IUserService>;
+
+    guard = new JwtAuthGuard(reflector, userService, supabaseAuthService);
   });
 
-  describe("canActivate", () => {
-    it("should return true for public routes", () => {
-      const mockContext = {
-        getHandler: jest.fn(),
-        getClass: jest.fn(),
-      } as unknown as ExecutionContext;
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 
-      jest.spyOn(reflector, "getAllAndOverride").mockReturnValue(true);
+  it("should allow public routes", async () => {
+    jest.spyOn(reflector, "getAllAndOverride").mockReturnValue(true);
+    const context = createExecutionContext({});
 
-      const result = guard.canActivate(mockContext);
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
 
-      expect(result).toBe(true);
-      expect(reflector.getAllAndOverride).toHaveBeenCalledWith("isPublic", [
-        mockContext.getHandler(),
-        mockContext.getClass(),
-      ]);
-    });
+  it("should throw UnauthorizedException when token is missing", async () => {
+    jest.spyOn(reflector, "getAllAndOverride").mockReturnValue(false);
+    const context = createExecutionContext({ headers: {} });
 
-    it("should call super.canActivate for protected routes", () => {
-      const mockContext = {
-        getHandler: jest.fn(),
-        getClass: jest.fn(),
-        switchToHttp: jest.fn().mockReturnValue({
-          getRequest: jest.fn().mockReturnValue({
-            headers: { authorization: "Bearer token" },
-          }),
-        }),
-      } as unknown as ExecutionContext;
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
 
-      jest.spyOn(reflector, "getAllAndOverride").mockReturnValue(false);
-      const superCanActivateSpy = jest
-        .spyOn(
-          Object.getPrototypeOf(Object.getPrototypeOf(guard)),
-          "canActivate",
-        )
-        .mockReturnValue(true);
+  it("should attach user to request when token is valid", async () => {
+    jest.spyOn(reflector, "getAllAndOverride").mockReturnValue(false);
 
-      guard.canActivate(mockContext);
+    const request: any = {
+      headers: { authorization: "Bearer valid-token" },
+    };
+    const context = createExecutionContext(request);
 
-      expect(reflector.getAllAndOverride).toHaveBeenCalledWith("isPublic", [
-        mockContext.getHandler(),
-        mockContext.getClass(),
-      ]);
-      expect(superCanActivateSpy).toHaveBeenCalledWith(mockContext);
-    });
+    supabaseAuthService.getUserByToken.mockResolvedValue({
+      id: "user-1",
+      email: "auth@example.com",
+    } as any);
+
+    userService.findByIdWithRoles.mockResolvedValue({
+      id: "user-1",
+      email: "profile@example.com",
+      status: "active",
+      roles: ["mentor"],
+    } as any);
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(request.user).toEqual(
+      expect.objectContaining({
+        id: "user-1",
+        email: "profile@example.com",
+        roles: ["mentor"],
+      }),
+    );
   });
 });

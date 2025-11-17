@@ -6,10 +6,7 @@ import { Roles } from "@shared/decorators/roles.decorator";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import { StudentListQuery } from "@application/queries/student/student-list.query";
 import { StudentListItem } from "@domains/query/services/student-query.service";
-
-type CurrentUserPayload = {
-  userId: string;
-};
+import { User } from "@domains/identity/user/user-interface";
 
 /**
  * API Layer - Counselor Students Controller
@@ -27,7 +24,8 @@ type CurrentUserPayload = {
  */
 @ApiTags("Counselor Portal")
 @Controller("api/counselor")
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('counselor')
 export class CounselorStudentsController {
   constructor(
     // ✅ 直接注入 Application Layer 服务
@@ -42,9 +40,8 @@ export class CounselorStudentsController {
     type: Array,
   })
   async getStudentList(
-    @CurrentUser() user: CurrentUserPayload,
+    @CurrentUser() user: User,
   ): Promise<StudentListItem[]> {
-    return this.studentListQuery.findByCounselorId(user.userId);
+    return this.studentListQuery.findByCounselorId(user.id);
   }
 }
-
