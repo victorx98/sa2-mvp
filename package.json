@@ -24,6 +24,7 @@
     "db:migrate:drizzle": "NODE_OPTIONS='--dns-result-order=ipv4first' drizzle-kit migrate",
     "db:push": "NODE_OPTIONS='--dns-result-order=ipv4first' drizzle-kit push",
     "db:studio": "NODE_OPTIONS='--dns-result-order=ipv4first' drizzle-kit studio",
+    "openapi:generate": "NODE_OPTIONS='--dns-result-order=ipv4first' ts-node -r tsconfig-paths/register scripts/generate-openapi.ts",
     "db:introspect": "NODE_OPTIONS='--dns-result-order=ipv4first' drizzle-kit introspect"
   },
   "dependencies": {

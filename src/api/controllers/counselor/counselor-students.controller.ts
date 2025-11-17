@@ -1,13 +1,14 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiOkResponse } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
 import { Roles } from "@shared/decorators/roles.decorator";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import { StudentListQuery } from "@application/queries/student/student-list.query";
-import { StudentListItem } from "@domains/query/services/student-query.service";
 import { User } from "@domains/identity/user/user-interface";
 import { ApiPrefix } from "@api/api.constants";
+import { StudentSummaryResponseDto } from "@api/dto/response/student-response.dto";
+import { plainToInstance } from "class-transformer";
 
 /**
  * API Layer - Counselor Students Controller
@@ -35,14 +36,17 @@ export class CounselorStudentsController {
 
   @Get("student/list")
   @ApiOperation({ summary: "Get student list for counselor" })
-  @ApiResponse({
-    status: 200,
+  @ApiOkResponse({
     description: "Student list retrieved successfully",
-    type: Array,
+    type: StudentSummaryResponseDto,
+    isArray: true,
   })
   async getStudentList(
     @CurrentUser() user: User,
-  ): Promise<StudentListItem[]> {
-    return this.studentListQuery.findByCounselorId(user.id);
+  ): Promise<StudentSummaryResponseDto[]> {
+    const items = await this.studentListQuery.findByCounselorId(user.id);
+    return plainToInstance(StudentSummaryResponseDto, items, {
+      enableImplicitConversion: false,
+    });
   }
 }

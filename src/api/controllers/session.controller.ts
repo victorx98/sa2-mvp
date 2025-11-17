@@ -1,16 +1,11 @@
 import { Controller, Post, Body, UseGuards } from "@nestjs/common";
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiCreatedResponse } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import { User } from "@domains/identity/user/user-interface";
 import { BookSessionCommand } from "@application/commands/booking/book-session.command";
-import { BookSessionOutput } from "@application/commands/booking/dto/book-session-output.dto";
 import { BookSessionInput } from "@application/commands/booking/dto/book-session-input.dto";
+import { BookSessionOutput } from "@application/commands/booking/dto/book-session-output.dto";
 import { ApiProperty } from "@nestjs/swagger";
 import {
   IsString,
@@ -23,6 +18,8 @@ import {
 import { ServiceType } from "@domains/contract/common/types/enum.types";
 import { serviceTypeEnum } from "@infrastructure/database/schema/services.schema";
 import { ApiPrefix } from "@api/api.constants";
+import { BookSessionResponseDto } from "@api/dto/response/session-response.dto";
+import { plainToInstance } from "class-transformer";
 
 /**
  * API Layer - Book Session Request DTO
@@ -118,9 +115,9 @@ export class SessionController {
    */
   @Post("book")
   @ApiOperation({ summary: "Book a session" })
-  @ApiResponse({
-    status: 201,
+  @ApiCreatedResponse({
     description: "Booking created successfully",
+    type: BookSessionResponseDto,
   })
   @ApiResponse({
     status: 400,
@@ -133,7 +130,7 @@ export class SessionController {
   async bookSession(
     @CurrentUser() user: User,
     @Body() bookSessionDto: BookSessionDto,
-  ): Promise<BookSessionOutput> {
+  ): Promise<BookSessionResponseDto> {
     // ✅ 直接调用 Application Layer 服务
     // 注意：对于学生自己预约，暂时使用学生的 ID 作为 counselorId
     const input: BookSessionInput = {
@@ -146,6 +143,13 @@ export class SessionController {
       meetingProvider: bookSessionDto.provider,
     };
 
-    return this.bookSessionCommand.execute(input);
+    const result = await this.bookSessionCommand.execute(input);
+    return this.toBookSessionResponseDto(result);
+  }
+
+  private toBookSessionResponseDto(result: BookSessionOutput): BookSessionResponseDto {
+    return plainToInstance(BookSessionResponseDto, result, {
+      enableImplicitConversion: false,
+    });
   }
 }

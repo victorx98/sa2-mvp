@@ -1,5 +1,5 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, Logger } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse } from "@nestjs/swagger";
 import { RegisterCommand } from "@application/commands/auth/register.command";
 import { LoginCommand } from "@application/commands/auth/login.command";
 import { RegisterDto } from "@api/dto/request/register.dto";
@@ -7,6 +7,8 @@ import { LoginDto } from "@api/dto/request/login.dto";
 import { AuthResultDto } from "@application/commands/auth/dto/auth-result.dto";
 import { Public } from "@shared/decorators/public.decorator";
 import { ApiPrefix } from "@api/api.constants";
+import { AuthResponseDto } from "@api/dto/response/auth-response.dto";
+import { plainToInstance } from "class-transformer";
 
 /**
  * API Layer - Auth Controller
@@ -36,27 +38,35 @@ export class AuthController {
   @Post("register")
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "User registration" })
-  @ApiResponse({
-    status: 201,
+  @ApiCreatedResponse({
     description: "Registration successful",
+    type: AuthResponseDto,
   })
-  async register(@Body() registerDto: RegisterDto): Promise<AuthResultDto> {
+  async register(@Body() registerDto: RegisterDto): Promise<AuthResponseDto> {
     this.logger.log(`[API]register: ${registerDto.email}`);
     // ✅ 直接调用 Application Layer 服务
-    return this.registerCommand.execute(registerDto);
+    const result = await this.registerCommand.execute(registerDto);
+    return this.toAuthResponseDto(result);
   }
 
   @Public()
   @Post("login")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "User login" })
-  @ApiResponse({
-    status: 200,
+  @ApiOkResponse({
     description: "Login successful",
+    type: AuthResponseDto,
   })
-  async login(@Body() loginDto: LoginDto): Promise<AuthResultDto> {
+  async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
     this.logger.log(`[API]login: ${loginDto.email}`);
     // ✅ 直接调用 Application Layer 服务
-    return this.loginCommand.execute(loginDto);
+    const result = await this.loginCommand.execute(loginDto);
+    return this.toAuthResponseDto(result);
+  }
+
+  private toAuthResponseDto(authResult: AuthResultDto): AuthResponseDto {
+    return plainToInstance(AuthResponseDto, authResult, {
+      enableImplicitConversion: false,
+    });
   }
 }

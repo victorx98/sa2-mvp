@@ -1,13 +1,14 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiOkResponse } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
 import { Roles } from "@shared/decorators/roles.decorator";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import { StudentListQuery } from "@application/queries/student/student-list.query";
-import { StudentListItem } from "@domains/query/services/student-query.service";
 import { User } from "@domains/identity/user/user-interface";
 import { ApiPrefix } from "@api/api.constants";
+import { StudentSummaryResponseDto } from "@api/dto/response/student-response.dto";
+import { plainToInstance } from "class-transformer";
 
 /**
  * API Layer - Mentor Students Controller
@@ -35,15 +36,18 @@ export class MentorStudentsController {
 
   @Get("student/list")
   @ApiOperation({ summary: "Get student list for mentor" })
-  @ApiResponse({
-    status: 200,
+  @ApiOkResponse({
     description: "Student list retrieved successfully",
-    type: Array,
+    type: StudentSummaryResponseDto,
+    isArray: true,
   })
   async getStudentList(
     @CurrentUser() user: User,
-  ): Promise<StudentListItem[]> {
+  ): Promise<StudentSummaryResponseDto[]> {
     // ✅ 直接调用 Application Layer 服务
-    return this.studentListQuery.findByMentorId(user.id);
+    const items = await this.studentListQuery.findByMentorId(user.id);
+    return plainToInstance(StudentSummaryResponseDto, items, {
+      enableImplicitConversion: false,
+    });
   }
 }
