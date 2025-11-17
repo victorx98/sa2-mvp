@@ -1,13 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigModule } from "@nestjs/config";
 import { BookSessionCommand } from "../src/application/commands/booking/book-session.command";
-import { CalendarService } from "../src/core/calendar";
-import {
-  MeetingProviderFactory,
-  MeetingProviderType,
-} from "../src/core/meeting-providers";
 import { MeetingProviderModule } from "../src/core/meeting-providers/meeting-provider.module";
-import { SessionService } from "../src/domains/services/session/services/session.service";
 import { ContractService } from "../src/domains/contract/services/contract.service";
 import { ServiceHoldService } from "../src/domains/contract/services/service-hold.service";
 import { DATABASE_CONNECTION } from "../src/infrastructure/database/database.provider";
@@ -44,11 +38,8 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
   let app: TestingModule;
   let command: BookSessionCommand;
   let db: NodePgDatabase;
-  let sessionService: SessionService;
-  let calendarService: CalendarService;
   let contractService: ContractService;
   let serviceHoldService: ServiceHoldService;
-  let meetingProviderFactory: MeetingProviderFactory;
 
   // Generate unique test prefix to avoid conflicts
   const testPrefix = `e2e_${Date.now()}`;
@@ -67,22 +58,15 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       ],
       providers: [
         BookSessionCommand,
-        SessionService,
         ContractService,
         ServiceHoldService,
-        CalendarService,
       ],
     }).compile();
 
     command = app.get<BookSessionCommand>(BookSessionCommand);
     db = app.get<NodePgDatabase>(DATABASE_CONNECTION);
-    sessionService = app.get<SessionService>(SessionService);
-    calendarService = app.get<CalendarService>(CalendarService);
     contractService = app.get<ContractService>(ContractService);
     serviceHoldService = app.get<ServiceHoldService>(ServiceHoldService);
-    meetingProviderFactory = app.get<MeetingProviderFactory>(
-      MeetingProviderFactory,
-    );
 
     console.log("✅ Test module initialized with real database");
   });
@@ -94,7 +78,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         // Delete in dependency order
         await db
           .delete(schema.calendarSlots)
-          .where(eq(schema.calendarSlots.resourceId, testPrefix));
+          .where(eq(schema.calendarSlots.userId, testPrefix));
 
         await db
           .delete(schema.serviceHolds)
@@ -110,7 +94,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
 
         await db
           .delete(schema.contractServiceEntitlements)
-          .where(eq(schema.contractServiceEntitlements.contractId, testPrefix));
+          .where(eq(schema.contractServiceEntitlements.studentId, testPrefix));
 
         await db
           .delete(schema.contracts)
@@ -156,7 +140,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         ],
       };
 
-      const contract = await db
+      await db
         .insert(schema.contracts)
         .values({
           id: contractId,
@@ -170,31 +154,24 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
           signedAt: new Date(),
           activatedAt: new Date(),
           createdBy: "test-system",
-        })
-        .returning();
+        });
 
       // Create entitlement
       await db.insert(schema.contractServiceEntitlements).values({
-        contractId,
-        serviceType: "one_on_one",
-        source: "product",
+        studentId,
+        serviceType: "session",
         totalQuantity: 10,
         consumedQuantity: 0,
         heldQuantity: 0,
         availableQuantity: 10,
-        serviceSnapshot: productSnapshot.items[0].service as any,
-        originItems: [] as any,
-        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        createdBy: "test-system",
       });
 
       const testInput: BookSessionInput = {
         counselorId: uuidv4(),
         studentId,
         mentorId,
-        contractId,
-        serviceId: productSnapshot.items[0].service.serviceId,
-        scheduledStartTime: new Date("2025-12-15T10:00:00Z"),
-        scheduledEndTime: new Date("2025-12-15T11:00:00Z"),
+        scheduledStartTime: new Date("2025-12-15T10:00:00Z").toISOString(),
         duration: 60,
         topic: `${testPrefix} - Happy Path Test`,
         meetingProvider: "feishu",
@@ -203,7 +180,6 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       console.log("\n📝 Test Input:", {
         studentId: testInput.studentId,
         mentorId: testInput.mentorId,
-        contractId: testInput.contractId,
       });
 
       // Act - Execute booking
@@ -217,14 +193,14 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       expect(result.studentId).toBe(studentId);
       expect(result.mentorId).toBe(mentorId);
       expect(result.meetingUrl).toBeDefined();
-      expect(result.calendarSlotId).toBeDefined();
+      expect(result.mentorCalendarSlotId).toBeDefined();
       expect(result.serviceHoldId).toBeDefined();
 
       console.log("\n✅ Booking Result:", {
         sessionId: result.sessionId,
         status: result.status,
         meetingUrl: result.meetingUrl ? "Generated" : "Not generated",
-        calendarSlotId: result.calendarSlotId,
+        mentorCalendarSlotId: result.mentorCalendarSlotId,
         serviceHoldId: result.serviceHoldId,
       });
 
@@ -246,13 +222,13 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       const [savedSlot] = await db
         .select()
         .from(schema.calendarSlots)
-        .where(eq(schema.calendarSlots.id, result.calendarSlotId));
+        .where(eq(schema.calendarSlots.id, result.mentorCalendarSlotId));
 
       expect(savedSlot).toBeDefined();
-      expect(savedSlot.resourceId).toBe(mentorId);
+      expect(savedSlot.userId).toBe(mentorId);
       expect(savedSlot.sessionId).toBe(result.sessionId);
-      expect(savedSlot.slotType).toBe("session");
-      expect(savedSlot.status).toBe("occupied");
+      expect(savedSlot.type).toBe("session");
+      expect(savedSlot.status).toBe("booked");
       console.log("✓ Verified: Calendar slot created");
 
       // Verify Service Hold
@@ -264,14 +240,19 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       expect(savedHold).toBeDefined();
       expect(savedHold.status).toBe("active");
       expect(savedHold.quantity).toBe(1);
-      expect(savedHold.expiresAt).toBeInstanceOf(Date);
+      expect(savedHold.expiryAt).toBeInstanceOf(Date);
       console.log("✓ Verified: Service hold created");
 
       // Verify Balance Update
       const [entitlement] = await db
         .select()
         .from(schema.contractServiceEntitlements)
-        .where(eq(schema.contractServiceEntitlements.contractId, contractId));
+        .where(
+          and(
+            eq(schema.contractServiceEntitlements.studentId, studentId),
+            eq(schema.contractServiceEntitlements.serviceType, "session"),
+          ),
+        );
 
       expect(entitlement.heldQuantity).toBe(1);
       expect(entitlement.availableQuantity).toBe(9); // 10 - 1
@@ -325,26 +306,20 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
 
       // Create entitlement with zero available balance
       await db.insert(schema.contractServiceEntitlements).values({
-        contractId,
-        serviceType: "one_on_one",
-        source: "product",
+        studentId,
+        serviceType: "session",
         totalQuantity: 1,
         consumedQuantity: 1,
         heldQuantity: 0,
         availableQuantity: 0, // Zero balance!
-        serviceSnapshot: productSnapshot.items[0].service as any,
-        originItems: [] as any,
-        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        createdBy: "test-system",
       });
 
       const testInput: BookSessionInput = {
         counselorId: uuidv4(),
         studentId,
         mentorId,
-        contractId,
-        serviceId: productSnapshot.items[0].service.serviceId,
-        scheduledStartTime: new Date("2025-12-16T10:00:00Z"),
-        scheduledEndTime: new Date("2025-12-16T11:00:00Z"),
+        scheduledStartTime: new Date("2025-12-16T10:00:00Z").toISOString(),
         duration: 60,
         topic: `${testPrefix} - Insufficient Balance Test`,
         meetingProvider: "feishu",
@@ -370,7 +345,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       const holds = await db
         .select()
         .from(schema.serviceHolds)
-        .where(eq(schema.serviceHolds.contractId, contractId));
+        .where(eq(schema.serviceHolds.studentId, studentId));
 
       expect(holds).toHaveLength(0);
       console.log("✓ Verified: No hold created");
@@ -426,26 +401,20 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       });
 
       await db.insert(schema.contractServiceEntitlements).values({
-        contractId: contractId1,
-        serviceType: "one_on_one",
-        source: "product",
+        studentId: studentId1,
+        serviceType: "session",
         totalQuantity: 10,
         consumedQuantity: 0,
         heldQuantity: 0,
         availableQuantity: 10,
-        serviceSnapshot: productSnapshot.items[0].service as any,
-        originItems: [] as any,
-        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        createdBy: "test-system",
       });
 
       const firstBooking: BookSessionInput = {
         counselorId: uuidv4(),
         studentId: studentId1,
         mentorId,
-        contractId: contractId1,
-        serviceId: productSnapshot.items[0].service.serviceId,
-        scheduledStartTime: new Date("2025-12-17T10:00:00Z"),
-        scheduledEndTime: new Date("2025-12-17T11:00:00Z"),
+        scheduledStartTime: new Date("2025-12-17T10:00:00Z").toISOString(),
         duration: 60,
         topic: `${testPrefix} - First Booking`,
         meetingProvider: "feishu",
@@ -472,16 +441,13 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       });
 
       await db.insert(schema.contractServiceEntitlements).values({
-        contractId: contractId2,
-        serviceType: "one_on_one",
-        source: "product",
+        studentId: studentId2,
+        serviceType: "session",
         totalQuantity: 10,
         consumedQuantity: 0,
         heldQuantity: 0,
         availableQuantity: 10,
-        serviceSnapshot: productSnapshot.items[0].service as any,
-        originItems: [] as any,
-        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        createdBy: "test-system",
       });
 
       // Attempt conflicting booking (same mentor, same time)
@@ -489,10 +455,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         counselorId: uuidv4(),
         studentId: studentId2,
         mentorId, // Same mentor!
-        contractId: contractId2,
-        serviceId: productSnapshot.items[0].service.serviceId,
-        scheduledStartTime: new Date("2025-12-17T10:00:00Z"), // Same time!
-        scheduledEndTime: new Date("2025-12-17T11:00:00Z"),
+        scheduledStartTime: new Date("2025-12-17T10:00:00Z").toISOString(), // Same time!
         duration: 60,
         topic: `${testPrefix} - Conflict Booking`,
         meetingProvider: "feishu",
@@ -560,16 +523,13 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       });
 
       await db.insert(schema.contractServiceEntitlements).values({
-        contractId,
-        serviceType: "one_on_one",
-        source: "product",
+        studentId,
+        serviceType: "session",
         totalQuantity: 10,
         consumedQuantity: 0,
         heldQuantity: 0,
         availableQuantity: 10,
-        serviceSnapshot: productSnapshot.items[0].service as any,
-        originItems: [] as any,
-        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        createdBy: "test-system",
       });
 
       // Use invalid meeting provider to trigger failure
@@ -577,10 +537,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         counselorId: uuidv4(),
         studentId,
         mentorId,
-        contractId,
-        serviceId: productSnapshot.items[0].service.serviceId,
-        scheduledStartTime: new Date("2025-12-18T10:00:00Z"),
-        scheduledEndTime: new Date("2025-12-18T11:00:00Z"),
+        scheduledStartTime: new Date("2025-12-18T10:00:00Z").toISOString(),
         duration: 60,
         topic: `${testPrefix} - Rollback Test`,
         meetingProvider: "invalid_provider" as any, // This will fail
@@ -605,7 +562,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       const holds = await db
         .select()
         .from(schema.serviceHolds)
-        .where(eq(schema.serviceHolds.contractId, contractId));
+        .where(eq(schema.serviceHolds.studentId, studentId));
 
       expect(holds).toHaveLength(0);
       console.log("✓ Verified: No hold created (rolled back)");
@@ -614,7 +571,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       const slots = await db
         .select()
         .from(schema.calendarSlots)
-        .where(eq(schema.calendarSlots.resourceId, mentorId));
+        .where(eq(schema.calendarSlots.userId, mentorId));
 
       expect(slots).toHaveLength(0);
       console.log("✓ Verified: No calendar slot created (rolled back)");
@@ -623,7 +580,12 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       const [entitlement] = await db
         .select()
         .from(schema.contractServiceEntitlements)
-        .where(eq(schema.contractServiceEntitlements.contractId, contractId));
+        .where(
+          and(
+            eq(schema.contractServiceEntitlements.studentId, studentId),
+            eq(schema.contractServiceEntitlements.serviceType, "session"),
+          ),
+        );
 
       expect(entitlement.heldQuantity).toBe(0);
       expect(entitlement.availableQuantity).toBe(10);
@@ -676,16 +638,13 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       });
 
       await db.insert(schema.contractServiceEntitlements).values({
-        contractId,
-        serviceType: "one_on_one",
-        source: "product",
+        studentId,
+        serviceType: "session",
         totalQuantity: 10,
         consumedQuantity: 0,
         heldQuantity: 0,
         availableQuantity: 10,
-        serviceSnapshot: productSnapshot.items[0].service as any,
-        originItems: [] as any,
-        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        createdBy: "test-system",
       });
 
       // Book session
@@ -693,10 +652,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         counselorId: uuidv4(),
         studentId,
         mentorId,
-        contractId,
-        serviceId: productSnapshot.items[0].service.serviceId,
-        scheduledStartTime: new Date("2025-12-20T10:00:00Z"),
-        scheduledEndTime: new Date("2025-12-20T11:00:00Z"),
+        scheduledStartTime: new Date("2025-12-20T10:00:00Z").toISOString(),
         duration: 60,
         topic: `${testPrefix} - Completion Test`,
         meetingProvider: "feishu",
@@ -716,11 +672,11 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       // Act - Consume service
       console.log("\n📝 Consuming service...");
       await contractService.consumeService({
-        contractId,
-        serviceType: "one_on_one",
+        studentId,
+        serviceType: "session",
         quantity: 1,
-        sessionId: bookingResult.sessionId,
-        holdId: bookingResult.serviceHoldId,
+        relatedBookingId: bookingResult.sessionId,
+        relatedHoldId: bookingResult.serviceHoldId,
         createdBy: "test-system",
       });
       console.log("✓ Service consumed");
@@ -731,7 +687,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         .from(schema.serviceLedgers)
         .where(
           and(
-            eq(schema.serviceLedgers.contractId, contractId),
+            eq(schema.serviceLedgers.studentId, studentId),
             eq(schema.serviceLedgers.relatedBookingId, bookingResult.sessionId),
           ),
         );
@@ -756,7 +712,12 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       const [entitlement] = await db
         .select()
         .from(schema.contractServiceEntitlements)
-        .where(eq(schema.contractServiceEntitlements.contractId, contractId));
+        .where(
+          and(
+            eq(schema.contractServiceEntitlements.studentId, studentId),
+            eq(schema.contractServiceEntitlements.serviceType, "session"),
+          ),
+        );
 
       expect(entitlement.consumedQuantity).toBe(1);
       expect(entitlement.heldQuantity).toBe(0); // Released
@@ -809,39 +770,36 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       });
 
       await db.insert(schema.contractServiceEntitlements).values({
-        contractId,
-        serviceType: "one_on_one",
-        source: "product",
+        studentId,
+        serviceType: "session",
         totalQuantity: 10,
         consumedQuantity: 0,
         heldQuantity: 1, // Manually set to simulate hold
         availableQuantity: 9,
-        serviceSnapshot: productSnapshot.items[0].service as any,
-        originItems: [] as any,
-        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        createdBy: "test-system",
       });
 
       // Create expired hold
       const [expiredHold] = await db
         .insert(schema.serviceHolds)
         .values({
-          contractId,
           studentId,
-          serviceType: "one_on_one",
+          serviceType: "session",
           quantity: 1,
           status: "active",
-          expiresAt: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago (expired!)
+          expiryAt: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago (expired!)
           relatedBookingId: null,
           createdBy: "test-system",
         })
         .returning();
 
       console.log("\n📝 Created expired hold:", expiredHold.id);
-      console.log("Expires at:", expiredHold.expiresAt);
+      console.log("Expires at:", expiredHold.expiryAt);
 
       // Act - Run cleanup
       console.log("\n📝 Running hold cleanup...");
-      const expiredCount = await serviceHoldService.expireHolds();
+      const result = await serviceHoldService.releaseExpiredHolds();
+      const expiredCount = result.releasedCount;
       console.log(`✓ Expired ${expiredCount} holds`);
 
       // Assert
