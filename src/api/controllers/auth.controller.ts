@@ -6,6 +6,7 @@ import { RegisterDto } from "@api/dto/request/register.dto";
 import { LoginDto } from "@api/dto/request/login.dto";
 import { AuthResultDto } from "@application/commands/auth/dto/auth-result.dto";
 import { Public } from "@shared/decorators/public.decorator";
+import { ApiPrefix } from "@api/api.constants";
 
 /**
  * API Layer - Auth Controller
@@ -22,7 +23,7 @@ import { Public } from "@shared/decorators/public.decorator";
  * ❌ 不进行数据转换（由 Application Layer 负责）
  */
 @ApiTags("Authentication")
-@Controller("auth")
+@Controller(`${ApiPrefix}/auth`)
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
   constructor(

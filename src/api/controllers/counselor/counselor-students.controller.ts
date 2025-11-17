@@ -7,6 +7,7 @@ import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import { StudentListQuery } from "@application/queries/student/student-list.query";
 import { StudentListItem } from "@domains/query/services/student-query.service";
 import { User } from "@domains/identity/user/user-interface";
+import { ApiPrefix } from "@api/api.constants";
 
 /**
  * API Layer - Counselor Students Controller
@@ -23,7 +24,7 @@ import { User } from "@domains/identity/user/user-interface";
  * ❌ 不进行数据转换（由 Application Layer 负责）
  */
 @ApiTags("Counselor Portal")
-@Controller("api/counselor")
+@Controller(`${ApiPrefix}/counselor`)
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('counselor')
 export class CounselorStudentsController {

@@ -7,6 +7,7 @@ import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import { StudentListQuery } from "@application/queries/student/student-list.query";
 import { StudentListItem } from "@domains/query/services/student-query.service";
 import { User } from "@domains/identity/user/user-interface";
+import { ApiPrefix } from "@api/api.constants";
 
 /**
  * API Layer - Mentor Students Controller
@@ -23,7 +24,7 @@ import { User } from "@domains/identity/user/user-interface";
  * ❌ 不进行数据转换（由 Application Layer 负责）
  */
 @ApiTags("Mentor Portal")
-@Controller("api/mentor")
+@Controller(`${ApiPrefix}/mentor`)
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles("mentor")
 export class MentorStudentsController {
