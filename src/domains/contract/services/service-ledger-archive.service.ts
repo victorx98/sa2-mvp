@@ -11,18 +11,14 @@ import {
   ContractException,
   ContractNotFoundException,
   ContractConflictException,
-  CONTRACT_ERROR_MESSAGES,
 } from "../common/exceptions/contract.exception";
 import {
   ARCHIVE_AFTER_DAYS,
   DELETE_AFTER_ARCHIVE,
   ARCHIVE_MAX_DATE_RANGE_DAYS,
 } from "../common/constants/contract.constants";
-import type {
-  ServiceLedgerArchivePolicy,
-  ServiceLedger,
-} from "@infrastructure/database/schema";
-import type { ServiceType } from "../common/types/enum.types";
+import type { ServiceLedgerArchivePolicy } from "@infrastructure/database/schema/service-ledger-archive-policies.schema";
+import type { ServiceLedger } from "@infrastructure/database/schema";
 
 /**
  * Service Ledger Archive Service(服务台账归档服务)
@@ -140,7 +136,7 @@ export class ServiceLedgerArchiveService {
     // 我们将在获取合同权益后通过contractId进行过滤)
 
     if (serviceType) {
-      const serviceTypeTyped = serviceType as ServiceType;
+      const serviceTypeTyped = serviceType;
       conditions.push(eq(schema.serviceLedgers.serviceType, serviceTypeTyped));
     }
 
@@ -258,7 +254,7 @@ export class ServiceLedgerArchiveService {
 
     // 2. Try service-type-specific policy(尝试服务类型特定策略)
     if (serviceType) {
-      const serviceTypeTyped = serviceType as ServiceType;
+      const serviceTypeTyped = serviceType;
       const serviceTypePolicyResult = await this.db
         .select()
         .from(schema.serviceLedgerArchivePolicies)
@@ -343,9 +339,8 @@ export class ServiceLedgerArchiveService {
     }
 
     if (serviceType) {
-      const serviceTypeTyped = serviceType as ServiceType;
       conditions.push(
-        eq(schema.serviceLedgerArchivePolicies.serviceType, serviceTypeTyped),
+        eq(schema.serviceLedgerArchivePolicies.serviceType, serviceType),
       );
     } else {
       conditions.push(
@@ -378,7 +373,7 @@ export class ServiceLedgerArchiveService {
       .values({
         scope,
         contractId: contractId || null,
-        serviceType: (serviceType as ServiceType | null) || null,
+        serviceType: serviceType || null,
         archiveAfterDays,
         deleteAfterArchive,
         enabled: true,

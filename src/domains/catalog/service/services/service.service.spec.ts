@@ -4,8 +4,8 @@ import { ServiceService } from "./service.service";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "@infrastructure/database/schema";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
+import type { ServiceType } from "@infrastructure/database/schema/service-types.schema";
 import {
-  ServiceType,
   BillingMode,
   ServiceStatus,
   ServiceUnit,

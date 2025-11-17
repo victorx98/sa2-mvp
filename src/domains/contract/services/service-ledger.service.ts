@@ -273,7 +273,7 @@ export class ServiceLedgerService {
     }
     if (serviceType) {
       conditions.push(
-        eq(schema.serviceLedgers.serviceType, serviceType as ServiceType),
+        eq(schema.serviceLedgers.serviceType, serviceType),
       );
     }
     if (startDate) {
@@ -357,7 +357,7 @@ export class ServiceLedgerService {
           eq(schema.contractServiceEntitlements.studentId, studentId),
           eq(
             schema.contractServiceEntitlements.serviceType,
-            serviceType as ServiceType,
+            serviceType,
           ),
         ),
       );
@@ -378,7 +378,7 @@ export class ServiceLedgerService {
       .where(
         and(
           eq(schema.serviceLedgers.studentId, studentId),
-          eq(schema.serviceLedgers.serviceType, serviceType as ServiceType),
+          eq(schema.serviceLedgers.serviceType, serviceType),
         ),
       );
 
