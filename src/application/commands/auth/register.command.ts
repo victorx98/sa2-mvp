@@ -16,6 +16,14 @@ import {
   SupabaseAuthException,
   SupabaseAuthService,
 } from "@infrastructure/auth/supabase-auth.service";
+import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
+import type {
+  DrizzleDatabase,
+  DrizzleTransaction,
+} from "@shared/types/database.types";
+import { StudentProfileService } from "@domains/identity/student/student-profile.service";
+import { MentorProfileService } from "@domains/identity/mentor/mentor-profile.service";
+import { CounselorProfileService } from "@domains/identity/counselor/counselor-profile.service";
 import { AuthResultDto } from "./dto/auth-result.dto";
 
 /**
@@ -40,6 +48,11 @@ export class RegisterCommand {
     @Inject(USER_SERVICE)
     private readonly userService: IUserService,
     private readonly supabaseAuthService: SupabaseAuthService,
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: DrizzleDatabase,
+    private readonly studentProfileService: StudentProfileService,
+    private readonly mentorProfileService: MentorProfileService,
+    private readonly counselorProfileService: CounselorProfileService,
   ) {}
 
   async execute(registerDto: RegisterDto): Promise<AuthResultDto> {
@@ -76,20 +89,24 @@ export class RegisterCommand {
 
     // Step 3: 创建业务用户 & 角色（事务）
     try {
-      const user = await this.userService.createWithRoles(
-        {
-          id: authUserId,
-          email: registerDto.email,
-          nickname: registerDto.nickname,
-          cnNickname: registerDto.cnNickname,
-          gender: registerDto.gender,
-          country: registerDto.country,
-          status: "active",
-          createdBy: authUserId,
-          updatedBy: authUserId,
-        },
-        roles,
-      );
+      const user = await this.db.transaction(async (tx) => {
+        const createdUser = await this.userService.createWithRoles(
+          {
+            id: authUserId,
+            email: registerDto.email,
+            nickname: registerDto.nickname,
+            cnNickname: registerDto.cnNickname,
+            gender: registerDto.gender,
+            country: registerDto.country,
+            status: "active",
+          },
+          roles,
+          tx,
+        );
+
+        await this.createRoleProfiles(createdUser.id, roles, tx);
+        return createdUser;
+      });
 
       // Step 4: 登录获取访问令牌（保持与旧接口兼容）
       const signInResult =
@@ -159,5 +176,25 @@ export class RegisterCommand {
       return error;
     }
     return new InternalServerErrorException("Failed to register user");
+  }
+
+  private async createRoleProfiles(
+    userId: string,
+    roles: string[],
+    tx: DrizzleTransaction,
+  ): Promise<void> {
+    const roleSet = new Set(roles);
+
+    if (roleSet.has("student")) {
+      await this.studentProfileService.ensureProfile(userId, tx);
+    }
+
+    if (roleSet.has("mentor")) {
+      await this.mentorProfileService.ensureProfile(userId, tx);
+    }
+
+    if (roleSet.has("counselor")) {
+      await this.counselorProfileService.ensureProfile(userId, tx);
+    }
   }
 }
