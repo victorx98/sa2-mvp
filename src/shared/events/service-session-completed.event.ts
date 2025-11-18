@@ -1,6 +1,8 @@
+import { IEvent } from "./event.types";
+
 export const SERVICE_SESSION_COMPLETED_EVENT = "services.session.completed";
 
-export interface ServiceSessionCompletedEvent {
+export interface IServiceSessionCompletedPayload {
   /**
    * Unique identifier for the session [会话的唯一标识符]
    */
@@ -22,12 +24,16 @@ export interface ServiceSessionCompletedEvent {
   refrenceId?: string;
 
   /**
-   * Type of service provided [提供的服务类型]
+   * Type of session [会话类型]
    */
-  serviceType: string;
+  sessionType: string;
 
   /**
    * Duration of the session in hours [会话持续时间（小时）]
    */
   durationHours: number;
+}
+
+export interface IServiceSessionCompletedEvent extends IEvent<IServiceSessionCompletedPayload> {
+  type: typeof SERVICE_SESSION_COMPLETED_EVENT;
 }

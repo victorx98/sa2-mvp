@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { DatabaseModule } from "@infrastructure/database/database.module";
 import { MentorPayableService } from "./services/mentor-payable.service";
+import { ServiceSessionCompletedListener } from "./events/listeners/service-session-completed-listener";
 
 /**
  * Financial Domain Module(财务领域模块)
@@ -23,6 +24,8 @@ import { MentorPayableService } from "./services/mentor-payable.service";
       provide: "IMentorPayableService",
       useClass: MentorPayableService,
     },
+    // Event listeners
+    ServiceSessionCompletedListener,
   ],
   exports: [
     // Export the service with custom token for dependency injection
