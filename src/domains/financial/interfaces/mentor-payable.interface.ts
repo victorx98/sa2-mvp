@@ -1,8 +1,4 @@
-/**
- * Mentor Payable Interface(导师应付账款接口)
- *
- * 定义导师应付账款相关的数据结构和接口
- */
+import { BillingMode, ServiceStatus } from "@shared/types/catalog-enums";
 
 /**
  * 导师应付账款记录接口
@@ -172,10 +168,10 @@ export interface IAdjustPayableLedgerDTO {
 export interface ICreateMentorPriceDTO {
   mentorUserId: string;
   serviceTypeCode: string; // Service type code (references service_types.code field)
-  billingMode: "one_time" | "per_session" | "staged";
+  billingMode: BillingMode;
   price: number;
   currency?: string;
-  status?: "active" | "inactive";
+  status?: ServiceStatus;
   updatedBy?: string;
 }
 

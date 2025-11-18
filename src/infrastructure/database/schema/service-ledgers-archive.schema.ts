@@ -11,7 +11,7 @@ import {
   serviceLedgerTypeEnum,
   serviceLedgerSourceEnum,
 } from "./service-ledgers.schema";
-import { serviceTypes } from "./service-types.schema";
+// import { serviceTypes } from "./service-types.schema";
 
 /**
  * Service ledgers archive table [DEPRECATED]

@@ -26,6 +26,7 @@ import type {
   CurrencyEnum,
 } from "../common/types/enum.types";
 import type { ContractServiceEntitlement } from "@infrastructure/database/schema";
+import { ContractStatus, HoldStatus } from "@shared/types/contract-enums";
 
 @Injectable()
 export class ContractService {
@@ -33,7 +34,7 @@ export class ContractService {
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   /**
    * Create contract(创建合约)
@@ -75,9 +76,9 @@ export class ContractService {
           studentId,
           productId: dto.productId,
           productSnapshot: productSnapshot as never,
-          status: "signed",
+          status: ContractStatus.SIGNED,
           totalAmount: productSnapshot.price,
-          currency: productSnapshot.currency as CurrencyEnum,
+          currency: productSnapshot.currency,
           validityDays: productSnapshot.validityDays,
           signedAt,
           expiresAt,
@@ -137,7 +138,7 @@ export class ContractService {
     const conditions = [eq(schema.contracts.studentId, studentId)];
     if (status) {
       conditions.push(
-        eq(schema.contracts.status, status as ContractStatusEnum),
+        eq(schema.contracts.status, status as ContractStatus),
       );
     }
     if (productId) {
@@ -187,7 +188,7 @@ export class ContractService {
         const [contract] = await tx
           .update(schema.contracts)
           .set({
-            status: "active",
+            status: ContractStatus.ACTIVE,
             activatedAt: new Date(),
           })
           .where(eq(schema.contracts.id, id))
@@ -213,7 +214,7 @@ export class ContractService {
               });
             } else {
               entitlementMap.set(serviceType, {
-                serviceType: serviceType as string,
+                serviceType: serviceType,
                 totalQuantity: item.quantity,
                 serviceSnapshot: item.service,
                 originItems: [
@@ -372,7 +373,7 @@ export class ContractService {
         // Note: No contractId in service_ledgers anymore (student-level tracking)
         await tx.insert(schema.serviceLedgers).values({
           studentId: studentId,
-          serviceType: serviceType as string,
+          serviceType: serviceType,
           quantity: -deductAmount,
           type: "consumption",
           source: "booking_completed",
@@ -390,7 +391,7 @@ export class ContractService {
         await tx
           .update(schema.serviceHolds)
           .set({
-            status: "released",
+            status: HoldStatus.RELEASED,
             releaseReason: "completed",
             releasedAt: new Date(),
           })
@@ -441,7 +442,7 @@ export class ContractService {
       const [updatedContract] = await tx
         .update(schema.contracts)
         .set({
-          status: "terminated",
+          status: ContractStatus.TERMINATED,
           terminatedAt: new Date(),
         })
         .where(eq(schema.contracts.id, id))
@@ -495,7 +496,7 @@ export class ContractService {
       const [updatedContract] = await tx
         .update(schema.contracts)
         .set({
-          status: "suspended",
+          status: ContractStatus.SUSPENDED,
           suspendedAt: new Date(),
         })
         .where(eq(schema.contracts.id, id))
@@ -540,7 +541,7 @@ export class ContractService {
       const [updatedContract] = await tx
         .update(schema.contracts)
         .set({
-          status: "active",
+          status: ContractStatus.ACTIVE,
           suspendedAt: null, // Clear suspension timestamp(清除暂停时间戳)
         })
         .where(eq(schema.contracts.id, id))
@@ -584,7 +585,7 @@ export class ContractService {
       const [updatedContract] = await tx
         .update(schema.contracts)
         .set({
-          status: "completed",
+          status: ContractStatus.COMPLETED,
           completedAt: new Date(),
         })
         .where(eq(schema.contracts.id, id))
@@ -627,7 +628,7 @@ export class ContractService {
       const [updatedContract] = await tx
         .update(schema.contracts)
         .set({
-          status: "signed",
+          status: ContractStatus.SIGNED,
           signedAt: new Date(),
         })
         .where(eq(schema.contracts.id, id))
@@ -892,7 +893,7 @@ export class ContractService {
       // Create amendment ledger record (audit trail)(创建权益变更台账记录(审计跟踪))
       await tx.insert(schema.contractAmendmentLedgers).values({
         studentId,
-        serviceType: serviceType as string,
+        serviceType: serviceType,
         ledgerType,
         quantityChanged,
         reason,
@@ -982,7 +983,7 @@ export class ContractService {
     }
     if (status) {
       conditions.push(
-        eq(schema.contracts.status, status as ContractStatusEnum),
+        eq(schema.contracts.status, status as ContractStatus),
       );
     }
     if (productId) {

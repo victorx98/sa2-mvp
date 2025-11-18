@@ -15,7 +15,7 @@ import {
 } from "../../common/exceptions/catalog.exception";
 import { PaginationDto } from "../../common/dto/pagination.dto";
 import { SortDto } from "../../common/dto/sort.dto";
-import { PaginatedResult } from "../../common/interfaces/paginated-result.interface";
+import { PaginatedResult } from "@shared/types/paginated-result";
 import { CreateServiceDto } from "../dto/create-service.dto";
 import { UpdateServiceDto } from "../dto/update-service.dto";
 import { ServiceFilterDto } from "../dto/service-filter.dto";
@@ -23,8 +23,8 @@ import { FindOneServiceDto } from "../dto/find-one-service.dto";
 import { IService } from "../interfaces/service.interface";
 import { IServiceDetail } from "../interfaces/service-detail.interface";
 import { IServiceSnapshot } from "../interfaces/service-snapshot.interface";
-import { BillingMode, ServiceStatus } from "../../common/interfaces/enums";
 import { buildLikePattern } from "../../common/utils/sql.utils";
+import { ProductItemType, ServiceStatus } from "@shared/types/catalog-enums";
 
 @Injectable()
 export class ServiceService {
@@ -33,7 +33,7 @@ export class ServiceService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
-  ) {}
+  ) { }
 
   /**
    * Create a new service
@@ -80,7 +80,7 @@ export class ServiceService {
         requiresEvaluation: dto.requiresEvaluation ?? false,
         requiresMentorAssignment: dto.requiresMentorAssignment ?? false,
         metadata: dto.metadata,
-        status: "inactive",
+        status: ServiceStatus.INACTIVE,
         createdBy: userId,
       })
       .returning();
@@ -152,7 +152,7 @@ export class ServiceService {
 
     // Exclude deleted status by default
     if (!filter.includeDeleted) {
-      conditions.push(ne(schema.services.status, "deleted"));
+      conditions.push(ne(schema.services.status, ServiceStatus.DELETED));
     }
 
     if (filter.status) {
@@ -256,7 +256,7 @@ export class ServiceService {
    */
   async updateStatus(
     id: string,
-    status: "active" | "inactive",
+    status: ServiceStatus,
     tx?: DrizzleTransaction,
   ): Promise<IService> {
     const executor: DrizzleExecutor = tx ?? this.db;
@@ -274,12 +274,12 @@ export class ServiceService {
 
     const service = existing[0];
 
-    if (service.status === "deleted") {
+    if (service.status === ServiceStatus.DELETED) {
       throw new CatalogGoneException("SERVICE_DELETED");
     }
 
     // 2. Check if service is referenced when deactivating (warning)
-    if (status === "inactive") {
+    if (status === ServiceStatus.INACTIVE) {
       await this.checkServiceReferences(id, true, tx);
     }
 
@@ -331,7 +331,7 @@ export class ServiceService {
     const [deleted] = await executor
       .update(schema.services)
       .set({
-        status: "deleted",
+        status: ServiceStatus.DELETED,
         updatedAt: new Date(),
       })
       .where(eq(schema.services.id, id))
@@ -359,7 +359,7 @@ export class ServiceService {
 
     const service = existing[0];
 
-    if (service.status !== "deleted") {
+    if (service.status !== ServiceStatus.DELETED) {
       throw new CatalogException("SERVICE_NOT_DELETED");
     }
 
@@ -367,7 +367,7 @@ export class ServiceService {
     const [restored] = await executor
       .update(schema.services)
       .set({
-        status: "inactive",
+        status: ServiceStatus.INACTIVE,
         updatedAt: new Date(),
       })
       .where(eq(schema.services.id, id))
@@ -383,7 +383,7 @@ export class ServiceService {
     const result = await this.db
       .select()
       .from(schema.services)
-      .where(ne(schema.services.status, "deleted"))
+      .where(ne(schema.services.status, ServiceStatus.INACTIVE))
       .orderBy(schema.services.name);
 
     return result.map(this.mapToServiceInterface);
@@ -439,7 +439,7 @@ export class ServiceService {
       .from(schema.productItems)
       .where(
         and(
-          eq(schema.productItems.type, "service"),
+          eq(schema.productItems.type, ProductItemType.SERVICE),
           eq(schema.productItems.referenceId, serviceId),
         ),
       )
@@ -482,10 +482,10 @@ export class ServiceService {
       name: record.name,
       description: record.description,
       coverImage: record.coverImage,
-      billingMode: record.billingMode as BillingMode,
+      billingMode: record.billingMode,
       requiresEvaluation: record.requiresEvaluation,
       requiresMentorAssignment: record.requiresMentorAssignment,
-      status: record.status as ServiceStatus,
+      status: record.status,
       metadata: record.metadata,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,

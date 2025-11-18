@@ -1,9 +1,9 @@
 import {
-  ProductStatus,
   Currency,
-  UserType,
   MarketingLabel,
-} from "../../common/interfaces/enums";
+  ProductStatus,
+  UserPersona
+} from "@shared/types/catalog-enums";
 
 // Product 基础接口
 export interface IProduct {
@@ -12,7 +12,7 @@ export interface IProduct {
   code: string;
   description?: string;
   coverImage?: string;
-  targetUserTypes?: UserType[];
+  targetUserTypes?: UserPersona[];
   price: string; // Decimal stored as string
   currency: Currency;
   validityDays?: number;

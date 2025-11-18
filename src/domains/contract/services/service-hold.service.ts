@@ -13,13 +13,14 @@ import {
 } from "../common/exceptions/contract.exception";
 import { CreateHoldDto } from "../dto/create-hold.dto";
 import type { ServiceHold } from "@infrastructure/database/schema";
+import { HoldStatus } from "@shared/types/contract-enums";
 
 @Injectable()
 export class ServiceHoldService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-  ) {}
+  ) { }
 
   /**
    * Create hold(v2.16.13 - 重新引入过期机制)
@@ -78,7 +79,7 @@ export class ServiceHoldService {
         studentId,
         serviceType: serviceType,
         quantity,
-        status: "active",
+        status: HoldStatus.ACTIVE,
         relatedBookingId: null, // Always null on creation (v2.16.11)
         expiryAt: expiryAt || null, // Set expiryAt if provided, otherwise null (永不过期)
         createdBy,
@@ -120,7 +121,7 @@ export class ServiceHoldService {
     const [releasedHold] = await executor
       .update(schema.serviceHolds)
       .set({
-        status: "released",
+        status: HoldStatus.RELEASED,
         releaseReason: reason,
         releasedAt: new Date(),
       })
@@ -151,7 +152,7 @@ export class ServiceHoldService {
       .from(schema.serviceHolds)
       .where(
         and(
-          eq(schema.serviceHolds.status, "active"),
+          eq(schema.serviceHolds.status, HoldStatus.ACTIVE),
           lt(schema.serviceHolds.createdAt, cutoffTime),
         ),
       );
@@ -174,7 +175,7 @@ export class ServiceHoldService {
         and(
           eq(schema.serviceHolds.studentId, studentId),
           eq(schema.serviceHolds.serviceType, serviceType),
-          eq(schema.serviceHolds.status, "active"),
+          eq(schema.serviceHolds.status, HoldStatus.ACTIVE),
         ),
       );
   }
@@ -207,7 +208,7 @@ export class ServiceHoldService {
     const [cancelledHold] = await executor
       .update(schema.serviceHolds)
       .set({
-        status: "released",
+        status: HoldStatus.RELEASED,
         releaseReason: reason || "cancelled",
         releasedAt: new Date(),
       })
@@ -247,7 +248,7 @@ export class ServiceHoldService {
         .from(schema.serviceHolds)
         .where(
           and(
-            eq(schema.serviceHolds.status, "active"),
+            eq(schema.serviceHolds.status, HoldStatus.ACTIVE),
             isNotNull(schema.serviceHolds.expiryAt),
             lt(schema.serviceHolds.expiryAt, now),
           ),
@@ -261,7 +262,7 @@ export class ServiceHoldService {
           await this.db
             .update(schema.serviceHolds)
             .set({
-              status: "expired",
+              status: HoldStatus.EXPIRED,
               releaseReason: "expired",
               releasedAt: now,
             })

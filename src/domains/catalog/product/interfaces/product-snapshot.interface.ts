@@ -1,6 +1,6 @@
 import { IServiceSnapshot } from "../../service/interfaces/service-snapshot.interface";
 import { IServicePackageSnapshot } from "../../service-package/interfaces/service-package-snapshot.interface";
-import { ProductItemType, Currency } from "../../common/interfaces/enums";
+import { Currency, ProductItemType } from "@shared/types/catalog-enums";
 
 // Product snapshot item (with expanded service packages)
 export interface IProductSnapshotItem {

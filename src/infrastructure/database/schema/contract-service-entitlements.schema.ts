@@ -5,7 +5,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
-import { userTable } from "./user.schema";
+// import { userTable } from "./users.schema";
 import { serviceTypes } from "./service-types.schema";
 
 /**

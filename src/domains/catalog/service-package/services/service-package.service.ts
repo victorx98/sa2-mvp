@@ -13,10 +13,9 @@ import {
   CatalogConflictException,
   CatalogGoneException,
 } from "../../common/exceptions/catalog.exception";
-import { BillingMode, ServiceStatus } from "../../common/interfaces/enums";
 import { PaginationDto } from "../../common/dto/pagination.dto";
 import { SortDto } from "../../common/dto/sort.dto";
-import { PaginatedResult } from "../../common/interfaces/paginated-result.interface";
+import { PaginatedResult } from "@shared/types/paginated-result";
 import { CreateServicePackageDto } from "../dto/create-service-package.dto";
 import { UpdateServicePackageDto } from "../dto/update-service-package.dto";
 import { AddServiceDto } from "../dto/add-service.dto";
@@ -27,6 +26,7 @@ import { IServicePackageDetail } from "../interfaces/service-package-detail.inte
 import { IServicePackageSnapshot } from "../interfaces/service-package-snapshot.interface";
 import { ServiceService } from "../../service/services/service.service";
 import { buildLikePattern } from "../../common/utils/sql.utils";
+import { ProductItemType, ServiceStatus } from "@shared/types/catalog-enums";
 
 @Injectable()
 export class ServicePackageService {
@@ -36,7 +36,7 @@ export class ServicePackageService {
     @Inject(DATABASE_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
     private readonly serviceService: ServiceService,
-  ) {}
+  ) { }
 
   /**
    * Create service package
@@ -77,7 +77,7 @@ export class ServicePackageService {
           name: dto.name,
           description: dto.description,
           coverImage: dto.coverImage,
-          status: "active",
+          status: ServiceStatus.ACTIVE,
           metadata: dto.metadata,
           createdBy: userId,
         })
@@ -302,7 +302,7 @@ export class ServicePackageService {
 
     // Exclude deleted status by default
     if (!filter.includeDeleted) {
-      conditions.push(ne(schema.servicePackages.status, "deleted"));
+      conditions.push(ne(schema.servicePackages.status, ServiceStatus.DELETED));
     }
 
     if (filter.status) {
@@ -385,7 +385,7 @@ export class ServicePackageService {
     }
 
     // Exclude deleted packages from normal queries
-    conditions.push(ne(schema.servicePackages.status, "deleted"));
+    conditions.push(ne(schema.servicePackages.status, ServiceStatus.DELETED));
 
     const result = await this.db
       .select()
@@ -411,9 +411,9 @@ export class ServicePackageService {
     const servicesData =
       serviceIds.length > 0
         ? await this.db
-            .select()
-            .from(schema.services)
-            .where(inArray(schema.services.id, serviceIds))
+          .select()
+          .from(schema.services)
+          .where(inArray(schema.services.id, serviceIds))
         : [];
 
     const servicesMap = new Map(servicesData.map((s) => [s.id, s]));
@@ -440,7 +440,7 @@ export class ServicePackageService {
    */
   async updateStatus(
     id: string,
-    status: "active" | "inactive",
+    status: ServiceStatus,
     tx?: DrizzleTransaction,
   ): Promise<IServicePackage> {
     const executor: DrizzleExecutor = tx ?? this.db;
@@ -515,7 +515,7 @@ export class ServicePackageService {
     const [deleted] = await executor
       .update(schema.servicePackages)
       .set({
-        status: "deleted",
+        status: ServiceStatus.DELETED,
         updatedAt: new Date(),
       })
       .where(eq(schema.servicePackages.id, id))
@@ -551,7 +551,7 @@ export class ServicePackageService {
     const [restored] = await executor
       .update(schema.servicePackages)
       .set({
-        status: "inactive",
+        status: ServiceStatus.INACTIVE,
         updatedAt: new Date(),
       })
       .where(eq(schema.servicePackages.id, id))
@@ -647,7 +647,7 @@ export class ServicePackageService {
       .from(schema.productItems)
       .where(
         and(
-          eq(schema.productItems.type, "service_package"),
+          eq(schema.productItems.type, ProductItemType.SERVICE_PACKAGE),
           eq(schema.productItems.referenceId, packageId),
         ),
       )
@@ -690,7 +690,7 @@ export class ServicePackageService {
       name: record.name,
       description: record.description,
       coverImage: record.coverImage,
-      status: record.status as ServiceStatus,
+      status: record.status,
       metadata: record.metadata,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
@@ -709,10 +709,10 @@ export class ServicePackageService {
       name: record.name,
       description: record.description,
       coverImage: record.coverImage,
-      billingMode: record.billingMode as BillingMode, // [修复] 明确转换为BillingMode枚举类型
+      billingMode: record.billingMode, // [修复] 明确转换为BillingMode枚举类型
       requiresEvaluation: record.requiresEvaluation,
       requiresMentorAssignment: record.requiresMentorAssignment,
-      status: record.status as ServiceStatus,
+      status: record.status,
       metadata: record.metadata,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,

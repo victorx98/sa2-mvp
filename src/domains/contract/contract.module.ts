@@ -44,10 +44,6 @@ import { ServiceHoldService } from "./services/service-hold.service";
     ServiceLedgerService,
     ServiceHoldService,
   ],
-  exports: [
-    ContractService,
-    ServiceLedgerService,
-    ServiceHoldService,
-  ],
+  exports: [ContractService, ServiceLedgerService, ServiceHoldService],
 })
 export class ContractModule {}

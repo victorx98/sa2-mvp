@@ -1,15 +1,15 @@
 import {
   IsString,
   IsOptional,
-  IsEnum,
   IsBoolean,
   ValidateNested,
   IsArray,
   IsInt,
   Min,
+  IsEnum,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { BillingMode, ServiceUnit } from "../../common/interfaces/enums";
+import { BillingMode } from "@shared/types/catalog-enums";
 
 class ServiceMetadataDto {
   @IsOptional()
@@ -58,11 +58,7 @@ export class UpdateServiceDto {
   // Billing configuration (optional update)
   @IsOptional()
   @IsEnum(BillingMode)
-  billingMode?: BillingMode;
-
-  @IsOptional()
-  @IsEnum(ServiceUnit)
-  defaultUnit?: ServiceUnit;
+  billingMode?: BillingMode; // Billing mode as string literal
 
   // Service configuration (optional update)
   @IsOptional()

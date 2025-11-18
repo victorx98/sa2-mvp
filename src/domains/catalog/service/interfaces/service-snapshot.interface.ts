@@ -1,4 +1,4 @@
-import { BillingMode } from "../../common/interfaces/enums";
+import { BillingMode } from "@shared/types/catalog-enums";
 
 // Service snapshot interface (used for contracts)
 export interface IServiceSnapshot {

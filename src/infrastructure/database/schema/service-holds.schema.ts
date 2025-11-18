@@ -4,24 +4,10 @@ import {
   varchar,
   integer,
   timestamp,
-  pgEnum,
 } from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
 import { serviceTypes } from "./service-types.schema";
-
-/**
- * 预占状态枚举 (Hold status enum)
- * - active: 生效中（未释放）[Active (not released)]
- * - released: 已释放（服务完成）[Released (service completed)]
- * - cancelled: 已取消（用户取消）[Cancelled (user cancelled)]
- * - expired: 已过期（自动过期）[Expired (automatic expiration)]
- */
-export const holdStatusEnum = pgEnum("hold_status", [
-  "active", // 生效中[Active]
-  "released", // 已释放[Released]
-  "cancelled", // 已取消[Cancelled]
-  "expired", // 已过期[Expired]
-]);
+import { HoldStatus } from "../../../shared/types/contract-enums";
 
 /**
  * Service Holds Table (v2.16.13 - 服务预占表)
@@ -85,7 +71,10 @@ export const serviceHolds = pgTable("service_holds", {
   quantity: integer("quantity").notNull().default(1),
 
   // 状态管理 (Status management)
-  status: holdStatusEnum("status").notNull().default("active"),
+  status: varchar("status", { length: 20 })
+    .notNull()
+    .default("active")
+    .$type<HoldStatus>(),
 
   // 关联预约 (Related booking)
   relatedBookingId: uuid("related_booking_id"),

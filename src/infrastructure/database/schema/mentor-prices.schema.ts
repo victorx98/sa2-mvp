@@ -4,9 +4,7 @@ import {
   varchar,
   decimal,
   timestamp,
-  boolean,
   index,
-  primaryKey,
 } from "drizzle-orm/pg-core";
 import { mentorTable } from "./mentor.schema";
 import { serviceTypes } from "./service-types.schema";
