@@ -1,4 +1,6 @@
-export const SESSION_BOOKED_EVENT = "services.session.booked";
+import type { ServiceType } from "@domains/contract/common/types/enum.types";
+
+export const SESSION_BOOKED_EVENT = "session.booked";
 
 /**
  * Application-level Event - Session Booked
@@ -9,7 +11,7 @@ export interface SessionBookedEvent {
   counselorId: string;
   studentId: string;
   mentorId: string;
-  serviceType: string; // 服务类型代码，如"session", "mock_interview"
+  serviceType: ServiceType;
   calendarSlotId: string;
   serviceHoldId: string;
   scheduledStartTime: string;

@@ -51,7 +51,6 @@ describe("Session Creation Flow (e2e)", () => {
         {
           provide: CalendarService,
           useValue: {
-            isSlotAvailable: jest.fn(),
             createSlotDirect: jest.fn(),
             updateSlotSessionId: jest.fn(),
           },
@@ -238,7 +237,10 @@ describe("Session Creation Flow (e2e)", () => {
       expect(updatedSession.meetingUrl).toBe(mockMeetingInfo.meetingUrl);
 
       // Step 5: Update calendar slot with session ID
-      await calendarService.updateSlotSessionId(calendarSlot.id, session.id);
+      await calendarService.updateSlotSessionId(
+        calendarSlot.id,
+        session.id,
+      );
 
       // Step 6: Enqueue notifications
       const scheduledTime = new Date(createDto.scheduledStartTime);
@@ -274,10 +276,10 @@ describe("Session Creation Flow (e2e)", () => {
 
       // Assert
       // Verify all steps were called in correct order
+      expect(calendarService.isSlotAvailable).toHaveBeenCalledTimes(1);
       expect(sessionService.createSession).toHaveBeenCalledTimes(1);
       expect(mockMeetingProvider.createMeeting).toHaveBeenCalledTimes(1);
       expect(sessionService.updateMeetingInfo).toHaveBeenCalledTimes(1);
-      expect(calendarService.createSlotDirect).toHaveBeenCalledTimes(1);
       expect(calendarService.updateSlotSessionId).toHaveBeenCalledTimes(1);
       expect(notificationQueueService.enqueue).toHaveBeenCalledTimes(2);
       expect(notificationService.sendSessionCreatedEmail).toHaveBeenCalledTimes(
