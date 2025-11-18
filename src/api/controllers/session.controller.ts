@@ -13,10 +13,8 @@ import {
   IsNumber,
   IsDateString,
   IsOptional,
-  IsEnum,
 } from "class-validator";
-import { ServiceType } from "@domains/contract/common/types/enum.types";
-import { serviceTypeEnum } from "@infrastructure/database/schema/services.schema";
+import { ServiceType } from "@infrastructure/database/schema/service-types.schema";
 import { ApiPrefix } from "@api/api.constants";
 import { BookSessionResponseDto } from "@api/dto/response/session-response.dto";
 import { plainToInstance } from "class-transformer";
@@ -62,22 +60,9 @@ class BookSessionDto {
   @ApiProperty({
     description:
       "Service type (e.g., gap_analysis, individual_session, mock_interview)",
-    enum: [
-      "gap_analysis",
-      "resume_review",
-      "recommendation_letter",
-      "recommendation_letter_online",
-      "session",
-      "mock_interview",
-      "class_session",
-      "internal_referral",
-      "contract_signing_assistance",
-      "proxy_application",
-      "other_service",
-    ],
     required: false,
   })
-  @IsEnum(serviceTypeEnum.enumValues)
+  @IsString()
   @IsOptional()
   serviceType?: ServiceType;
 

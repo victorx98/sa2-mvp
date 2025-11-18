@@ -10,8 +10,6 @@ import { AppModule } from "../src/app.module";
 import { ApiModule } from "../src/api/api.module";
 import { DATABASE_CONNECTION } from "../src/infrastructure/database/database.provider";
 import { SupabaseAuthService } from "../src/infrastructure/auth/supabase-auth.service";
-import { EventPublisherTask } from "../src/domains/contract/tasks/event-publisher.task";
-import { ServiceHoldExpiryTask } from "../src/domains/contract/tasks/hold-cleanup.task";
 import { NotificationQueueService } from "../src/core/notification/queue/notification-queue.service";
 import type * as schema from "../src/infrastructure/database/schema";
 
@@ -32,10 +30,6 @@ async function generateOpenApiDocument(): Promise<void> {
     .useValue(createDatabaseStub())
     .overrideProvider(SupabaseAuthService)
     .useValue(createSupabaseAuthStub())
-    .overrideProvider(EventPublisherTask)
-    .useValue(createCronStub())
-    .overrideProvider(ServiceHoldExpiryTask)
-    .useValue(createCronStub())
     .overrideProvider(NotificationQueueService)
     .useValue(createNotificationQueueStub())
     .compile();
@@ -127,17 +121,6 @@ function createSupabaseAuthStub(): SupabaseAuthService {
   return handler as SupabaseAuthService;
 }
 
-/**
- * Provide a no-op cron task to prevent scheduled database work.
- */
-function createCronStub<T extends Record<string, unknown>>(): T {
-  return new Proxy(
-    {},
-    {
-      get: () => () => undefined,
-    },
-  ) as T;
-}
 
 /**
  * Provide a lightweight notification queue stub.

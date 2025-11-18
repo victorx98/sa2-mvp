@@ -7,7 +7,6 @@ import {
   IsEnum,
   IsPositive,
   IsOptional,
-  IsIn,
 } from "class-validator";
 
 /**

@@ -154,7 +154,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
           signedAt: new Date(),
           activatedAt: new Date(),
           createdBy: "test-system",
-        });
+        } as any);
 
       // Create entitlement
       await db.insert(schema.contractServiceEntitlements).values({
@@ -302,7 +302,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         signedAt: new Date(),
         activatedAt: new Date(),
         createdBy: "test-system",
-      });
+      } as any);
 
       // Create entitlement with zero available balance
       await db.insert(schema.contractServiceEntitlements).values({
@@ -398,7 +398,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         signedAt: new Date(),
         activatedAt: new Date(),
         createdBy: "test-system",
-      });
+      } as any);
 
       await db.insert(schema.contractServiceEntitlements).values({
         studentId: studentId1,
@@ -438,7 +438,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         signedAt: new Date(),
         activatedAt: new Date(),
         createdBy: "test-system",
-      });
+      } as any);
 
       await db.insert(schema.contractServiceEntitlements).values({
         studentId: studentId2,
@@ -520,7 +520,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         signedAt: new Date(),
         activatedAt: new Date(),
         createdBy: "test-system",
-      });
+      } as any);
 
       await db.insert(schema.contractServiceEntitlements).values({
         studentId,
@@ -635,7 +635,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         signedAt: new Date(),
         activatedAt: new Date(),
         createdBy: "test-system",
-      });
+      } as any);
 
       await db.insert(schema.contractServiceEntitlements).values({
         studentId,
@@ -767,7 +767,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         signedAt: new Date(),
         activatedAt: new Date(),
         createdBy: "test-system",
-      });
+      } as any);
 
       await db.insert(schema.contractServiceEntitlements).values({
         studentId,
@@ -786,7 +786,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
           studentId,
           serviceType: "session",
           quantity: 1,
-          status: "active",
+          status: "active" as any,
           expiryAt: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago (expired!)
           relatedBookingId: null,
           createdBy: "test-system",
