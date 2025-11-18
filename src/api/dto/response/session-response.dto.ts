@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { ServiceType, serviceTypeEnum } from "@domains/contract/common/types/enum.types";
+import { ServiceType } from "@infrastructure/database/schema/service-types.schema";
 
 export class BookSessionResponseDto {
   @ApiProperty({ description: "Created session ID" })
@@ -13,7 +13,6 @@ export class BookSessionResponseDto {
 
   @ApiProperty({
     description: "Type of service fulfilled by this session",
-    enum: serviceTypeEnum.enumValues,
     required: false,
   })
   serviceType?: ServiceType;

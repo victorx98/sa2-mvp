@@ -14,7 +14,7 @@ import { SessionService } from "@domains/services/session/services/session.servi
 import { ServiceHoldService } from "@domains/contract/services/service-hold.service";
 import { BookSessionInput } from "./dto/book-session-input.dto";
 import { BookSessionOutput } from "./dto/book-session-output.dto";
-import type { ServiceType } from "@domains/contract/common/types/enum.types";
+import type { ServiceType } from "@infrastructure/database/schema/service-types.schema";
 import { TimeConflictException } from "@shared/exceptions";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import type {
