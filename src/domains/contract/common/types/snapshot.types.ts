@@ -1,14 +1,8 @@
-/**
- * Snapshot Types for Contract Domain
- * Immutable snapshots of Catalog Domain entities at contract creation time
- * Design pattern: Anti-Corruption Layer (DDD)
- */
-
-import { ServiceType } from "./enum.types";
-
 // ============================================================================
 // Product Snapshot Types
 // ============================================================================
+
+import { BillingMode, Currency } from "@shared/types/catalog-enums";
 
 /**
  * Product snapshot captured at contract creation
@@ -19,7 +13,7 @@ export interface IProductSnapshot {
   productName: string;
   productCode: string;
   price: string; // Stored as string to maintain precision
-  currency: string; // e.g., 'USD', 'CNY'
+  currency: Currency; // e.g., 'USD', 'CNY'
   validityDays?: number; // null = permanent validity
   items: IProductItemSnapshot[]; // Expanded product items with services
   snapshotAt: Date; // When snapshot was taken
@@ -55,7 +49,7 @@ export interface IServiceSnapshot {
   serviceName: string;
   serviceCode: string;
   serviceType: string; // e.g., 'resume_review', 'mock_interview'
-  billingMode: string; // Always 'times' in v2.16.7
+  billingMode: BillingMode;
   requiresEvaluation: boolean;
   requiresMentorAssignment: boolean;
   metadata?: {
@@ -167,7 +161,7 @@ export interface IGenerateContractNumberResult {
  * Used when deriving entitlements from product snapshot
  */
 export interface IEntitlementAggregation {
-  serviceType: ServiceType;
+  serviceType: string;
   totalQuantity: number;
   serviceSnapshot: IServiceSnapshot;
   originItems: IOriginItem[];

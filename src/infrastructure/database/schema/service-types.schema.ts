@@ -54,5 +54,4 @@ export const serviceTypes = pgTable("service_types", {
     .notNull(),
 });
 
-export type ServiceType = typeof serviceTypes.$inferSelect;
-export type NewServiceType = typeof serviceTypes.$inferInsert;
+export type ServiceType = typeof serviceTypes.$inferSelect.code;

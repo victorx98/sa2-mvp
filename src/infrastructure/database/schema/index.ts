@@ -11,6 +11,7 @@ export * from "./user-roles.schema";
 
 // Catalog domain
 export * from "./services.schema";
+export * from "./service-types.schema";
 export * from "./service-packages.schema";
 export * from "./service-package-items.schema";
 export * from "./products.schema";
@@ -20,16 +21,17 @@ export * from "./product-items.schema";
 export * from "./contracts.schema";
 export * from "./contract-service-entitlements.schema";
 export * from "./contract-amendment-ledgers.schema";
-export * from "./domain-events.schema";
 export * from "./service-holds.schema";
-export * from "./service-ledger-archive-policies.schema";
-export * from "./service-ledgers-archive.schema";
 export * from "./service-ledgers.schema";
 
 // Services domain
 export * from "./sessions.schema";
 export * from "./session-events.schema"; // Legacy, kept for backward compatibility
 export * from "./meeting-events.schema";
+
+// Financial domain
+export * from "./mentor-payable-ledgers.schema";
+export * from "./mentor-prices.schema";
 
 // Shared
 export * from "./calendar.schema";

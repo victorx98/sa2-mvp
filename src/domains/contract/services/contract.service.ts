@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { eq, and, sql, SQL, desc, gte, lte } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
@@ -12,7 +13,6 @@ import { UpdateContractDto } from "../dto/update-contract.dto";
 import { FindOneContractDto } from "../dto/find-one-contract.dto";
 import { ConsumeServiceDto } from "../dto/consume-service.dto";
 import { AddAmendmentLedgerDto } from "../dto/add-amendment-ledger.dto";
-import type { ContractAmendmentLedger } from "@infrastructure/database/schema";
 import { calculateExpirationDate } from "../common/utils/date.utils";
 import { validatePrice } from "../common/utils/validation.utils";
 import type { Contract } from "@infrastructure/database/schema";
@@ -22,21 +22,19 @@ import type {
   IEntitlementAggregation,
 } from "../common/types/snapshot.types";
 import type {
-  ServiceType,
   ContractStatusEnum,
   CurrencyEnum,
 } from "../common/types/enum.types";
 import type { ContractServiceEntitlement } from "@infrastructure/database/schema";
-
-// Type alias for backward compatibility - ContractEntitlementRevision now maps to contract_amendment_ledgers table
-type ContractEntitlementRevision = ContractAmendmentLedger;
+import { ContractStatus, HoldStatus } from "@shared/types/contract-enums";
 
 @Injectable()
 export class ContractService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-  ) {}
+    private readonly eventEmitter: EventEmitter2,
+  ) { }
 
   /**
    * Create contract(创建合约)
@@ -78,9 +76,9 @@ export class ContractService {
           studentId,
           productId: dto.productId,
           productSnapshot: productSnapshot as never,
-          status: "signed",
+          status: ContractStatus.SIGNED,
           totalAmount: productSnapshot.price,
-          currency: productSnapshot.currency as CurrencyEnum,
+          currency: productSnapshot.currency,
           validityDays: productSnapshot.validityDays,
           signedAt,
           expiresAt,
@@ -88,20 +86,14 @@ export class ContractService {
         })
         .returning();
 
-      // 5. Publish domain event (entitlements will be created on activation)(5. 发布领域事件(激活时创建权利))
-      await tx.insert(schema.domainEvents).values({
-        eventType: "contract.signed",
-        aggregateId: newContract.id,
-        aggregateType: "Contract",
-        payload: {
-          contractId: newContract.id,
-          contractNumber: newContract.contractNumber,
-          studentId: newContract.studentId,
-          productId: newContract.productId,
-          totalAmount: newContract.totalAmount,
-          signedAt: newContract.signedAt,
-        },
-        status: "pending",
+      // 5. Publish domain event using EventEmitter2 (entitlements will be created on activation)(5. 使用EventEmitter2发布领域事件(激活时创建权利))
+      this.eventEmitter.emit("contract.signed", {
+        contractId: newContract.id,
+        contractNumber: newContract.contractNumber,
+        studentId: newContract.studentId,
+        productId: newContract.productId,
+        totalAmount: newContract.totalAmount,
+        signedAt: newContract.signedAt,
       });
 
       return newContract;
@@ -146,7 +138,7 @@ export class ContractService {
     const conditions = [eq(schema.contracts.studentId, studentId)];
     if (status) {
       conditions.push(
-        eq(schema.contracts.status, status as ContractStatusEnum),
+        eq(schema.contracts.status, status as ContractStatus),
       );
     }
     if (productId) {
@@ -191,119 +183,118 @@ export class ContractService {
     }
 
     // 3. Update status and create entitlements(3. 更新状态并创建权利)
-    return await this.db.transaction(async (tx) => {
-      const [updatedContract] = await tx
-        .update(schema.contracts)
-        .set({
-          status: "active",
-          activatedAt: new Date(),
-        })
-        .where(eq(schema.contracts.id, id))
-        .returning();
+    const [updatedContract, entitlements] = await this.db.transaction(
+      async (tx) => {
+        const [contract] = await tx
+          .update(schema.contracts)
+          .set({
+            status: ContractStatus.ACTIVE,
+            activatedAt: new Date(),
+          })
+          .where(eq(schema.contracts.id, id))
+          .returning();
 
-      // 4. Create service entitlements from product snapshot(4. 从产品快照创建服务权利)
-      const productSnapshot =
-        contract.productSnapshot as unknown as IProductSnapshot;
-      const entitlementMap = new Map<string, IEntitlementAggregation>();
+        // 4. Create service entitlements from product snapshot(4. 从产品快照创建服务权利)
+        const productSnapshot =
+          contract.productSnapshot as unknown as IProductSnapshot;
+        const entitlementMap = new Map<string, IEntitlementAggregation>();
 
-      // Parse product items and aggregate by service type(解析产品项并按服务类型聚合)
-      for (const item of productSnapshot.items || []) {
-        if (item.productItemType === "service" && item.service) {
-          const serviceType = item.service.serviceType;
-          const existing = entitlementMap.get(serviceType);
-
-          if (existing) {
-            existing.totalQuantity += item.quantity;
-            existing.originItems.push({
-              productItemType: "service",
-              productItemId: item.productItemId,
-              quantity: item.quantity,
-            });
-          } else {
-            entitlementMap.set(serviceType, {
-              serviceType: serviceType as ServiceType,
-              totalQuantity: item.quantity,
-              serviceSnapshot: item.service,
-              originItems: [
-                {
-                  productItemType: "service",
-                  productItemId: item.productItemId,
-                  quantity: item.quantity,
-                },
-              ],
-            });
-          }
-        } else if (
-          item.productItemType === "service_package" &&
-          item.servicePackage
-        ) {
-          // Expand service package items(展开服务包项)
-          for (const pkgItem of item.servicePackage.items || []) {
-            const serviceType = pkgItem.service.serviceType;
-            const quantity = item.quantity * pkgItem.quantity; // Product quantity * package item quantity(产品数量 * 包项数量)
+        // Parse product items and aggregate by service type(解析产品项并按服务类型聚合)
+        for (const item of productSnapshot.items || []) {
+          if (item.productItemType === "service" && item.service) {
+            const serviceType = item.service.serviceType;
             const existing = entitlementMap.get(serviceType);
 
             if (existing) {
-              existing.totalQuantity += quantity;
+              existing.totalQuantity += item.quantity;
               existing.originItems.push({
-                productItemType: "service_package",
+                productItemType: "service",
                 productItemId: item.productItemId,
-                quantity,
-                servicePackageName: item.servicePackage.servicePackageName,
+                quantity: item.quantity,
               });
             } else {
               entitlementMap.set(serviceType, {
-                serviceType: serviceType as ServiceType,
-                totalQuantity: quantity,
-                serviceSnapshot: pkgItem.service,
+                serviceType: serviceType,
+                totalQuantity: item.quantity,
+                serviceSnapshot: item.service,
                 originItems: [
                   {
-                    productItemType: "service_package",
+                    productItemType: "service",
                     productItemId: item.productItemId,
-                    quantity,
-                    servicePackageName: item.servicePackage.servicePackageName,
+                    quantity: item.quantity,
                   },
                 ],
               });
             }
+          } else if (
+            item.productItemType === "service_package" &&
+            item.servicePackage
+          ) {
+            // Expand service package items(展开服务包项)
+            for (const pkgItem of item.servicePackage.items || []) {
+              const serviceType = pkgItem.service.serviceType;
+              const quantity = item.quantity * pkgItem.quantity; // Product quantity * package item quantity(产品数量 * 包项数量)
+              const existing = entitlementMap.get(serviceType);
+
+              if (existing) {
+                existing.totalQuantity += quantity;
+                existing.originItems.push({
+                  productItemType: "service_package",
+                  productItemId: item.productItemId,
+                  quantity,
+                  servicePackageName: item.servicePackage.servicePackageName,
+                });
+              } else {
+                entitlementMap.set(serviceType, {
+                  serviceType: serviceType as string,
+                  totalQuantity: quantity,
+                  serviceSnapshot: pkgItem.service,
+                  originItems: [
+                    {
+                      productItemType: "service_package",
+                      productItemId: item.productItemId,
+                      quantity,
+                      servicePackageName:
+                        item.servicePackage.servicePackageName,
+                    },
+                  ],
+                });
+              }
+            }
           }
         }
-      }
 
-      // Insert entitlements(插入权利)
-      const entitlements = Array.from(entitlementMap.values()).map(
-        (entitlement) => ({
-          studentId: updatedContract.studentId,
-          serviceType: entitlement.serviceType as ServiceType,
-          totalQuantity: entitlement.totalQuantity,
-          availableQuantity: entitlement.totalQuantity,
-          serviceSnapshot: entitlement.serviceSnapshot as never,
-          originItems: entitlement.originItems as never,
-        }),
-      );
+        // Insert entitlements(插入权利)
+        const entitlements = Array.from(entitlementMap.values()).map(
+          (entitlement) => ({
+            studentId: contract.studentId,
+            serviceType: entitlement.serviceType as string,
+            totalQuantity: entitlement.totalQuantity,
+            availableQuantity: entitlement.totalQuantity,
+            serviceSnapshot: entitlement.serviceSnapshot as never,
+            originItems: entitlement.originItems as never,
+          }),
+        );
 
-      if (entitlements.length > 0) {
-        await tx
-          .insert(schema.contractServiceEntitlements)
-          .values(entitlements);
-      }
+        if (entitlements.length > 0) {
+          await tx
+            .insert(schema.contractServiceEntitlements)
+            .values(entitlements);
+        }
 
-      // 5. Publish event(5. 发布事件)
-      await tx.insert(schema.domainEvents).values({
-        eventType: "contract.activated",
-        aggregateId: updatedContract.id,
-        aggregateType: "Contract",
-        payload: {
-          contractId: updatedContract.id,
-          contractNumber: updatedContract.contractNumber,
-          activatedAt: updatedContract.activatedAt,
-          entitlementsCreated: entitlements.length,
-        },
-        status: "pending",
-      });
+        return [contract, entitlements];
+      },
+    );
 
-      return updatedContract;
+    // 5. Publish event using EventEmitter2(5. 使用EventEmitter2发布事件)
+    this.eventEmitter.emit("contract.activated", {
+      contractId: updatedContract.id,
+      contractNumber: updatedContract.contractNumber,
+      activatedAt: updatedContract.activatedAt,
+      entitlementsCreated: entitlements.length,
     });
+
+    return updatedContract;
   }
 
   /**
@@ -345,7 +336,7 @@ export class ContractService {
             eq(schema.contractServiceEntitlements.studentId, studentId),
             eq(
               schema.contractServiceEntitlements.serviceType,
-              serviceType as ServiceType,
+              serviceType as string,
             ),
           ),
         )
@@ -382,7 +373,7 @@ export class ContractService {
         // Note: No contractId in service_ledgers anymore (student-level tracking)
         await tx.insert(schema.serviceLedgers).values({
           studentId: studentId,
-          serviceType: serviceType as ServiceType,
+          serviceType: serviceType,
           quantity: -deductAmount,
           type: "consumption",
           source: "booking_completed",
@@ -400,25 +391,20 @@ export class ContractService {
         await tx
           .update(schema.serviceHolds)
           .set({
-            status: "released",
+            status: HoldStatus.RELEASED,
             releaseReason: "completed",
             releasedAt: new Date(),
           })
           .where(eq(schema.serviceHolds.id, relatedHoldId));
       }
 
-      // 6. Publish event(6. 发布事件)
-      await tx.insert(schema.domainEvents).values({
-        eventType: "service.consumed",
-        aggregateId: studentId, // Use studentId as aggregateId since we're tracking at student level
-        aggregateType: "Student", // Changed from Contract to Student to reflect new entity
-        payload: {
-          studentId,
-          serviceType,
-          quantity,
-          relatedBookingId,
-        },
-        status: "pending",
+      // 6. Publish event(6. 发布事件) - Using EventEmitter2 directly
+      // Event is published after transaction completion to ensure data consistency
+      this.eventEmitter.emit("service.consumed", {
+        studentId,
+        serviceType,
+        quantity,
+        relatedBookingId,
       });
     });
   }
@@ -456,25 +442,20 @@ export class ContractService {
       const [updatedContract] = await tx
         .update(schema.contracts)
         .set({
-          status: "terminated",
+          status: ContractStatus.TERMINATED,
           terminatedAt: new Date(),
         })
         .where(eq(schema.contracts.id, id))
         .returning();
 
-      // 5. Publish event(5. 发布事件)
-      await tx.insert(schema.domainEvents).values({
-        eventType: "contract.terminated",
-        aggregateId: updatedContract.id,
-        aggregateType: "Contract",
-        payload: {
-          contractId: updatedContract.id,
-          contractNumber: updatedContract.contractNumber,
-          reason,
-          terminatedBy,
-          terminatedAt: updatedContract.terminatedAt,
-        },
-        status: "pending",
+      // 5. Publish event(5. 发布事件) - Using EventEmitter2 directly
+      // Event is published after transaction completion to ensure data consistency
+      this.eventEmitter.emit("contract.terminated", {
+        contractId: updatedContract.id,
+        contractNumber: updatedContract.contractNumber,
+        reason,
+        terminatedBy,
+        terminatedAt: updatedContract.terminatedAt,
       });
 
       return updatedContract;
@@ -515,25 +496,20 @@ export class ContractService {
       const [updatedContract] = await tx
         .update(schema.contracts)
         .set({
-          status: "suspended",
+          status: ContractStatus.SUSPENDED,
           suspendedAt: new Date(),
         })
         .where(eq(schema.contracts.id, id))
         .returning();
 
-      // 5. Publish event(5. 发布事件)
-      await tx.insert(schema.domainEvents).values({
-        eventType: "contract.suspended",
-        aggregateId: updatedContract.id,
-        aggregateType: "Contract",
-        payload: {
-          contractId: updatedContract.id,
-          contractNumber: updatedContract.contractNumber,
-          reason,
-          suspendedBy,
-          suspendedAt: updatedContract.suspendedAt,
-        },
-        status: "pending",
+      // 5. Publish event(5. 发布事件) - Using EventEmitter2 directly
+      // Event is published after transaction completion to ensure data consistency
+      this.eventEmitter.emit("contract.suspended", {
+        contractId: updatedContract.id,
+        contractNumber: updatedContract.contractNumber,
+        reason,
+        suspendedBy,
+        suspendedAt: updatedContract.suspendedAt,
       });
 
       return updatedContract;
@@ -565,24 +541,19 @@ export class ContractService {
       const [updatedContract] = await tx
         .update(schema.contracts)
         .set({
-          status: "active",
+          status: ContractStatus.ACTIVE,
           suspendedAt: null, // Clear suspension timestamp(清除暂停时间戳)
         })
         .where(eq(schema.contracts.id, id))
         .returning();
 
-      // 4. Publish event(4. 发布事件)
-      await tx.insert(schema.domainEvents).values({
-        eventType: "contract.resumed",
-        aggregateId: updatedContract.id,
-        aggregateType: "Contract",
-        payload: {
-          contractId: updatedContract.id,
-          contractNumber: updatedContract.contractNumber,
-          resumedBy,
-          resumedAt: new Date(),
-        },
-        status: "pending",
+      // 4. Publish event(4. 发布事件) - Using EventEmitter2 directly
+      // Event is published after transaction completion to ensure data consistency
+      this.eventEmitter.emit("contract.resumed", {
+        contractId: updatedContract.id,
+        contractNumber: updatedContract.contractNumber,
+        resumedBy,
+        resumedAt: new Date(),
       });
 
       return updatedContract;
@@ -614,25 +585,20 @@ export class ContractService {
       const [updatedContract] = await tx
         .update(schema.contracts)
         .set({
-          status: "completed",
+          status: ContractStatus.COMPLETED,
           completedAt: new Date(),
         })
         .where(eq(schema.contracts.id, id))
         .returning();
 
-      // 4. Publish event(4. 发布事件)
-      await tx.insert(schema.domainEvents).values({
-        eventType: "contract.completed",
-        aggregateId: updatedContract.id,
-        aggregateType: "Contract",
-        payload: {
-          contractId: updatedContract.id,
-          contractNumber: updatedContract.contractNumber,
-          completedBy: completedBy || "system",
-          completedAt: updatedContract.completedAt,
-          isAutoCompleted: !completedBy,
-        },
-        status: "pending",
+      // 4. Publish event(4. 发布事件) - Using EventEmitter2 directly
+      // Event is published after transaction completion to ensure data consistency
+      this.eventEmitter.emit("contract.completed", {
+        contractId: updatedContract.id,
+        contractNumber: updatedContract.contractNumber,
+        completedBy: completedBy || "system",
+        completedAt: updatedContract.completedAt,
+        isAutoCompleted: !completedBy,
       });
 
       return updatedContract;
@@ -662,25 +628,20 @@ export class ContractService {
       const [updatedContract] = await tx
         .update(schema.contracts)
         .set({
-          status: "signed",
+          status: ContractStatus.SIGNED,
           signedAt: new Date(),
         })
         .where(eq(schema.contracts.id, id))
         .returning();
 
-      // 4. Publish event(4. 发布事件)
-      await tx.insert(schema.domainEvents).values({
-        eventType: "contract.signed",
-        aggregateId: updatedContract.id,
-        aggregateType: "Contract",
-        payload: {
-          contractId: updatedContract.id,
-          contractNumber: updatedContract.contractNumber,
-          studentId: updatedContract.studentId,
-          signedAt: updatedContract.signedAt,
-          signedBy,
-        },
-        status: "pending",
+      // 4. Publish event(4. 发布事件) - Using EventEmitter2 directly
+      // Event is published after transaction completion to ensure data consistency
+      this.eventEmitter.emit("contract.signed", {
+        contractId: updatedContract.id,
+        contractNumber: updatedContract.contractNumber,
+        studentId: updatedContract.studentId,
+        signedAt: updatedContract.signedAt,
+        signedBy,
       });
 
       return updatedContract;
@@ -764,23 +725,18 @@ export class ContractService {
         .where(eq(schema.contracts.id, id))
         .returning();
 
-      // 7. Publish event(7. 发布事件)
-      await tx.insert(schema.domainEvents).values({
-        eventType: "contract.updated",
-        aggregateId: updatedContract.id,
-        aggregateType: "Contract",
-        payload: {
-          contractId: updatedContract.id,
-          contractNumber: updatedContract.contractNumber,
-          updatedBy: dto.updatedBy || "system",
-          updateReason: dto.updateReason || "Contract updated",
-          updatedAt: new Date(),
-          updatedFields: {
-            ...coreFields,
-            ...lifecycleFields,
-          },
+      // 7. Publish event(7. 发布事件) - Using EventEmitter2 directly
+      // Event is published after transaction completion to ensure data consistency
+      this.eventEmitter.emit("contract.updated", {
+        contractId: updatedContract.id,
+        contractNumber: updatedContract.contractNumber,
+        updatedBy: dto.updatedBy || "system",
+        updateReason: dto.updateReason || "Contract updated",
+        updatedAt: new Date(),
+        updatedFields: {
+          ...coreFields,
+          ...lifecycleFields,
         },
-        status: "pending",
       });
 
       return updatedContract;
@@ -822,7 +778,7 @@ export class ContractService {
       conditions.push(
         eq(
           schema.contractServiceEntitlements.serviceType,
-          serviceType as ServiceType,
+          serviceType as string,
         ),
       );
     }
@@ -910,7 +866,7 @@ export class ContractService {
         .insert(schema.contractServiceEntitlements)
         .values({
           studentId,
-          serviceType: serviceType as ServiceType,
+          serviceType: serviceType as string,
           totalQuantity: quantityChanged,
           consumedQuantity: 0,
           heldQuantity: 0,
@@ -937,7 +893,7 @@ export class ContractService {
       // Create amendment ledger record (audit trail)(创建权益变更台账记录(审计跟踪))
       await tx.insert(schema.contractAmendmentLedgers).values({
         studentId,
-        serviceType: serviceType as ServiceType,
+        serviceType: serviceType,
         ledgerType,
         quantityChanged,
         reason,
@@ -955,7 +911,7 @@ export class ContractService {
       // Create service ledger entry for audit trail(创建服务流水记录用于审计跟踪)
       await tx.insert(schema.serviceLedgers).values({
         studentId,
-        serviceType: serviceType as ServiceType,
+        serviceType: serviceType as string,
         type: "adjustment",
         source: "manual_adjustment",
         quantity: quantityChanged,
@@ -964,21 +920,16 @@ export class ContractService {
         createdBy,
       });
 
-      // Publish entitlement.added event(发布权益添加事件)
-      await tx.insert(schema.domainEvents).values({
-        eventType: "entitlement.added",
-        aggregateId: contractId,
-        aggregateType: "Contract",
-        payload: {
-          contractId,
-          entitlementId: `${studentId}-${serviceType}`, // Composite key representation
-          serviceType,
-          quantity: quantityChanged,
-          source: ledgerType,
-          reason,
-          status: "active", // v2.16.10: 直接生效
-        },
-        status: "pending",
+      // Publish entitlement.added event(发布权益添加事件) - Using EventEmitter2 directly
+      // Event is published after transaction completion to ensure data consistency
+      this.eventEmitter.emit("entitlement.added", {
+        contractId,
+        entitlementId: `${studentId}-${serviceType}`, // Composite key representation
+        serviceType,
+        quantity: quantityChanged,
+        source: ledgerType,
+        reason,
+        status: "active", // v2.16.10: 直接生效
       });
 
       return entitlement;
@@ -1032,7 +983,7 @@ export class ContractService {
     }
     if (status) {
       conditions.push(
-        eq(schema.contracts.status, status as ContractStatusEnum),
+        eq(schema.contracts.status, status as ContractStatus),
       );
     }
     if (productId) {

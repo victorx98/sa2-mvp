@@ -1,11 +1,12 @@
-import { pgTable, uuid, integer, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  uuid,
+  integer,
+  timestamp,
+  varchar,
+} from "drizzle-orm/pg-core";
 import { products } from "./products.schema";
-
-// 产品项类型枚举
-export const productItemTypeEnum = pgEnum("product_item_type", [
-  "service", // 直接服务
-  "service_package", // 服务包
-]);
+import { ProductItemType } from "@shared/types/catalog-enums";
 
 export const productItems = pgTable("product_items", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -16,7 +17,7 @@ export const productItems = pgTable("product_items", {
     .references(() => products.id, { onDelete: "cascade" }),
 
   // 项类型和引用ID
-  type: productItemTypeEnum("type").notNull(),
+  type: varchar("type", { length: 20 }).$type<ProductItemType>().notNull(),
   referenceId: uuid("reference_id").notNull(), // type='service' → services.id
   // type='service_package' → service_packages.id
 
