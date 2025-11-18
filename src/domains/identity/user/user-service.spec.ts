@@ -45,8 +45,6 @@ describe("UserService", () => {
         password: "hashed-password",
         createdTime: new Date(),
         modifiedTime: new Date(),
-        createdBy: null,
-        updatedBy: null,
       };
 
       const mockQuery = {
@@ -95,8 +93,6 @@ describe("UserService", () => {
         password: "hashed-password",
         createdTime: new Date(),
         modifiedTime: new Date(),
-        createdBy: null,
-        updatedBy: null,
       };
 
       const mockQuery = {
@@ -148,8 +144,6 @@ describe("UserService", () => {
         country: null,
         createdTime: new Date(),
         modifiedTime: new Date(),
-        createdBy: null,
-        updatedBy: null,
       };
 
       const mockInsert = {
@@ -173,8 +167,6 @@ describe("UserService", () => {
         gender: null,
         status: "active",
         country: null,
-        createdBy: null,
-        updatedBy: null,
       });
       expect(mockInsert.returning).toHaveBeenCalled();
     });
@@ -211,8 +203,6 @@ describe("UserService", () => {
         country: null,
         createdTime: new Date(),
         modifiedTime: new Date(),
-        createdBy: null,
-        updatedBy: null,
       };
 
       const mockUserInsert = {
@@ -284,8 +274,6 @@ describe("UserService", () => {
         country: null,
         createdTime: new Date(),
         modifiedTime: new Date(),
-        createdBy: null,
-        updatedBy: null,
       };
 
       const mockUpdate = {

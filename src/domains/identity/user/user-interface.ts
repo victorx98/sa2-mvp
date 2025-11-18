@@ -14,8 +14,6 @@ export interface User {
   country?: string;
   createdTime?: Date;
   modifiedTime?: Date;
-  createdBy?: string;
-  updatedBy?: string;
   roles?: string[];
 }
 
@@ -31,8 +29,6 @@ export interface CreateUserInput {
   gender?: string;
   status?: string;
   country?: string;
-  createdBy?: string;
-  updatedBy?: string;
 }
 
 /**

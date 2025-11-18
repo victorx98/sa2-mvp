@@ -2,6 +2,9 @@ import { Module } from "@nestjs/common";
 import { DatabaseModule } from "@infrastructure/database/database.module";
 import { UserService } from "./user-service";
 import { USER_SERVICE } from "./user-interface";
+import { StudentProfileService } from "@domains/identity/student/student-profile.service";
+import { MentorProfileService } from "@domains/identity/mentor/mentor-profile.service";
+import { CounselorProfileService } from "@domains/identity/counselor/counselor-profile.service";
 
 /**
  * User Domain Module
@@ -36,12 +39,18 @@ import { USER_SERVICE } from "./user-interface";
       provide: USER_SERVICE,
       useClass: UserService,
     },
+    StudentProfileService,
+    MentorProfileService,
+    CounselorProfileService,
   ],
   exports: [
     // Export UserService for use in other modules
     UserService,
     // Export USER_SERVICE token for dependency injection
     USER_SERVICE,
+    StudentProfileService,
+    MentorProfileService,
+    CounselorProfileService,
   ],
 })
 export class UserModule {}
