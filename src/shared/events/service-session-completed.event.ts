@@ -29,9 +29,19 @@ export interface IServiceSessionCompletedPayload {
   sessionType: string;
 
   /**
-   * Duration of the session in hours [会话持续时间（小时）]
+   * 实际会话持续时间（小时）
+   */
+  actualDurationHours: number;
+
+  /**
+   *  预约持续时间（小时）
    */
   durationHours: number;
+
+  /**
+   * 是否允许计费 [是否允许计费]
+   */
+  allowBilling: boolean;
 }
 
 export interface IServiceSessionCompletedEvent extends IEvent<IServiceSessionCompletedPayload> {
