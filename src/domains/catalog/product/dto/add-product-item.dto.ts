@@ -1,3 +1,4 @@
+import { ProductItemType } from "@shared/types/catalog-enums";
 import {
   IsNotEmpty,
   IsUUID,
@@ -6,7 +7,6 @@ import {
   Min,
   IsOptional,
 } from "class-validator";
-import { ProductItemType } from "../../common/interfaces/enums";
 
 export class AddProductItemDto {
   @IsNotEmpty()

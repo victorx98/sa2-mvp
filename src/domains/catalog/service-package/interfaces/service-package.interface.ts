@@ -1,4 +1,4 @@
-import { ServiceStatus } from "../../common/interfaces/enums";
+import { ServiceStatus } from "@shared/types/catalog-enums";
 
 // ServicePackage 基础接口
 export interface IServicePackage {

@@ -9,11 +9,7 @@ import {
   IsNumber,
 } from "class-validator";
 import { Type } from "class-transformer";
-import {
-  Currency,
-  UserType,
-  MarketingLabel,
-} from "../../common/interfaces/enums";
+import { Currency, MarketingLabel, UserPersona } from "@shared/types/catalog-enums";
 
 class ProductMetadataDto {
   @IsOptional()
@@ -51,8 +47,8 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsArray()
-  @IsEnum(UserType, { each: true })
-  targetUserTypes?: UserType[];
+  @IsEnum(UserPersona, { each: true })
+  targetUserTypes?: UserPersona[];
 
   @IsOptional()
   @IsNumber()

@@ -12,7 +12,7 @@ import {
 } from "../../common/exceptions/catalog.exception";
 import { PaginationDto } from "../../common/dto/pagination.dto";
 import { SortDto } from "../../common/dto/sort.dto";
-import { PaginatedResult } from "../../common/interfaces/paginated-result.interface";
+import { PaginatedResult } from "@shared/types/paginated-result";
 import { CreateProductDto } from "../dto/create-product.dto";
 import { UpdateProductDto } from "../dto/update-product.dto";
 import { AddProductItemDto } from "../dto/add-product-item.dto";
@@ -25,10 +25,10 @@ import { IProductDetail } from "../interfaces/product-detail.interface";
 import { IProductSnapshot } from "../interfaces/product-snapshot.interface";
 import type { IService } from "../../service/interfaces/service.interface";
 import type { IServicePackage } from "../../service-package/interfaces/service-package.interface";
-import { ProductStatus, ProductItemType } from "../../common/interfaces/enums";
 import { ServiceService } from "../../service/services/service.service";
 import { ServicePackageService } from "../../service-package/services/service-package.service";
 import { buildLikePattern } from "../../common/utils/sql.utils";
+import { Currency, ProductItemType, ProductStatus, ServiceStatus } from "@shared/types/catalog-enums";
 
 @Injectable()
 export class ProductService {
@@ -84,10 +84,10 @@ export class ProductService {
           coverImage: dto.coverImage,
           targetUserTypes: dto.targetUserTypes ? dto.targetUserTypes : null,
           price: dto.price.toString(),
-          currency: dto.currency || "USD",
+          currency: dto.currency || Currency.USD,
           validityDays: dto.validityDays,
           marketingLabels: dto.marketingLabels ? dto.marketingLabels : null,
-          status: "draft",
+          status: ProductStatus.DRAFT,
           metadata: dto.metadata ? dto.metadata : null,
           createdBy: userId,
         })
@@ -129,7 +129,7 @@ export class ProductService {
 
     const product = existing[0];
 
-    if (product.status === "deleted") {
+    if (product.status === ProductStatus.DELETED) {
       throw new CatalogGoneException("PRODUCT_DELETED");
     }
 
@@ -183,7 +183,7 @@ export class ProductService {
       throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
     }
 
-    if (product[0].status !== "draft") {
+    if (product[0].status !== ProductStatus.DRAFT) {
       throw new CatalogException("PRODUCT_NOT_DRAFT");
     }
 
@@ -191,7 +191,7 @@ export class ProductService {
     await this.validateProductItems([dto]);
 
     // 3. Service package quantity must be 1
-    if (dto.type === "service_package" && dto.quantity !== 1) {
+    if (dto.type === ProductItemType.SERVICE_PACKAGE && dto.quantity !== 1) {
       throw new CatalogException("PACKAGE_QUANTITY_MUST_BE_ONE");
     }
 
@@ -237,7 +237,7 @@ export class ProductService {
       throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
     }
 
-    if (product[0].status !== "draft") {
+    if (product[0].status !== ProductStatus.DRAFT) {
       throw new CatalogException("PRODUCT_NOT_DRAFT");
     }
 
@@ -309,7 +309,7 @@ export class ProductService {
 
     // Exclude deleted status by default
     if (!filter.includeDeleted) {
-      conditions.push(ne(schema.products.status, "deleted"));
+      conditions.push(ne(schema.products.status, ProductStatus.DELETED));
     }
 
     if (filter.status) {
@@ -424,10 +424,10 @@ export class ProductService {
 
     // Get associated services and packages
     const serviceIds = items
-      .filter((item) => item.type === "service")
+      .filter((item) => item.type === ProductItemType.SERVICE)
       .map((item) => item.referenceId);
     const packageIds = items
-      .filter((item) => item.type === "service_package")
+      .filter((item) => item.type === ProductItemType.SERVICE_PACKAGE)
       .map((item) => item.referenceId);
 
     const [servicesData, packagesData] = await Promise.all([
@@ -465,12 +465,12 @@ export class ProductService {
         sortOrder: item.sortOrder,
 
         service:
-          item.type === "service"
+          item.type === ProductItemType.SERVICE
             ? (servicesMap.get(item.referenceId) as unknown as IService)
             : undefined,
 
         servicePackage:
-          item.type === "service_package"
+          item.type === ProductItemType.SERVICE_PACKAGE
             ? (packagesMap.get(item.referenceId) as unknown as IServicePackage)
             : undefined,
       })),
@@ -498,7 +498,7 @@ export class ProductService {
 
     const product = existing[0];
 
-    if (product.status !== "draft") {
+    if (product.status !== ProductStatus.DRAFT) {
       throw new CatalogException("PRODUCT_NOT_DRAFT");
     }
 
@@ -521,10 +521,10 @@ export class ProductService {
 
     // Batch fetch all services and packages
     const serviceIds = allItems
-      .filter((item) => item.type === "service")
+      .filter((item) => item.type === ProductItemType.SERVICE)
       .map((item) => item.referenceId);
     const packageIds = allItems
-      .filter((item) => item.type === "service_package")
+      .filter((item) => item.type === ProductItemType.SERVICE_PACKAGE)
       .map((item) => item.referenceId);
 
     const [servicesData, packagesData] = await Promise.all([
@@ -556,14 +556,14 @@ export class ProductService {
 
     // Validate all items
     for (const item of allItems) {
-      if (item.type === "service") {
+      if (item.type === ProductItemType.SERVICE) {
         const service = servicesMap.get(item.referenceId);
-        if (!service || service.status !== "active") {
+        if (!service || service.status !== ServiceStatus.ACTIVE) {
           throw new CatalogException("REFERENCE_NOT_ACTIVE");
         }
-      } else if (item.type === "service_package") {
+      } else if (item.type === ProductItemType.SERVICE_PACKAGE) {
         const pkg = packagesMap.get(item.referenceId);
-        if (!pkg || pkg.status !== "active") {
+        if (!pkg || pkg.status !== ServiceStatus.ACTIVE) {
           throw new CatalogException("REFERENCE_NOT_ACTIVE");
         }
       }
@@ -578,7 +578,7 @@ export class ProductService {
     const [published] = await this.db
       .update(schema.products)
       .set({
-        status: isFuturePublish ? "draft" : "active",
+        status: isFuturePublish ? ProductStatus.DRAFT : ProductStatus.ACTIVE,
         scheduledPublishAt,
         publishedAt: isFuturePublish ? null : new Date(),
         publishedBy: isFuturePublish ? null : userId,
@@ -615,7 +615,7 @@ export class ProductService {
 
     const product = existing[0];
 
-    if (product.status !== "active") {
+    if (product.status !== ProductStatus.ACTIVE) {
       throw new CatalogException("PRODUCT_NOT_ACTIVE");
     }
 
@@ -623,7 +623,7 @@ export class ProductService {
     const [unpublished] = await this.db
       .update(schema.products)
       .set({
-        status: "inactive",
+        status: ProductStatus.INACTIVE,
         unpublishedAt: new Date(),
         unpublishedBy: userId,
         updatedAt: new Date(),
@@ -651,7 +651,7 @@ export class ProductService {
 
     const product = existing[0];
 
-    if (product.status !== "inactive") {
+    if (product.status !== ProductStatus.INACTIVE) {
       throw new CatalogException("PRODUCT_NOT_INACTIVE");
     }
 
@@ -659,7 +659,7 @@ export class ProductService {
     const [reverted] = await this.db
       .update(schema.products)
       .set({
-        status: "draft",
+        status: ProductStatus.DRAFT,
         updatedAt: new Date(),
       })
       .where(eq(schema.products.id, id))
@@ -685,7 +685,7 @@ export class ProductService {
 
     const product = existing[0];
 
-    if (product.status === "deleted") {
+    if (product.status === ProductStatus.DELETED) {
       throw new CatalogGoneException("PRODUCT_DELETED");
     }
 
@@ -698,7 +698,7 @@ export class ProductService {
     const [deleted] = await this.db
       .update(schema.products)
       .set({
-        status: "deleted",
+        status: ProductStatus.DELETED,
         updatedAt: new Date(),
       })
       .where(eq(schema.products.id, id))
@@ -724,7 +724,7 @@ export class ProductService {
 
     const product = existing[0];
 
-    if (product.status !== "deleted") {
+    if (product.status !== ProductStatus.DELETED) {
       throw new CatalogException("PRODUCT_NOT_DELETED");
     }
 
@@ -732,7 +732,7 @@ export class ProductService {
     const [restored] = await this.db
       .update(schema.products)
       .set({
-        status: "draft",
+        status: ProductStatus.DRAFT,
         updatedAt: new Date(),
       })
       .where(eq(schema.products.id, id))
@@ -771,7 +771,7 @@ export class ProductService {
     // Generate snapshot for each product item
     const items = await Promise.all(
       (product.items || []).map(async (item) => {
-        if (item.type === "service") {
+        if (item.type === ProductItemType.SERVICE) {
           const serviceSnapshot = await this.serviceService.generateSnapshot(
             item.referenceId,
           );
@@ -825,17 +825,17 @@ export class ProductService {
       }
 
       // Service package quantity must be 1
-      if (item.type === "service_package" && item.quantity !== 1) {
+      if (item.type === ProductItemType.SERVICE_PACKAGE && item.quantity !== 1) {
         throw new CatalogException("PACKAGE_QUANTITY_MUST_BE_ONE");
       }
     }
 
     // 2. Batch query: Collect all IDs by type
     const serviceIds = items
-      .filter((i) => i.type === "service")
+      .filter((i) => i.type === ProductItemType.SERVICE)
       .map((i) => i.referenceId);
     const packageIds = items
-      .filter((i) => i.type === "service_package")
+      .filter((i) => i.type === ProductItemType.SERVICE_PACKAGE)
       .map((i) => i.referenceId);
 
     // 3. Batch fetch all services and packages in parallel
@@ -868,7 +868,7 @@ export class ProductService {
 
     // 5. Validate each item
     for (const item of items) {
-      if (item.type === "service") {
+      if (item.type === ProductItemType.SERVICE) {
         const service = servicesMap.get(item.referenceId);
         if (!service) {
           throw new CatalogNotFoundException("REFERENCE_NOT_FOUND");
@@ -876,7 +876,7 @@ export class ProductService {
         if (service.status !== "active") {
           throw new CatalogException("REFERENCE_NOT_ACTIVE");
         }
-      } else if (item.type === "service_package") {
+      } else if (item.type === ProductItemType.SERVICE_PACKAGE) {
         const pkg = packagesMap.get(item.referenceId);
         if (!pkg) {
           throw new CatalogNotFoundException("REFERENCE_NOT_FOUND");
@@ -918,7 +918,7 @@ export class ProductService {
       currency: record.currency as any,
       validityDays: record.validityDays,
       marketingLabels: record.marketingLabels,
-      status: record.status as ProductStatus,
+      status: record.status,
       scheduledPublishAt: record.scheduledPublishAt,
       publishedAt: record.publishedAt,
       unpublishedAt: record.unpublishedAt,

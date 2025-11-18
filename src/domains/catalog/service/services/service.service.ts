@@ -15,7 +15,7 @@ import {
 } from "../../common/exceptions/catalog.exception";
 import { PaginationDto } from "../../common/dto/pagination.dto";
 import { SortDto } from "../../common/dto/sort.dto";
-import { PaginatedResult } from "../../common/interfaces/paginated-result.interface";
+import { PaginatedResult } from "@shared/types/paginated-result";
 import { CreateServiceDto } from "../dto/create-service.dto";
 import { UpdateServiceDto } from "../dto/update-service.dto";
 import { ServiceFilterDto } from "../dto/service-filter.dto";
@@ -23,12 +23,8 @@ import { FindOneServiceDto } from "../dto/find-one-service.dto";
 import { IService } from "../interfaces/service.interface";
 import { IServiceDetail } from "../interfaces/service-detail.interface";
 import { IServiceSnapshot } from "../interfaces/service-snapshot.interface";
-import {
-  ServiceType,
-  BillingMode,
-  ServiceStatus,
-} from "../../common/interfaces/enums";
 import { buildLikePattern } from "../../common/utils/sql.utils";
+import { ProductItemType, ServiceStatus } from "@shared/types/catalog-enums";
 
 @Injectable()
 export class ServiceService {
@@ -37,7 +33,7 @@ export class ServiceService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
-  ) {}
+  ) { }
 
   /**
    * Create a new service
@@ -71,25 +67,25 @@ export class ServiceService {
       throw new CatalogConflictException("SERVICE_TYPE_DUPLICATE");
     }
 
-    // 3. Create service
-    const [service] = await executor
+    // 2. Create service
+    const [created] = await executor
       .insert(schema.services)
       .values({
         code: dto.code,
-        serviceType: dto.serviceType,
+        serviceType: dto.serviceType as string, // Type conversion to ensure it's a string
         name: dto.name,
         description: dto.description,
         coverImage: dto.coverImage,
         billingMode: dto.billingMode,
         requiresEvaluation: dto.requiresEvaluation ?? false,
-        requiresMentorAssignment: dto.requiresMentorAssignment ?? true,
-        status: "active",
+        requiresMentorAssignment: dto.requiresMentorAssignment ?? false,
         metadata: dto.metadata,
+        status: ServiceStatus.INACTIVE,
         createdBy: userId,
       })
       .returning();
 
-    return this.mapToServiceInterface(service);
+    return this.mapToServiceInterface(created[0]);
   }
 
   /**
@@ -126,7 +122,15 @@ export class ServiceService {
     const [updated] = await executor
       .update(schema.services)
       .set({
-        ...dto,
+        code: dto.code,
+        serviceType: dto.serviceType,
+        name: dto.name,
+        description: dto.description,
+        coverImage: dto.coverImage,
+        billingMode: dto.billingMode,
+        requiresEvaluation: dto.requiresEvaluation,
+        requiresMentorAssignment: dto.requiresMentorAssignment,
+        metadata: dto.metadata,
         updatedAt: new Date(),
       })
       .where(eq(schema.services.id, id))
@@ -148,7 +152,7 @@ export class ServiceService {
 
     // Exclude deleted status by default
     if (!filter.includeDeleted) {
-      conditions.push(ne(schema.services.status, "deleted"));
+      conditions.push(ne(schema.services.status, ServiceStatus.DELETED));
     }
 
     if (filter.status) {
@@ -156,7 +160,9 @@ export class ServiceService {
     }
 
     if (filter.serviceType) {
-      conditions.push(eq(schema.services.serviceType, filter.serviceType));
+      conditions.push(
+        eq(schema.services.serviceType, filter.serviceType as string),
+      );
     }
 
     if (filter.billingMode) {
@@ -250,7 +256,7 @@ export class ServiceService {
    */
   async updateStatus(
     id: string,
-    status: "active" | "inactive",
+    status: ServiceStatus,
     tx?: DrizzleTransaction,
   ): Promise<IService> {
     const executor: DrizzleExecutor = tx ?? this.db;
@@ -268,12 +274,12 @@ export class ServiceService {
 
     const service = existing[0];
 
-    if (service.status === "deleted") {
+    if (service.status === ServiceStatus.DELETED) {
       throw new CatalogGoneException("SERVICE_DELETED");
     }
 
     // 2. Check if service is referenced when deactivating (warning)
-    if (status === "inactive") {
+    if (status === ServiceStatus.INACTIVE) {
       await this.checkServiceReferences(id, true, tx);
     }
 
@@ -325,7 +331,7 @@ export class ServiceService {
     const [deleted] = await executor
       .update(schema.services)
       .set({
-        status: "deleted",
+        status: ServiceStatus.DELETED,
         updatedAt: new Date(),
       })
       .where(eq(schema.services.id, id))
@@ -353,7 +359,7 @@ export class ServiceService {
 
     const service = existing[0];
 
-    if (service.status !== "deleted") {
+    if (service.status !== ServiceStatus.DELETED) {
       throw new CatalogException("SERVICE_NOT_DELETED");
     }
 
@@ -361,7 +367,7 @@ export class ServiceService {
     const [restored] = await executor
       .update(schema.services)
       .set({
-        status: "inactive",
+        status: ServiceStatus.INACTIVE,
         updatedAt: new Date(),
       })
       .where(eq(schema.services.id, id))
@@ -377,7 +383,7 @@ export class ServiceService {
     const result = await this.db
       .select()
       .from(schema.services)
-      .where(ne(schema.services.status, "deleted"))
+      .where(ne(schema.services.status, ServiceStatus.INACTIVE))
       .orderBy(schema.services.name);
 
     return result.map(this.mapToServiceInterface);
@@ -433,7 +439,7 @@ export class ServiceService {
       .from(schema.productItems)
       .where(
         and(
-          eq(schema.productItems.type, "service"),
+          eq(schema.productItems.type, ProductItemType.SERVICE),
           eq(schema.productItems.referenceId, serviceId),
         ),
       )
@@ -472,14 +478,14 @@ export class ServiceService {
     return {
       id: record.id,
       code: record.code,
-      serviceType: record.serviceType as ServiceType,
+      serviceType: record.serviceType as string,
       name: record.name,
       description: record.description,
       coverImage: record.coverImage,
-      billingMode: record.billingMode as BillingMode,
+      billingMode: record.billingMode,
       requiresEvaluation: record.requiresEvaluation,
       requiresMentorAssignment: record.requiresMentorAssignment,
-      status: record.status as ServiceStatus,
+      status: record.status,
       metadata: record.metadata,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,

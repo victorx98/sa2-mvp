@@ -8,6 +8,7 @@ import {
   ContractServiceEntitlement,
 } from "@infrastructure/database/schema";
 import { IProductSnapshot } from "../common/types/snapshot.types";
+import { AmendmentLedgerType } from "@shared/types/contract-enums";
 
 export interface IContractService {
   // Contract Management (9 methods) (合约管理(9个方法))
@@ -118,7 +119,7 @@ export interface IAddAmendmentLedgerDto {
   studentId: string; // Student ID (学生ID) - NEW in v2.16.12
   contractId?: string; // Contract ID (optional for reference) (合约ID - 仅作参考，可选)
   serviceType: string; // Service type (服务类型)
-  ledgerType: "addon" | "promotion" | "compensation"; // Renamed from source (v2.16.12) - 从source重命名
+  ledgerType: AmendmentLedgerType; // Renamed from source (v2.16.12) - 从source重命名
   quantityChanged: number; // Renamed from quantity (v2.16.12) - 从quantity重命名
   reason: string; // Renamed from addOnReason (v2.16.12) - 从addOnReason重命名
   description?: string; // Optional detailed description (可选详细说明)

@@ -1,6 +1,12 @@
-import { pgTable, integer, timestamp, uuid } from "drizzle-orm/pg-core";
-import { userTable } from "./user.schema";
-import { serviceTypeEnum } from "./services.schema";
+import {
+  pgTable,
+  integer,
+  timestamp,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
+// import { userTable } from "./users.schema";
+import { serviceTypes } from "./service-types.schema";
 
 /**
  * Contract service entitlements table (v2.16.12 - 学生级权益累积制)
@@ -39,7 +45,9 @@ export const contractServiceEntitlements = pgTable(
     studentId: uuid("student_id").notNull(),
 
     // 服务类型[Service type]
-    serviceType: serviceTypeEnum("service_type").notNull(),
+    serviceType: varchar("service_type", { length: 50 })
+      .notNull()
+      .references(() => serviceTypes.code), // Reference to service_types.code
 
     // 权益数量（触发器自动维护）[Entitlement quantities (maintained by triggers automatically)]
     totalQuantity: integer("total_quantity").notNull().default(0), // 总权益（初始 + 额外）[Total entitlement (initial + additional)]

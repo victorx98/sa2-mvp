@@ -1,10 +1,6 @@
-import { IsOptional, IsEnum, IsString, IsBoolean } from "class-validator";
+import { IsOptional, IsString, IsBoolean, IsIn, IsEnum } from "class-validator";
 import { Type } from "class-transformer";
-import {
-  ServiceType,
-  BillingMode,
-  ServiceStatus,
-} from "../../common/interfaces/enums";
+import { BillingMode, ServiceStatus } from "@shared/types/catalog-enums";
 
 export class ServiceFilterDto {
   @IsOptional()
@@ -12,8 +8,8 @@ export class ServiceFilterDto {
   keyword?: string; // Keyword search (name, code, description)
 
   @IsOptional()
-  @IsEnum(ServiceType)
-  serviceType?: ServiceType; // Filter by service type
+  @IsString()
+  serviceType?: string; // Filter by service type (references service_types.code)
 
   @IsOptional()
   @IsEnum(BillingMode)

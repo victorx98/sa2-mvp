@@ -1,6 +1,6 @@
-import { IsOptional, IsEnum, IsString, IsBoolean } from "class-validator";
+import { IsOptional, IsString, IsBoolean, IsIn, IsEnum } from "class-validator";
 import { Type } from "class-transformer";
-import { ServiceStatus } from "../../common/interfaces/enums";
+import { ServiceStatus } from "@shared/types/catalog-enums";
 
 export class PackageFilterDto {
   @IsOptional()

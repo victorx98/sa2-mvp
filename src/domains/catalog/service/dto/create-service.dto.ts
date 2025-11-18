@@ -8,9 +8,12 @@ import {
   IsArray,
   IsInt,
   Min,
+  IsIn,
+  isEnum,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { ServiceType, BillingMode } from "../../common/interfaces/enums";
+import { BillingMode } from "@shared/types/catalog-enums";
+// Define billing mode as string union type to match database schema
 
 class ServiceMetadataDto {
   @IsOptional()
@@ -41,8 +44,8 @@ export class CreateServiceDto {
   code: string; // Service code, e.g. 'resume_review'
 
   @IsNotEmpty()
-  @IsEnum(ServiceType)
-  serviceType: ServiceType; // Service type
+  @IsString()
+  serviceType: string; // Service type (references service_types.code)
 
   // Basic information
   @IsNotEmpty()
@@ -62,6 +65,7 @@ export class CreateServiceDto {
   @IsEnum(BillingMode)
   billingMode: BillingMode; // Billing mode
 
+  @IsNotEmpty()
   // Service configuration
   @IsOptional()
   @IsBoolean()

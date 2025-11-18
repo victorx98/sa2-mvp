@@ -70,6 +70,5 @@ export interface ILedgerFilterDto {
 }
 
 export interface ILedgerQueryOptions {
-  includeArchive?: boolean; // Whether to include archived records (是否包含已归档记录)
   pagination?: { page: number; pageSize: number }; // Pagination parameters (分页参数)
 }

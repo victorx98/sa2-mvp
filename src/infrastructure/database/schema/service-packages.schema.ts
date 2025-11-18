@@ -7,7 +7,7 @@ import {
   json,
 } from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
-import { serviceStatusEnum } from "./services.schema";
+import { ServiceStatus } from "@shared/types/catalog-enums";
 
 export const servicePackages = pgTable("service_packages", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -19,7 +19,10 @@ export const servicePackages = pgTable("service_packages", {
   coverImage: varchar("cover_image", { length: 500 }),
 
   // 状态管理
-  status: serviceStatusEnum("status").notNull().default("active"),
+  status: varchar("status", { length: 20 })
+    .$type<ServiceStatus>()
+    .notNull()
+    .default(ServiceStatus.ACTIVE),
 
   // 元数据
   metadata: json("metadata").$type<{

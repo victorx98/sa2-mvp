@@ -1,14 +1,10 @@
-import {
-  ServiceType,
-  BillingMode,
-  ServiceStatus,
-} from "../../common/interfaces/enums";
+import { BillingMode, ServiceStatus } from "@shared/types/catalog-enums";
 
 // Service 基础接口
 export interface IService {
   id: string;
   code: string;
-  serviceType: ServiceType;
+  serviceType: string; // Service type (references service_types.code field)
   name: string;
   description?: string;
   coverImage?: string;

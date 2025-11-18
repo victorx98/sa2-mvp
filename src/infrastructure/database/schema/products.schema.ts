@@ -7,33 +7,9 @@ import {
   text,
   json,
   numeric,
-  pgEnum,
 } from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
-
-// 产品状态枚举
-export const productStatusEnum = pgEnum("product_status", [
-  "draft", // 草稿
-  "active", // 上架
-  "inactive", // 下架
-  "deleted", // 已删除
-]);
-
-// 货币枚举
-export const currencyEnum = pgEnum("currency", [
-  "USD", // 美元
-  "CNY", // 人民币
-  "EUR", // 欧元（预留）
-  "GBP", // 英镑（预留）
-  "JPY", // 日元（预留）
-]);
-
-// 用户类型枚举
-export const userTypeEnum = pgEnum("user_type", [
-  "undergraduate", // 本科生
-  "graduate", // 研究生
-  "working", // 在职人士
-]);
+import { ProductStatus, Currency } from "../../../shared/types/catalog-enums";
 
 export const products = pgTable("products", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -52,7 +28,10 @@ export const products = pgTable("products", {
 
   // 定价信息
   price: numeric("price", { precision: 12, scale: 2 }).notNull(),
-  currency: currencyEnum("currency").notNull().default("USD"),
+  currency: varchar("currency", { length: 10 })
+    .notNull()
+    .default("USD")
+    .$type<Currency>(),
 
   // 有效期，如果为NULL表示长期有效（单位：天）
   validityDays: integer("validity_days"),
@@ -62,7 +41,10 @@ export const products = pgTable("products", {
     json("marketing_labels").$type<Array<"hot" | "new" | "recommended">>(),
 
   // 状态管理
-  status: productStatusEnum("status").notNull().default("draft"),
+  status: varchar("status", { length: 20 })
+    .notNull()
+    .default("draft")
+    .$type<ProductStatus>(),
 
   // 定时上架（仅作为元数据，不自动触发）
   scheduledPublishAt: timestamp("scheduled_publish_at", { withTimezone: true }),
