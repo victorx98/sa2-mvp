@@ -1,0 +1,743 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/webhooks/feishu": {
+      "post": {
+        "operationId": "WebhookGatewayController_handleFeishuWebhook",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "WebhookGateway"
+        ]
+      }
+    },
+    "/webhooks/zoom": {
+      "post": {
+        "operationId": "WebhookGatewayController_handleZoomWebhook",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "WebhookGateway"
+        ]
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registration successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "User registration",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "User login",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/users/me": {
+      "get": {
+        "operationId": "UserController_getCurrentUser",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "User retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get current authenticated user",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/users/{id}": {
+      "get": {
+        "operationId": "UserController_getUserById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get user by ID",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/sessions/book": {
+      "post": {
+        "operationId": "SessionController_bookSession",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookSessionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Booking created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookSessionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters or insufficient balance"
+          },
+          "409": {
+            "description": "Timeslot conflict; mentor unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Book a session",
+        "tags": [
+          "Sessions"
+        ]
+      }
+    },
+    "/api/counselor/sessions": {
+      "post": {
+        "description": "\n      Counselors book a one-on-one coaching session for their assigned students.\n\n      Flow:\n      1. Validate counselor permissions\n      2. Check student service balance\n      3. Verify mentor availability\n      4. Create the session booking\n      5. Reserve the calendar slot\n      6. Create the meeting link\n      7. Send notifications\n    ",
+        "operationId": "CounselorSessionsController_bookSession",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookSessionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Booking created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookSessionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters or insufficient balance"
+          },
+          "403": {
+            "description": "Not authorized to book for this student"
+          },
+          "409": {
+            "description": "Timeslot conflict (mentor already scheduled)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Counselor books a session for a student",
+        "tags": [
+          "Counselor Portal - Sessions"
+        ]
+      }
+    },
+    "/api/counselor/student/list": {
+      "get": {
+        "operationId": "CounselorStudentsController_getStudentList",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Student list retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StudentSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get student list for counselor",
+        "tags": [
+          "Counselor Portal"
+        ]
+      }
+    },
+    "/api/mentor/student/list": {
+      "get": {
+        "operationId": "MentorStudentsController_getStudentList",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Student list retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StudentSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get student list for mentor",
+        "tags": [
+          "Mentor Portal"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "MentorX API",
+    "description": "MentorX backend OpenAPI specification",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "RegisterDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AuthUserResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Supabase user ID"
+          },
+          "email": {
+            "type": "string",
+            "description": "User email address"
+          },
+          "nickname": {
+            "type": "string",
+            "description": "English nickname"
+          },
+          "cnNickname": {
+            "type": "string",
+            "description": "Chinese nickname"
+          },
+          "status": {
+            "type": "string",
+            "description": "Account status (e.g., active, suspended)"
+          },
+          "roles": {
+            "description": "Roles granted to the user",
+            "example": [
+              "student"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "roles"
+        ]
+      },
+      "AuthResponseDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "JWT access token"
+          },
+          "refreshToken": {
+            "type": "string",
+            "description": "JWT refresh token"
+          },
+          "expiresIn": {
+            "type": "number",
+            "description": "Access token TTL in seconds",
+            "example": 3600
+          },
+          "tokenType": {
+            "type": "string",
+            "description": "Token type (usually Bearer)",
+            "example": "Bearer"
+          },
+          "user": {
+            "description": "Authenticated user profile",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuthUserResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "accessToken",
+          "refreshToken",
+          "expiresIn",
+          "tokenType",
+          "user"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UserResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "User ID"
+          },
+          "gender": {
+            "type": "string",
+            "description": "User gender"
+          },
+          "nickname": {
+            "type": "string",
+            "description": "English nickname"
+          },
+          "cnNickname": {
+            "type": "string",
+            "description": "Chinese nickname"
+          },
+          "status": {
+            "type": "string",
+            "description": "Account status (e.g., active, suspended)"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address"
+          },
+          "country": {
+            "type": "string",
+            "description": "Country or region"
+          },
+          "roles": {
+            "description": "User roles",
+            "example": [
+              "student"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdTime": {
+            "type": "string",
+            "description": "Creation timestamp",
+            "format": "date-time"
+          },
+          "modifiedTime": {
+            "type": "string",
+            "description": "Last modification timestamp",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "BookSessionDto": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "description": "Student ID"
+          },
+          "contractId": {
+            "type": "string",
+            "description": "Contract ID"
+          },
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor ID"
+          },
+          "startTime": {
+            "type": "string",
+            "description": "Start time (ISO 8601 format)",
+            "example": "2024-01-20T10:00:00Z"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Duration (minutes)",
+            "example": 60
+          },
+          "name": {
+            "type": "string",
+            "description": "Session name"
+          },
+          "serviceType": {
+            "type": "string",
+            "description": "Service type (e.g., gap_analysis, individual_session, mock_interview)",
+            "enum": [
+              "gap_analysis",
+              "resume_review",
+              "recommendation_letter",
+              "recommendation_letter_online",
+              "session",
+              "mock_interview",
+              "class_session",
+              "internal_referral",
+              "contract_signing_assistance",
+              "proxy_application",
+              "other_service"
+            ]
+          },
+          "provider": {
+            "type": "string",
+            "description": "Meeting provider (optional, defaults to zoom)",
+            "enum": [
+              "zoom",
+              "teams",
+              "google_meet",
+              "feishu"
+            ]
+          }
+        },
+        "required": [
+          "studentId",
+          "contractId",
+          "mentorId",
+          "startTime",
+          "duration",
+          "name"
+        ]
+      },
+      "BookSessionResponseDto": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "Created session ID"
+          },
+          "studentId": {
+            "type": "string",
+            "description": "Student ID"
+          },
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor ID"
+          },
+          "serviceType": {
+            "type": "string",
+            "description": "Type of service fulfilled by this session",
+            "enum": [
+              "gap_analysis",
+              "resume_review",
+              "recommendation_letter",
+              "recommendation_letter_online",
+              "session",
+              "mock_interview",
+              "class_session",
+              "internal_referral",
+              "contract_signing_assistance",
+              "proxy_application",
+              "other_service"
+            ]
+          },
+          "mentorCalendarSlotId": {
+            "type": "string",
+            "description": "Mentor calendar slot reservation ID"
+          },
+          "studentCalendarSlotId": {
+            "type": "string",
+            "description": "Student calendar slot reservation ID"
+          },
+          "serviceHoldId": {
+            "type": "string",
+            "description": "Service hold ID consumed by this booking"
+          },
+          "scheduledStartTime": {
+            "type": "string",
+            "description": "Session start time in ISO 8601 format",
+            "format": "date-time"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Session duration in minutes",
+            "example": 60
+          },
+          "meetingProvider": {
+            "type": "string",
+            "description": "Meeting provider platform (e.g., zoom, feishu)"
+          },
+          "meetingPassword": {
+            "type": "string",
+            "description": "Meeting join password"
+          },
+          "meetingUrl": {
+            "type": "string",
+            "description": "Meeting join URL"
+          },
+          "status": {
+            "type": "string",
+            "description": "Booking status (e.g., booked, pending_confirmation)"
+          }
+        },
+        "required": [
+          "sessionId",
+          "studentId",
+          "mentorId",
+          "mentorCalendarSlotId",
+          "studentCalendarSlotId",
+          "serviceHoldId",
+          "scheduledStartTime",
+          "duration",
+          "status"
+        ]
+      },
+      "BookSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "description": "Student ID",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor ID",
+            "example": "123e4567-e89b-12d3-a456-426614174001"
+          },
+          "scheduledStartTime": {
+            "type": "string",
+            "description": "Session start time (ISO 8601 format)",
+            "example": "2025-11-10T14:00:00Z"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Session duration (minutes)",
+            "example": 60
+          },
+          "topic": {
+            "type": "string",
+            "description": "Session topic",
+            "example": "Resume review guidance"
+          },
+          "meetingProvider": {
+            "type": "string",
+            "description": "Meeting provider",
+            "example": "zoom"
+          }
+        },
+        "required": [
+          "studentId",
+          "mentorId",
+          "scheduledStartTime",
+          "duration",
+          "topic"
+        ]
+      },
+      "StudentSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Student record ID"
+          },
+          "userId": {
+            "type": "string",
+            "description": "Associated user ID"
+          },
+          "status": {
+            "type": "string",
+            "description": "Student status"
+          },
+          "underMajor": {
+            "type": "string",
+            "description": "Undergraduate major"
+          },
+          "underCollege": {
+            "type": "string",
+            "description": "Undergraduate college"
+          },
+          "graduateMajor": {
+            "type": "string",
+            "description": "Graduate major"
+          },
+          "graduateCollege": {
+            "type": "string",
+            "description": "Graduate college"
+          },
+          "aiResumeSummary": {
+            "type": "string",
+            "description": "AI generated resume summary"
+          },
+          "customerImportance": {
+            "type": "string",
+            "description": "Customer importance label"
+          },
+          "fulltimeStartdate": {
+            "type": "string",
+            "description": "Fulltime start date",
+            "format": "date-time",
+            "nullable": true
+          },
+          "backgroundInfo": {
+            "type": "string",
+            "description": "Background information"
+          },
+          "grades": {
+            "type": "string",
+            "description": "Grades information"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Record creation time",
+            "format": "date-time"
+          },
+          "modifiedAt": {
+            "type": "string",
+            "description": "Record last modification time",
+            "format": "date-time"
+          },
+          "email": {
+            "type": "string",
+            "description": "Student email"
+          },
+          "nickname": {
+            "type": "string",
+            "description": "Student nickname"
+          },
+          "cnNickname": {
+            "type": "string",
+            "description": "Student Chinese nickname"
+          },
+          "country": {
+            "type": "string",
+            "description": "Country/region"
+          },
+          "gender": {
+            "type": "string",
+            "description": "Gender"
+          },
+          "counselorStatus": {
+            "type": "string",
+            "description": "Counselor assignment status"
+          },
+          "counselorType": {
+            "type": "string",
+            "description": "Counselor assignment type"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "status",
+          "fulltimeStartdate",
+          "createdAt",
+          "modifiedAt"
+        ]
+      }
+    }
+  }
+}

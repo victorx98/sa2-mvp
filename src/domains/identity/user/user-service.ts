@@ -126,8 +126,6 @@ export class UserService implements IUserService {
         gender: user.gender || null,
         status: user.status || "active",
         country: user.country || null,
-        createdBy: user.createdBy || null,
-        updatedBy: user.updatedBy || null,
       })
       .returning();
 
@@ -151,23 +149,12 @@ export class UserService implements IUserService {
       throw new Error("At least one role is required");
     }
 
-    if (tx) {
-      const createdUser = await this.create(user, tx);
-      await this.authorizeRoles(createdUser.id, roles, tx);
-      return {
-        ...createdUser,
-        roles: await this.getRolesByUserId(createdUser.id, tx),
-      };
-    }
-
-    return this.db.transaction(async (transaction) => {
-      const createdUser = await this.create(user, transaction);
-      await this.authorizeRoles(createdUser.id, roles, transaction);
-      return {
-        ...createdUser,
-        roles: await this.getRolesByUserId(createdUser.id, transaction),
-      };
-    });
+    const createdUser = await this.create(user, tx);
+    await this.authorizeRoles(createdUser.id, roles, tx);
+    return {
+      ...createdUser,
+      roles: await this.getRolesByUserId(createdUser.id, tx),
+    };
   }
 
   /**
@@ -262,10 +249,6 @@ export class UserService implements IUserService {
     if (user.country !== undefined) {
       updateValues.country = user.country;
     }
-    if (user.updatedBy !== undefined) {
-      updateValues.updatedBy = user.updatedBy;
-    }
-
     const [updated] = await executor
       .update(schema.userTable)
       .set(updateValues)
@@ -296,8 +279,7 @@ export class UserService implements IUserService {
       country: record.country || undefined,
       createdTime: record.createdTime || undefined,
       modifiedTime: record.modifiedTime || undefined,
-      createdBy: record.createdBy || undefined,
-      updatedBy: record.updatedBy || undefined,
     };
   }
+
 }
