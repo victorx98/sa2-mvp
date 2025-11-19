@@ -1,5 +1,5 @@
 import { Injectable, Inject } from "@nestjs/common";
-import { eq, and, or, like, ne, count, sql } from "drizzle-orm";
+import { eq, and, or, like, ne, count, sql, inArray } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
@@ -421,6 +421,7 @@ export class ProductService {
         productId: item.productId,
         serviceTypeId: item.serviceTypeId,
         quantity: item.quantity,
+        sortOrder: item.sortOrder, // Add sortOrder property [添加排序属性]
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
       })),
@@ -552,18 +553,17 @@ export class ProductService {
   // ==================== Private helper methods ====================
 
   /**
-   * Validate product item references (simplified without database lookups) [验证产品项引用（简化版，无数据库查询）]
+   * Validate product item references [验证产品项引用]
+   * - Validates UUID format
+   * - Checks service types exist and are ACTIVE (batch query for performance)
    */
   private async validateProductItemReferences(
     items: Array<{ serviceTypeId: string } | IProductItem>,
   ): Promise<void> {
-    // Since services and service_packages tables are not needed in the project,
-    // we only validate that service type IDs are provided and valid UUIDs
-    // [由于项目中不需要services和service_packages表，我们只验证服务类型ID是否提供且为有效的UUID]
+    // Validate UUID format first [首先验证UUID格式]
+    const serviceTypeIds = items.map((item) => item.serviceTypeId);
 
-    for (const item of items) {
-      const serviceTypeId = item.serviceTypeId;
-
+    for (const serviceTypeId of serviceTypeIds) {
       if (!serviceTypeId || serviceTypeId.trim() === "") {
         throw new CatalogNotFoundException("REFERENCE_NOT_FOUND");
       }
@@ -573,6 +573,26 @@ export class ProductService {
         /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(serviceTypeId)) {
         throw new CatalogNotFoundException("INVALID_REFERENCE_ID");
+      }
+    }
+
+    // Batch query service types [批量查询服务类型]
+    const serviceTypes = await this.db
+      .select({
+        id: schema.serviceTypes.id,
+        status: schema.serviceTypes.status,
+      })
+      .from(schema.serviceTypes)
+      .where(inArray(schema.serviceTypes.id, serviceTypeIds));
+
+    // Check all service types exist and are ACTIVE [检查所有服务类型存在且为ACTIVE状态]
+    if (serviceTypes.length !== serviceTypeIds.length) {
+      throw new CatalogNotFoundException("SERVICE_TYPE_NOT_FOUND");
+    }
+
+    for (const serviceType of serviceTypes) {
+      if (serviceType.status !== "ACTIVE") {
+        throw new CatalogException("SERVICE_TYPE_NOT_ACTIVE");
       }
     }
   }

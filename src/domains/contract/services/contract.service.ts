@@ -197,8 +197,18 @@ export class ContractService {
 
       if (productSnapshot.items && productSnapshot.items.length > 0) {
         for (const item of productSnapshot.items) {
-          // Get service type from serviceTypeId(从serviceTypeId获取服务类型)
-          const serviceType = item.serviceTypeId;
+          // Get service type from serviceTypeId(从serviceTypeId获取服务类型code)
+          const [serviceTypeRecord] = await tx
+            .select({ code: schema.serviceTypes.code })
+            .from(schema.serviceTypes)
+            .where(eq(schema.serviceTypes.id, item.serviceTypeId))
+            .limit(1);
+
+          if (!serviceTypeRecord) {
+            throw new ContractException("SERVICE_TYPE_NOT_FOUND");
+          }
+
+          const serviceTypeCode = serviceTypeRecord.code;
 
           // Check if entitlement already exists for this student and service type(检查此学生和服务类型是否已存在权益)
           const [existingEntitlement] = await tx
@@ -210,7 +220,10 @@ export class ContractService {
                   schema.contractServiceEntitlements.studentId,
                   contract.studentId,
                 ),
-                eq(schema.contractServiceEntitlements.serviceType, serviceType),
+                eq(
+                  schema.contractServiceEntitlements.serviceType,
+                  serviceTypeCode,
+                ),
               ),
             )
             .limit(1);
@@ -234,7 +247,7 @@ export class ContractService {
                   ),
                   eq(
                     schema.contractServiceEntitlements.serviceType,
-                    serviceType,
+                    serviceTypeCode,
                   ),
                 ),
               );
@@ -242,7 +255,7 @@ export class ContractService {
             // Insert new service entitlement(插入新的服务权益)
             await tx.insert(schema.contractServiceEntitlements).values({
               studentId: contract.studentId,
-              serviceType: serviceType,
+              serviceType: serviceTypeCode,
               totalQuantity: item.quantity || 1,
               consumedQuantity: 0,
               heldQuantity: 0,

@@ -87,7 +87,7 @@ const generateMockServiceType = (
     code: string;
     description: string;
     unit: ServiceUnit;
-    isActive: boolean;
+    status: string;
     createdAt: Date;
     updatedAt: Date;
   }> = {},
@@ -99,7 +99,7 @@ const generateMockServiceType = (
     code: `SERVICE-${timestamp.toString().slice(-8)}`, // Use timestamp slice for code [使用时间戳片段作为代码]
     description: `Service type description created at ${new Date().toISOString()}`,
     unit: ServiceUnit.UNIT,
-    isActive: true,
+    status: "ACTIVE", // Match database schema (not isActive) [匹配数据库模式（不是isActive）]
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -197,10 +197,10 @@ describe("ProductService", () => {
     jest.clearAllMocks();
 
     // Re-setup mock implementations after clearing [清除后重新设置模拟实现]
-    // Set up select as a basic mock that tests can override completely [设置select为基础mock，测试可以完全覆盖]
-    mockDb.select = jest.fn(() => ({
-      from: jest.fn(() => ({
-        where: jest.fn(() => ({
+    // Use mockImplementation to allow dynamic mock behavior per test [使用mockImplementation以允许每个测试的动态mock行为]
+    mockDb.select = jest.fn().mockImplementation(() => ({
+      from: jest.fn().mockImplementation(() => ({
+        where: jest.fn().mockImplementation(() => ({
           limit: jest.fn().mockResolvedValue([]),
           orderBy: jest.fn().mockResolvedValue([]),
         })),
@@ -318,22 +318,35 @@ describe("ProductService", () => {
       const mockProductItems = [generateMockProductItem()];
       const mockServiceTypes = [generateMockServiceType()];
 
-      // Mock database operations [模拟数据库操作]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue([]),
-          }),
-        }),
-      });
+      // Mock database operations with chainable methods [使用链式方法模拟数据库操作]
+      const originalSelect = mockDb.select;
+      let selectCallCount = 0;
 
-      // Mock service type validation [模拟服务类型验证]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue(mockServiceTypes),
-          }),
-        }),
+      mockDb.select = jest.fn(() => {
+        selectCallCount++;
+
+        // First call: check product code uniqueness (with limit) [第一次调用：检查产品代码唯一性（带limit）]
+        if (selectCallCount === 1) {
+          return {
+            from: jest.fn(() => ({
+              where: jest.fn(() => ({
+                limit: jest.fn().mockResolvedValue([]),
+              })),
+            })),
+          };
+        }
+
+        // Second call: batch service type validation (without limit) [第二次调用：批量服务类型验证（不带limit）]
+        if (selectCallCount === 2) {
+          return {
+            from: jest.fn(() => ({
+              where: jest.fn().mockResolvedValue(mockServiceTypes),
+            })),
+          };
+        }
+
+        // Fallback to original behavior [回退到原始行为]
+        return originalSelect();
       });
 
       mockDb.insert.mockReturnValueOnce({
@@ -503,45 +516,77 @@ describe("ProductService", () => {
   describe("addItem", () => {
     it("should add item to product successfully [应该成功向产品添加项]", async () => {
       // Arrange [准备]
-      const productId = randomUUID(); // Use randomUUID instead of faker [使用randomUUID替代faker]
+      const productId = randomUUID();
       const addItemDto: AddProductItemDto = {
-        serviceTypeId: randomUUID(), // Use randomUUID instead of faker [使用randomUUID替代faker]
-        quantity: Math.floor(Math.random() * 10) + 1, // Use Math.random instead of faker [使用Math.random替代faker]
+        serviceTypeId: randomUUID(),
+        quantity: Math.floor(Math.random() * 10) + 1,
         sortOrder: 0,
       };
 
       const existingProduct = generateMockProduct();
       existingProduct.id = productId;
-      existingProduct.status = ProductStatus.DRAFT; // Ensure product is in draft status [确保产品处于草稿状态]
+      existingProduct.status = ProductStatus.DRAFT;
 
-      // Mock database to find existing product [模拟数据库查找已存在的产品]
-      const mockFrom = jest.fn().mockReturnValue({
-        where: jest.fn().mockReturnValue({
-          limit: jest.fn().mockResolvedValue([existingProduct]),
-        }),
+      // Create service type with the ID from addItemDto
+      const mockServiceType = generateMockServiceType({
+        id: addItemDto.serviceTypeId,
       });
-      mockDb.select.mockReturnValueOnce({ from: mockFrom });
 
-      // Mock database to check if item already exists [模拟数据库检查项是否已存在]
-      // Import to return empty array to indicate item doesn't exist [重要：返回空数组表示项不存在]
-      const mockItemFrom = jest.fn().mockReturnValue({
-        where: jest.fn().mockReturnValue({
-          limit: jest.fn().mockResolvedValue([]),
-        }),
+      // Strategy: Create a flexible mock that works for all three select calls by tracking state
+      const selectMock = jest.fn();
+      let callCount = 0;
+
+      // Track all select calls and return appropriate mock structure
+      selectMock.mockImplementation(() => {
+        callCount++;
+
+        if (callCount === 1) {
+          // First call: check product exists
+          return {
+            from: jest.fn().mockReturnValue({
+              where: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([existingProduct]),
+              }),
+            }),
+          };
+        }
+
+        if (callCount === 2) {
+          // Second call: check item exists
+          return {
+            from: jest.fn().mockReturnValue({
+              where: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([]),
+              }),
+            }),
+          };
+        }
+
+        if (callCount === 3) {
+          // Third call: batch service type validation
+          // This is the key - where should directly resolve to the array
+          return {
+            from: jest.fn().mockReturnValue({
+              where: jest.fn().mockResolvedValue([mockServiceType]),
+            }),
+          };
+        }
+
+        // Should not reach here
+        return {from: jest.fn()};
       });
-      mockDb.select.mockReturnValueOnce({ from: mockItemFrom });
 
-      // Mock database insertion [模拟数据库插入]
+      mockDb.select = selectMock;
+
+      // Mock database insertion
       mockDb.insert.mockReturnValue({
         values: jest.fn().mockReturnValue({
           returning: jest.fn().mockResolvedValue([]),
         }),
       });
 
-      // Act [执行]
+      // Act & Assert
       await service.addItem(productId, addItemDto);
-
-      // Assert [断言]
       expect(mockDb.insert).toHaveBeenCalled();
     });
 
@@ -625,41 +670,86 @@ describe("ProductService", () => {
       existingItem.serviceTypeId =
         addItemDto.serviceTypeId as `${string}-${string}-${string}-${string}-${string}`;
 
-      // Configure mock to handle multiple calls (each call needs 2 selects) [配置mock以处理多次调用（每次调用需要2次select）]
-      // First call: find product and check item [第一次调用：查找产品和检查项目]
-      // Second call: find product and check item again [第二次调用：再次查找产品和检查项目]
-      mockDb.select
-        .mockReturnValueOnce({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue([existingProduct]),
-            }),
-          }),
-        })
-        .mockReturnValueOnce({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue([existingItem]),
-            }),
-          }),
-        })
-        .mockReturnValueOnce({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue([existingProduct]),
-            }),
-          }),
-        })
-        .mockReturnValueOnce({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue([existingItem]),
-            }),
-          }),
-        });
+      // Create service type with the ID from addItemDto
+      const mockServiceType = generateMockServiceType({
+        id: addItemDto.serviceTypeId,
+      });
 
-      // Act & Assert [执行与断言]
-      // The service is called twice to verify both error code and message [服务被调用两次以验证错误代码和消息]
+      // Strategy: Create a flexible mock that works for all six select calls by tracking state
+      const selectMock = jest.fn();
+      let callCount = 0;
+
+      selectMock.mockImplementation(() => {
+        callCount++;
+
+        // First call: find product
+        if (callCount === 1) {
+          return {
+            from: jest.fn().mockReturnValue({
+              where: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([existingProduct]),
+              }),
+            }),
+          };
+        }
+
+        // Second call: check item exists - returns item
+        if (callCount === 2) {
+          return {
+            from: jest.fn().mockReturnValue({
+              where: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([existingItem]),
+              }),
+            }),
+          };
+        }
+
+        // Third call: batch service type validation
+        if (callCount === 3) {
+          return {
+            from: jest.fn().mockReturnValue({
+              where: jest.fn().mockResolvedValue([mockServiceType]),
+            }),
+          };
+        }
+
+        // Fourth call: find product again
+        if (callCount === 4) {
+          return {
+            from: jest.fn().mockReturnValue({
+              where: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([existingProduct]),
+              }),
+            }),
+          };
+        }
+
+        // Fifth call: check item exists - returns item again
+        if (callCount === 5) {
+          return {
+            from: jest.fn().mockReturnValue({
+              where: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([existingItem]),
+              }),
+            }),
+          };
+        }
+
+        // Sixth call: batch service type validation
+        if (callCount === 6) {
+          return {
+            from: jest.fn().mockReturnValue({
+              where: jest.fn().mockResolvedValue([mockServiceType]),
+            }),
+          };
+        }
+
+        return { from: jest.fn() };
+      });
+
+      mockDb.select = selectMock;
+
+      // Act & Assert
       await expect(service.addItem(productId, addItemDto)).rejects.toThrow(
         CatalogException,
       );
@@ -950,12 +1040,19 @@ describe("ProductService", () => {
         }),
       });
 
-      // Mock database to find product items for findOne method
+      // Mock database to find product items for findOne method [模拟数据库查找产品项findOne方法]
       mockDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnValue({
           where: jest.fn().mockReturnValue({
             orderBy: jest.fn().mockResolvedValue([]),
           }),
+        }),
+      });
+
+      // Mock batch service type validation (third select in publish) [模拟批量服务类型验证（publish中的第三次select）]
+      mockDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
         }),
       });
 
