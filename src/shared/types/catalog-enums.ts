@@ -60,10 +60,9 @@ export enum ServiceStatus {
  * 定义服务的计费方式
  */
 export enum BillingMode {
-  ONE_TIME = "one_time",
-  PER_SESSION = "per_session",
-  STAGED = "staged",
-  PACKAGE = "package",
+  HOUR = "hour",
+  SESSION = "session",
+  CREDIT = "credit",
 }
 
 export enum UserPersona {

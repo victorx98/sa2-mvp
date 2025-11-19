@@ -31,7 +31,7 @@ export class ServiceSessionCompletedListener {
         studentId,
         mentorId,
         refrenceId,
-        sessionType,
+        sessionTypeCode,
         durationHours,
       } = event.payload || {};
 
