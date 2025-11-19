@@ -3,15 +3,14 @@ import { ApiTags, ApiOperation, ApiOkResponse } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
 import { Roles } from "@shared/decorators/roles.decorator";
-import { CurrentUser } from "@shared/decorators/current-user.decorator";
-import { StudentListQuery } from "@application/queries/student/student-list.query";
-import { User } from "@domains/identity/user/user-interface";
 import { ApiPrefix } from "@api/api.constants";
-import { StudentSummaryResponseDto } from "@api/dto/response/student-response.dto";
+import { GetServiceBalanceDto } from "@api/dto/request/get-service-balance.dto";
+import { ServiceBalanceResponseDto } from "@api/dto/response/service-balance-response.dto";
+import { ServiceBalanceQuery } from "@application/queries/contract/service-balance.query";
 import { plainToInstance } from "class-transformer";
 
 /**
- * API Layer - Counselor Students Controller
+ * API Layer - Counselor Student Contract Controller
  * 职责：
  * 1. 定义 HTTP 路由
  * 2. 提取请求参数
@@ -25,32 +24,32 @@ import { plainToInstance } from "class-transformer";
  * ❌ 不进行数据转换（由 Application Layer 负责）
  */
 @ApiTags("Counselor Portal")
-@Controller(`${ApiPrefix}/counselor`)
+@Controller(`${ApiPrefix}/student/contract`)
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('counselor')
-export class CounselorStudentsController {
+@Roles("counselor")
+export class CounselorStudentContractController {
   constructor(
     // ✅ 直接注入 Application Layer 服务
-    private readonly studentListQuery: StudentListQuery,
+    private readonly serviceBalanceQuery: ServiceBalanceQuery,
   ) {}
 
-  @Get("student/list")
-  @ApiOperation({ summary: "Get student list for counselor" })
+  @Get("getServiceBalance")
+  @ApiOperation({ summary: "Get service balance for a student" })
   @ApiOkResponse({
-    description: "Student list retrieved successfully",
-    type: StudentSummaryResponseDto,
+    description: "Service balance retrieved successfully",
+    type: ServiceBalanceResponseDto,
     isArray: true,
   })
-  async getStudentList(
-    @CurrentUser() user: User,
-    @Query("search") search?: string,
-  ): Promise<StudentSummaryResponseDto[]> {
-    const items = await this.studentListQuery.findByCounselorId(
-      user.id,
-      search,
+  async getServiceBalance(
+    @Query() query: GetServiceBalanceDto,
+  ): Promise<ServiceBalanceResponseDto[]> {
+    const items = await this.serviceBalanceQuery.getServiceBalance(
+      query.studentId,
+      query.serviceType,
     );
-    return plainToInstance(StudentSummaryResponseDto, items, {
+    return plainToInstance(ServiceBalanceResponseDto, items, {
       enableImplicitConversion: false,
     });
   }
 }
+

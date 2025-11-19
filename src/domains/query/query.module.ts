@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { DatabaseModule } from "@infrastructure/database/database.module";
 import { StudentQueryService } from "./services/student-query.service";
+import { MentorQueryService } from "./services/mentor-query.service";
 
 /**
  * Query Domain Module
@@ -11,8 +12,7 @@ import { StudentQueryService } from "./services/student-query.service";
  */
 @Module({
   imports: [DatabaseModule],
-  providers: [StudentQueryService],
-  exports: [StudentQueryService],
+  providers: [StudentQueryService, MentorQueryService],
+  exports: [StudentQueryService, MentorQueryService],
 })
 export class QueryModule {}
-

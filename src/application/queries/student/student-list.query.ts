@@ -18,15 +18,23 @@ export class StudentListQuery {
   /**
    * 根据导师ID获取学生列表
    */
-  async findByMentorId(mentorId: string): Promise<StudentListItem[]> {
-    return this.studentQueryService.findStudentsByMentorId(mentorId);
+  async findByMentorId(
+    mentorId: string,
+    search?: string,
+  ): Promise<StudentListItem[]> {
+    return this.studentQueryService.findStudentsByMentorId(mentorId, search);
   }
 
   /**
    * 根据顾问ID获取学生列表
    */
-  async findByCounselorId(counselorId: string): Promise<StudentListItem[]> {
-    return this.studentQueryService.findStudentsByCounselorId(counselorId);
+  async findByCounselorId(
+    counselorId: string,
+    search?: string,
+  ): Promise<StudentListItem[]> {
+    return this.studentQueryService.findStudentsByCounselorId(
+      counselorId,
+      search,
+    );
   }
 }
-

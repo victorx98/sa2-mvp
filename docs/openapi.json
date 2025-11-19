@@ -239,7 +239,16 @@
     "/api/counselor/student/list": {
       "get": {
         "operationId": "CounselorStudentsController_getStudentList",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Student list retrieved successfully",
@@ -261,10 +270,65 @@
         ]
       }
     },
+    "/api/student/contract/getServiceBalance": {
+      "get": {
+        "operationId": "CounselorStudentContractController_getServiceBalance",
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": true,
+            "in": "query",
+            "description": "Student ID",
+            "schema": {
+              "example": "123e4567-e89b-12d3-a456-426614174000",
+              "type": "string"
+            }
+          },
+          {
+            "name": "serviceType",
+            "required": false,
+            "in": "query",
+            "description": "Service type (optional)",
+            "schema": {
+              "example": "one_on_one_session",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Service balance retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServiceBalanceResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get service balance for a student",
+        "tags": [
+          "Counselor Portal"
+        ]
+      }
+    },
     "/api/mentor/student/list": {
       "get": {
         "operationId": "MentorStudentsController_getStudentList",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Student list retrieved successfully",
@@ -283,6 +347,40 @@
         "summary": "Get student list for mentor",
         "tags": [
           "Mentor Portal"
+        ]
+      }
+    },
+    "/api/mentors": {
+      "get": {
+        "operationId": "MentorsController_getMentors",
+        "parameters": [
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mentors retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MentorSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get mentor list",
+        "tags": [
+          "Mentors"
         ]
       }
     }
@@ -477,20 +575,7 @@
           },
           "serviceType": {
             "type": "string",
-            "description": "Service type (e.g., gap_analysis, individual_session, mock_interview)",
-            "enum": [
-              "gap_analysis",
-              "resume_review",
-              "recommendation_letter",
-              "recommendation_letter_online",
-              "session",
-              "mock_interview",
-              "class_session",
-              "internal_referral",
-              "contract_signing_assistance",
-              "proxy_application",
-              "other_service"
-            ]
+            "description": "Service type (e.g., gap_analysis, individual_session, mock_interview)"
           },
           "provider": {
             "type": "string",
@@ -529,20 +614,7 @@
           },
           "serviceType": {
             "type": "string",
-            "description": "Type of service fulfilled by this session",
-            "enum": [
-              "gap_analysis",
-              "resume_review",
-              "recommendation_letter",
-              "recommendation_letter_online",
-              "session",
-              "mock_interview",
-              "class_session",
-              "internal_referral",
-              "contract_signing_assistance",
-              "proxy_application",
-              "other_service"
-            ]
+            "description": "Type of service fulfilled by this session"
           },
           "mentorCalendarSlotId": {
             "type": "string",
@@ -736,6 +808,130 @@
           "fulltimeStartdate",
           "createdAt",
           "modifiedAt"
+        ]
+      },
+      "ServiceBalanceResponseDto": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "description": "Student ID"
+          },
+          "serviceType": {
+            "type": "string",
+            "description": "Service type"
+          },
+          "totalQuantity": {
+            "type": "number",
+            "description": "Total quantity"
+          },
+          "consumedQuantity": {
+            "type": "number",
+            "description": "Consumed quantity"
+          },
+          "heldQuantity": {
+            "type": "number",
+            "description": "Held quantity"
+          },
+          "availableQuantity": {
+            "type": "number",
+            "description": "Available quantity"
+          }
+        },
+        "required": [
+          "studentId",
+          "serviceType",
+          "totalQuantity",
+          "consumedQuantity",
+          "heldQuantity",
+          "availableQuantity"
+        ]
+      },
+      "MentorSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Mentor ID"
+          },
+          "userId": {
+            "type": "string",
+            "description": "Associated user ID"
+          },
+          "status": {
+            "type": "string",
+            "description": "Mentor status"
+          },
+          "type": {
+            "type": "string",
+            "description": "Mentor type"
+          },
+          "company": {
+            "type": "string",
+            "description": "Company"
+          },
+          "companyTitle": {
+            "type": "string",
+            "description": "Company title"
+          },
+          "briefIntro": {
+            "type": "string",
+            "description": "Brief introduction"
+          },
+          "school": {
+            "type": "string",
+            "description": "School"
+          },
+          "location": {
+            "type": "string",
+            "description": "Location"
+          },
+          "level": {
+            "type": "string",
+            "description": "Mentor level"
+          },
+          "rating": {
+            "type": "number",
+            "description": "Mentor rating",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Record created time",
+            "format": "date-time"
+          },
+          "modifiedAt": {
+            "type": "string",
+            "description": "Record last modified time",
+            "format": "date-time"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address"
+          },
+          "nickname": {
+            "type": "string",
+            "description": "Nickname"
+          },
+          "cnNickname": {
+            "type": "string",
+            "description": "Chinese nickname"
+          },
+          "country": {
+            "type": "string",
+            "description": "Country"
+          },
+          "gender": {
+            "type": "string",
+            "description": "Gender"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "createdAt",
+          "modifiedAt",
+          "email"
         ]
       }
     }

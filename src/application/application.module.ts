@@ -9,6 +9,8 @@ import { UserModule } from "@domains/identity/user/user.module";
 // Application Layer - Queries
 import { UserQueryService } from "./queries/user-query.service";
 import { StudentListQuery } from "./queries/student/student-list.query";
+import { MentorListQuery } from "./queries/mentor/mentor-list.query";
+import { ServiceBalanceQuery } from "./queries/contract/service-balance.query";
 
 // Application Layer - Commands
 import { RegisterCommand } from "./commands/auth/register.command";
@@ -53,6 +55,8 @@ import { QueryModule } from "@domains/query/query.module";
     // Queries
     UserQueryService,
     StudentListQuery,
+    MentorListQuery,
+    ServiceBalanceQuery,
 
     // Commands
     RegisterCommand,
@@ -75,6 +79,8 @@ import { QueryModule } from "@domains/query/query.module";
     // Queries
     UserQueryService,
     StudentListQuery,
+    MentorListQuery,
+    ServiceBalanceQuery,
 
     // Commands
     RegisterCommand,
