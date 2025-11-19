@@ -5,6 +5,8 @@ import { SessionController } from "./controllers/session.controller";
 import { CounselorSessionsController } from "./controllers/counselor/counselor-sessions.controller";
 import { MentorStudentsController } from "./controllers/mentor/mentor-students.controller";
 import { CounselorStudentsController } from "./controllers/counselor/counselor-students.controller";
+import { CounselorStudentContractController } from "./controllers/counselor/counselor-student-contract.controller";
+import { MentorsController } from "./controllers/mentor/mentors.controller";
 import { ApplicationModule } from "@application/application.module";
 import { WebhookModule } from "@core/webhook/webhook.module";
 
@@ -31,9 +33,11 @@ import { WebhookModule } from "@core/webhook/webhook.module";
     // Counselor Controllers
     CounselorSessionsController,
     CounselorStudentsController,
+    CounselorStudentContractController,
 
     // Mentor Controllers
     MentorStudentsController,
+    MentorsController,
   ],
 })
 export class ApiModule {}

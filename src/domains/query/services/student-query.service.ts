@@ -25,10 +25,18 @@ export class StudentQueryService {
    * 根据导师ID获取学生列表
    * 通过 student_mentor 表关联，查找分配给该导师的学生
    */
-  async findStudentsByMentorId(mentorId: string): Promise<StudentListItem[]> {
-    this.logger.log(`Finding students for mentor: ${mentorId}`);
+  async findStudentsByMentorId(
+    mentorId: string,
+    search?: string,
+  ): Promise<StudentListItem[]> {
+    this.logger.log(
+      `Finding students for mentor: ${mentorId}${
+        search ? ` with search=${search}` : ""
+      }`,
+    );
 
-    // 使用 SQL 查询，以 student 表为主表，通过 student_mentor 表关联
+    const searchFilter = this.buildSearchFilter(search);
+
     const result = await this.db.execute(sql`
       SELECT DISTINCT
         s.id,
@@ -56,30 +64,11 @@ export class StudentQueryService {
       INNER JOIN mentor m ON sm.mentor_id = m.id
       WHERE m.id = ${mentorId}
         AND s.user_id IS NOT NULL
+        ${searchFilter}
       ORDER BY s.created_time DESC
     `);
 
-    return result.rows.map((row: Record<string, unknown>) => ({
-      id: String(row.id || ""),
-      userId: String(row.user_id || ""),
-      status: String(row.status || ""),
-      underMajor: String(row.under_major || ""),
-      underCollege: String(row.under_college || ""),
-      graduateMajor: String(row.graduate_major || ""),
-      graduateCollege: String(row.graduate_college || ""),
-      aiResumeSummary: String(row.ai_resume_summary || ""),
-      customerImportance: String(row.customer_importance || ""),
-      fulltimeStartdate: row.fulltime_startdate ? new Date(String(row.fulltime_startdate)) : null,
-      backgroundInfo: String(row.background_info || ""),
-      grades: String(row.grades || ""),
-      createdAt: row.created_time as Date,
-      modifiedAt: row.modified_time as Date,
-      email: String(row.email || ""),
-      nickname: String(row.nickname || ""),
-      cnNickname: String(row.cn_nickname || ""),
-      country: String(row.country || ""),
-      gender: String(row.gender || ""),
-    }));
+    return result.rows.map((row) => this.mapRowToStudentItem(row));
   }
 
   /**
@@ -88,10 +77,16 @@ export class StudentQueryService {
    */
   async findStudentsByCounselorId(
     counselorId: string,
+    search?: string,
   ): Promise<StudentListItem[]> {
-    this.logger.log(`Finding students for counselor: ${counselorId}`);
+    this.logger.log(
+      `Finding students for counselor: ${counselorId}${
+        search ? ` with search=${search}` : ""
+      }`,
+    );
 
-    // 使用 SQL 查询，以 student 表为主表，通过 student_counselor 表关联
+    const searchFilter = this.buildSearchFilter(search);
+
     const result = await this.db.execute(sql`
       SELECT DISTINCT
         s.id,
@@ -121,31 +116,14 @@ export class StudentQueryService {
       INNER JOIN counselor c ON sc.counselor_id = c.id
       WHERE c.id = ${counselorId}
         AND s.user_id IS NOT NULL
+        ${searchFilter}
       ORDER BY s.created_time DESC
     `);
 
-    return result.rows.map((row: Record<string, unknown>) => ({
-      id: String(row.id || ""),
-      userId: String(row.user_id || ""),
-      status: String(row.status || ""),
-      underMajor: String(row.under_major || ""),
-      underCollege: String(row.under_college || ""),
-      graduateMajor: String(row.graduate_major || ""),
-      graduateCollege: String(row.graduate_college || ""),
-      aiResumeSummary: String(row.ai_resume_summary || ""),
-      customerImportance: String(row.customer_importance || ""),
-      fulltimeStartdate: row.fulltime_startdate ? new Date(String(row.fulltime_startdate)) : null,
-      backgroundInfo: String(row.background_info || ""),
-      grades: String(row.grades || ""),
-      createdAt: row.created_time as Date,
-      modifiedAt: row.modified_time as Date,
-      email: String(row.email || ""),
-      nickname: String(row.nickname || ""),
-      cnNickname: String(row.cn_nickname || ""),
-      country: String(row.country || ""),
-      gender: String(row.gender || ""),
-      counselorStatus: String(row.counselor_status || ""),
-      counselorType: String(row.counselor_type || ""),
+    return result.rows.map((row) => ({
+      ...this.mapRowToStudentItem(row),
+      counselorStatus: String((row as Record<string, unknown>).counselor_status || ""),
+      counselorType: String((row as Record<string, unknown>).counselor_type || ""),
     }));
   }
 
@@ -185,7 +163,26 @@ export class StudentQueryService {
       ORDER BY s.created_time DESC
     `);
 
-    return result.rows.map((row: Record<string, unknown>) => ({
+    return result.rows.map((row) => this.mapRowToStudentItem(row));
+  }
+
+  private buildSearchFilter(search?: string) {
+    if (!search || search.trim().length === 0) {
+      return sql``;
+    }
+
+    const searchTerm = `%${search.trim()}%`;
+    return sql`
+      AND (
+        u.nickname ILIKE ${searchTerm}
+        OR u.cn_nickname ILIKE ${searchTerm}
+        OR u.email ILIKE ${searchTerm}
+      )
+    `;
+  }
+
+  private mapRowToStudentItem(row: Record<string, unknown>): StudentListItem {
+    return {
       id: String(row.id || ""),
       userId: String(row.user_id || ""),
       status: String(row.status || ""),
@@ -195,7 +192,9 @@ export class StudentQueryService {
       graduateCollege: String(row.graduate_college || ""),
       aiResumeSummary: String(row.ai_resume_summary || ""),
       customerImportance: String(row.customer_importance || ""),
-      fulltimeStartdate: row.fulltime_startdate ? new Date(String(row.fulltime_startdate)) : null,
+      fulltimeStartdate: row.fulltime_startdate
+        ? new Date(String(row.fulltime_startdate))
+        : null,
       backgroundInfo: String(row.background_info || ""),
       grades: String(row.grades || ""),
       createdAt: row.created_time as Date,
@@ -205,7 +204,7 @@ export class StudentQueryService {
       cnNickname: String(row.cn_nickname || ""),
       country: String(row.country || ""),
       gender: String(row.gender || ""),
-    }));
+    };
   }
 }
 
@@ -242,4 +241,3 @@ export interface StudentListItem {
   counselorStatus?: string; // student_counselor.status (仅当通过顾问查询时)
   counselorType?: string; // student_counselor.type (仅当通过顾问查询时)
 }
-

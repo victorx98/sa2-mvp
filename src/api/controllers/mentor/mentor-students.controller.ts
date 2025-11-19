@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from "@nestjs/common";
+import { Controller, Get, Query, UseGuards } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiOkResponse } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
@@ -43,9 +43,10 @@ export class MentorStudentsController {
   })
   async getStudentList(
     @CurrentUser() user: User,
+    @Query("search") search?: string,
   ): Promise<StudentSummaryResponseDto[]> {
     // ✅ 直接调用 Application Layer 服务
-    const items = await this.studentListQuery.findByMentorId(user.id);
+    const items = await this.studentListQuery.findByMentorId(user.id, search);
     return plainToInstance(StudentSummaryResponseDto, items, {
       enableImplicitConversion: false,
     });
