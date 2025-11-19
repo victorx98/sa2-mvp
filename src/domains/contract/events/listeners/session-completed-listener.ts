@@ -117,7 +117,7 @@ export class SessionCompletedListener {
             serviceType: sessionType,
             quantity: consumptionQuantity,
             relatedBookingId: sessionId,
-            createdBy: "system", // 系统自动记录 (System auto-record)
+            createdBy: studentId, // Use studentId as valid UUID for createdBy field [使用studentId作为有效的UUID]
           },
           tx,
         );
@@ -137,7 +137,7 @@ export class SessionCompletedListener {
       );
       // 根据业务需求决定是否需要重新抛出错误
       // Rethrow or handle based on business requirements
-      // throw error;
+      throw error;
     }
   }
 }
