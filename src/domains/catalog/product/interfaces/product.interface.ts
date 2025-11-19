@@ -2,36 +2,37 @@ import {
   Currency,
   MarketingLabel,
   ProductStatus,
-  UserPersona
+  UserPersona,
 } from "@shared/types/catalog-enums";
 
-// Product 基础接口
+/**
+ * Product Interface [产品接口]
+ * Represents the base product entity [表示基础产品实体]
+ */
 export interface IProduct {
   id: string;
   name: string;
   code: string;
   description?: string;
   coverImage?: string;
-  targetUserTypes?: UserPersona[];
-  price: string; // Decimal stored as string
+  targetUserPersonas?: UserPersona[];
+  price: string; // Decimal stored as string [十进制存储为字符串]
   currency: Currency;
-  validityDays?: number;
   marketingLabels?: MarketingLabel[];
   status: ProductStatus;
-  scheduledPublishAt?: Date;
   publishedAt?: Date;
   unpublishedAt?: Date;
-  sortOrder: number;
   metadata?: {
     features?: string[];
     faqs?: Array<{
       question: string;
       answer: string;
     }>;
+    deliverables?: string[];
+    duration?: string;
+    prerequisites?: string[];
   };
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
-  publishedBy?: string;
-  unpublishedBy?: string;
 }

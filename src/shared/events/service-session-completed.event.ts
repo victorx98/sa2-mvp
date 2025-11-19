@@ -44,6 +44,7 @@ export interface IServiceSessionCompletedPayload {
   allowBilling: boolean;
 }
 
-export interface IServiceSessionCompletedEvent extends IEvent<IServiceSessionCompletedPayload> {
+export interface IServiceSessionCompletedEvent
+  extends IEvent<IServiceSessionCompletedPayload> {
   type: typeof SERVICE_SESSION_COMPLETED_EVENT;
 }

@@ -1,20 +1,13 @@
+import { IProductItem } from "./product-item.interface";
 import { IProduct } from "./product.interface";
-import { IService } from "../../service/interfaces/service.interface";
-import { IServicePackage } from "../../service-package/interfaces/service-package.interface";
-import { ProductItemType } from "@shared/types/catalog-enums";
 
-// Product detail interface (includes product items)
-export interface IProductItem {
-  id: string;
-  type: ProductItemType;
-  referenceId: string;
-  quantity: number;
-  sortOrder: number;
-  // Associated data (optional)
-  service?: IService;
-  servicePackage?: IServicePackage;
-}
-
+/**
+ * Product Detail Interface [产品详情接口]
+ * Extends the base product interface with additional details
+ */
 export interface IProductDetail extends IProduct {
-  items?: IProductItem[]; // Product items in the product
+  /**
+   * Product items [产品项列表]
+   */
+  items?: IProductItem[];
 }

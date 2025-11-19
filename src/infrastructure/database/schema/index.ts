@@ -10,10 +10,9 @@ export * from "./user-relationships.schema";
 export * from "./user-roles.schema";
 
 // Catalog domain
-export * from "./services.schema";
 export * from "./service-types.schema";
-export * from "./service-packages.schema";
-export * from "./service-package-items.schema";
+// Note: services.schema and service-packages.schema are removed as they're not needed in the project
+// [注意：services.schema和service-packages.schema已被移除，因为项目中不需要它们]
 export * from "./products.schema";
 export * from "./product-items.schema";
 

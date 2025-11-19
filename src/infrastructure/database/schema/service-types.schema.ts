@@ -1,57 +1,31 @@
-import {
-  pgTable,
-  uuid,
-  varchar,
-  timestamp,
-  boolean,
-} from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, timestamp, text } from "drizzle-orm/pg-core";
 
 /**
- * Service Types Table
- * Centralized configuration for service types
- * Supports dynamic configuration of service attributes
- * Currently managed by admin in database (no admin UI)
+ * Service Types Table [服务类型表]
+ * Represents the classification standard for services
+ * [代表服务的分类标准]
  */
 export const serviceTypes = pgTable("service_types", {
-  // ========== Primary Key ==========
-  id: uuid("id").primaryKey().defaultRandom(),
+  // Primary Key [主键]
+  id: uuid("id").defaultRandom().primaryKey(),
 
-  // ========== Service Identification ==========
-  /**
-   * Service Type Code - Unique identifier for service type
-   * Examples: 'session', 'mock_interview', 'career_consultation'
-   */
-  code: varchar("code", { length: 50 }).notNull().unique(),
+  // Basic Information [基本信息]
+  code: varchar("code", { length: 50 }).notNull(), // Service type code [服务类型编码]
+  name: varchar("name", { length: 255 }).notNull(), // Service type name [服务类型名称]
+  description: text("description"), // Service type description [服务类型描述]
 
-  /**
-   * Service Name - Human-readable service name
-   * Examples: "CS面试辅导", "模拟面试", "职业规划咨询"
-   */
-  name: varchar("name", { length: 200 }).notNull(),
+  // Status Management [状态管理]
+  status: varchar("status", { length: 20 }).notNull().default("ACTIVE"), // Service type status [服务类型状态]
 
-  // ========== Billing Configuration ==========
-  /**
-   * Required Evaluation - Whether evaluation is required before billing
-   * - true: Wait for evaluation before billing
-   * - false: Bill immediately upon service completion
-   */
-  requiredEvaluation: boolean("required_evaluation").notNull().default(false),
-
-  // ========== Audit Fields ==========
-  /**
-   * Created At - Record creation timestamp
-   */
+  // Audit Fields [审计字段]
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-
-  /**
-   * Updated At - Last update timestamp
-   * Updated when service type configuration changes
-   */
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
 });
 
-export type ServiceType = typeof serviceTypes.$inferSelect.code;
+// Type inference [类型推断]
+export type ServiceType = typeof serviceTypes.$inferSelect;
+export type InsertServiceType = typeof serviceTypes.$inferInsert;

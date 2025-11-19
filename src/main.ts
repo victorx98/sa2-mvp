@@ -1,11 +1,13 @@
-
 import { Logger, ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
-import * as dotenv from 'dotenv';
+import * as dotenv from "dotenv";
 
 import { AppModule } from "./app.module";
 import { OtelLoggerService } from "./shared/logging/otel-logger.service";
-import { ensureTelemetryStarted, shutdownTelemetry } from "./telemetry/opentelemetry";
+import {
+  ensureTelemetryStarted,
+  shutdownTelemetry,
+} from "./telemetry/opentelemetry";
 
 dotenv.config();
 
@@ -29,20 +31,35 @@ async function bootstrap() {
 
   const signalHandler = (signal: NodeJS.Signals) => {
     const shutdown = async () => {
-      logger.warn(`Received ${signal}. Initiating graceful shutdown.`, "Bootstrap");
+      logger.warn(
+        `Received ${signal}. Initiating graceful shutdown.`,
+        "Bootstrap",
+      );
       try {
         await app.close();
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.stack ?? error.message : String(error);
-        logger.error(`Error during Nest application shutdown: ${errorMessage}`, error instanceof Error ? error.stack : undefined, "Bootstrap");
+        const errorMessage =
+          error instanceof Error
+            ? (error.stack ?? error.message)
+            : String(error);
+        logger.error(
+          `Error during Nest application shutdown: ${errorMessage}`,
+          error instanceof Error ? error.stack : undefined,
+          "Bootstrap",
+        );
       } finally {
         process.exit(0);
       }
     };
 
     shutdown().catch((error) => {
-      const errorMessage = error instanceof Error ? error.stack ?? error.message : String(error);
-      logger.error(`Unhandled error during shutdown: ${errorMessage}`, error instanceof Error ? error.stack : undefined, "Bootstrap");
+      const errorMessage =
+        error instanceof Error ? (error.stack ?? error.message) : String(error);
+      logger.error(
+        `Unhandled error during shutdown: ${errorMessage}`,
+        error instanceof Error ? error.stack : undefined,
+        "Bootstrap",
+      );
       process.exit(1);
     });
   };
@@ -64,7 +81,10 @@ async function bootstrap() {
 
   const port = process.env.PORT || 8080;
   await app.listen(port);
-  logger.log(`Application is running on: http://localhost:${port}`, "Bootstrap");
+  logger.log(
+    `Application is running on: http://localhost:${port}`,
+    "Bootstrap",
+  );
 }
 
 bootstrap().catch((err) => {

@@ -11,7 +11,11 @@ import {
   IsNumber,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { Currency, MarketingLabel, ProductItemType, UserPersona } from "@shared/types/catalog-enums";
+import {
+  Currency,
+  MarketingLabel,
+  UserPersona,
+} from "@shared/types/catalog-enums";
 
 class ProductMetadataDto {
   @IsOptional()
@@ -38,12 +42,8 @@ class FAQDto {
 
 class ProductItemDto {
   @IsNotEmpty()
-  @IsEnum(ProductItemType)
-  type: ProductItemType;
-
-  @IsNotEmpty()
   @IsUUID()
-  referenceId: string;
+  serviceTypeId: string;
 
   @IsNotEmpty()
   @IsInt()
@@ -78,7 +78,7 @@ export class CreateProductDto {
   @IsOptional()
   @IsArray()
   @IsEnum(UserPersona)
-  targetUserTypes?: UserPersona[];
+  targetUserPersonas?: UserPersona[];
 
   // Pricing information
   @IsNotEmpty()
@@ -89,11 +89,6 @@ export class CreateProductDto {
   @IsOptional()
   @IsEnum(Currency)
   currency?: Currency;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  validityDays?: number;
 
   // Marketing labels
   @IsOptional()
