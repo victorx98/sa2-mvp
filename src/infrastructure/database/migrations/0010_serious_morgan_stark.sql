@@ -1,0 +1,1 @@
+ALTER TABLE "mentor_prices" ADD COLUMN "created_by" uuid;--> statement-breakpoint

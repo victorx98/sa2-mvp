@@ -6,9 +6,10 @@ import {
   timestamp,
   text,
   pgEnum,
+  varchar,
 } from "drizzle-orm/pg-core";
 import { contracts } from "./contracts.schema";
-import { serviceTypeEnum } from "./services.schema";
+import { serviceTypes } from "./service-types.schema";
 
 // Archive policy scope enum
 export const archivePolicyScopeEnum = pgEnum("archive_policy_scope", [
@@ -18,7 +19,7 @@ export const archivePolicyScopeEnum = pgEnum("archive_policy_scope", [
 ]);
 
 /**
- * Service ledger archive policies table
+ * Service ledger archive policies table [DEPRECATED]
  * Configuration for cold-hot data separation archive strategies
  *
  * Key features:
@@ -41,9 +42,12 @@ export const archivePolicyScopeEnum = pgEnum("archive_policy_scope", [
  * Default configuration:
  * - archiveAfterDays: 90 days
  * - deleteAfterArchive: false (keep data in main table after archiving)
+ *
+ * v2.17.0: DEPRECATED - Cold-hot data separation removed
+ * @deprecated Since v2.17.0, cold-hot data separation has been removed. This table is renamed to service_ledger_archive_policies_deprecated.
  */
 export const serviceLedgerArchivePolicies = pgTable(
-  "service_ledger_archive_policies",
+  "service_ledger_archive_policies_deprecated",
   {
     // Primary key
     id: uuid("id").defaultRandom().primaryKey(),
@@ -53,7 +57,9 @@ export const serviceLedgerArchivePolicies = pgTable(
 
     // Associated entity (varies by scope)
     contractId: uuid("contract_id").references(() => contracts.id), // Required when scope='contract'
-    serviceType: serviceTypeEnum("service_type"), // Required when scope='service_type'
+    serviceType: varchar("service_type", { length: 50 }).references(
+      () => serviceTypes.code,
+    ), // Required when scope='service_type'
 
     // Archive rules
     archiveAfterDays: integer("archive_after_days").notNull().default(90), // Archive after N days

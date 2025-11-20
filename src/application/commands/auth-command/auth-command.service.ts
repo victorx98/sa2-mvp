@@ -1,8 +1,8 @@
 import { Injectable, UnauthorizedException, Inject } from "@nestjs/common";
 import {
-  IUserRepository,
-  USER_REPOSITORY,
-} from "@domains/identity/user/user-repository.interface";
+  IUserService,
+  USER_SERVICE,
+} from "@domains/identity/user/user-interface";
 import { RegisterDto } from "@api/dto/request/register.dto";
 import { LoginDto } from "@api/dto/request/login.dto";
 import { AuthResultDto } from "@application/commands/auth/dto/auth-result.dto";
@@ -18,8 +18,8 @@ import { LoginCommand } from "@application/commands/auth/login.command";
 @Injectable()
 export class AuthCommandService {
   constructor(
-    @Inject(USER_REPOSITORY)
-    private readonly userRepository: IUserRepository,
+    @Inject(USER_SERVICE)
+    private readonly userService: IUserService,
     private readonly registerCommand: RegisterCommand,
     private readonly loginCommand: LoginCommand,
   ) {}
@@ -33,9 +33,12 @@ export class AuthCommandService {
   }
 
   async validateUser(userId: string): Promise<any> {
-    const user = await this.userRepository.findById(userId);
+    const user = await this.userService.findByIdWithRoles(userId);
     if (!user) {
       throw new UnauthorizedException("User not found");
+    }
+    if (user.status && user.status !== "active") {
+      throw new UnauthorizedException("User account is not active");
     }
     return user;
   }

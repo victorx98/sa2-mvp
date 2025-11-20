@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext } from "@nestjs/common";
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { ROLES_KEY } from "@shared/decorators/roles.decorator";
 
@@ -32,14 +37,23 @@ export class RolesGuard implements CanActivate {
 
     // 检查用户是否存在
     if (!user) {
-      return false;
+      throw new ForbiddenException("User context is missing");
     }
 
-    // 检查用户角色是否匹配（支持多角色）
-    // TODO: 实现用户角色管理后，从user.roles获取角色列表
-    // 目前简化处理，假设user对象有role字段
-    const userRoles = user.roles || [user.role];
+    const userRoles: string[] = Array.isArray(user.roles) ? user.roles : [];
 
-    return requiredRoles.some((role) => userRoles.includes(role));
+    const hasRole = requiredRoles.some((role) => userRoles.includes(role));
+
+    if (!hasRole) {
+      throw new ForbiddenException(
+        `Access requires one of the roles: ${requiredRoles.join(
+          ", ",
+        )}. Current roles: ${
+          userRoles.length > 0 ? userRoles.join(", ") : "none"
+        }`,
+      );
+    }
+
+    return true;
   }
 }

@@ -2,118 +2,73 @@ import {
   pgTable,
   uuid,
   varchar,
-  integer,
   timestamp,
   text,
   json,
   numeric,
-  pgEnum,
 } from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
 
-// 产品状态枚举
-export const productStatusEnum = pgEnum("product_status", [
-  "draft", // 草稿
-  "active", // 上架
-  "inactive", // 下架
-  "deleted", // 已删除
-]);
-
-// 货币枚举
-export const currencyEnum = pgEnum("currency", [
-  "USD", // 美元
-  "CNY", // 人民币
-  "EUR", // 欧元（预留）
-  "GBP", // 英镑（预留）
-  "JPY", // 日元（预留）
-]);
-
-// 用户类型枚举
-export const userTypeEnum = pgEnum("user_type", [
-  "undergraduate", // 本科生
-  "graduate", // 研究生
-  "working", // 在职人士
-]);
-
+/**
+ * Products Table [产品表]
+ * Represents the core product entity in the catalog domain
+ * [代表目录域中的核心产品实体]
+ */
 export const products = pgTable("products", {
+  // Primary Key [主键]
   id: uuid("id").defaultRandom().primaryKey(),
 
-  // 基本信息
-  name: varchar("name", { length: 500 }).notNull(),
-  code: varchar("code", { length: 100 }).notNull().unique(), // 产品编码
+  // Basic Information [基本信息]
+  name: varchar("name", { length: 255 }).notNull(),
+  code: varchar("code", { length: 100 }).notNull().unique(), // Product code [产品编码]
   description: text("description"),
   coverImage: varchar("cover_image", { length: 500 }),
 
-  // 目标用户（支持多选）
-  targetUserTypes:
-    json("target_user_types").$type<
-      Array<"undergraduate" | "graduate" | "working">
-    >(),
-
-  // 定价信息
+  // Sales Attributes [销售属性]
   price: numeric("price", { precision: 12, scale: 2 }).notNull(),
-  currency: currencyEnum("currency").notNull().default("USD"),
+  currency: varchar("currency", { length: 3 }).notNull().default("CNY"),
+  targetUserPersona: json("target_user_persona").$type<string[]>(), // Target user personas [目标用户画像]
+  marketingLabels: json("marketing_labels").$type<string[]>(), // Marketing labels [营销标签]
 
-  // 有效期，如果为NULL表示长期有效（单位：天）
-  validityDays: integer("validity_days"),
-
-  // 营销标签
-  marketingLabels:
-    json("marketing_labels").$type<Array<"hot" | "new" | "recommended">>(),
-
-  // 状态管理
-  status: productStatusEnum("status").notNull().default("draft"),
-
-  // 定时上架（仅作为元数据，不自动触发）
-  scheduledPublishAt: timestamp("scheduled_publish_at", { withTimezone: true }),
-
-  // 实际上下架时间
+  // Status Management [状态管理]
+  status: varchar("status", { length: 20 }).notNull().default("DRAFT"), // DRAFT/ACTIVE/INACTIVE/DELETED
   publishedAt: timestamp("published_at", { withTimezone: true }),
   unpublishedAt: timestamp("unpublished_at", { withTimezone: true }),
 
-  // 展示顺序
-  sortOrder: integer("sort_order").notNull().default(0),
-
-  // 元数据
+  // Metadata [元数据]
   metadata: json("metadata").$type<{
-    features?: string[]; // 产品特点
+    features?: string[]; // Product features [产品特点]
     faqs?: Array<{
-      // 常见问题
+      // Frequently asked questions [常见问题]
       question: string;
       answer: string;
     }>;
+    deliverables?: string[]; // Product deliverables [产品交付物]
+    duration?: string; // Product duration [产品时长]
+    prerequisites?: string[]; // Product prerequisites [产品先决条件]
   }>(),
 
-  // 审计字段
+  // Audit Fields [审计字段]
+  createdBy: uuid("created_by").references(() => userTable.id),
+  updatedBy: uuid("updated_by").references(() => userTable.id),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
-    .notNull()
-    .$onUpdate(() => new Date()),
-  createdBy: varchar("created_by", { length: 32 })
-    .notNull()
-    .references(() => userTable.id),
-  publishedBy: varchar("published_by", { length: 32 }).references(
-    () => userTable.id,
-  ),
-  unpublishedBy: varchar("unpublished_by", { length: 32 }).references(
-    () => userTable.id,
-  ),
+    .notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }), // Soft delete [软删除]
 });
 
-// 类型推断
+// Type inference [类型推断]
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = typeof products.$inferInsert;
 
-// 索引和约束说明（在migration中创建）:
+// Indexes and constraints (to be created in migration) [索引和约束（在迁移中创建）]:
 // CREATE INDEX idx_products_status ON products(status);
-// CREATE INDEX idx_products_sort_order ON products(sort_order);
-// CREATE INDEX idx_products_published_at ON products(published_at);
-// CREATE INDEX idx_products_code ON products(code);
-// CREATE INDEX idx_products_scheduled_publish ON products(scheduled_publish_at) WHERE status = 'draft';
+// CREATE INDEX idx_products_deleted_at ON products(deleted_at);
+// CREATE INDEX idx_products_created_at ON products(created_at);
 //
-// 约束:
+// Constraints [约束]:
 // ALTER TABLE products ADD CONSTRAINT chk_price_positive CHECK (price::numeric > 0);
-// ALTER TABLE products ADD CONSTRAINT chk_validity_days_positive CHECK (validity_days IS NULL OR validity_days > 0);
+// ALTER TABLE products ADD CONSTRAINT chk_valid_status CHECK (status IN ('DRAFT', 'ACTIVE', 'INACTIVE', 'DELETED'));

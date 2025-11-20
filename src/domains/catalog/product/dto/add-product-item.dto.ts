@@ -1,21 +1,9 @@
-import {
-  IsNotEmpty,
-  IsUUID,
-  IsInt,
-  IsEnum,
-  Min,
-  IsOptional,
-} from "class-validator";
-import { ProductItemType } from "../../common/interfaces/enums";
+import { IsNotEmpty, IsUUID, IsInt, Min, IsOptional } from "class-validator";
 
 export class AddProductItemDto {
   @IsNotEmpty()
-  @IsEnum(ProductItemType)
-  type: ProductItemType;
-
-  @IsNotEmpty()
   @IsUUID()
-  referenceId: string;
+  serviceTypeId: string;
 
   @IsNotEmpty()
   @IsInt()

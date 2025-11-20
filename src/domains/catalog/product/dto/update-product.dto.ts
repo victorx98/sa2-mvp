@@ -3,7 +3,6 @@ import {
   IsOptional,
   IsArray,
   ValidateNested,
-  IsInt,
   IsEnum,
   Min,
   IsNumber,
@@ -11,9 +10,9 @@ import {
 import { Type } from "class-transformer";
 import {
   Currency,
-  UserType,
   MarketingLabel,
-} from "../../common/interfaces/enums";
+  UserPersona,
+} from "@shared/types/catalog-enums";
 
 class ProductMetadataDto {
   @IsOptional()
@@ -26,6 +25,20 @@ class ProductMetadataDto {
   @ValidateNested({ each: true })
   @Type(() => FAQDto)
   faqs?: FAQDto[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  deliverables?: string[];
+
+  @IsOptional()
+  @IsString()
+  duration?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  prerequisites?: string[];
 }
 
 class FAQDto {
@@ -36,6 +49,10 @@ class FAQDto {
   answer: string;
 }
 
+/**
+ * Update Product DTO [更新产品数据传输对象]
+ * Used for updating product information [用于更新产品信息]
+ */
 export class UpdateProductDto {
   @IsOptional()
   @IsString()
@@ -51,8 +68,8 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsArray()
-  @IsEnum(UserType, { each: true })
-  targetUserTypes?: UserType[];
+  @IsEnum(UserPersona, { each: true })
+  targetUserPersonas?: UserPersona[];
 
   @IsOptional()
   @IsNumber()
@@ -62,11 +79,6 @@ export class UpdateProductDto {
   @IsOptional()
   @IsEnum(Currency)
   currency?: Currency;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  validityDays?: number;
 
   @IsOptional()
   @IsArray()

@@ -92,11 +92,60 @@ export class WebhookVerificationService {
   }
 
   /**
-   * Verify Feishu webhook request
-   * 
-   * Verification strategy:
-   * 1. Check token (from payload.token or header.token)
-   * 2. Check timestamp to prevent replay attacks (5 minutes window)
+   * Verify Feishu webhook request using Verification Token mode (without Encrypt Key)
+   *
+   * In Verification Token mode, Feishu sends events without computing a signature.
+   * Verification relies on:
+   * 1. Checking the token in the request body matches the configured verification token
+   * 2. Validating the timestamp to prevent replay attacks (5 minute tolerance)
+   *
+   * @param body - Request body (parsed JSON)
+   * @throws WebhookSignatureVerificationException if verification fails
+   */
+  verifyFeishuWebhookByToken(
+    body: Record<string, unknown>,
+  ): void {
+    // Extract token from request body (Feishu places it in body.header.token)
+    const token = (body.header as Record<string, unknown>)?.token as string || "";
+
+    if (!token) {
+      this.logger.warn("Missing Feishu verification token in request body");
+      throw new WebhookSignatureVerificationException("Feishu");
+    }
+
+    // Step 1: Verify token matches configured verification token
+    // Note: verifyFeishuToken() returns void and throws exception on failure
+    try {
+      this.verifyFeishuToken(token);
+    } catch (error) {
+      this.logger.warn("Feishu webhook token verification failed");
+      throw error;
+    }
+
+    // Step 2: Check timestamp to prevent replay attacks (5 minutes tolerance)
+    const createTime = (body.header as Record<string, unknown>)?.create_time as string || "";
+    if (createTime) {
+      const requestTimeMs = parseInt(createTime, 10);
+      const requestTimeSec = Math.floor(requestTimeMs / 1000); // Convert milliseconds to seconds
+      const currentTimeSec = Math.floor(Date.now() / 1000);
+      const timeDiffSec = Math.abs(currentTimeSec - requestTimeSec);
+
+      if (timeDiffSec > this.REPLAY_WINDOW_SECONDS) {
+        this.logger.warn(
+          `Feishu webhook timestamp too old: ${timeDiffSec} seconds difference (limit: ${this.REPLAY_WINDOW_SECONDS}s)`,
+        );
+        throw new WebhookSignatureVerificationException("Feishu");
+      }
+    }
+
+    this.logger.debug("Feishu webhook verified successfully using Verification Token mode");
+  }
+
+  /**
+   * Verify Feishu webhook request using Encrypt Key mode
+   *
+   * When Encrypt Key is enabled, Feishu computes a signature using:
+   * SHA256(timestamp + nonce + encrypt_key + body) and sends it in X-Lark-Signature header
    *
    * @param headers - Request headers
    * @param body - Request body (stringified)

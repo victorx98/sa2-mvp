@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "id": "1d1493b8-40ea-4728-924f-e7196f6e3a14",
+=======
+  "id": "2d47938f-c7b1-41f6-9737-17dacac067a9",
+>>>>>>> origin/main
   "prevId": "e02d6359-0494-4d17-aeb6-f59fd5446e8e",
   "version": "7",
   "dialect": "postgresql",
@@ -258,6 +262,15 @@
       "name": "contract_service_entitlements",
       "schema": "",
       "columns": {
+<<<<<<< HEAD
+=======
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+>>>>>>> origin/main
         "student_id": {
           "name": "student_id",
           "type": "varchar(32)",
@@ -299,6 +312,7 @@
           "notNull": true,
           "default": 0
         },
+<<<<<<< HEAD
         "expires_at": {
           "name": "expires_at",
           "type": "timestamp with time zone",
@@ -313,6 +327,8 @@
           "notNull": true,
           "default": "'product'"
         },
+=======
+>>>>>>> origin/main
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -363,6 +379,7 @@
           "onUpdate": "no action"
         }
       },
+<<<<<<< HEAD
       "compositePrimaryKeys": {
         "pk_contract_service_entitlements": {
           "name": "pk_contract_service_entitlements",
@@ -372,6 +389,9 @@
           ]
         }
       },
+=======
+      "compositePrimaryKeys": {},
+>>>>>>> origin/main
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -651,6 +671,7 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+<<<<<<< HEAD
     "public.meeting_events": {
       "name": "meeting_events",
       "schema": "",
@@ -1231,6 +1252,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+=======
+>>>>>>> origin/main
     "public.notification_queue": {
       "name": "notification_queue",
       "schema": "",
@@ -2499,6 +2522,15 @@
           "primaryKey": false,
           "notNull": true
         },
+<<<<<<< HEAD
+=======
+        "meeting_id": {
+          "name": "meeting_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+>>>>>>> origin/main
         "meeting_no": {
           "name": "meeting_no",
           "type": "varchar(20)",
@@ -2685,11 +2717,19 @@
           "method": "btree",
           "with": {}
         },
+<<<<<<< HEAD
         "idx_session_meeting_no": {
           "name": "idx_session_meeting_no",
           "columns": [
             {
               "expression": "meeting_no",
+=======
+        "idx_session_meeting": {
+          "name": "idx_session_meeting",
+          "columns": [
+            {
+              "expression": "meeting_id",
+>>>>>>> origin/main
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2847,6 +2887,7 @@
         "compensation"
       ]
     },
+<<<<<<< HEAD
     "public.entitlement_source": {
       "name": "entitlement_source",
       "schema": "public",
@@ -2857,6 +2898,8 @@
         "compensation"
       ]
     },
+=======
+>>>>>>> origin/main
     "public.contract_status": {
       "name": "contract_status",
       "schema": "public",

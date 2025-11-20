@@ -12,6 +12,7 @@ import { ContractService } from "@domains/contract/contract.service";
 import { ServiceHoldService } from "@domains/contract/services/service-hold.service";
 import { BookSessionInput } from "./dto/book-session-input.dto";
 import { BookSessionOutput } from "./dto/book-session-output.dto";
+import type { ServiceType } from "@infrastructure/database/schema/service-types.schema";
 import { TimeConflictException } from "@shared/exceptions";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import type {
@@ -22,6 +23,8 @@ import {
   SessionBookedEvent,
   SESSION_BOOKED_EVENT,
 } from "@shared/events/session-booked.event";
+import { Trace, addSpanAttributes, addSpanEvent } from "@shared/decorators/trace.decorator";
+import { MetricsService } from "@telemetry/metrics.service";
 
 /**
  * Application Layer - Book Session Command
@@ -52,6 +55,7 @@ export class BookSessionCommand {
     private readonly calendarService: CalendarService,
     private readonly eventEmitter: EventEmitter2,
     private readonly serviceHoldService: ServiceHoldService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   /**
@@ -59,10 +63,25 @@ export class BookSessionCommand {
    * @param input 预约输入参数
    * @returns 预约结果
    */
+  @Trace({
+    name: 'booking.session.execute',
+    attributes: { 'operation.type': 'booking' },
+  })
   async execute(input: BookSessionInput): Promise<BookSessionOutput> {
+    const bookingStartTime = Date.now();
+
     this.logger.log(
       `开始预约会话: studentId=${input.studentId}, mentorId=${input.mentorId}`,
     );
+
+    // Add attributes to the span
+    addSpanAttributes({
+      'student.id': input.studentId,
+      'mentor.id': input.mentorId,
+      'counselor.id': input.counselorId,
+      'session.duration': input.duration,
+      'meeting.provider': input.meetingProvider || 'feishu',
+    });
 
     // Step 1: 检查顾问权限（事务外）
     // TODO: 实现 CounselorAssignmentService 后添加
@@ -77,6 +96,8 @@ export class BookSessionCommand {
     // Step 2-7: 在事务中执行（包括创建会议链接）
     let sessionResult;
     try {
+      addSpanEvent('booking.transaction.start');
+
       sessionResult = await this.db.transaction(async (tx: DrizzleTransaction) => {
         this.logger.debug(
           "Starting database transaction, including meeting creation",
@@ -85,7 +106,7 @@ export class BookSessionCommand {
         // Step 2: 创建服务预占
         const hold = await this.serviceHoldService.createHold({
           studentId: input.studentId,
-          serviceType: input.serviceType,
+          serviceType: 'session' as ServiceType,
           quantity: 1,
           createdBy: input.counselorId,
         }, tx);
@@ -93,20 +114,29 @@ export class BookSessionCommand {
 
         // Step 3: Try to create calendar slot directly (atomic with DB constraint)
         // Let the database EXCLUDE constraint handle conflicts
-        const calendarSlot = await this.calendarService.createSlotDirect(
-          {
+        const [mentorCalendarSlot, studentCalendarSlot] = await Promise.all([
+          this.calendarService.createSlotDirect({
             userId: input.mentorId,
             userType: UserType.MENTOR,
-            startTime: input.scheduledStartTime.toISOString(),
+            startTime: input.scheduledStartTime,
             durationMinutes: input.duration,
             slotType: SlotType.SESSION,
             sessionId: undefined, // Will be updated after session creation
-          },
-          tx,
-        );
+          }, tx),
+          this.calendarService.createSlotDirect({
+            userId: input.studentId,
+            userType: UserType.STUDENT,
+            startTime: input.scheduledStartTime,
+            durationMinutes: input.duration,
+            slotType: SlotType.SESSION,
+            sessionId: undefined, // Will be updated after session creation
+          }, tx)
+        ]);
         
-        if (!calendarSlot) {
+        if (!mentorCalendarSlot) {
           throw new TimeConflictException("The mentor already has a conflict");
+        } if (!studentCalendarSlot) {
+          throw new TimeConflictException("The student already has a conflict");
         }
 
         // Step 5: 创建会议链接（在事务内，先创建）
@@ -115,7 +145,7 @@ export class BookSessionCommand {
         try {
           meetingInfo = await this.meetingManagerService.createMeeting({
             topic: input.topic,
-            startTime: input.scheduledStartTime.toISOString(),
+            startTime: input.scheduledStartTime,
             duration: input.duration,
             provider: (input.meetingProvider as MeetingProviderType) || MeetingProviderType.FEISHU,
             hostUserId: input.mentorId,
@@ -143,15 +173,49 @@ export class BookSessionCommand {
           tx,
         );
 
+        // Step 7: Update calendar slot with session ID
+        const [updatedMentorCalendarSlot, updatedStudentCalendarSlot] = await Promise.all([
+          this.calendarService.updateSlotSessionId(
+            mentorCalendarSlot.id,
+            mentoringSession.id,
+            tx,
+          ),
+          this.calendarService.updateSlotSessionId(
+            studentCalendarSlot.id,
+            mentoringSession.id,
+            tx,
+          ),
+        ]);
+
         return {
           mentoringSession,
           hold,
-          calendarSlot,
+          mentorCalendarSlot: updatedMentorCalendarSlot,
+          studentCalendarSlot: updatedStudentCalendarSlot,
           meetingInfo,
         };
       });
+
+      // Transaction succeeded
+      addSpanEvent('booking.transaction.success');
+      addSpanAttributes({
+        'session.id': sessionResult.session.id,
+        'hold.id': sessionResult.hold.id,
+      });
     } catch (error) {
       this.logger.error(`Book session transaction rollback: ${error.message}`, error.stack);
+
+      // Record failure event and metric
+      addSpanEvent('booking.transaction.failed', {
+        error_message: error.message,
+      });
+
+      this.metricsService.recordBookingFailure(error.message, {
+        student_id: input.studentId,
+        mentor_id: input.mentorId,
+        error_type: error.constructor.name,
+      });
+
       throw error;
     }
 
@@ -160,11 +224,11 @@ export class BookSessionCommand {
       studentId: input.studentId,
       mentorId: input.mentorId,
       counselorId: input.counselorId,
-      serviceType: input.serviceType,
-      calendarSlotId: sessionResult.calendarSlot.id,
+      serviceType: 'session' as ServiceType,
+      mentorCalendarSlotId: sessionResult.mentorCalendarSlot.id,
+      studentCalendarSlotId: sessionResult.studentCalendarSlot.id,
       serviceHoldId: sessionResult.hold.id,
-      scheduledStartTime: input.scheduledStartTime.toISOString(),
-      scheduledEndTime: input.scheduledEndTime.toISOString(),
+      scheduledStartTime: input.scheduledStartTime,
       duration: input.duration,
       meetingUrl: sessionResult.meetingInfo.meetingUrl,
       meetingProvider: sessionResult.meetingInfo.provider,
@@ -175,6 +239,25 @@ export class BookSessionCommand {
       `Emitting session booked event for session ${sessionResult.session.id}`,
     );
     this.eventEmitter.emit(SESSION_BOOKED_EVENT, bookResult);
+
+    // Record successful booking metrics
+    const bookingDuration = Date.now() - bookingStartTime;
+    this.metricsService.recordSessionBooked({
+      student_id: input.studentId,
+      mentor_id: input.mentorId,
+      meeting_provider: input.meetingProvider || 'feishu',
+      duration_minutes: input.duration,
+    });
+    this.metricsService.recordBookingDuration(bookingDuration, {
+      student_id: input.studentId,
+      mentor_id: input.mentorId,
+    });
+
+    addSpanEvent('booking.completed', {
+      session_id: sessionResult.session.id,
+      duration_ms: bookingDuration,
+    });
+
     return {
       ...bookResult,
       status: sessionResult.session.status,

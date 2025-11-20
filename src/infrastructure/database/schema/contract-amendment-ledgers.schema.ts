@@ -1,26 +1,14 @@
 import {
   pgTable,
   uuid,
-  varchar,
   integer,
   timestamp,
   text,
   json,
-  pgEnum,
+  varchar,
 } from "drizzle-orm/pg-core";
-import { userTable } from "./user.schema";
-import { serviceTypeEnum } from "./services.schema";
-
-/**
- * - addon: 促成签约 (To facilitate contract signing)
- * - promotion: 促销活动 (Promotional activity)
- * - compensation: 补偿 (Compensation for service issues)
- */
-export const amendmentLedgerTypeEnum = pgEnum("amendment_ledger_type", [
-  "addon", // 促成签约
-  "promotion", // 促销活动
-  "compensation", // 补偿
-]);
+import { serviceTypes } from "./service-types.schema";
+import { AmendmentLedgerType } from "../../../shared/types/contract-enums";
 
 // 服务快照接口 (Service snapshot interface)
 interface ServiceSnapshot {
@@ -56,15 +44,17 @@ export const contractAmendmentLedgers = pgTable("contract_amendment_ledgers", {
   id: uuid("id").defaultRandom().primaryKey(),
 
   // 关联学生 (Associated student)
-  studentId: varchar("student_id", { length: 32 })
-    .notNull()
-    .references(() => userTable.id),
+  studentId: uuid("student_id").notNull(),
 
   // 服务类型 (Service type)
-  serviceType: serviceTypeEnum("service_type").notNull(),
+  serviceType: varchar("service_type", { length: 50 })
+    .notNull()
+    .references(() => serviceTypes.code),
 
   // 变更类型 (Type of change)
-  ledgerType: amendmentLedgerTypeEnum("ledger_type").notNull(),
+  ledgerType: varchar("ledger_type", { length: 20 })
+    .notNull()
+    .$type<AmendmentLedgerType>(),
 
   // 变更数量（正数）(Quantity changed - positive number)
   quantityChanged: integer("quantity_changed").notNull(),
@@ -79,9 +69,7 @@ export const contractAmendmentLedgers = pgTable("contract_amendment_ledgers", {
   attachments: json("attachments").$type<string[]>(),
 
   // 操作人 (Operator)
-  createdBy: varchar("created_by", { length: 32 })
-    .notNull()
-    .references(() => userTable.id),
+  createdBy: uuid("created_by").notNull(),
 
   // 时间戳 (Timestamp)
   createdAt: timestamp("created_at", { withTimezone: true })

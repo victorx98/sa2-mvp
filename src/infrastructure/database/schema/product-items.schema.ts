@@ -1,51 +1,50 @@
-import { pgTable, uuid, integer, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, integer, timestamp } from "drizzle-orm/pg-core";
 import { products } from "./products.schema";
+import { serviceTypes } from "./service-types.schema";
 
-// 产品项类型枚举
-export const productItemTypeEnum = pgEnum("product_item_type", [
-  "service", // 直接服务
-  "service_package", // 服务包
-]);
-
+/**
+ * Product Items Table [产品项表]
+ * Represents the relationship between products and service types
+ * [代表产品和服务类型之间的关系]
+ */
 export const productItems = pgTable("product_items", {
+  // Primary Key [主键]
   id: uuid("id").defaultRandom().primaryKey(),
 
-  // 关联产品
+  // Association Information [关联信息]
   productId: uuid("product_id")
     .notNull()
-    .references(() => products.id, { onDelete: "cascade" }),
+    .references(() => products.id, { onDelete: "cascade" }), // Associated product ID [关联的产品ID]
+  serviceTypeId: uuid("service_type_id")
+    .notNull()
+    .references(() => serviceTypes.id), // Associated service type ID [关联的服务类型ID]
 
-  // 项类型和引用ID
-  type: productItemTypeEnum("type").notNull(),
-  referenceId: uuid("reference_id").notNull(), // type='service' → services.id
-  // type='service_package' → service_packages.id
+  // Quantity Record [数量记录]
+  quantity: integer("quantity").notNull(), // Quantity of the service type [服务类型的数量]
 
-  // 数量配置
-  quantity: integer("quantity").notNull(), // 服务次数（所有服务统一按次数计费）
+  // Sorting Function [排序功能]
+  sortOrder: integer("sort_order").notNull().default(0), // Sort order [排序序号]
 
-  // 展示顺序
-  sortOrder: integer("sort_order").notNull().default(0),
-
-  // 时间戳字段
+  // Audit Fields [审计字段]
+  createdBy: uuid("created_by"),
+  updatedBy: uuid("updated_by"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
-    .notNull()
-    .$onUpdate(() => new Date()),
+    .notNull(),
 });
 
-// 类型推断
+// Type inference [类型推断]
 export type ProductItem = typeof productItems.$inferSelect;
 export type InsertProductItem = typeof productItems.$inferInsert;
 
-// 索引和约束说明（在migration中创建）:
+// Indexes and constraints (to be created in migration) [索引和约束（在迁移中创建）]:
 // CREATE INDEX idx_product_items_product_id ON product_items(product_id);
-// CREATE INDEX idx_product_items_type ON product_items(type);
-// CREATE INDEX idx_product_items_reference_id ON product_items(reference_id);
-// CREATE UNIQUE INDEX idx_product_items_unique ON product_items(product_id, type, reference_id);
+// CREATE INDEX idx_product_items_service_type_id ON product_items(service_type_id);
+// CREATE INDEX idx_product_items_sort_order ON product_items(sort_order);
+// CREATE UNIQUE INDEX idx_product_items_unique ON product_items(product_id, service_type_id);
 //
-// 外键约束说明：
-// - productId: CASCADE DELETE（产品删除时，自动删除所有关联的产品项）
-// - referenceId: 应用层保证引用完整性（因为引用两个不同的表）
+// Constraints [约束]:
+// ALTER TABLE product_items ADD CONSTRAINT chk_quantity_positive CHECK (quantity > 0);

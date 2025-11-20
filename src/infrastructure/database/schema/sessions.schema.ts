@@ -69,24 +69,17 @@ export const sessions = pgTable(
     }).notNull(),
     scheduledDuration: integer("scheduled_duration").notNull(), // Planned duration in minutes
 
-    // Actual time (updated by webhook)
-    actualStartTime: timestamp("actual_start_time", { withTimezone: true }),
-    actualEndTime: timestamp("actual_end_time", { withTimezone: true }),
+    // Meeting time segments (list of meeting start and end times for multi-segment sessions)
+    meetingTimeList: jsonb("meeting_time_list").$type<Array<{ startTime: Date; endTime: Date }>>().default([]), // Array of meeting time segments
+
+    // Actual service duration (calculated from meeting_time_list)
+    actualServiceDuration: integer("actual_service_duration"), // Actual service duration in minutes (sum of all meeting segments)
 
     // Recordings (JSONB array, supports multiple recordings)
     recordings: jsonb("recordings").$type<IRecording[]>().default([]),
 
     // AI summary (JSONB object)
     aiSummary: jsonb("ai_summary").$type<IAISummary | null>(),
-
-    // Duration statistics (calculated from session_event)
-    mentorTotalDurationSeconds: integer("mentor_total_duration_seconds"), // Mentor total online duration
-    studentTotalDurationSeconds: integer("student_total_duration_seconds"), // Student total online duration
-    effectiveTutoringDurationSeconds: integer(
-      "effective_tutoring_duration_seconds",
-    ), // Effective tutoring duration (both online)
-    mentorJoinCount: integer("mentor_join_count").notNull().default(0), // Mentor join count
-    studentJoinCount: integer("student_join_count").notNull().default(0), // Student join count
 
     // Business fields
     sessionName: varchar("session_name", { length: 255 }).notNull(), // Session name

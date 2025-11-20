@@ -6,20 +6,9 @@ import {
   numeric,
   integer,
   json,
-  pgEnum,
 } from "drizzle-orm/pg-core";
-import { userTable } from "./user.schema";
-import { currencyEnum } from "./products.schema";
-
-// Contract status enum
-export const contractStatusEnum = pgEnum("contract_status", [
-  "draft", // Initial state (contract created but not signed)
-  "signed", // Contract signed, pending activation
-  "active", // Contract activated, can consume services
-  "suspended", // Temporarily suspended
-  "completed", // Successfully completed
-  "terminated", // Terminated (refund/cancellation)
-]);
+import { ContractStatus } from "../../../shared/types/contract-enums";
+import { Currency } from "../../../shared/types/catalog-enums";
 
 /**
  * Contracts table
@@ -40,9 +29,7 @@ export const contracts = pgTable("contracts", {
   title: varchar("title", { length: 200 }), // Contract title (optional)
 
   // Student reference
-  studentId: varchar("student_id", { length: 32 })
-    .notNull()
-    .references(() => userTable.id, { onDelete: "restrict" }),
+  studentId: uuid("student_id").notNull(),
 
   // Product reference (UUID, no foreign key - DDD anti-corruption layer)
   productId: uuid("product_id").notNull(), // Reference to Catalog Domain product
@@ -59,12 +46,19 @@ export const contracts = pgTable("contracts", {
     snapshotAt: Date;
   }>(),
 
-  // Contract status
-  status: contractStatusEnum("status").notNull().default("draft"),
+  // Contract status (using ContractStatus enum values)
+  status: varchar("status", { length: 20 })
+    .notNull()
+    .default("draft")
+    .$type<ContractStatus>(),
+
 
   // Pricing information
   totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).notNull(), // Contract total amount (from snapshot)
-  currency: currencyEnum("currency").notNull().default("USD"),
+  currency: varchar("currency", { length: 3 })
+    .notNull()
+    .default("USD")
+    .$type<Currency>(),
 
   // Validity period
   validityDays: integer("validity_days"), // Validity period in days (null = permanent)
@@ -89,9 +83,7 @@ export const contracts = pgTable("contracts", {
     .defaultNow()
     .notNull()
     .$onUpdate(() => new Date()),
-  createdBy: varchar("created_by", { length: 32 })
-    .notNull()
-    .references(() => userTable.id),
+  createdBy: uuid("created_by").notNull(),
 });
 
 // Type inference

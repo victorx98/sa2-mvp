@@ -1,21 +1,12 @@
 import {
   pgTable,
-  varchar,
   integer,
   timestamp,
-  primaryKey,
-  pgEnum,
+  uuid,
+  varchar,
 } from "drizzle-orm/pg-core";
-import { userTable } from "./user.schema";
-import { serviceTypeEnum } from "./services.schema";
-
-// 权益来源枚举 (Entitlement source enum)
-export const entitlementSourceEnum = pgEnum("entitlement_source", [
-  "product", // 产品[Product]
-  "addon", // 附加[Addon]
-  "promotion", // 促销[Promotion]
-  "compensation", // 补偿[Compensation]
-]);
+// import { userTable } from "./users.schema";
+import { serviceTypes } from "./service-types.schema";
 
 /**
  * Contract service entitlements table (v2.16.12 - 学生级权益累积制)
@@ -47,12 +38,16 @@ export const entitlementSourceEnum = pgEnum("entitlement_source", [
 export const contractServiceEntitlements = pgTable(
   "contract_service_entitlements",
   {
-    // 主键：学生ID + 服务类型（累积制）[Primary key: student ID + service type (cumulative system)]
-    studentId: varchar("student_id", { length: 32 })
-      .notNull()
-      .references(() => userTable.id),
+    // Primary key
+    id: uuid("id").primaryKey().defaultRandom(),
 
-    serviceType: serviceTypeEnum("service_type").notNull(),
+    // 学生ID（外键）[Student ID (foreign key)]
+    studentId: uuid("student_id").notNull(),
+
+    // 服务类型[Service type]
+    serviceType: varchar("service_type", { length: 50 })
+      .notNull()
+      .references(() => serviceTypes.code), // Reference to service_types.code
 
     // 权益数量（触发器自动维护）[Entitlement quantities (maintained by triggers automatically)]
     totalQuantity: integer("total_quantity").notNull().default(0), // 总权益（初始 + 额外）[Total entitlement (initial + additional)]
@@ -63,12 +58,6 @@ export const contractServiceEntitlements = pgTable(
 
     availableQuantity: integer("available_quantity").notNull().default(0), // 可用 = total - consumed - held[Available = total - consumed - held]
 
-    // 过期时间（继承自合同，null = 永久有效）[Expiration time (inherited from contract, null = permanent)]
-    expiresAt: timestamp("expires_at", { withTimezone: true }),
-
-    // 权益来源[Entitlement source]
-    source: entitlementSourceEnum("source").notNull().default("product"),
-
     // 审计字段[Audit fields]
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -78,18 +67,7 @@ export const contractServiceEntitlements = pgTable(
       .defaultNow()
       .notNull(),
 
-    createdBy: varchar("created_by", { length: 32 }).references(
-      () => userTable.id,
-    ),
-  },
-  (table) => {
-    return {
-      // 复合主键：学生 + 服务类型（累积制）[Composite primary key: student + service type (cumulative system)]
-      pk: primaryKey({
-        columns: [table.studentId, table.serviceType],
-        name: "pk_contract_service_entitlements",
-      }),
-    };
+    createdBy: uuid("created_by"),
   },
 );
 
@@ -97,20 +75,3 @@ export type ContractServiceEntitlement =
   typeof contractServiceEntitlements.$inferSelect;
 export type InsertContractServiceEntitlement =
   typeof contractServiceEntitlements.$inferInsert;
-
-/*
- * Indexes (在 contract_indexes.sql 中创建):
- *
- * 1. 按学生查询所有权益 (Query all entitlements by student)
- *    CREATE INDEX idx_entitlements_by_student
- *    ON contract_service_entitlements(student_id, service_type);
- *
- * 2. 按学生 + 可用余额过滤 (Filter by student + available balance)
- *    CREATE INDEX idx_entitlements_available_balance
- *    ON contract_service_entitlements(student_id, service_type, available_quantity)
- *    WHERE available_quantity > 0;
- *
- * 3. 按服务类型统计 (Statistics by service type)
- *    CREATE INDEX idx_entitlements_by_service_type
- *    ON contract_service_entitlements(service_type, student_id);
- */

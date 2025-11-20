@@ -13,7 +13,7 @@ import {
   MeetingCancellationFailedException,
   MeetingNotFoundException,
 } from "../exceptions/meeting.exception";
-
+import { Trace, addSpanAttributes } from "@shared/decorators/trace.decorator";
 /**
  * Feishu Meeting Provider
  *
@@ -35,11 +35,22 @@ export class FeishuMeetingProvider implements IMeetingProvider {
    * @param input - Meeting creation parameters
    * @returns Meeting information
    */
+  @Trace({
+    name: 'feishu.meeting.create',
+    attributes: { 'meeting.provider': 'feishu' },
+  })
   async createMeeting(input: ICreateMeetingInput): Promise<IMeetingInfo> {
     try {
       this.logger.debug(
         `Creating Feishu meeting: ${input.topic} at ${input.startTime}`,
       );
+
+      // Add span attributes for context
+      addSpanAttributes({
+        'meeting.topic': input.topic,
+        'meeting.duration': input.duration,
+        'meeting.host_user_id': input.hostUserId || 'unknown',
+      });
 
       if (!input.hostUserId) {
         throw new MeetingCreationFailedException(
@@ -92,6 +103,12 @@ export class FeishuMeetingProvider implements IMeetingProvider {
         duration: input.duration,
       };
 
+      // Add result attributes to span
+      addSpanAttributes({
+        'meeting.id': meetingInfo.meetingId,
+        'meeting.no': meetingInfo.meetingNo,
+      });
+
       this.logger.debug(
         `Successfully created Feishu meeting: ${meetingInfo.meetingId}`,
       );
@@ -110,6 +127,10 @@ export class FeishuMeetingProvider implements IMeetingProvider {
    * @param input - Meeting update parameters
    * @returns Success status
    */
+  @Trace({
+    name: 'feishu.meeting.update',
+    attributes: { 'meeting.provider': 'feishu' },
+  })
   async updateMeeting(
     meetingId: string,
     input: IUpdateMeetingInput,
@@ -169,6 +190,10 @@ export class FeishuMeetingProvider implements IMeetingProvider {
    * @param meetingId - Meeting ID (reserve_id)
    * @returns Success status
    */
+  @Trace({
+    name: 'feishu.meeting.cancel',
+    attributes: { 'meeting.provider': 'feishu' },
+  })
   async cancelMeeting(meetingId: string): Promise<boolean> {
     try {
       this.logger.debug(`Canceling Feishu meeting: ${meetingId}`);
@@ -195,6 +220,10 @@ export class FeishuMeetingProvider implements IMeetingProvider {
    * @param meetingId - Meeting ID (reserve_id)
    * @returns Meeting information
    */
+  @Trace({
+    name: 'feishu.meeting.get_info',
+    attributes: { 'meeting.provider': 'feishu' },
+  })
   async getMeetingInfo(meetingId: string): Promise<IMeetingInfo> {
     try {
       this.logger.debug(`Fetching Feishu meeting info: ${meetingId}`);

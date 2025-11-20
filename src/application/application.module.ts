@@ -1,18 +1,16 @@
 import { Module } from "@nestjs/common";
-import { JwtModule } from "@nestjs/jwt";
-import { ConfigModule, ConfigService } from "@nestjs/config";
-import { PassportModule } from "@nestjs/passport";
-import type { StringValue } from "ms";
 
 // Infrastructure
 import { DatabaseModule } from "@infrastructure/database/database.module";
 
 // Domain Layer
-import { UserRepository } from "@infrastructure/repositories/user.repository";
-import { USER_REPOSITORY } from "@domains/identity/user/user-repository.interface";
+import { UserModule } from "@domains/identity/user/user.module";
 
 // Application Layer - Queries
 import { UserQueryService } from "./queries/user-query.service";
+import { StudentListQuery } from "./queries/student/student-list.query";
+import { MentorListQuery } from "./queries/mentor/mentor-list.query";
+import { ServiceBalanceQuery } from "./queries/contract/service-balance.query";
 
 // Application Layer - Commands
 import { RegisterCommand } from "./commands/auth/register.command";
@@ -25,13 +23,12 @@ import { AuthCommandService } from "./commands/auth-command/auth-command.service
 // Core Services
 import { CalendarService } from "@core/calendar";
 import { MeetingModule } from "@core/meeting";
+import { TelemetryModule } from "@telemetry/telemetry.module";
 
 // Domain Services
 import { MentoringModule } from "@domains/services/mentoring";
 import { ContractModule } from "@domains/contract/contract.module";
-
-// Shared
-import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";
+import { QueryModule } from "@domains/query/query.module";
 
 /**
  * Application Layer - Root Module
@@ -43,36 +40,23 @@ import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";
  */
 @Module({
   imports: [
-    DatabaseModule, // Database module for transaction support
-    MeetingModule, // Core Layer: Meeting management
-    MentoringModule, // Domain Layer: Mentoring sessions
-    ContractModule, // Domain Layer: Contract
-    PassportModule.register({ defaultStrategy: "jwt" }),
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>("JWT_SECRET"),
-        signOptions: {
-          expiresIn: (configService.get<string>("JWT_EXPIRATION") || "24h") as
-            | StringValue
-            | number,
-        },
-      }),
-      inject: [ConfigService],
-    }),
+    DatabaseModule, // 导入数据库模块，提供事务支持
+    MeetingModule, // 导入会议提供者模块
+    TelemetryModule, // 提供 MetricsService 等遥测服务
+    UserModule, // Domain层：User (Identity)
+    MentoringModule, // Domain层：Session
+    ContractModule, // Domain层：Contract
+    QueryModule, // Domain层：Query (跨域查询)
   ],
   providers: [
-    // Domain Repositories
-    {
-      provide: USER_REPOSITORY,
-      useClass: UserRepository,
-    },
-
     // Core Services
     CalendarService,
 
     // Queries
     UserQueryService,
+    StudentListQuery,
+    MentorListQuery,
+    ServiceBalanceQuery,
 
     // Commands
     RegisterCommand,
@@ -81,9 +65,6 @@ import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";
 
     // Commands (兼容层)
     AuthCommandService,
-
-    // Shared
-    JwtStrategy,
   ],
   exports: [
     // Core Services
@@ -92,10 +73,15 @@ import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";
 
     // Domain Services
     MentoringModule,
+    UserModule,
+    MentoringModule,
     ContractModule,
 
     // Queries
     UserQueryService,
+    StudentListQuery,
+    MentorListQuery,
+    ServiceBalanceQuery,
 
     // Commands
     RegisterCommand,
@@ -104,10 +90,6 @@ import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";
 
     // Commands (兼容层 - 保持向后兼容)
     AuthCommandService,
-
-    // Shared
-    JwtStrategy,
-    PassportModule,
   ],
 })
 export class ApplicationModule {}

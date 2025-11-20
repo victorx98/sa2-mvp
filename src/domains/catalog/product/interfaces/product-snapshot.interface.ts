@@ -1,15 +1,9 @@
-import { IServiceSnapshot } from "../../service/interfaces/service-snapshot.interface";
-import { IServicePackageSnapshot } from "../../service-package/interfaces/service-package-snapshot.interface";
-import { ProductItemType, Currency } from "../../common/interfaces/enums";
+import { Currency } from "@shared/types/catalog-enums";
 
-// Product snapshot item (with expanded service packages)
+// Product snapshot item (simplified without service/service package references)
 export interface IProductSnapshotItem {
-  type: ProductItemType;
+  serviceTypeId: string;
   quantity: number; // All services are billed by times (次数)
-  sortOrder: number;
-  // Service or service package snapshot
-  serviceSnapshot?: IServiceSnapshot;
-  servicePackageSnapshot?: IServicePackageSnapshot;
 }
 
 // Product snapshot interface (used for contracts)
@@ -19,7 +13,6 @@ export interface IProductSnapshot {
   productCode: string;
   price: string;
   currency: Currency;
-  validityDays?: number;
   items: IProductSnapshotItem[];
   snapshotAt: Date;
 }

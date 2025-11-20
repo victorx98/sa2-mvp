@@ -14,16 +14,14 @@ export const CONTRACT_NUMBER_MAX_PER_MONTH = 99999;
 // Service Hold Configuration
 // ============================================================================
 
-// Hold TTL in minutes (default: 15 minutes)
-// @deprecated v2.16.9: Hold TTL mechanism removed. Manual release only.
-export const HOLD_TTL_MINUTES = parseInt(
-  process.env.HOLD_TTL_MINUTES || "15",
-  10,
-);
+// Hold TTL mechanism removed in v2.16.9. Manual release only.
+// export const HOLD_TTL_MINUTES = parseInt(
+//   process.env.HOLD_TTL_MINUTES || "15",
+//   10,
+// );
 
-// Hold cleanup cron schedule (default: every 5 minutes)
-// @deprecated v2.16.9: Automatic cleanup removed. Manual release only.
-export const HOLD_CLEANUP_CRON = process.env.HOLD_CLEANUP_CRON || "*/5 * * * *";
+// Automatic cleanup removed in v2.16.9. Manual release only.
+// export const HOLD_CLEANUP_CRON = process.env.HOLD_CLEANUP_CRON || "*/5 * * * *";
 
 // ============================================================================
 // Event Publisher Configuration

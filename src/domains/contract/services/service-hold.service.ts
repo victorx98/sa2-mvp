@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { eq, and, lt, isNotNull } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
@@ -13,10 +13,12 @@ import {
 } from "../common/exceptions/contract.exception";
 import { CreateHoldDto } from "../dto/create-hold.dto";
 import type { ServiceHold } from "@infrastructure/database/schema";
-import type { ServiceType } from "../common/types/enum.types";
+import { HoldStatus } from "@shared/types/contract-enums";
 
 @Injectable()
 export class ServiceHoldService {
+  private readonly logger = new Logger(ServiceHoldService.name);
+
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
@@ -52,10 +54,7 @@ export class ServiceHoldService {
       .where(
         and(
           eq(schema.contractServiceEntitlements.studentId, studentId),
-          eq(
-            schema.contractServiceEntitlements.serviceType,
-            serviceType as ServiceType,
-          ),
+          eq(schema.contractServiceEntitlements.serviceType, serviceType),
         ),
       )
       .for("update");
@@ -80,9 +79,9 @@ export class ServiceHoldService {
       .insert(schema.serviceHolds)
       .values({
         studentId,
-        serviceType: serviceType as ServiceType,
+        serviceType: serviceType,
         quantity,
-        status: "active",
+        status: HoldStatus.ACTIVE,
         relatedBookingId: null, // Always null on creation (v2.16.11)
         expiryAt: expiryAt || null, // Set expiryAt if provided, otherwise null (永不过期)
         createdBy,
@@ -124,7 +123,7 @@ export class ServiceHoldService {
     const [releasedHold] = await executor
       .update(schema.serviceHolds)
       .set({
-        status: "released",
+        status: HoldStatus.RELEASED,
         releaseReason: reason,
         releasedAt: new Date(),
       })
@@ -155,7 +154,7 @@ export class ServiceHoldService {
       .from(schema.serviceHolds)
       .where(
         and(
-          eq(schema.serviceHolds.status, "active"),
+          eq(schema.serviceHolds.status, HoldStatus.ACTIVE),
           lt(schema.serviceHolds.createdAt, cutoffTime),
         ),
       );
@@ -177,8 +176,8 @@ export class ServiceHoldService {
       .where(
         and(
           eq(schema.serviceHolds.studentId, studentId),
-          eq(schema.serviceHolds.serviceType, serviceType as ServiceType),
-          eq(schema.serviceHolds.status, "active"),
+          eq(schema.serviceHolds.serviceType, serviceType),
+          eq(schema.serviceHolds.status, HoldStatus.ACTIVE),
         ),
       );
   }
@@ -211,7 +210,7 @@ export class ServiceHoldService {
     const [cancelledHold] = await executor
       .update(schema.serviceHolds)
       .set({
-        status: "released",
+        status: HoldStatus.RELEASED,
         releaseReason: reason || "cancelled",
         releasedAt: new Date(),
       })
@@ -251,7 +250,7 @@ export class ServiceHoldService {
         .from(schema.serviceHolds)
         .where(
           and(
-            eq(schema.serviceHolds.status, "active"),
+            eq(schema.serviceHolds.status, HoldStatus.ACTIVE),
             isNotNull(schema.serviceHolds.expiryAt),
             lt(schema.serviceHolds.expiryAt, now),
           ),
@@ -265,7 +264,7 @@ export class ServiceHoldService {
           await this.db
             .update(schema.serviceHolds)
             .set({
-              status: "expired",
+              status: HoldStatus.EXPIRED,
               releaseReason: "expired",
               releasedAt: now,
             })
@@ -273,7 +272,12 @@ export class ServiceHoldService {
 
           releasedCount++;
         } catch (error) {
-          console.error(`Failed to release expired hold ${hold.id}:`, error);
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          this.logger.error(
+            `Failed to release expired hold ${hold.id}: ${errorMessage}`,
+            error instanceof Error ? error.stack : undefined,
+          );
           failedCount++;
         }
       }
@@ -283,7 +287,12 @@ export class ServiceHoldService {
         skippedCount = 1;
       }
     } catch (error) {
-      console.error("Error in releaseExpiredHolds:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Error in releaseExpiredHolds: ${errorMessage}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       failedCount++;
     }
 

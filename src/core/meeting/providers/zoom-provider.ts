@@ -11,7 +11,7 @@ import {
   MeetingCancellationFailedException,
   MeetingNotFoundException,
 } from "../exceptions/meeting.exception";
-
+import { Trace } from "@shared/decorators/trace.decorator";
 /**
  * Zoom Meeting Provider
  *
@@ -22,6 +22,10 @@ import {
 export class ZoomMeetingProvider implements IMeetingProvider {
   private readonly logger = new Logger(ZoomMeetingProvider.name);
 
+  @Trace({
+    name: 'zoom.meeting.create',
+    attributes: { 'meeting.provider': 'zoom' },
+  })
   async createMeeting(_input: ICreateMeetingInput): Promise<IMeetingInfo> {
     this.logger.warn("Zoom meeting creation not yet implemented");
     throw new MeetingCreationFailedException(
@@ -30,6 +34,10 @@ export class ZoomMeetingProvider implements IMeetingProvider {
     );
   }
 
+  @Trace({
+    name: 'zoom.meeting.update',
+    attributes: { 'meeting.provider': 'zoom' },
+  })
   async updateMeeting(
     meetingId: string,
     _input: IUpdateMeetingInput,
@@ -42,6 +50,10 @@ export class ZoomMeetingProvider implements IMeetingProvider {
     );
   }
 
+  @Trace({
+    name: 'zoom.meeting.cancel',
+    attributes: { 'meeting.provider': 'zoom' },
+  })
   async cancelMeeting(meetingId: string): Promise<boolean> {
     this.logger.warn("Zoom meeting cancellation not yet implemented");
     throw new MeetingCancellationFailedException(
@@ -51,6 +63,10 @@ export class ZoomMeetingProvider implements IMeetingProvider {
     );
   }
 
+  @Trace({
+    name: 'zoom.meeting.get_info',
+    attributes: { 'meeting.provider': 'zoom' },
+  })
   async getMeetingInfo(meetingId: string): Promise<IMeetingInfo> {
     this.logger.warn("Zoom meeting info retrieval not yet implemented");
     throw new MeetingNotFoundException("Zoom", meetingId);

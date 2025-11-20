@@ -1,3 +1,5 @@
+import { ServiceType } from "@infrastructure/database/schema";
+import { AmendmentLedgerType } from "@shared/types/contract-enums";
 import {
   IsNotEmpty,
   IsUUID,
@@ -24,11 +26,11 @@ export class AddAmendmentLedgerDto {
 
   @IsNotEmpty()
   @IsString()
-  serviceType: string; // Service type (服务类型)
+  serviceType: ServiceType; // Service type (服务类型)
 
   @IsNotEmpty()
-  @IsEnum(["addon", "promotion", "compensation"])
-  ledgerType: "addon" | "promotion" | "compensation"; // Renamed from source (v2.16.12) - 从source重命名
+  @IsEnum(AmendmentLedgerType)
+  ledgerType: AmendmentLedgerType; // Renamed from source (v2.16.12) - 从source重命名
 
   @IsNotEmpty()
   @IsPositive()

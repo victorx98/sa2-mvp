@@ -1,14 +1,8 @@
-/**
- * Snapshot Types for Contract Domain
- * Immutable snapshots of Catalog Domain entities at contract creation time
- * Design pattern: Anti-Corruption Layer (DDD)
- */
-
-import { ServiceType } from "./enum.types";
-
 // ============================================================================
 // Product Snapshot Types
 // ============================================================================
+
+import { BillingMode, Currency } from "@shared/types/catalog-enums";
 
 /**
  * Product snapshot captured at contract creation
@@ -19,7 +13,7 @@ export interface IProductSnapshot {
   productName: string;
   productCode: string;
   price: string; // Stored as string to maintain precision
-  currency: string; // e.g., 'USD', 'CNY'
+  currency: Currency; // e.g., 'USD', 'CNY'
   validityDays?: number; // null = permanent validity
   items: IProductItemSnapshot[]; // Expanded product items with services
   snapshotAt: Date; // When snapshot was taken
@@ -30,16 +24,9 @@ export interface IProductSnapshot {
  */
 export interface IProductItemSnapshot {
   productItemId: string;
-  productItemType: "service" | "service_package";
-  referenceId: string; // serviceId or servicePackageId
+  serviceTypeId: string; // service type id
   quantity: number; // Quantity in product
   sortOrder: number;
-
-  // Service details (when type = 'service')
-  service?: IServiceSnapshot;
-
-  // Service package details (when type = 'service_package')
-  servicePackage?: IServicePackageSnapshot;
 }
 
 // ============================================================================
@@ -55,7 +42,7 @@ export interface IServiceSnapshot {
   serviceName: string;
   serviceCode: string;
   serviceType: string; // e.g., 'resume_review', 'mock_interview'
-  billingMode: string; // Always 'times' in v2.16.7
+  billingMode: BillingMode;
   requiresEvaluation: boolean;
   requiresMentorAssignment: boolean;
   metadata?: {
@@ -102,10 +89,9 @@ export interface IServicePackageItemSnapshot {
  * Tracks which product items contributed to an entitlement
  */
 export interface IOriginItem {
-  productItemType: "service" | "service_package";
+  serviceTypeId: string; // Service type id
   productItemId?: string; // Product item reference (if from product)
   quantity: number; // Original quantity from this product item
-  servicePackageName?: string; // Service package name (if applicable)
 }
 
 // ============================================================================
@@ -167,7 +153,7 @@ export interface IGenerateContractNumberResult {
  * Used when deriving entitlements from product snapshot
  */
 export interface IEntitlementAggregation {
-  serviceType: ServiceType;
+  serviceType: string;
   totalQuantity: number;
   serviceSnapshot: IServiceSnapshot;
   originItems: IOriginItem[];

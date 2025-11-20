@@ -1,0 +1,70 @@
+import { ApiProperty } from "@nestjs/swagger";
+
+export class MentorSummaryResponseDto {
+  @ApiProperty({ description: "Mentor ID" })
+  id: string;
+
+  @ApiProperty({ description: "Associated user ID" })
+  userId: string;
+
+  @ApiProperty({ description: "Mentor status", required: false })
+  status?: string;
+
+  @ApiProperty({ description: "Mentor type", required: false })
+  type?: string;
+
+  @ApiProperty({ description: "Company", required: false })
+  company?: string;
+
+  @ApiProperty({ description: "Company title", required: false })
+  companyTitle?: string;
+
+  @ApiProperty({ description: "Brief introduction", required: false })
+  briefIntro?: string;
+
+  @ApiProperty({ description: "School", required: false })
+  school?: string;
+
+  @ApiProperty({ description: "Location", required: false })
+  location?: string;
+
+  @ApiProperty({ description: "Mentor level", required: false })
+  level?: string;
+
+  @ApiProperty({
+    description: "Mentor rating",
+    nullable: true,
+    required: false,
+  })
+  rating: number | null;
+
+  @ApiProperty({
+    description: "Record created time",
+    type: String,
+    format: "date-time",
+  })
+  createdAt: Date;
+
+  @ApiProperty({
+    description: "Record last modified time",
+    type: String,
+    format: "date-time",
+  })
+  modifiedAt: Date;
+
+  @ApiProperty({ description: "Email address" })
+  email: string;
+
+  @ApiProperty({ description: "Nickname", required: false })
+  nickname?: string;
+
+  @ApiProperty({ description: "Chinese nickname", required: false })
+  cnNickname?: string;
+
+  @ApiProperty({ description: "Country", required: false })
+  country?: string;
+
+  @ApiProperty({ description: "Gender", required: false })
+  gender?: string;
+}
+

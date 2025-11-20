@@ -7,8 +7,6 @@
 -- 功能: 合同修正时，自动累加 total_quantity
 -- 触发时机: AFTER UPDATE
 -- 版本: v2.16.12
--- 决策: D-NEW-1 方案A - 仅执行 UPDATE，记录不存在时抛异常
--- 注意: v2.16.13 表名从 contract_entitlement_ledgers 更名为 contract_amendment_ledgers
 -- ==============================================================================
 
 CREATE OR REPLACE FUNCTION sync_ledger_to_entitlement()

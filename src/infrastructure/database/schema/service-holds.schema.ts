@@ -4,24 +4,10 @@ import {
   varchar,
   integer,
   timestamp,
-  pgEnum,
 } from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
-import { serviceTypeEnum } from "./services.schema";
-
-/**
- * 预占状态枚举 (Hold status enum)
- * - active: 生效中（未释放）[Active (not released)]
- * - released: 已释放（服务完成）[Released (service completed)]
- * - cancelled: 已取消（用户取消）[Cancelled (user cancelled)]
- * - expired: 已过期（自动过期）[Expired (automatic expiration)]
- */
-export const holdStatusEnum = pgEnum("hold_status", [
-  "active", // 生效中[Active]
-  "released", // 已释放[Released]
-  "cancelled", // 已取消[Cancelled]
-  "expired", // 已过期[Expired]
-]);
+import { serviceTypes } from "./service-types.schema";
+import { HoldStatus } from "../../../shared/types/contract-enums";
 
 /**
  * Service Holds Table (v2.16.13 - 服务预占表)
@@ -72,22 +58,27 @@ export const serviceHolds = pgTable("service_holds", {
   id: uuid("id").defaultRandom().primaryKey(),
 
   // 关联学生（移除 contract_id，只关联学生）[Associated student (removed contract_id, only associate with student)]
-  studentId: varchar("student_id", { length: 32 })
+  studentId: uuid("student_id")
     .notNull()
     .references(() => userTable.id),
 
   // 服务类型 (Service type)
-  serviceType: serviceTypeEnum("service_type").notNull(),
+  serviceType: varchar("service_type", { length: 50 })
+    .notNull()
+    .references(() => serviceTypes.code), // Reference to service_types.code
 
   // 预占数量 (Hold quantity)
   quantity: integer("quantity").notNull().default(1),
 
   // 状态管理 (Status management)
-  status: holdStatusEnum("status").notNull().default("active"),
+  status: varchar("status", { length: 20 })
+    .notNull()
+    .default("active")
+    .$type<HoldStatus>(),
 
   // 关联预约 (Related booking)
   relatedBookingId: uuid("related_booking_id"),
-  
+
   // 过期时间 (Expiration time)
   expiryAt: timestamp("expiry_at", { withTimezone: true }), // null表示永不过期 [null means never expires]
 
@@ -102,7 +93,7 @@ export const serviceHolds = pgTable("service_holds", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-  createdBy: varchar("created_by", { length: 32 })
+  createdBy: uuid("created_by")
     .notNull()
     .references(() => userTable.id),
 });

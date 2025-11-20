@@ -1,9 +1,8 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Injectable, Inject } from "@nestjs/common";
 import { eq, and, or, like, ne, count, sql, inArray } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
-import type { Service, ServicePackage } from "@infrastructure/database/schema";
 import {
   CatalogException,
   CatalogNotFoundException,
@@ -12,31 +11,34 @@ import {
 } from "../../common/exceptions/catalog.exception";
 import { PaginationDto } from "../../common/dto/pagination.dto";
 import { SortDto } from "../../common/dto/sort.dto";
-import { PaginatedResult } from "../../common/interfaces/paginated-result.interface";
+import { PaginatedResult } from "@shared/types/paginated-result";
 import { CreateProductDto } from "../dto/create-product.dto";
 import { UpdateProductDto } from "../dto/update-product.dto";
 import { AddProductItemDto } from "../dto/add-product-item.dto";
-import { PublishProductDto } from "../dto/publish-product.dto";
+
 import { ProductFilterDto } from "../dto/product-filter.dto";
 import { FindOneProductDto } from "../dto/find-one-product.dto";
 
 import { IProduct } from "../interfaces/product.interface";
-import { IProductDetail } from "../interfaces/product-detail.interface";
 import { IProductSnapshot } from "../interfaces/product-snapshot.interface";
-import type { IService } from "../../service/interfaces/service.interface";
-import type { IServicePackage } from "../../service-package/interfaces/service-package.interface";
-import { ProductStatus, ProductItemType } from "../../common/interfaces/enums";
-import { ServiceService } from "../../service/services/service.service";
-import { ServicePackageService } from "../../service-package/services/service-package.service";
 import { buildLikePattern } from "../../common/utils/sql.utils";
+import {
+  Currency,
+  MarketingLabel,
+  ProductStatus,
+  UserPersona,
+} from "@shared/types/catalog-enums";
+import { IProductDetail, IProductItem } from "../interfaces";
 
 @Injectable()
 export class ProductService {
+  private readonly DEFAULT_PAGE_SIZE = 20; // Default page size for pagination [分页的默认页面大小]
+  private readonly DEFAULT_SORT_FIELD = "createdAt"; // Default sort field [默认排序字段]
+  private readonly DEFAULT_SORT_ORDER = "desc"; // Default sort order [默认排序顺序]
+
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
-    private readonly serviceService: ServiceService,
-    private readonly servicePackageService: ServicePackageService,
   ) {}
 
   /**
@@ -59,17 +61,10 @@ export class ProductService {
       throw new CatalogException("INVALID_PRICE");
     }
 
-    if (
-      dto.validityDays !== undefined &&
-      dto.validityDays !== null &&
-      dto.validityDays <= 0
-    ) {
-      throw new CatalogException("INVALID_VALIDITY_DAYS");
-    }
-
     // 3. Validate item references if provided
     if (dto.items && dto.items.length > 0) {
-      await this.validateProductItems(dto.items);
+      await this.validateProductItemReferences(dto.items);
+      await this.validateProductItemQuantities(dto.items);
     }
 
     // 4. Use transaction to ensure atomicity
@@ -82,12 +77,14 @@ export class ProductService {
           code: dto.code,
           description: dto.description,
           coverImage: dto.coverImage,
-          targetUserTypes: dto.targetUserTypes ? dto.targetUserTypes : null,
+          targetUserPersona: dto.targetUserPersonas
+            ? dto.targetUserPersonas
+            : null,
           price: dto.price.toString(),
-          currency: dto.currency || "USD",
-          validityDays: dto.validityDays,
+          currency: dto.currency || Currency.USD,
+          // validityDays field doesn't exist in schema, removing it
           marketingLabels: dto.marketingLabels ? dto.marketingLabels : null,
-          status: "draft",
+          status: ProductStatus.DRAFT,
           metadata: dto.metadata ? dto.metadata : null,
           createdBy: userId,
         })
@@ -98,8 +95,7 @@ export class ProductService {
         await tx.insert(schema.productItems).values(
           dto.items.map((item, index) => ({
             productId: newProduct.id,
-            type: item.type,
-            referenceId: item.referenceId,
+            serviceTypeId: item.serviceTypeId, // Use serviceTypeId as referenceId
             quantity: item.quantity,
             sortOrder: item.sortOrder ?? index,
           })),
@@ -113,14 +109,15 @@ export class ProductService {
   }
 
   /**
-   * Update unpublished draft product
+   * Update unpublished draft product [更新未发布的草稿产品]
+   * Only draft products can be updated [仅草稿状态的产品可以更新]
    */
-  async update(id: string, dto: UpdateProductDto): Promise<IProduct> {
-    // 1. Check if product exists
+  async update(productId: string, dto: UpdateProductDto): Promise<IProduct> {
+    // 1. Check if product exists [检查产品是否存在]
     const existing = await this.db
       .select()
       .from(schema.products)
-      .where(eq(schema.products.id, id))
+      .where(eq(schema.products.id, productId))
       .limit(1);
 
     if (existing.length === 0) {
@@ -129,40 +126,34 @@ export class ProductService {
 
     const product = existing[0];
 
-    if (product.status === "deleted") {
+    if (product.status === ProductStatus.DELETED) {
       throw new CatalogGoneException("PRODUCT_DELETED");
     }
 
-    // 2. Can only update unpublished draft products
-    if (product.publishedAt !== null) {
-      throw new CatalogException("PRODUCT_ALREADY_PUBLISHED");
+    // 2. Can only update draft products [只能更新草稿状态的产品]
+    if (product.status !== ProductStatus.DRAFT) {
+      throw new CatalogException("PRODUCT_NOT_DRAFT");
     }
 
-    // 3. Validate price and validity days
+    // 3. Validate price [验证价格]
     if (dto.price !== undefined && dto.price <= 0) {
       throw new CatalogException("INVALID_PRICE");
     }
 
-    if (
-      dto.validityDays !== undefined &&
-      dto.validityDays !== null &&
-      dto.validityDays <= 0
-    ) {
-      throw new CatalogException("INVALID_VALIDITY_DAYS");
-    }
-
-    // 4. Update product
+    // 4. Update product [更新产品]
     const [updated] = await this.db
       .update(schema.products)
       .set({
         ...dto,
         price: dto.price !== undefined ? dto.price.toString() : undefined,
-        targetUserTypes: dto.targetUserTypes ? dto.targetUserTypes : undefined,
+        targetUserPersona: dto.targetUserPersonas
+          ? dto.targetUserPersonas
+          : undefined,
         marketingLabels: dto.marketingLabels ? dto.marketingLabels : undefined,
         metadata: dto.metadata ? dto.metadata : undefined,
         updatedAt: new Date(),
       })
-      .where(eq(schema.products.id, id))
+      .where(eq(schema.products.id, productId))
       .returning();
 
     return this.mapToProductInterface(updated);
@@ -173,37 +164,36 @@ export class ProductService {
    */
   async addItem(productId: string, dto: AddProductItemDto): Promise<void> {
     // 1. Check if product exists and is draft
-    const product = await this.db
+    const existing = await this.db
       .select()
       .from(schema.products)
       .where(eq(schema.products.id, productId))
       .limit(1);
 
-    if (product.length === 0) {
+    if (existing.length === 0) {
       throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
     }
 
-    if (product[0].status !== "draft") {
+    if (existing[0].status !== ProductStatus.DRAFT) {
       throw new CatalogException("PRODUCT_NOT_DRAFT");
     }
 
     // 2. Validate reference exists and is active
-    await this.validateProductItems([dto]);
+    await this.validateProductItemReferences([
+      { serviceTypeId: dto.serviceTypeId },
+    ]);
+    await this.validateProductItemQuantities([
+      { serviceTypeId: dto.serviceTypeId, quantity: dto.quantity },
+    ]);
 
-    // 3. Service package quantity must be 1
-    if (dto.type === "service_package" && dto.quantity !== 1) {
-      throw new CatalogException("PACKAGE_QUANTITY_MUST_BE_ONE");
-    }
-
-    // 4. Check if already exists
+    // 3. Check if item already exists in product
     const existingItem = await this.db
       .select()
       .from(schema.productItems)
       .where(
         and(
           eq(schema.productItems.productId, productId),
-          eq(schema.productItems.type, dto.type),
-          eq(schema.productItems.referenceId, dto.referenceId),
+          eq(schema.productItems.serviceTypeId, dto.serviceTypeId),
         ),
       )
       .limit(1);
@@ -212,13 +202,12 @@ export class ProductService {
       throw new CatalogException("ITEM_ALREADY_IN_PRODUCT");
     }
 
-    // 5. Add product item
+    // 4. Add product item
     await this.db.insert(schema.productItems).values({
       productId,
-      type: dto.type,
-      referenceId: dto.referenceId,
+      serviceTypeId: dto.serviceTypeId,
       quantity: dto.quantity,
-      sortOrder: dto.sortOrder ?? 0,
+      sortOrder: dto.sortOrder ?? 0, // Use provided sortOrder or default to 0 [使用提供的sortOrder或默认为0]
     });
   }
 
@@ -234,10 +223,10 @@ export class ProductService {
       .limit(1);
 
     if (product.length === 0) {
-      throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
+      throw new CatalogException("PRODUCT_NOT_FOUND");
     }
 
-    if (product[0].status !== "draft") {
+    if (product[0].status !== ProductStatus.DRAFT) {
       throw new CatalogException("PRODUCT_NOT_DRAFT");
     }
 
@@ -263,7 +252,7 @@ export class ProductService {
   }
 
   /**
-   * Update product item sort order
+   * Update product item sort order [更新产品项排序]
    */
   async updateItemSortOrder(
     productId: string,
@@ -277,10 +266,10 @@ export class ProductService {
       .limit(1);
 
     if (product.length === 0) {
-      throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
+      throw new CatalogException("PRODUCT_NOT_FOUND");
     }
 
-    // 2. Batch update sort order with transaction protection
+    // 2. Update sortOrder for each item in a transaction
     await this.db.transaction(async (tx) => {
       for (const item of items) {
         await tx
@@ -309,7 +298,7 @@ export class ProductService {
 
     // Exclude deleted status by default
     if (!filter.includeDeleted) {
-      conditions.push(ne(schema.products.status, "deleted"));
+      conditions.push(ne(schema.products.status, ProductStatus.DELETED));
     }
 
     if (filter.status) {
@@ -319,7 +308,7 @@ export class ProductService {
     if (filter.userType) {
       // JSON array contains check
       conditions.push(
-        sql`${schema.products.targetUserTypes}::jsonb @> ${JSON.stringify([filter.userType])}`,
+        sql`${schema.products.targetUserPersona}::jsonb @> ${JSON.stringify([filter.userType])}`,
       );
     }
 
@@ -367,7 +356,7 @@ export class ProductService {
     }
 
     // Paginated query
-    const { page = 1, pageSize = 20 } = pagination;
+    const { page = 1, pageSize = this.DEFAULT_PAGE_SIZE } = pagination;
     const offset = (page - 1) * pageSize;
 
     const data = await this.db
@@ -420,379 +409,133 @@ export class ProductService {
       .select()
       .from(schema.productItems)
       .where(eq(schema.productItems.productId, product.id))
-      .orderBy(schema.productItems.sortOrder);
+      .orderBy(schema.productItems.createdAt); // Use createdAt for ordering since sortOrder doesn't exist [使用 createdAt 进行排序，因为 sortOrder 不存在]
 
-    // Get associated services and packages
-    const serviceIds = items
-      .filter((item) => item.type === "service")
-      .map((item) => item.referenceId);
-    const packageIds = items
-      .filter((item) => item.type === "service_package")
-      .map((item) => item.referenceId);
-
-    const [servicesData, packagesData] = await Promise.all([
-      serviceIds.length > 0
-        ? this.db
-            .select()
-            .from(schema.services)
-            .where(inArray(schema.services.id, serviceIds))
-        : [],
-      packageIds.length > 0
-        ? this.db
-            .select()
-            .from(schema.servicePackages)
-            .where(inArray(schema.servicePackages.id, packageIds))
-        : [],
-    ]);
-
-    const servicesMap = new Map(
-      servicesData.map((s: Service) => [s.id, s] as [string, Service]),
-    );
-
-    const packagesMap = new Map(
-      packagesData.map(
-        (p: ServicePackage) => [p.id, p] as [string, ServicePackage],
-      ),
-    );
-
+    // Since services and service_packages tables are not needed in the project,
+    // we only return product items with basic information
+    // [由于项目中不需要services和service_packages表，我们只返回带有基本信息的产品项]
     return {
       ...this.mapToProductInterface(product),
       items: items.map((item) => ({
         id: item.id,
-        type: item.type as ProductItemType,
-        referenceId: item.referenceId,
+        productId: item.productId,
+        serviceTypeId: item.serviceTypeId,
         quantity: item.quantity,
-        sortOrder: item.sortOrder,
-
-        service:
-          item.type === "service"
-            ? (servicesMap.get(item.referenceId) as unknown as IService)
-            : undefined,
-
-        servicePackage:
-          item.type === "service_package"
-            ? (packagesMap.get(item.referenceId) as unknown as IServicePackage)
-            : undefined,
+        sortOrder: item.sortOrder, // Add sortOrder property [添加排序属性]
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
       })),
     };
   }
 
   /**
-   * Publish product
+   * Publish product [发布产品]
    */
-  async publish(
-    id: string,
-    dto: PublishProductDto,
-    userId: string,
-  ): Promise<IProduct> {
-    // 1. Check if product exists
-    const existing = await this.db
-      .select()
-      .from(schema.products)
-      .where(eq(schema.products.id, id))
-      .limit(1);
-
-    if (existing.length === 0) {
-      throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
-    }
-
-    const product = existing[0];
-
-    if (product.status !== "draft") {
-      throw new CatalogException("PRODUCT_NOT_DRAFT");
-    }
-
-    // 2. Check product contains at least 1 item
-    const items = await this.db
-      .select()
-      .from(schema.productItems)
-      .where(eq(schema.productItems.productId, id))
-      .limit(1);
-
-    if (items.length === 0) {
-      throw new CatalogException("PRODUCT_NO_ITEMS");
-    }
-
-    // 3. Check all referenced services and packages are active (optimized batch query)
-    const allItems = await this.db
-      .select()
-      .from(schema.productItems)
-      .where(eq(schema.productItems.productId, id));
-
-    // Batch fetch all services and packages
-    const serviceIds = allItems
-      .filter((item) => item.type === "service")
-      .map((item) => item.referenceId);
-    const packageIds = allItems
-      .filter((item) => item.type === "service_package")
-      .map((item) => item.referenceId);
-
-    const [servicesData, packagesData] = await Promise.all([
-      serviceIds.length > 0
-        ? this.db
-            .select()
-            .from(schema.services)
-            .where(inArray(schema.services.id, serviceIds))
-        : [],
-      packageIds.length > 0
-        ? this.db
-            .select()
-            .from(schema.servicePackages)
-            .where(inArray(schema.servicePackages.id, packageIds))
-        : [],
-    ]);
-
-    // Create maps for O(1) lookup
-
-    const servicesMap = new Map(
-      servicesData.map((s: Service) => [s.id, s] as [string, Service]),
-    );
-
-    const packagesMap = new Map(
-      packagesData.map(
-        (p: ServicePackage) => [p.id, p] as [string, ServicePackage],
-      ),
-    );
-
-    // Validate all items
-    for (const item of allItems) {
-      if (item.type === "service") {
-        const service = servicesMap.get(item.referenceId);
-        if (!service || service.status !== "active") {
-          throw new CatalogException("REFERENCE_NOT_ACTIVE");
-        }
-      } else if (item.type === "service_package") {
-        const pkg = packagesMap.get(item.referenceId);
-        if (!pkg || pkg.status !== "active") {
-          throw new CatalogException("REFERENCE_NOT_ACTIVE");
-        }
-      }
-    }
-
-    // 4. Publish product
-    // If publishAt is in the future, schedule the publish; otherwise, publish immediately
-    const scheduledPublishAt = dto.publishAt ? new Date(dto.publishAt) : null;
-    const isFuturePublish =
-      scheduledPublishAt && scheduledPublishAt > new Date();
-
-    const [published] = await this.db
-      .update(schema.products)
-      .set({
-        status: isFuturePublish ? "draft" : "active",
-        scheduledPublishAt,
-        publishedAt: isFuturePublish ? null : new Date(),
-        publishedBy: isFuturePublish ? null : userId,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.products.id, id))
-      .returning();
-
-    return this.mapToProductInterface(published);
-  }
-
-  /**
-   * Unpublish product
-   */
-  async unpublish(
-    id: string,
-    reason: string,
-    userId: string,
-  ): Promise<IProduct> {
-    if (!reason) {
-      throw new CatalogException("REASON_REQUIRED");
-    }
-
-    // 1. Check if product exists
-    const existing = await this.db
-      .select()
-      .from(schema.products)
-      .where(eq(schema.products.id, id))
-      .limit(1);
-
-    if (existing.length === 0) {
-      throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
-    }
-
-    const product = existing[0];
-
-    if (product.status !== "active") {
-      throw new CatalogException("PRODUCT_NOT_ACTIVE");
-    }
-
-    // 2. Unpublish product
-    const [unpublished] = await this.db
-      .update(schema.products)
-      .set({
-        status: "inactive",
-        unpublishedAt: new Date(),
-        unpublishedBy: userId,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.products.id, id))
-      .returning();
-
-    return this.mapToProductInterface(unpublished);
-  }
-
-  /**
-   * Revert inactive product to draft
-   */
-  async revertToDraft(id: string): Promise<IProduct> {
-    // 1. Check if product exists
-    const existing = await this.db
-      .select()
-      .from(schema.products)
-      .where(eq(schema.products.id, id))
-      .limit(1);
-
-    if (existing.length === 0) {
-      throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
-    }
-
-    const product = existing[0];
-
-    if (product.status !== "inactive") {
-      throw new CatalogException("PRODUCT_NOT_INACTIVE");
-    }
-
-    // 2. Revert to draft
-    const [reverted] = await this.db
-      .update(schema.products)
-      .set({
-        status: "draft",
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.products.id, id))
-      .returning();
-
-    return this.mapToProductInterface(reverted);
-  }
-
-  /**
-   * Soft delete product (unpublished drafts only)
-   */
-  async remove(id: string): Promise<IProduct> {
-    // 1. Check if product exists
-    const existing = await this.db
-      .select()
-      .from(schema.products)
-      .where(eq(schema.products.id, id))
-      .limit(1);
-
-    if (existing.length === 0) {
-      throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
-    }
-
-    const product = existing[0];
-
-    if (product.status === "deleted") {
-      throw new CatalogGoneException("PRODUCT_DELETED");
-    }
-
-    // 2. Can only delete unpublished draft products
-    if (product.publishedAt !== null) {
-      throw new CatalogException("PRODUCT_ALREADY_PUBLISHED");
-    }
-
-    // 3. Soft delete
-    const [deleted] = await this.db
-      .update(schema.products)
-      .set({
-        status: "deleted",
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.products.id, id))
-      .returning();
-
-    return this.mapToProductInterface(deleted);
-  }
-
-  /**
-   * Restore deleted product
-   */
-  async restore(id: string): Promise<IProduct> {
-    // 1. Check if product exists and is deleted
-    const existing = await this.db
-      .select()
-      .from(schema.products)
-      .where(eq(schema.products.id, id))
-      .limit(1);
-
-    if (existing.length === 0) {
-      throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
-    }
-
-    const product = existing[0];
-
-    if (product.status !== "deleted") {
-      throw new CatalogException("PRODUCT_NOT_DELETED");
-    }
-
-    // 2. Restore to draft status
-    const [restored] = await this.db
-      .update(schema.products)
-      .set({
-        status: "draft",
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.products.id, id))
-      .returning();
-
-    return this.mapToProductInterface(restored);
-  }
-
-
-
-  /**
-   * Batch update product sort order
-   */
-  async updateProductSortOrder(
-    updates: Array<{ productId: string; sortOrder: number }>,
-  ): Promise<void> {
-    // Use transaction to ensure atomicity
-    await this.db.transaction(async (tx) => {
-      for (const update of updates) {
-        await tx
-          .update(schema.products)
-          .set({ sortOrder: update.sortOrder })
-          .where(eq(schema.products.id, update.productId));
-      }
-    });
-  }
-
-  /**
-   * Generate product snapshot (expand packages for contract)
-   */
-  async generateSnapshot(id: string): Promise<IProductSnapshot> {
+  async publish(id: string): Promise<IProduct> {
     const product = await this.findOne({ id });
 
     if (!product) {
       throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
     }
 
-    // Generate snapshot for each product item
+    if (product.status !== ProductStatus.DRAFT) {
+      throw new CatalogException("INVALID_STATUS_TRANSITION");
+    }
+
+    // Validate product item references [验证产品项引用]
+    await this.validateProductItemReferences(product.items || []);
+
+    // Update product status [更新产品状态]
+    const updatedProduct = await this.db
+      .update(schema.products)
+      .set({
+        status: ProductStatus.ACTIVE,
+        publishedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.products.id, id))
+      .returning();
+
+    return this.mapToProductInterface(updatedProduct[0]);
+  }
+
+  /**
+   * Unpublish product [取消发布产品]
+   */
+  async unpublish(id: string): Promise<IProduct> {
+    const product = await this.findOne({ id });
+
+    if (!product) {
+      throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
+    }
+
+    if (product.status !== ProductStatus.ACTIVE) {
+      throw new CatalogException("INVALID_STATUS_TRANSITION");
+    }
+
+    // Update product status [更新产品状态]
+    const updatedProduct = await this.db
+      .update(schema.products)
+      .set({
+        status: ProductStatus.INACTIVE,
+        unpublishedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.products.id, id))
+      .returning();
+
+    return this.mapToProductInterface(updatedProduct[0]);
+  }
+
+  /**
+   * Revert product to draft [将产品恢复为草稿]
+   */
+  async revertToDraft(id: string): Promise<IProduct> {
+    const product = await this.findOne({ id });
+
+    if (!product) {
+      throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
+    }
+
+    if (product.status !== ProductStatus.INACTIVE) {
+      throw new CatalogException("INVALID_STATUS_TRANSITION");
+    }
+
+    // Update product status [更新产品状态]
+    const updatedProduct = await this.db
+      .update(schema.products)
+      .set({
+        status: ProductStatus.DRAFT,
+        unpublishedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.products.id, id))
+      .returning();
+
+    return this.mapToProductInterface(updatedProduct[0]);
+  }
+
+  /**
+   * Create product snapshot [创建产品快照]
+   */
+  async createSnapshot(id: string): Promise<IProductSnapshot> {
+    const product = await this.findOne({ id });
+
+    if (!product) {
+      throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
+    }
+
+    if (product.status !== ProductStatus.ACTIVE) {
+      throw new CatalogException("PRODUCT_NOT_PUBLISHED");
+    }
+
+    // Create snapshot items [创建快照项]
     const items = await Promise.all(
-      (product.items || []).map(async (item) => {
-        if (item.type === "service") {
-          const serviceSnapshot = await this.serviceService.generateSnapshot(
-            item.referenceId,
-          );
-          return {
-            type: item.type,
-            quantity: item.quantity,
-            sortOrder: item.sortOrder,
-            serviceSnapshot,
-          };
-        } else {
-          const packageSnapshot =
-            await this.servicePackageService.generateSnapshot(item.referenceId);
-          return {
-            type: item.type,
-            quantity: item.quantity,
-            sortOrder: item.sortOrder,
-            servicePackageSnapshot: packageSnapshot,
-          };
-        }
+      product.items.map(async (item) => {
+        return {
+          serviceTypeId: item.serviceTypeId,
+          quantity: item.quantity,
+        };
       }),
     );
 
@@ -802,7 +545,6 @@ export class ProductService {
       productCode: product.code,
       price: product.price,
       currency: product.currency,
-      validityDays: product.validityDays,
       items,
       snapshotAt: new Date(),
     };
@@ -811,98 +553,77 @@ export class ProductService {
   // ==================== Private helper methods ====================
 
   /**
-   * Validate product item references (optimized to avoid N+1 queries)
+   * Validate product item references [验证产品项引用]
+   * - Validates UUID format
+   * - Checks service types exist and are ACTIVE (batch query for performance)
    */
-  private async validateProductItems(
-    items: Array<{
-      type: ProductItemType;
-      referenceId: string;
-      quantity: number;
-    }>,
+  private async validateProductItemReferences(
+    items: Array<{ serviceTypeId: string } | IProductItem>,
   ): Promise<void> {
-    // 1. Validate quantities first
+    // Validate UUID format first [首先验证UUID格式]
+    const serviceTypeIds = items.map((item) => item.serviceTypeId);
+
+    for (const serviceTypeId of serviceTypeIds) {
+      if (!serviceTypeId || serviceTypeId.trim() === "") {
+        throw new CatalogNotFoundException("REFERENCE_NOT_FOUND");
+      }
+
+      // Basic UUID validation [基本UUID验证]
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(serviceTypeId)) {
+        throw new CatalogNotFoundException("INVALID_REFERENCE_ID");
+      }
+    }
+
+    // Batch query service types [批量查询服务类型]
+    const serviceTypes = await this.db
+      .select({
+        id: schema.serviceTypes.id,
+        status: schema.serviceTypes.status,
+      })
+      .from(schema.serviceTypes)
+      .where(inArray(schema.serviceTypes.id, serviceTypeIds));
+
+    // Check all service types exist and are ACTIVE [检查所有服务类型存在且为ACTIVE状态]
+    if (serviceTypes.length !== serviceTypeIds.length) {
+      throw new CatalogNotFoundException("SERVICE_TYPE_NOT_FOUND");
+    }
+
+    for (const serviceType of serviceTypes) {
+      if (serviceType.status !== "ACTIVE") {
+        throw new CatalogException("SERVICE_TYPE_NOT_ACTIVE");
+      }
+    }
+  }
+
+  /**
+   * Validate product item quantities [验证产品项数量]
+   */
+  private async validateProductItemQuantities(
+    items: Array<{ serviceTypeId: string; quantity: number } | IProductItem>,
+  ): Promise<void> {
     for (const item of items) {
       if (item.quantity <= 0) {
         throw new CatalogException("INVALID_QUANTITY");
       }
-
-      // Service package quantity must be 1
-      if (item.type === "service_package" && item.quantity !== 1) {
-        throw new CatalogException("PACKAGE_QUANTITY_MUST_BE_ONE");
-      }
-    }
-
-    // 2. Batch query: Collect all IDs by type
-    const serviceIds = items
-      .filter((i) => i.type === "service")
-      .map((i) => i.referenceId);
-    const packageIds = items
-      .filter((i) => i.type === "service_package")
-      .map((i) => i.referenceId);
-
-    // 3. Batch fetch all services and packages in parallel
-    const [servicesData, packagesData] = await Promise.all([
-      serviceIds.length > 0
-        ? this.db
-            .select()
-            .from(schema.services)
-            .where(inArray(schema.services.id, serviceIds))
-        : [],
-      packageIds.length > 0
-        ? this.db
-            .select()
-            .from(schema.servicePackages)
-            .where(inArray(schema.servicePackages.id, packageIds))
-        : [],
-    ]);
-
-    // 4. Create maps for O(1) lookup
-
-    const servicesMap = new Map(
-      servicesData.map((s: Service) => [s.id, s] as [string, Service]),
-    );
-
-    const packagesMap = new Map(
-      packagesData.map(
-        (p: ServicePackage) => [p.id, p] as [string, ServicePackage],
-      ),
-    );
-
-    // 5. Validate each item
-    for (const item of items) {
-      if (item.type === "service") {
-        const service = servicesMap.get(item.referenceId);
-        if (!service) {
-          throw new CatalogNotFoundException("REFERENCE_NOT_FOUND");
-        }
-        if (service.status !== "active") {
-          throw new CatalogException("REFERENCE_NOT_ACTIVE");
-        }
-      } else if (item.type === "service_package") {
-        const pkg = packagesMap.get(item.referenceId);
-        if (!pkg) {
-          throw new CatalogNotFoundException("REFERENCE_NOT_FOUND");
-        }
-        if (pkg.status !== "active") {
-          throw new CatalogException("REFERENCE_NOT_ACTIVE");
-        }
-      }
     }
   }
 
   /**
-   * Get order by clause
+   * Get order by clause [获取排序子句]
    */
   private getOrderBy(sort?: SortDto) {
-    const field = sort?.field || "sortOrder";
-    const order = sort?.order || "asc";
+    const field = sort?.field || this.DEFAULT_SORT_FIELD; // Use default sort field if not provided [如果未提供则使用默认排序字段]
+    const order = sort?.order || this.DEFAULT_SORT_ORDER; // Use default sort order if not provided [如果未提供则使用默认排序顺序]
 
-    const column = schema.products[field] || schema.products.sortOrder;
+    const column =
+      schema.products[field] || schema.products[this.DEFAULT_SORT_FIELD];
     return order === "asc" ? column : sql`${column} DESC`;
   }
 
   /**
-   * Map database record to interface
+   * Map database record to interface [映射数据库记录到接口]
    */
   private mapToProductInterface(
     record: typeof schema.products.$inferSelect,
@@ -913,24 +634,17 @@ export class ProductService {
       code: record.code,
       description: record.description,
       coverImage: record.coverImage,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      targetUserTypes: record.targetUserTypes as any,
-      price: record.price,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      currency: record.currency as any,
-      validityDays: record.validityDays,
-      marketingLabels: record.marketingLabels,
+      targetUserPersonas: record.targetUserPersona as UserPersona[],
+      price: record.price.toString(), // Convert numeric to string [将数字转换为字符串]
+      currency: record.currency as Currency,
+      marketingLabels: record.marketingLabels as MarketingLabel[],
       status: record.status as ProductStatus,
-      scheduledPublishAt: record.scheduledPublishAt,
       publishedAt: record.publishedAt,
       unpublishedAt: record.unpublishedAt,
-      sortOrder: record.sortOrder,
       metadata: record.metadata,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       createdBy: record.createdBy,
-      publishedBy: record.publishedBy,
-      unpublishedBy: record.unpublishedBy,
     };
   }
 }

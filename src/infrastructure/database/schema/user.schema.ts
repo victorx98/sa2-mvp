@@ -1,7 +1,7 @@
-import { pgTable, varchar, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, varchar, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const userTable = pgTable("user", {
-  id: varchar("id", { length: 32 }).primaryKey(),
+  id: uuid("id").defaultRandom().primaryKey(),
   gender: varchar("gender", { length: 10 }),
   nickname: varchar("nickname", { length: 100 }),
   cnNickname: varchar("cn_nickname", { length: 100 }),
@@ -16,8 +16,8 @@ export const userTable = pgTable("user", {
     .notNull()
     .defaultNow()
     .$onUpdate(() => new Date()),
-  createdBy: varchar("created_by", { length: 32 }),
-  updatedBy: varchar("updated_by", { length: 32 }),
+  createdBy: uuid("created_by"),
+  updatedBy: uuid("updated_by"),
 });
 
 export type User = typeof userTable.$inferSelect;
