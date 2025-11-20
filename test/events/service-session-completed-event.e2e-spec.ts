@@ -149,7 +149,7 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
       payload: {
         sessionId: sessionId,
         studentId: HARD_CODED_STUDENT_ID,
-        sessionType: HARD_CODED_SERVICE_TYPE,
+        sessionTypeCode: HARD_CODED_SERVICE_TYPE,
         actualDurationHours: 0.9, // 0.9 hours = 1 unit consumption [0.9小时 = 1单位消耗]
         durationHours: 2,
         allowBilling: true,
