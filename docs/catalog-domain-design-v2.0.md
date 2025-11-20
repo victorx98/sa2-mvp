@@ -23,7 +23,7 @@ Catalog 领域负责管理平台的产品目录体系，采用简化设计只包
 ### 2.3 服务类型 (ServiceType)
 
 - **定义**: 服务的分类标准，用于管理服务的基本属性和行为
-- **配置功能**: 包含是否需要会议等行为特性
+- **配置功能**: 包含基本配置和行为特性
 - **状态管理**: 支持激活(ACTIVE)等状态
 
 ## 3. 实体关系模型
@@ -57,7 +57,6 @@ service_types ────────┐
 
 #### Service Types
 - **基本信息**: id, code, name, description
-- **配置属性**: requires_meeting
 - **状态管理**: status
 
 ### 3.3 详细表结构设计
@@ -70,13 +69,11 @@ service_types ────────┐
 | `code` | `VARCHAR(50)` | `NOT NULL` | - | 服务类型编码（与status字段组成复合唯一约束） |
 | `name` | `VARCHAR(255)` | `NOT NULL` | - | 服务类型名称 |
 | `description` | `TEXT` | `NULL` | - | 服务类型描述 |
-| `requires_meeting` | `BOOLEAN` | `NOT NULL` | `false` | 是否需要会议 |
 | `status` | `VARCHAR(20)` | `NOT NULL` | 'ACTIVE' | 服务类型状态（与code字段组成复合唯一约束） |
 | `created_at` | `TIMESTAMP` | `NOT NULL` | `CURRENT_TIMESTAMP` | 创建时间 |
 | `updated_at` | `TIMESTAMP` | `NOT NULL` | `CURRENT_TIMESTAMP` | 更新时间（通过触发器自动更新） |
-| `deleted_at` | `TIMESTAMP` | `NULL` | - | 软删除时间 |
 
-**复合唯一约束**: (code, status) 组合必须唯一，确保同一编码在不同状态下不会重复
+**唯一约束**: code 必须唯一，确保服务类型编码在整个系统中不重复
 
 #### 3.3.2 products表
 
@@ -125,17 +122,12 @@ CREATE TABLE IF NOT EXISTS service_types (
     code VARCHAR(50) NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    requires_meeting BOOLEAN NOT NULL DEFAULT false,
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP,
-    -- 复合唯一约束
-    CONSTRAINT uq_service_types_code_status UNIQUE (code, status)
+    -- 唯一约束
+    CONSTRAINT unique_service_type_code UNIQUE (code)
 );
-
--- 索引优化
-CREATE INDEX IF NOT EXISTS idx_service_types_deleted_at ON service_types(deleted_at);
 
 -- 创建触发器函数，自动更新updated_at字段
 CREATE OR REPLACE FUNCTION update_service_types_updated_at()
@@ -245,7 +237,7 @@ FOR EACH ROW EXECUTE FUNCTION update_product_items_updated_at();
 - **排序管理**: 支持批量更新产品项的显示顺序
 
 ### 4.3 服务行为规则
-- **会议控制**: 基于服务类型的requires_meeting属性控制服务是否需要会议支持
+- **服务规则**: 服务类型可关联到产品项，支持对不同服务类型进行组合配置
 
 ## 5. 数据流转流程
 
@@ -303,11 +295,11 @@ interface IProductService {
 interface IServiceTypeService {
   // 服务类型管理
   // CreateServiceTypeDto 应包含: code(必填), name(必填), description(可选), 
-  // requires_meeting(可选，默认false), status(可选，默认'ACTIVE')等字段
+  // status(可选，默认'ACTIVE')等字段
   create(dto: CreateServiceTypeDto): Promise<IServiceType>;
   
   // UpdateServiceTypeDto 应包含可选的更新字段，注意code字段在创建后通常不应修改
-  // 可选更新字段：name, description, requires_meeting, status
+  // 可选更新字段：name, description, status
   update(id: string, dto: UpdateServiceTypeDto): Promise<IServiceType>;
   delete(id: string): Promise<void>;
   
@@ -326,6 +318,101 @@ interface IServiceTypeService {
 - **查询优化**: 为常用查询条件建立索引，支持复杂查询和分页
 - **模块化设计**: 采用DDD风格的模块化设计，领域边界清晰，职责单一
 
-## 9. 总结
+## 9. 待决策项
+
+> 本章节记录设计中尚未确定的决策点，需要在实现过程中逐步明确
+
+### 9.1 接口定义决策
+
+#### D01: IProductDetail接口的定义
+- **问题**: `IProductDetail`接口需要包含哪些字段？是否应该包含完整的items详情？
+- **影响范围**: ProductService.findOne()方法的返回类型
+- **决策**: **选项1** - 只包含基础信息+items数组
+  - `IProductDetail`继承自`IProduct`并添加`items`属性
+  - `items`数组仅包含product_items表字段: id, productId, serviceTypeId, quantity, createdAt, updatedAt
+  - **不**包含serviceType的详细信息（保持接口简洁，按需查询）
+- **理由**: 保持接口简洁，避免过度获取数据；serviceType详情可以通过单独的查询获取
+- **决策状态**: ✅ 已确定（2025-11-19）
+- **相关代码**: `src/domains/catalog/product/services/product.service.ts:373`
+
+#### D02: IProductItem接口的定义
+- **问题**: `IProductItem`接口应该包含哪些字段？是否需要包含service_type的详细信息？
+- **影响范围**: ProductItem的数据传输和验证逻辑
+- **决策**: **选项2** - 仅包含业务字段
+  - 必需字段：id, serviceTypeId, quantity
+  - 可选字段：productId(查询时), sortOrder(排序), createdAt, updatedAt(审计)
+  - **不**包含：createdBy, updatedBy(审计字段不在接口层暴露)
+  - **不**包含serviceType详细信息（按需查询）
+- **理由**: 接口聚焦于业务核心字段，避免冗余信息；审计字段不应暴露给前端
+- **依赖关系**: 依赖D03决策，如需要sortOrder则需在数据库添加相应字段
+- **决策状态**: ✅ 已确定（2025-11-19）
+- **相关代码**: `src/domains/catalog/product/services/product.service.ts:548,574`
+
+#### D03: 产品项排序机制
+- **问题**: 产品项(product_items)是否需要sort_order字段来支持自定义排序？
+  - 选项A: 添加sort_order字段，支持任意排序（需修改schema）
+  - 选项B: 使用created_at字段排序，按创建时间排序（无需修改schema）
+- **影响范围**: product_items表结构、updateItemSortOrder方法实现
+- **决策**: **选项A** - 添加sort_order字段
+  - 在`product_items`表中添加`sort_order`字段（INTEGER类型，NOT NULL，默认值0）
+  - 实现`updateItemSortOrder`方法，支持批量更新排序
+  - 产品项排序规则：
+    - 数值小的排在前面
+    - 支持负数、0、正数
+    - 相同sort_order时按created_at排序
+- **理由**: 支持灵活的产品项展示顺序，方便运营调整展示逻辑
+- **实施步骤**:
+  1. 修改数据库schema，添加sort_order字段
+  2. 执行migration更新数据库
+  3. 实现updateItemSortOrder方法的实际逻辑
+- **决策状态**: ✅ 已确定（2025-11-19）
+- **相关代码**: `src/domains/catalog/product/services/product.service.ts:258`
+
+### 9.2 数据库字段决策
+
+#### D04: 已发布状态检查机制
+- **问题**: 检查产品是否可编辑应该使用哪个字段？
+  - 选项A: 使用`status`字段（DRAFT状态可编辑）
+  - 选项B: 使用`published_at`字段（published_at为null可编辑）
+  - 选项C: 同时使用两个字段进行双重检查
+- **影响范围**: ProductService.update()、addItem()、removeItem()等业务逻辑
+- **决策**: **选项A** - 使用status字段
+  - **可编辑条件**: `product.status === ProductStatus.DRAFT`
+  - **已发布条件**: `product.status === ProductStatus.ACTIVE`
+  - **已停用条件**: `product.status === ProductStatus.INACTIVE`
+  - **一致性要求**: 统一所有业务方法使用status字段检查，移除published_at的检查逻辑
+  - 注意：`published_at`字段仅用于记录发布时间，不作为业务逻辑判断依据
+- **理由**:
+  - 符合DDD状态机思想，状态转换明确
+  - 避免字段间的不一致（如status=DRAFT但publishedAt有值）
+  - 代码简洁，易于理解和维护
+- **实施步骤**:
+  1. 修改ProductService.update()方法，使用status字段检查
+  2. 统一addItem()、removeItem()等业务方法的检查逻辑
+- **决策状态**: ✅ 已确定（2025-11-19）
+- **相关代码**: `src/domains/catalog/product/services/product.service.ts:131`
+
+### 9.3 API兼容性决策
+
+#### D05: 不存在的字段处理方式
+- **问题**: 对于接口定义中有但数据库不存在的字段（如validityDays、sortOrder、scheduledPublishAt），应该如何处理？
+  - 选项A: 从接口定义中移除这些字段，保持接口与数据库一致
+  - 选项B: 在mapToProductInterface中返回undefined或默认值，保留API兼容性
+  - 选项C: 在数据库中添加这些字段，实现完整功能
+- **影响范围**: IProduct接口定义、mapToProductInterface方法
+- **决策**: **选项A** - 从接口移除
+  - **移除字段**: validityDays, scheduledPublishAt（sortOrder已通过D03决策添加）
+  - **处理方式**: 从IProduct接口定义中完全移除这些字段
+  - **理由**: 保持接口与数据库的完全一致性，避免混淆和误解
+  - **实施步骤**:
+    1. 从IProduct接口移除validityDays, scheduledPublishAt字段
+    2. 更新mapToProductInterface方法，移除对这些字段的处理
+    3. 更新相关DTO（如CreateProductDto, UpdateProductDto），移除相应字段
+- **决策状态**: ✅ 已确定（2025-11-19）
+- **相关代码**: `src/domains/catalog/product/services/product.service.ts:612,616,618`
+
+## 10. 总结
 
 简化后的Catalog领域设计保留了核心的产品管理功能，同时移除了Service和Service Package的复杂层级结构，使整个系统更加简洁直观。产品被明确定义为由服务类型的数量组成的可销售单元，通过ProductItem表记录产品中包含的各类服务类型及其数量。这种设计可以实现灵活的产品配置能力，同时降低系统的维护复杂度。
+
+**补充说明**: 本设计文档将根据第9章节的决策结果持续更新，所有接口定义和实现细节将以最终决策为准。

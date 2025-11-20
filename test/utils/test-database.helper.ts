@@ -53,11 +53,10 @@ export class TestDatabaseHelper {
 
     try {
       // Delete in reverse order of dependencies to avoid foreign key constraints
+      // Simplified to only cleanup tables that currently exist in schema
       await this.db.delete(schema.productItems);
       await this.db.delete(schema.products);
-      await this.db.delete(schema.servicePackageItems);
-      await this.db.delete(schema.servicePackages);
-      await this.db.delete(schema.services);
+      await this.db.delete(schema.serviceTypes);
       await this.db.delete(schema.userTable);
     } catch (error) {
       console.error("Error cleaning up test data:", error);

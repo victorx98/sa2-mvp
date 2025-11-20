@@ -1,6 +1,10 @@
 import { IsOptional, IsEnum, IsString, IsBoolean } from "class-validator";
 import { Type } from "class-transformer";
-import { MarketingLabel, ProductStatus, UserPersona } from "@shared/types/catalog-enums";
+import {
+  MarketingLabel,
+  ProductStatus,
+  UserPersona,
+} from "@shared/types/catalog-enums";
 
 export class ProductFilterDto {
   @IsOptional()

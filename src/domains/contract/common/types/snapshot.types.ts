@@ -24,16 +24,9 @@ export interface IProductSnapshot {
  */
 export interface IProductItemSnapshot {
   productItemId: string;
-  productItemType: "service" | "service_package";
-  referenceId: string; // serviceId or servicePackageId
+  serviceTypeId: string; // service type id
   quantity: number; // Quantity in product
   sortOrder: number;
-
-  // Service details (when type = 'service')
-  service?: IServiceSnapshot;
-
-  // Service package details (when type = 'service_package')
-  servicePackage?: IServicePackageSnapshot;
 }
 
 // ============================================================================
@@ -96,10 +89,9 @@ export interface IServicePackageItemSnapshot {
  * Tracks which product items contributed to an entitlement
  */
 export interface IOriginItem {
-  productItemType: "service" | "service_package";
+  serviceTypeId: string; // Service type id
   productItemId?: string; // Product item reference (if from product)
   quantity: number; // Original quantity from this product item
-  servicePackageName?: string; // Service package name (if applicable)
 }
 
 // ============================================================================

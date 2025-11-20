@@ -24,9 +24,9 @@ export interface IServiceSessionCompletedPayload {
   refrenceId?: string;
 
   /**
-   * Type of session [会话类型]
+   * Type code of session [会话类型代码]
    */
-  sessionType: string;
+  sessionTypeCode: string;
 
   /**
    * 实际会话持续时间（小时）
@@ -44,6 +44,7 @@ export interface IServiceSessionCompletedPayload {
   allowBilling: boolean;
 }
 
-export interface IServiceSessionCompletedEvent extends IEvent<IServiceSessionCompletedPayload> {
+export interface IServiceSessionCompletedEvent
+  extends IEvent<IServiceSessionCompletedPayload> {
   type: typeof SERVICE_SESSION_COMPLETED_EVENT;
 }

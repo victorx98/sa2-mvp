@@ -22,7 +22,7 @@ export class ServiceHoldService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-  ) { }
+  ) {}
 
   /**
    * Create hold(v2.16.13 - 重新引入过期机制)
@@ -272,7 +272,8 @@ export class ServiceHoldService {
 
           releasedCount++;
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
           this.logger.error(
             `Failed to release expired hold ${hold.id}: ${errorMessage}`,
             error instanceof Error ? error.stack : undefined,
@@ -286,8 +287,12 @@ export class ServiceHoldService {
         skippedCount = 1;
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Error in releaseExpiredHolds: ${errorMessage}`, error instanceof Error ? error.stack : undefined);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Error in releaseExpiredHolds: ${errorMessage}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       failedCount++;
     }
 

@@ -6,15 +6,13 @@
 
 | 编号 | 决策项           | 决策内容                                                       |
 | ---- | ---------------- | -------------------------------------------------------------- |
-| A-1  | relationId 关联  | 单 relationId + sourceEntity 区分来源                          |
-| B    | 服务快照         | 保留 mentorUserId, serviceTypeCode, serviceName, studentUserId |
+| A-1  | referenceId 关联 | 单 referenceId 关联到 service_references 表的 id               |
+| B    | 服务快照         | 保留 mentorId, serviceTypeCode, studentId                      |
 | D-1  | billingMode 存储 | 通过 serviceType 隐式确定                                      |
 | D-2  | 包计费时机       | 最后一个 session 完成后统一计费                                |
 | F-G  | 费用调整         | 负向交易 + 链式调整（支持多次）                                |
-| I    | 结算字段         | 独立 settlement 表处理                                         |
-| K    | 唯一索引         | 两个索引分别处理按次和按包                                     |
+| K    | 唯一索引         | 单一索引处理所有场景                                           |
 | L    | 服务类型存储     | 使用 service_types 表（非枚举）                                |
-| M    | 评价后计费       | requiredEvaluation 标记                                        |
 
 ---
 
@@ -26,12 +24,24 @@
 
 ```typescript
 export const serviceTypes = pgTable("service_types", {
-    id: uuid("id").primaryKey().defaultRandom(),
-    code: varchar("code", { length: 50 }).notNull().unique(), // 服务类型代码（如：session）
-    name: varchar("name", { length: 200 }).notNull(), // 服务名称
-    requiredEvaluation: boolean("required_evaluation").notNull().default(false), // 是否评价后计费
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  // Primary Key [主键]
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  // Basic Information [基本信息]
+  code: varchar("code", { length: 50 }).notNull(), // Service type code [服务类型编码]
+  name: varchar("name", { length: 255 }).notNull(), // Service type name [服务类型名称]
+  description: text("description"), // Service type description [服务类型描述]
+
+  // Status Management [状态管理]
+  status: varchar("status", { length: 20 }).notNull().default("ACTIVE"), // Service type status [服务类型状态]
+
+  // Audit Fields [审计字段]
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 ```
 
@@ -45,21 +55,83 @@ export const serviceTypes = pgTable("service_types", {
 
 ```typescript
 export const mentorPayableLedgers = pgTable("mentor_payable_ledgers", {
-    id: uuid("id").primaryKey().defaultRandom(),
-    relationId: uuid("relation_id").notNull(), // 关联服务记录ID（如：session.id）
-    sourceEntity: varchar("source_entity", { length: 50 }).notNull(), // 来源表（session/internal_referral）
-    mentorUserId: uuid("mentor_user_id").notNull(), // 导师ID
-    studentUserId: uuid("student_user_id"), // 学生ID（可为空）
-    serviceTypeCode: varchar("service_type_code", { length: 50 }).notNull(), // 服务类型Code（快照）
-    serviceName: varchar("service_name", { length: 500 }), // 服务名称快照
-    price: numeric("price", { precision: 12, scale: 1 }).notNull(), // 单价
-    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(), // 总金额（调整可为负）
-    currency: varchar("currency", { length: 3 }).notNull().default("USD"),
-    originalId: uuid("original_id"), // 被调整的原始记录ID（链式调整）
-    adjustmentReason: varchar("adjustment_reason", { length: 500 }), // 调整原因
-    servicePackageId: uuid("service_package_id"), // 服务包ID（包计费模式）
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    createdBy: uuid("created_by"), // 操作人ID
+  // ========== Primary Key & Relations ==========
+  id: uuid("id").primaryKey().defaultRandom(),
+
+  /**
+   * Reference ID - Links to service_references table
+   * References: service_references.id
+   */
+  referenceId: uuid("reference_id").notNull(),
+
+  // ========== Participants ==========
+  /**
+   * Mentor ID
+   * References: mentor.id
+   */
+  mentorId: uuid("mentor_id").notNull(),
+
+  /**
+   * Student ID (nullable)
+   * References: student.id
+   * Nullable: Some services may not have students
+   */
+  studentId: uuid("student_id"),
+
+  // ========== Service Snapshot ==========
+  /**
+   * Session Type ID - References session_types.id
+   * Purpose: Links to session type configuration
+   */
+  sessionTypeCode: varchar("session_type_code", { length: 50 })
+    .notNull(),
+
+  // ========== Price Snapshot ==========
+  /**
+   * Unit Price - Price per session/hour/package
+   * Precision: 12 digits total, 1 decimal place
+   */
+  price: numeric("price", { precision: 12, scale: 1 }).notNull(),
+
+  /**
+   * Total Amount - Calculated amount (may be negative for adjustments)
+   * Precision: 12 digits total, 2 decimal places
+   */
+  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+
+  /**
+   * Currency - ISO 4217 currency code
+   * Default: USD
+   */
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+
+  // ========== Adjustments ==========
+  /**
+   * Original ID - Points to the adjusted record
+   * Used for chain adjustments (supports multiple adjustments)
+   * Null for original records
+   */
+  originalId: uuid("original_id"),
+
+  /**
+   * Adjustment Reason - Reason for adjustment
+   * Required when original_id is not null
+   */
+  adjustmentReason: varchar("adjustment_reason", { length: 500 }),
+
+  // ========== Timestamps ==========
+  /**
+   * Created At - Record creation timestamp (immutable)
+   */
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+
+  /**
+   * Created By - Operator user ID (for audit trail)
+   * References: identity.users.id
+   */
+  createdBy: uuid("created_by"),
 });
 ```
 
@@ -78,78 +150,136 @@ export const mentorPayableLedgers = pgTable("mentor_payable_ledgers", {
 
 ```typescript
 export const mentorPrices = pgTable("mentor_prices", {
-    id: uuid("id").primaryKey().defaultRandom(),
-    mentorUserId: uuid("mentor_user_id").notNull(), // 导师ID
-    serviceTypeCode: varchar("service_type_code", { length: 50 }).notNull(), // 服务类型Code
-    price: numeric("price", { precision: 12, scale: 1 }).notNull(), // 单价
-    currency: varchar("currency", { length: 3 }).notNull().default("USD"),
-    status: varchar("status", { length: 20 }).notNull().default("active"), // active/inactive
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    createdBy: uuid("created_by"),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedBy: uuid(updated_by),
+  // ========== Primary Key ==========
+  /**
+   * Record ID
+   */
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  // ========== Entity References ==========
+  /**
+   * Mentor ID
+   * References: mentor.id
+   */
+  mentorId: varchar("mentor_id", { length: 32 })
+    .references(() => mentorTable.id, { onDelete: "cascade" })
+    .notNull(),
+
+  /**
+   * Session Type ID
+   * References: session_types.id
+   */
+  sessionTypeCode: varchar("session_type_code", { length: 50 }) // 使用sessionTypeCode引用session_types.id
+    .notNull()
+    .references(() => sessionTypes.id, { onDelete: "cascade" }),
+
+  // ========== Pricing Configuration ==========
+  /**
+   * Package Code - Optional
+   */
+  packageCode: varchar("package_code", { length: 50 }),
+
+  /**
+   * Price amount
+   * Precision: 12 digits total, 1 decimal place
+   */
+  price: decimal("price", { precision: 12, scale: 1 }).notNull(),
+
+  /**
+   * Currency code
+   * ISO 4217 format
+   * Default: USD
+   */
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+
+  /**
+   * Status of the price configuration
+   * Values: 'active', 'inactive'
+   * Default: active
+   */
+  status: varchar("status", { length: 20 }).notNull().default("active"),
+
+  /**
+   * Updated by user ID
+   * References: mentor.id
+   * Nullable: Initial creation may not have an updater
+   */
+  updatedBy: varchar("updated_by", { length: 32 }).references(
+    () => mentorTable.id,
+  ),
+
+  // ========== Timestamps ==========
+  /**
+   * Creation timestamp
+   */
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+
+  /**
+   * Last update timestamp
+   */
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 ```
 
----
+**索引定义**：
 
-## 唯一索引（幂等性保证）
-
-```sql
--- 1. 按次计费（原始记录）
-CREATE UNIQUE INDEX idx_mentor_payable_relation
-  ON mentor_payable_ledgers(relation_id, source_entity)
-  WHERE original_id IS NULL;
-
--- 2. 按包计费（原始记录）
-CREATE UNIQUE INDEX idx_mentor_payable_package
-  ON mentor_payable_ledgers(service_package_id, relation_id, source_entity)
-  WHERE original_id IS NULL
-    AND service_package_id IS NOT NULL;
+```typescript
+(table) => ({
+  // 复合索引：导师ID + 会话类型代码 + 状态
+  mentorSessionTypeIdx: index("idx_mentor_session_type").on(
+    table.mentorId,
+    table.sessionTypeCode,
+    table.status,
+  ),
+  // 导师ID索引
+  mentorIdx: index("idx_mentor_prices_mentor").on(table.mentorId),
+  // 会话类型代码索引
+  sessionTypeIdx: index("idx_mentor_prices_session_type").on(
+    table.sessionTypeCode,
+  ),
+  // 状态索引
+  statusIdx: index("idx_mentor_prices_status").on(table.status),
+}),
 ```
 
+**设计原则**：
+
+1. 价格配置与导师和服务类型关联
+2. 支持多种计费模式
+3. 价格历史可追溯
+
+**注意事项**：
+
+1. 价格变更不需要创建新记录，而是更新现有记录
+2. 价格变更不需要审批流程
+3. 价格变更不需要通知相关方
+4. 价格变更需要记录变更人，不需要记录变更原因
+
 ---
 
-## 事件定义
-
-### SessionCompletedEvent
+### 2. 服务会话完成事件（ServiceSessionCompletedEvent）
 // services.session.completed
 ```typescript
-export interface SessionCompletedEvent {
-    sessionId: string;
-    mentorUserId: string;
-    studentUserId: string | null;
-    mentorName: string;
-    studentName: string;
-    serviceTypeCode: string; // 服务类型 code
-    serviceName: string; // 服务名称
-    durationHours?: number; // 服务时长（小时）
-    completedAt: Date; // 完成时间
-    requiredEvaluation: boolean; // 是否评价后计费
-    // 包模式（可选）
-    servicePackageId?: string;
-    packageTotalSessions?: number;
-    packageCompletedSessions?: number;
+export interface IServiceSessionCompletedPayload {
+    sessionId?: string;
+    studentId: string;
+    mentorId?: string;
+    referenceId?: string;
+    sessionTypeCode: string;
+    serviceTypeCode: string; // 关联service_types表中的code字段
+    actualDurationHours: number;
+    durationHours: number;
+    allowBilling: boolean;
 }
-```
 
-### SessionEvaluatedEvent
-// services.session.evaluated
-```typescript
-export interface SessionEvaluatedEvent {
-    sessionId: string;
-    mentorUserId: string;
-    studentUserId: string;
-    mentorName: string;
-    studentName: string;
-    serviceTypeCode: string; // 服务类型 code
-    serviceName: string; // 服务名称
-    durationHours?: number; // 服务时长（小时）
-    reviewedAt: Date; // 评价完成时间
-    // 包模式（可选）
-    servicePackageId?: string;
-    packageTotalSessions?: number;
-    packageCompletedSessions?: number;
+export const SERVICE_SESSION_COMPLETED_EVENT = "services.session.completed";
+
+export interface IServiceSessionCompletedEvent extends IEvent<IServiceSessionCompletedPayload> {
+    type: typeof SERVICE_SESSION_COMPLETED_EVENT;
 }
 ```
 
@@ -162,53 +292,48 @@ export interface SessionEvaluatedEvent {
 ### 路由处理
 
 ```typescript
-// SessionCompletedEvent 处理
+// ServiceSessionCompletedEvent 处理
 @OnEvent('services.session.completed')
-async handleSessionCompleted(event: SessionCompletedEvent) {
+async handleSessionCompleted(event: IServiceSessionCompletedEvent) {
   if (await this.isDuplicate(event)) return;
-  if (event.requiredEvaluation) return; // 等待评价
-  await this.routeBilling(event);
-}
-
-// SessionEvaluatedEvent 处理
-@OnEvent('services.session.evaluated')
-async handleSessionEvaluated(event: SessionEvaluatedEvent) {
-  if (await this.isDuplicate(event)) return;
-  await this.routeBilling(event);
+  if (event.payload.allowBilling === false) return; // 不允许计费
+  await this.routeBilling(event.payload);
 }
 
 // 计费路由
-async routeBilling(event: SessionCompletedEvent | SessionEvaluatedEvent) {
-  if (event.servicePackageId) {
-    await this.createPackageBilling(event);
-  } else {
-    await this.createPerSessionBilling(event);
-  }
+async routeBilling(payload: IServiceSessionCompletedPayload) {
+  // 实现计费逻辑
 }
 ```
 
 ### 计费逻辑
 
+**说明**: 导师应付账款流水记录主要通过 `services.session.completed` 事件触发创建，同时也支持其他业务场景下的手动调整记录。
+
 ```typescript
 // 按次计费
-async createPerSessionBilling(event) {
+async createPerSessionBilling(payload: IServiceSessionCompletedPayload) {
   const price = await db.query.mentorPrices.findFirst({
     where: and(
-      eq(mentorPrices.mentorUserId, event.mentorUserId),
-      eq(mentorPrices.serviceTypeCode, event.serviceTypeCode)
+      eq(mentorPrices.mentorId, payload.mentorId!),
+      eq(mentorPrices.sessionTypeCode, payload.sessionTypeCode),
+      // 也可以根据需要使用serviceTypeCode进行查询
+      // eq(mentorPrices.serviceTypeCode, payload.serviceTypeCode)
     )
   });
   if (!price) throw new PriceNotFoundError();
-  const amount = price.billingMode === 'per_hour'
-    ? price.price * event.durationHours
-    : price.price;
+  
+  const referenceId = payload.referenceId || payload.sessionId;
+  if (!referenceId) throw new InvalidReferenceIdError();
+  
+  const amount = price.price * payload.actualDurationHours;
+  
   await db.insert(mentorPayableLedgers).values({
-    relationId: event.sessionId,
-    sourceEntity: 'session',
-    mentorUserId: event.mentorUserId,
-    studentUserId: event.studentUserId,
-    serviceTypeCode: event.serviceTypeCode,
-    serviceName: event.serviceName,
+    referenceId: referenceId,
+    mentorId: payload.mentorId!,
+    studentId: payload.studentId,
+    sessionTypeCode: payload.sessionTypeCode,
+    serviceTypeCode: payload.serviceTypeCode, // 添加serviceTypeCode字段
     price: price.price,
     amount: amount,
     currency: price.currency,
@@ -217,36 +342,16 @@ async createPerSessionBilling(event) {
 }
 
 // 包计费
-async createPackageBilling(event) {
-  if (event.packageCompletedSessions! < event.packageTotalSessions!) return; // 未完成
-  const price = await db.query.mentorPrices.findFirst({
-    where: and(
-      eq(mentorPrices.mentorUserId, event.mentorUserId),
-      eq(mentorPrices.serviceTypeCode, event.serviceTypeCode),
-      eq(mentorPrices.servicePackageId, event.servicePackageId!)
-    )
-  });
-  await db.insert(mentorPayableLedgers).values({
-    relationId: event.sessionId,           // 最后一个 session ID
-    sourceEntity: 'session',
-    servicePackageId: event.servicePackageId,
-    mentorUserId: event.mentorUserId,
-    studentUserId: event.studentUserId,
-    serviceTypeCode: event.serviceTypeCode,
-    serviceName: event.serviceName,
-    price: price.price,
-    amount: price.price,
-    currency: price.currency,
-    createdBy: 'system'
-  });
+async createPackageBilling(payload: IServiceSessionCompletedPayload) {
+  // 实现包计费逻辑
 }
 ```
 
 **关键点**：
 
-- 包计费只在最后一个 session 完成后触发
-- `relationId` 使用最后一个 session 的 ID用于追溯
-- 金额 = 包总价（固定，不按实际完成次数变化）
+- 使用 `actualDurationHours` 计算实际服务时长
+- 使用 `allowBilling` 控制是否允许计费
+- 优先使用 `referenceId` 作为关联ID，否则使用 `sessionId`
 
 ---
 
@@ -258,7 +363,7 @@ async createPackageBilling(event) {
 
 ```typescript
 // 原始记录（金额 $100）
-{ id: 'ledger-001', relationId: 'session-456', amount: 100.0, originalId: null }
+{ id: 'ledger-001', referenceId: 'session-456', amount: 100.0, originalId: null }
 
 // 调整记录：退款 $50
 await adjustPayableLedger({
@@ -269,7 +374,7 @@ await adjustPayableLedger({
 });
 
 // 生成调整记录
-{ id: 'ledger-002', relationId: 'session-456', amount: -50.0, originalId: 'ledger-001' }
+{ id: 'ledger-002', referenceId: 'session-456', amount: -50.0, originalId: 'ledger-001' }
 ```
 
 **最终结果**：SUM(amount) = 100 + (-50) = **$50**
@@ -285,7 +390,7 @@ await adjustPayableLedger({
 });
 
 // 生成二次调整记录
-{ id: 'ledger-003', relationId: 'session-456', amount: 20.0, originalId: 'ledger-002' }
+{ id: 'ledger-003', referenceId: 'session-456', amount: 20.0, originalId: 'ledger-002' }
 ```
 
 **最终追溯链**：`ledger-003 → ledger-002 → ledger-001`
@@ -297,22 +402,13 @@ await adjustPayableLedger({
 ## 幂等性实现
 
 ```typescript
-async isDuplicate(event: SessionCompletedEvent): boolean {
-  if (event.servicePackageId) {
-    return await db.query.mentorPayableLedgers.findFirst({
-      where: and(
-        eq(mentorPayableLedgers.servicePackageId, event.servicePackageId!),
-        eq(mentorPayableLedgers.relationId, event.sessionId),
-        eq(mentorPayableLedgers.sourceEntity, 'session'),
-        isNull(mentorPayableLedgers.originalId)
-      )
-    }).then(Boolean);
-  }
-
+async isDuplicate(event: IServiceSessionCompletedEvent): boolean {
+  const referenceId = event.payload.referenceId || event.payload.sessionId;
+  if (!referenceId) return false;
+  
   return await db.query.mentorPayableLedgers.findFirst({
     where: and(
-      eq(mentorPayableLedgers.relationId, event.sessionId),
-      eq(mentorPayableLedgers.sourceEntity, 'session'),
+      eq(mentorPayableLedgers.referenceId, referenceId),
       isNull(mentorPayableLedgers.originalId)
     )
   }).then(Boolean);
@@ -328,17 +424,17 @@ async isDuplicate(event: SessionCompletedEvent): boolean {
 ```typescript
 // 1. 查询某个导师的所有应付账款
 await db.query.mentorPayableLedgers.findMany({
-    where: eq(mentorPayableLedgers.mentorUserId, "mentor-123"),
+    where: eq(mentorPayableLedgers.mentorId, "mentor-123"),
 });
 
 // 2. 查询某个会话的所有记录（含调整）
 await db.query.mentorPayableLedgers.findMany({
-    where: and(eq(mentorPayableLedgers.relationId, "session-456"), eq(mentorPayableLedgers.sourceEntity, "session")),
+    where: eq(mentorPayableLedgers.referenceId, "session-456"),
 });
 
-// 3. 查询某个包的计费记录
-await db.query.mentorPayableLedgers.findFirst({
-    where: eq(mentorPayableLedgers.servicePackageId, "package-123"),
+// 3. 查询某个学生的所有记录
+await db.query.mentorPayableLedgers.findMany({
+    where: eq(mentorPayableLedgers.studentId, "student-123"),
 });
 
 // 4. 查询某笔调整的所有后续调整

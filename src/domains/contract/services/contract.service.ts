@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { eq, and, sql, SQL, desc, gte, lte } from "drizzle-orm";
+import { eq, and, sql, SQL, gte, lte } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import { DrizzleDatabase } from "@shared/types/database.types";
@@ -19,12 +19,7 @@ import type { Contract } from "@infrastructure/database/schema";
 import type {
   IProductSnapshot,
   IGenerateContractNumberResult,
-  IEntitlementAggregation,
 } from "../common/types/snapshot.types";
-import type {
-  ContractStatusEnum,
-  CurrencyEnum,
-} from "../common/types/enum.types";
 import type { ContractServiceEntitlement } from "@infrastructure/database/schema";
 import { ContractStatus, HoldStatus } from "@shared/types/contract-enums";
 
@@ -34,7 +29,7 @@ export class ContractService {
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
     private readonly eventEmitter: EventEmitter2,
-  ) { }
+  ) {}
 
   /**
    * Create contract(创建合约)
@@ -137,9 +132,7 @@ export class ContractService {
 
     const conditions = [eq(schema.contracts.studentId, studentId)];
     if (status) {
-      conditions.push(
-        eq(schema.contracts.status, status as ContractStatus),
-      );
+      conditions.push(eq(schema.contracts.status, status as ContractStatus));
     }
     if (productId) {
       conditions.push(eq(schema.contracts.productId, productId));
@@ -168,133 +161,168 @@ export class ContractService {
    * - Update status to active(- 更新状态为已激活)
    * - Set activatedAt timestamp(- 设置激活时间戳)
    * - Create service entitlements from product snapshot(- 从产品快照创建服务权利)
-   * - Publish contract.activated event(- 发布合约激活事件)
    */
   async activate(id: string): Promise<Contract> {
-    // 1. Find contract(1. 查找合约)
+    // 1. Find the contract(1. 查找合约)
     const contract = await this.findOne({ contractId: id });
     if (!contract) {
       throw new ContractNotFoundException("CONTRACT_NOT_FOUND");
     }
 
-    // 2. Validate status(2. 验证状态)
-    if (contract.status !== "signed") {
-      throw new ContractException("CONTRACT_NOT_DRAFT");
+    // 2. Check if contract is already active(2. 检查合约是否已激活)
+    if (contract.status === ContractStatus.ACTIVE) {
+      throw new ContractException("CONTRACT_ALREADY_ACTIVE");
     }
 
-    // 3. Update status and create entitlements(3. 更新状态并创建权利)
-    const [updatedContract, entitlements] = await this.db.transaction(
-      async (tx) => {
-        const [contract] = await tx
-          .update(schema.contracts)
-          .set({
-            status: ContractStatus.ACTIVE,
-            activatedAt: new Date(),
-          })
-          .where(eq(schema.contracts.id, id))
-          .returning();
+    // 3. Check if contract is in signed status(3. 检查合约是否处于已签署状态)
+    if (contract.status !== ContractStatus.SIGNED) {
+      throw new ContractException("INVALID_CONTRACT_STATUS");
+    }
 
-        // 4. Create service entitlements from product snapshot(4. 从产品快照创建服务权利)
-        const productSnapshot =
-          contract.productSnapshot as unknown as IProductSnapshot;
-        const entitlementMap = new Map<string, IEntitlementAggregation>();
+    // 4. Process activation in transaction(4. 在事务中处理激活)
+    return await this.db.transaction(async (tx) => {
+      // Update contract status and activation timestamp(更新合约状态和激活时间戳)
+      const [updatedContract] = await tx
+        .update(schema.contracts)
+        .set({
+          status: ContractStatus.ACTIVE,
+          activatedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.contracts.id, id))
+        .returning();
 
-        // Parse product items and aggregate by service type(解析产品项并按服务类型聚合)
-        for (const item of productSnapshot.items || []) {
-          if (item.productItemType === "service" && item.service) {
-            const serviceType = item.service.serviceType;
-            const existing = entitlementMap.get(serviceType);
+      // Create service entitlements from product snapshot(从产品快照创建服务权益)
+      const productSnapshot = contract.productSnapshot as IProductSnapshot;
 
-            if (existing) {
-              existing.totalQuantity += item.quantity;
-              existing.originItems.push({
-                productItemType: "service",
-                productItemId: item.productItemId,
-                quantity: item.quantity,
-              });
-            } else {
-              entitlementMap.set(serviceType, {
-                serviceType: serviceType,
-                totalQuantity: item.quantity,
-                serviceSnapshot: item.service,
-                originItems: [
-                  {
-                    productItemType: "service",
-                    productItemId: item.productItemId,
-                    quantity: item.quantity,
-                  },
-                ],
-              });
-            }
-          } else if (
-            item.productItemType === "service_package" &&
-            item.servicePackage
-          ) {
-            // Expand service package items(展开服务包项)
-            for (const pkgItem of item.servicePackage.items || []) {
-              const serviceType = pkgItem.service.serviceType;
-              const quantity = item.quantity * pkgItem.quantity; // Product quantity * package item quantity(产品数量 * 包项数量)
-              const existing = entitlementMap.get(serviceType);
+      if (productSnapshot.items && productSnapshot.items.length > 0) {
+        for (const item of productSnapshot.items) {
+          // Get service type from serviceTypeId(从serviceTypeId获取服务类型code)
+          const [serviceTypeRecord] = await tx
+            .select({ code: schema.serviceTypes.code })
+            .from(schema.serviceTypes)
+            .where(eq(schema.serviceTypes.id, item.serviceTypeId))
+            .limit(1);
 
-              if (existing) {
-                existing.totalQuantity += quantity;
-                existing.originItems.push({
-                  productItemType: "service_package",
-                  productItemId: item.productItemId,
-                  quantity,
-                  servicePackageName: item.servicePackage.servicePackageName,
-                });
-              } else {
-                entitlementMap.set(serviceType, {
-                  serviceType: serviceType as string,
-                  totalQuantity: quantity,
-                  serviceSnapshot: pkgItem.service,
-                  originItems: [
-                    {
-                      productItemType: "service_package",
-                      productItemId: item.productItemId,
-                      quantity,
-                      servicePackageName:
-                        item.servicePackage.servicePackageName,
-                    },
-                  ],
-                });
-              }
-            }
+          if (!serviceTypeRecord) {
+            throw new ContractException("SERVICE_TYPE_NOT_FOUND");
+          }
+
+          const serviceTypeCode = serviceTypeRecord.code;
+
+          // Check if entitlement already exists for this student and service type(检查此学生和服务类型是否已存在权益)
+          const [existingEntitlement] = await tx
+            .select()
+            .from(schema.contractServiceEntitlements)
+            .where(
+              and(
+                eq(
+                  schema.contractServiceEntitlements.studentId,
+                  contract.studentId,
+                ),
+                eq(
+                  schema.contractServiceEntitlements.serviceType,
+                  serviceTypeCode,
+                ),
+              ),
+            )
+            .limit(1);
+
+          if (existingEntitlement) {
+            // Update existing entitlement(更新现有权益)
+            await tx
+              .update(schema.contractServiceEntitlements)
+              .set({
+                totalQuantity:
+                  existingEntitlement.totalQuantity + (item.quantity || 1),
+                availableQuantity:
+                  existingEntitlement.availableQuantity + (item.quantity || 1),
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(
+                    schema.contractServiceEntitlements.studentId,
+                    contract.studentId,
+                  ),
+                  eq(
+                    schema.contractServiceEntitlements.serviceType,
+                    serviceTypeCode,
+                  ),
+                ),
+              );
+          } else {
+            // Insert new service entitlement(插入新的服务权益)
+            await tx.insert(schema.contractServiceEntitlements).values({
+              studentId: contract.studentId,
+              serviceType: serviceTypeCode,
+              totalQuantity: item.quantity || 1,
+              consumedQuantity: 0,
+              heldQuantity: 0,
+              availableQuantity: item.quantity || 1,
+              createdBy: "system",
+            });
           }
         }
+      } else {
+        // If no items in product snapshot, create a default service entitlement(如果产品快照中没有项目，创建默认服务权益)
+        const defaultServiceType = "DEFAULT_SERVICE";
 
-        // Insert entitlements(插入权利)
-        const entitlements = Array.from(entitlementMap.values()).map(
-          (entitlement) => ({
-            studentId: contract.studentId,
-            serviceType: entitlement.serviceType as string,
-            totalQuantity: entitlement.totalQuantity,
-            availableQuantity: entitlement.totalQuantity,
-            serviceSnapshot: entitlement.serviceSnapshot as never,
-            originItems: entitlement.originItems as never,
-          }),
-        );
+        // Check if entitlement already exists(检查权益是否已存在)
+        const [existingEntitlement] = await tx
+          .select()
+          .from(schema.contractServiceEntitlements)
+          .where(
+            and(
+              eq(
+                schema.contractServiceEntitlements.studentId,
+                contract.studentId,
+              ),
+              eq(
+                schema.contractServiceEntitlements.serviceType,
+                defaultServiceType,
+              ),
+            ),
+          )
+          .limit(1);
 
-        if (entitlements.length > 0) {
+        if (existingEntitlement) {
+          // Update existing entitlement(更新现有权益)
           await tx
-            .insert(schema.contractServiceEntitlements)
-            .values(entitlements);
+            .update(schema.contractServiceEntitlements)
+            .set({
+              totalQuantity: existingEntitlement.totalQuantity + 1,
+              availableQuantity: existingEntitlement.availableQuantity + 1,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(
+                  schema.contractServiceEntitlements.studentId,
+                  contract.studentId,
+                ),
+                eq(
+                  schema.contractServiceEntitlements.serviceType,
+                  defaultServiceType,
+                ),
+              ),
+            );
+        } else {
+          // Insert new service entitlement(插入新的服务权益)
+          await tx.insert(schema.contractServiceEntitlements).values({
+            studentId: contract.studentId,
+            serviceType: defaultServiceType,
+            totalQuantity: 1,
+            consumedQuantity: 0,
+            heldQuantity: 0,
+            availableQuantity: 1,
+            createdBy: "system",
+          });
         }
+      }
 
-        return [contract, entitlements];
-      },
-    );
-
-    // 5. Publish event using EventEmitter2(5. 使用EventEmitter2发布事件)
-    this.eventEmitter.emit("contract.activated", {
-      contractId: updatedContract.id,
-      contractNumber: updatedContract.contractNumber,
-      activatedAt: updatedContract.activatedAt,
-      entitlementsCreated: entitlements.length,
+      return updatedContract;
     });
-
-    return updatedContract;
   }
 
   /**
@@ -866,7 +894,8 @@ export class ContractService {
         .insert(schema.contractServiceEntitlements)
         .values({
           studentId,
-          serviceType: serviceType as string,
+          serviceType:
+            typeof serviceType === "string" ? serviceType : serviceType.code,
           totalQuantity: quantityChanged,
           consumedQuantity: 0,
           heldQuantity: 0,
@@ -893,7 +922,8 @@ export class ContractService {
       // Create amendment ledger record (audit trail)(创建权益变更台账记录(审计跟踪))
       await tx.insert(schema.contractAmendmentLedgers).values({
         studentId,
-        serviceType: serviceType,
+        serviceType:
+          typeof serviceType === "string" ? serviceType : serviceType.code,
         ledgerType,
         quantityChanged,
         reason,
@@ -911,7 +941,8 @@ export class ContractService {
       // Create service ledger entry for audit trail(创建服务流水记录用于审计跟踪)
       await tx.insert(schema.serviceLedgers).values({
         studentId,
-        serviceType: serviceType as string,
+        serviceType:
+          typeof serviceType === "string" ? serviceType : serviceType.code,
         type: "adjustment",
         source: "manual_adjustment",
         quantity: quantityChanged,
@@ -982,9 +1013,7 @@ export class ContractService {
       conditions.push(eq(schema.contracts.studentId, studentId));
     }
     if (status) {
-      conditions.push(
-        eq(schema.contracts.status, status as ContractStatus),
-      );
+      conditions.push(eq(schema.contracts.status, status as ContractStatus));
     }
     if (productId) {
       conditions.push(eq(schema.contracts.productId, productId));

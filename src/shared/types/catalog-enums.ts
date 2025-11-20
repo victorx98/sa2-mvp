@@ -46,15 +46,6 @@ export enum UserType {
 }
 
 /**
- * 产品项类型枚举
- * 定义产品项的不同类型
- */
-export enum ProductItemType {
-  SERVICE = "SERVICE",
-  SERVICE_PACKAGE = "SERVICE_PACKAGE",
-}
-
-/**
  * 服务状态常量
  * 定义服务的激活状态
  */
@@ -69,10 +60,9 @@ export enum ServiceStatus {
  * 定义服务的计费方式
  */
 export enum BillingMode {
-  ONE_TIME = "one_time",
-  PER_SESSION = "per_session",
-  STAGED = "staged",
-  PACKAGE = "package",
+  HOUR = "hour",
+  SESSION = "session",
+  CREDIT = "credit",
 }
 
 export enum UserPersona {
@@ -80,6 +70,5 @@ export enum UserPersona {
   GRADUATE = "graduate", // Graduate
   WORKING = "working", // Working professional
 }
-
 
 export type MarketingLabel = "hot" | "new" | "recommended";

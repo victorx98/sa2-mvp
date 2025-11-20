@@ -2,10 +2,7 @@
  * Date utility functions for Contract Domain
  */
 
-import {
-  HOLD_TTL_MINUTES,
-  ARCHIVE_MAX_DATE_RANGE_DAYS,
-} from "../constants/contract.constants";
+import { ARCHIVE_MAX_DATE_RANGE_DAYS } from "../constants/contract.constants";
 
 /**
  * Calculate contract expiration date
@@ -29,13 +26,13 @@ export function calculateExpirationDate(
 /**
  * Calculate hold expiration date
  * @param createdAt Hold creation date
- * @param ttlMinutes TTL in minutes (default: HOLD_TTL_MINUTES)
+ * @param ttlMinutes TTL in minutes
  * @returns Hold expiration date
  * @deprecated v2.16.9: Hold TTL mechanism removed. Holds no longer expire automatically.
  */
 export function calculateHoldExpirationDate(
   createdAt: Date = new Date(),
-  ttlMinutes: number = HOLD_TTL_MINUTES,
+  ttlMinutes: number = 15, // Default value removed dependency on HOLD_TTL_MINUTES
 ): Date {
   const expiresAt = new Date(createdAt);
   expiresAt.setMinutes(expiresAt.getMinutes() + ttlMinutes);
