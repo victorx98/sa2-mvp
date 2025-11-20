@@ -1,219 +1,174 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import * as crypto from "crypto";
 import { WebhookSignatureVerificationException } from "../exceptions/webhook.exception";
 
 /**
  * Webhook Verification Service
  *
- * Handles signature verification for webhooks from different platforms
+ * Handles token-based verification for webhooks from different platforms
+ * Strategy: Verification Token + Timestamp Replay Check (lightweight approach)
  */
 @Injectable()
 export class WebhookVerificationService {
   private readonly logger = new Logger(WebhookVerificationService.name);
-  private readonly feishuEncryptKey: string;
   private readonly feishuVerificationToken: string;
-  private readonly zoomWebhookSecretToken: string;
+  private readonly zoomVerificationToken: string;
+
+  // Replay attack prevention: 5 minutes window
+  private readonly REPLAY_WINDOW_SECONDS = 300;
 
   constructor(private readonly configService: ConfigService) {
-    this.feishuEncryptKey =
-      this.configService.get<string>("FEISHU_ENCRYPT_KEY") || "";
     this.feishuVerificationToken =
       this.configService.get<string>("FEISHU_VERIFICATION_TOKEN") || "";
-    this.zoomWebhookSecretToken =
-      this.configService.get<string>("ZOOM_WEBHOOK_SECRET_TOKEN") || "";
+    this.zoomVerificationToken =
+      this.configService.get<string>("ZOOM_VERIFICATION_TOKEN") || "";
   }
 
   /**
-   * Verify Feishu webhook signature
-   *
-   * Feishu uses timestamp + nonce + encrypt_key to generate signature
-   * @param timestamp - Request timestamp
-   * @param nonce - Random nonce
-   * @param body - Request body (stringified)
-   * @param signature - Signature from request header
-   * @returns True if signature is valid
+   * Verify timestamp to prevent replay attacks
+   * 
+   * @param timestamp - Unix timestamp in seconds
+   * @returns True if within acceptable window
    */
-  verifyFeishuSignature(
-    timestamp: string,
-    nonce: string,
-    body: string,
-    signature: string,
-  ): boolean {
-    try {
-      if (!this.feishuEncryptKey) {
-        this.logger.warn(
-          "FEISHU_ENCRYPT_KEY not configured, skipping signature verification",
-        );
-        return true; // Skip verification if not configured (development mode)
-      }
+  private verifyTimestamp(timestamp: number): boolean {
+    const currentTime = Math.floor(Date.now() / 1000);
+    const timeDiff = Math.abs(currentTime - timestamp);
 
-      // Feishu signature calculation: SHA256(timestamp + nonce + encrypt_key + body)
-      const content = timestamp + nonce + this.feishuEncryptKey + body;
-      const hash = crypto.createHash("sha256").update(content).digest("hex");
-
-      const isValid = hash === signature;
-
-      if (!isValid) {
-        this.logger.warn(
-          `Feishu signature verification failed. Expected: ${hash}, Got: ${signature}`,
-        );
-      }
-
-      return isValid;
-    } catch (error) {
-      this.logger.error(
-        `Error verifying Feishu signature: ${error instanceof Error ? error.message : String(error)}`,
+    if (timeDiff > this.REPLAY_WINDOW_SECONDS) {
+      this.logger.warn(
+        `Timestamp too old: ${timeDiff} seconds difference (limit: ${this.REPLAY_WINDOW_SECONDS}s)`,
       );
       return false;
     }
+
+    return true;
   }
 
   /**
-   * Verify Feishu webhook token (for URL verification)
+   * Verify Feishu webhook token
    *
-   * @param token - Token from request
-   * @returns True if token is valid
+   * @param token - Token from request payload
+   * @throws WebhookSignatureVerificationException if verification fails
    */
-  verifyFeishuToken(token: string): boolean {
+  verifyFeishuToken(token: string): void {
     if (!this.feishuVerificationToken) {
       this.logger.warn(
         "FEISHU_VERIFICATION_TOKEN not configured, skipping token verification",
       );
-      return true;
+      return;
     }
 
-    const isValid = token === this.feishuVerificationToken;
-
-    if (!isValid) {
+    if (token !== this.feishuVerificationToken) {
       this.logger.warn("Feishu token verification failed");
+      throw new WebhookSignatureVerificationException("Feishu");
     }
 
-    return isValid;
+    this.logger.debug("Feishu token verified successfully");
   }
 
   /**
-   * Verify Zoom webhook signature
+   * Verify Zoom webhook token
+   * 
+   * Note: This is a simplified token-based verification
+   * For production, consider implementing Zoom's signature verification
    *
-   * Zoom uses HMAC-SHA256 with message: v0:{timestamp}:{request_body}
-   * @param timestamp - Request timestamp from header
-   * @param body - Request body (stringified)
-   * @param signature - Signature from request header (format: v0=<signature>)
-   * @returns True if signature is valid
+   * @param token - Token from request payload
+   * @throws WebhookSignatureVerificationException if verification fails
    */
-  verifyZoomSignature(
-    timestamp: string,
-    body: string,
-    signature: string,
-  ): boolean {
-    try {
-      if (!this.zoomWebhookSecretToken) {
-        this.logger.warn(
-          "ZOOM_WEBHOOK_SECRET_TOKEN not configured, skipping signature verification",
-        );
-        return true;
-      }
-
-      // Zoom signature format: v0=<signature>
-      const signatureParts = signature.split("=");
-      if (signatureParts.length !== 2 || signatureParts[0] !== "v0") {
-        this.logger.warn("Invalid Zoom signature format");
-        return false;
-      }
-
-      const providedSignature = signatureParts[1];
-
-      // Zoom signature calculation: HMAC-SHA256(secret, "v0:{timestamp}:{body}")
-      const message = `v0:${timestamp}:${body}`;
-      const hash = crypto
-        .createHmac("sha256", this.zoomWebhookSecretToken)
-        .update(message)
-        .digest("hex");
-
-      const isValid = hash === providedSignature;
-
-      if (!isValid) {
-        this.logger.warn(
-          `Zoom signature verification failed. Expected: ${hash}, Got: ${providedSignature}`,
-        );
-      }
-
-      return isValid;
-    } catch (error) {
-      this.logger.error(
-        `Error verifying Zoom signature: ${error instanceof Error ? error.message : String(error)}`,
+  verifyZoomToken(token: string): void {
+    if (!this.zoomVerificationToken) {
+      this.logger.warn(
+        "ZOOM_VERIFICATION_TOKEN not configured, skipping token verification",
       );
-      return false;
+      return;
     }
+
+    if (token !== this.zoomVerificationToken) {
+      this.logger.warn("Zoom token verification failed");
+      throw new WebhookSignatureVerificationException("Zoom");
+    }
+
+    this.logger.debug("Zoom token verified successfully");
   }
 
   /**
    * Verify Feishu webhook request
+   * 
+   * Verification strategy:
+   * 1. Check token (from payload.token or header.token)
+   * 2. Check timestamp to prevent replay attacks (5 minutes window)
    *
    * @param headers - Request headers
    * @param body - Request body (stringified)
    * @throws WebhookSignatureVerificationException if verification fails
    */
   verifyFeishuWebhook(headers: Record<string, string>, body: string): void {
-    const timestamp = headers["x-lark-request-timestamp"] || "";
-    const nonce = headers["x-lark-request-nonce"] || "";
-    const signature = headers["x-lark-signature"] || "";
+    const timestamp = headers["x-lark-request-timestamp"];
 
-    if (!timestamp || !nonce || !signature) {
-      this.logger.warn("Missing Feishu signature headers");
+    // Parse body to get token
+    let payload: any;
+    try {
+      payload = JSON.parse(body);
+    } catch (error) {
+      this.logger.error("Failed to parse Feishu webhook body");
       throw new WebhookSignatureVerificationException("Feishu");
     }
 
-    // Check timestamp to prevent replay attacks (5 minutes tolerance)
-    const requestTime = parseInt(timestamp, 10);
-    const currentTime = Math.floor(Date.now() / 1000);
-    const timeDiff = Math.abs(currentTime - requestTime);
-
-    if (timeDiff > 300) {
-      this.logger.warn(
-        `Feishu webhook timestamp too old: ${timeDiff} seconds difference`,
-      );
-      throw new WebhookSignatureVerificationException("Feishu");
+    // 1. Verify token (from payload or header)
+    const token = payload.token || payload.header?.token;
+    if (token) {
+      this.verifyFeishuToken(token);
     }
 
-    // Verify signature
-    const isValid = this.verifyFeishuSignature(
-      timestamp,
-      nonce,
-      body,
-      signature,
-    );
-
-    if (!isValid) {
-      throw new WebhookSignatureVerificationException("Feishu");
+    // 2. Verify timestamp (prevent replay attacks)
+    if (timestamp) {
+      const requestTime = parseInt(timestamp, 10);
+      if (!this.verifyTimestamp(requestTime)) {
+        throw new WebhookSignatureVerificationException("Feishu");
+      }
     }
 
-    this.logger.debug("Feishu webhook signature verified successfully");
+    this.logger.debug("Feishu webhook verified successfully");
   }
 
   /**
    * Verify Zoom webhook request
+   * 
+   * Verification strategy:
+   * 1. Check token (from payload)
+   * 2. Check timestamp to prevent replay attacks
+   *
+   * Note: For production, implement Zoom's HMAC-SHA256 signature verification
    *
    * @param headers - Request headers
    * @param body - Request body (stringified)
    * @throws WebhookSignatureVerificationException if verification fails
    */
   verifyZoomWebhook(headers: Record<string, string>, body: string): void {
-    const timestamp = headers["x-zm-request-timestamp"] || "";
-    const signature = headers["x-zm-signature"] || "";
+    const timestamp = headers["x-zm-request-timestamp"];
 
-    if (!timestamp || !signature) {
-      this.logger.warn("Missing Zoom signature headers");
+    // Parse body to get token (if using custom token field)
+    let payload: any;
+    try {
+      payload = JSON.parse(body);
+    } catch (error) {
+      this.logger.error("Failed to parse Zoom webhook body");
       throw new WebhookSignatureVerificationException("Zoom");
     }
 
-    // Verify signature
-    const isValid = this.verifyZoomSignature(timestamp, body, signature);
-
-    if (!isValid) {
-      throw new WebhookSignatureVerificationException("Zoom");
+    // 1. Verify token (if present)
+    if (payload.token) {
+      this.verifyZoomToken(payload.token);
     }
 
-    this.logger.debug("Zoom webhook signature verified successfully");
+    // 2. Verify timestamp (prevent replay attacks)
+    if (timestamp) {
+      const requestTime = parseInt(timestamp, 10);
+      if (!this.verifyTimestamp(requestTime)) {
+        throw new WebhookSignatureVerificationException("Zoom");
+      }
+    }
+
+    this.logger.debug("Zoom webhook verified successfully");
   }
 }

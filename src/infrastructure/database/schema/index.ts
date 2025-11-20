@@ -24,6 +24,8 @@ export * from "./user.schema";
 export * from "./sessions.schema";
 export * from "./session-events.schema"; // Legacy, kept for backward compatibility
 export * from "./meeting-events.schema";
+export * from "./meetings.schema";
+export * from "./mentoring-sessions.schema";
 
 // Shared
 export * from "./calendar.schema";

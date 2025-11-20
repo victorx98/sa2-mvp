@@ -1,30 +1,59 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { IZoomWebhookRequest } from "../dto/webhook-event.dto";
+import { IZoomWebhookRequest, StandardEventDto } from "../dto/webhook-event.dto";
 import { ExtractedMeetingEventData } from "./feishu-event-extractor";
 
 /**
  * Zoom Event Extractor
  *
- * Extracts and normalizes structured fields from Zoom webhook data
- * Converts Zoom-specific format to common ExtractedMeetingEventData
+ * Extracts and normalizes fields from Zoom webhook data
+ * Provides two extraction methods:
+ * 1. extractStandardEvent() - Minimal fields needed for event forwarding (v4.0 primary)
+ * 2. extractFullEvent() - Extended fields for subscribers that need detailed information
  */
 @Injectable()
 export class ZoomEventExtractor {
   private readonly logger = new Logger(ZoomEventExtractor.name);
 
   /**
-   * Extract all structured fields from Zoom webhook payload
+   * Extract standard event DTO from Zoom webhook payload
+   * 
+   * Extracts only essential fields required for event forwarding:
+   * - meetingNo (from meetingId), meetingId, eventType, provider, occurredAt, operatorId
    *
    * @param rawEvent - Raw Zoom webhook event
-   * @returns Normalized meeting event data
+   * @returns StandardEventDto ready for event bus
    */
-  extract(rawEvent: IZoomWebhookRequest): ExtractedMeetingEventData {
+  extractStandardEvent(rawEvent: IZoomWebhookRequest): StandardEventDto {
+    const payload = (rawEvent.payload || {}) as Record<string, any>;
+    const object = (payload.object || {}) as Record<string, any>;
+
+    return {
+      meetingNo: this.extractMeetingId(object), // Zoom uses meeting ID as meeting number
+      meetingId: this.extractMeetingId(object),
+      eventType: this.extractEventType(rawEvent),
+      provider: "zoom",
+      eventData: rawEvent as any,
+      occurredAt: this.extractOccurredAt(rawEvent),
+      operatorId: this.extractOperatorId(object) || undefined,
+    };
+  }
+
+  /**
+   * Extract full event data with all available fields
+   * 
+   * Extracts comprehensive fields for subscribers that need detailed information
+   * Useful for audit logging, detailed processing, or complex business logic
+   *
+   * @param rawEvent - Raw Zoom webhook event
+   * @returns ExtractedMeetingEventData with complete field set
+   */
+  extractFullEvent(rawEvent: IZoomWebhookRequest): ExtractedMeetingEventData {
     const payload = (rawEvent.payload || {}) as Record<string, any>;
     const object = (payload.object || {}) as Record<string, any>;
 
     return {
       meetingId: this.extractMeetingId(object),
-      meetingNo: null, // Zoom doesn't have a meeting_no equivalent, using meetingId
+      meetingNo: null, // Zoom doesn't have meeting_no, using meetingId instead
       eventId: this.extractEventId(rawEvent),
       eventType: this.extractEventType(rawEvent),
       provider: "zoom",
@@ -33,18 +62,15 @@ export class ZoomEventExtractor {
       meetingTopic: this.extractMeetingTopic(object),
       meetingStartTime: this.extractMeetingStartTime(object),
       meetingEndTime: this.extractMeetingEndTime(object),
-      recordingId: null, // Will be extracted from recording.completed event
-      recordingUrl: null, // Will be extracted from recording.completed event
+      recordingId: null, // Extracted from recording.completed event
+      recordingUrl: null, // Extracted from recording.completed event
       occurredAt: this.extractOccurredAt(rawEvent),
-      eventData: rawEvent as any, // Store complete raw payload
+      eventData: rawEvent as any,
     };
   }
 
   /**
    * Extract meeting_id from payload.object.id
-   *
-   * @param object - Object containing meeting info
-   * @returns Meeting ID or empty string
    */
   private extractMeetingId(object: Record<string, any>): string {
     const meetingId = object?.id;
@@ -58,9 +84,6 @@ export class ZoomEventExtractor {
   /**
    * Generate unique event_id from event_ts + meeting_id
    * Ensures idempotency for the same event
-   *
-   * @param rawEvent - Raw Zoom webhook event
-   * @returns Generated event ID
    */
   private extractEventId(rawEvent: IZoomWebhookRequest): string {
     const eventTs = rawEvent.event_ts;
@@ -73,15 +96,11 @@ export class ZoomEventExtractor {
       return "";
     }
 
-    // Combine timestamp and meeting ID to create unique event identifier
     return `${meetingId}_${eventTs}`;
   }
 
   /**
    * Extract event_type from root event field
-   *
-   * @param rawEvent - Raw Zoom webhook event
-   * @returns Event type
    */
   private extractEventType(rawEvent: IZoomWebhookRequest): string {
     const eventType = rawEvent.event;
@@ -94,9 +113,6 @@ export class ZoomEventExtractor {
 
   /**
    * Extract operator_id (host_id in Zoom)
-   *
-   * @param object - Object containing meeting info
-   * @returns Operator ID or null
    */
   private extractOperatorId(object: Record<string, any>): string | null {
     const hostId = object?.host_id;
@@ -105,9 +121,6 @@ export class ZoomEventExtractor {
 
   /**
    * Extract meeting topic/title
-   *
-   * @param object - Object containing meeting info
-   * @returns Meeting topic or null
    */
   private extractMeetingTopic(object: Record<string, any>): string | null {
     const topic = object?.topic;
@@ -116,16 +129,12 @@ export class ZoomEventExtractor {
 
   /**
    * Extract meeting start time (ISO 8601 to Date)
-   *
-   * @param object - Object containing meeting info
-   * @returns Start time or null
    */
   private extractMeetingStartTime(object: Record<string, any>): Date | null {
     const startTime = object?.start_time;
     if (!startTime) return null;
 
     try {
-      // Zoom provides ISO 8601 format string
       return new Date(startTime);
     } catch (error) {
       this.logger.warn(`Invalid start_time format: ${startTime}`);
@@ -135,16 +144,12 @@ export class ZoomEventExtractor {
 
   /**
    * Extract meeting end time (ISO 8601 to Date)
-   *
-   * @param object - Object containing meeting info
-   * @returns End time or null
    */
   private extractMeetingEndTime(object: Record<string, any>): Date | null {
     const endTime = object?.end_time;
     if (!endTime) return null;
 
     try {
-      // Zoom provides ISO 8601 format string
       return new Date(endTime);
     } catch (error) {
       this.logger.warn(`Invalid end_time format: ${endTime}`);
@@ -153,11 +158,8 @@ export class ZoomEventExtractor {
   }
 
   /**
-   * Extract event occurrence time (Unix seconds to Date)
+   * Extract event occurrence time
    * Zoom provides event_ts in Unix timestamp (seconds)
-   *
-   * @param rawEvent - Raw Zoom webhook event
-   * @returns Event occurrence time
    */
   private extractOccurredAt(rawEvent: IZoomWebhookRequest): Date {
     const eventTs = rawEvent.event_ts;
@@ -167,7 +169,6 @@ export class ZoomEventExtractor {
       return new Date();
     }
 
-    // Zoom provides Unix timestamp in seconds
     const timestamp = Number(eventTs);
     if (isNaN(timestamp)) {
       this.logger.warn(
@@ -179,4 +180,3 @@ export class ZoomEventExtractor {
     return new Date(timestamp * 1000);
   }
 }
-

@@ -1,52 +1,56 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { EventEmitterModule } from "@nestjs/event-emitter";
 import { WebhookGatewayController } from "./controllers/webhook-gateway.controller";
 import { WebhookVerificationService } from "./services/webhook-verification.service";
-import { WebhookEventBusService } from "./services/webhook-event-bus.service";
 import { FeishuWebhookHandler } from "./handlers/feishu-webhook.handler";
 import { ZoomWebhookHandler } from "./handlers/zoom-webhook.handler";
-import { WebhookHandlerRegistry } from "./handlers/webhook-handler.registry";
 import { FeishuEventExtractor } from "./extractors/feishu-event-extractor";
 import { ZoomEventExtractor } from "./extractors/zoom-event-extractor";
-import { MeetingProvidersModule } from "@core/meeting-providers/meeting-providers.module";
 
 /**
  * Webhook Module
  *
- * Handles webhook events from meeting platforms (Feishu, Zoom)
- * Flow: Verify → Extract → Store → Publish domain events
- * Event-driven architecture for loose coupling with domain layers
+ * Pure infrastructure gateway for receiving webhook callbacks from third-party services.
+ * 
+ * Core Responsibilities:
+ * 1. HTTP callback reception (Controller)
+ * 2. Security verification - Token validation + Timestamp replay check (Verification Service)
+ * 3. Protocol adaptation - Platform-specific to StandardEventDto (Handlers + Extractors)
+ * 4. Event forwarding to subscribers via event bus
+ * 
+ * NOT Responsible For:
+ * - Business event routing (Core Meeting Module handles this)
+ * - Event publishing to domain subscribers (Event bus handles this)
+ * - Domain-specific business logic
+ * - Storage or persistence (handled by subscribers)
+ * 
+ * Design Principles:
+ * - Minimal: Only handles HTTP gateway and protocol translation
+ * - Decoupled: No dependencies on business modules
+ * - Extensible: Easy to add new webhook providers
+ * - Secure: Token verification + replay attack prevention
  */
 @Module({
-  imports: [
-    ConfigModule,
-    EventEmitterModule.forRoot(),
-    MeetingProvidersModule,
-  ],
+  imports: [ConfigModule],
   controllers: [WebhookGatewayController],
   providers: [
-    // Services
+    // Security Services
     WebhookVerificationService,
-    WebhookEventBusService,
 
     // Event Extractors
     FeishuEventExtractor,
     ZoomEventExtractor,
 
-    // Handlers
+    // Platform Handlers
     FeishuWebhookHandler,
     ZoomWebhookHandler,
-
-    // Registry
-    WebhookHandlerRegistry,
   ],
   exports: [
     WebhookVerificationService,
-    WebhookEventBusService,
-    WebhookHandlerRegistry,
     FeishuEventExtractor,
     ZoomEventExtractor,
+    FeishuWebhookHandler,
+    ZoomWebhookHandler,
   ],
 })
 export class WebhookModule {}

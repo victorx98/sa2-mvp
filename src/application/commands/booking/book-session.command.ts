@@ -5,12 +5,10 @@ import {
   UserType,
   SlotType,
 } from "@core/calendar/interfaces/calendar-slot.interface";
-import {
-  MeetingProviderFactory,
-  MeetingProviderType,
-} from "@core/meeting-providers";
-import type { MeetingProvider } from "@domains/services/session/interfaces/session.interface";
-import { SessionService } from "@domains/services/session/services/session.service";
+import { MeetingManagerService } from "@core/meeting";
+import { MeetingProviderType } from "@core/meeting";
+import { MentoringService } from "@domains/services/mentoring";
+import { ContractService } from "@domains/contract/contract.service";
 import { ServiceHoldService } from "@domains/contract/services/service-hold.service";
 import { BookSessionInput } from "./dto/book-session-input.dto";
 import { BookSessionOutput } from "./dto/book-session-output.dto";
@@ -48,9 +46,10 @@ export class BookSessionCommand {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-    private readonly sessionService: SessionService,
+    private readonly contractService: ContractService,
+    private readonly meetingManagerService: MeetingManagerService,
+    private readonly mentoringService: MentoringService,
     private readonly calendarService: CalendarService,
-    private readonly meetingProviderFactory: MeetingProviderFactory,
     private readonly eventEmitter: EventEmitter2,
     private readonly serviceHoldService: ServiceHoldService,
   ) {}
@@ -111,24 +110,18 @@ export class BookSessionCommand {
         }
 
         // Step 5: 创建会议链接（在事务内，先创建）
-        let meetingInfo: {
-          meetingUrl?: string;
-          password?: string;
-          provider?: string;
-          meetingNo?: string;
-        } = {};
+        // 使用新的 MeetingManagerService 创建会议
+        let meetingInfo;
         try {
-          meetingInfo = await this.meetingProviderFactory
-            .getProvider(
-              (input.meetingProvider as MeetingProviderType) ||
-                MeetingProviderType.FEISHU,
-            )
-            .createMeeting({
-              topic: input.topic,
-              startTime: input.scheduledStartTime,
-              duration: input.duration,
-              hostUserId: input.mentorId,
-            });
+          meetingInfo = await this.meetingManagerService.createMeeting({
+            topic: input.topic,
+            startTime: input.scheduledStartTime.toISOString(),
+            duration: input.duration,
+            provider: (input.meetingProvider as MeetingProviderType) || MeetingProviderType.FEISHU,
+            hostUserId: input.mentorId,
+            autoRecord: true,
+            participantJoinEarly: true,
+          }, tx);
         } catch (error) {
           // 会议创建失败，回滚整个事务
           this.logger.error(
@@ -138,24 +131,20 @@ export class BookSessionCommand {
         }
 
         // Step 6: 创建会话记录（包含会议URL）
-        const session = await this.sessionService.createSession(
+        // 使用新的 MentoringService 创建辅导会话
+        const mentoringSession = await this.mentoringService.createSession(
           {
+            meetingId: meetingInfo.id, // FK reference to meetings.id
             studentId: input.studentId,
             mentorId: input.mentorId,
-            contractId: input.contractId,
-            scheduledStartTime: input.scheduledStartTime.toISOString(),
-            scheduledDuration: input.duration,
-            sessionName: input.topic,
-            meetingProvider: input.meetingProvider as MeetingProvider,
-            meetingUrl: meetingInfo.meetingUrl,
-            meetingPassword: meetingInfo.password,
-            meetingNo: meetingInfo.meetingNo,
+            topic: input.topic,
+            notes: null,
           },
           tx,
         );
 
         return {
-          session,
+          mentoringSession,
           hold,
           calendarSlot,
           meetingInfo,

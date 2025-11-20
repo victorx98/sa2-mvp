@@ -22,12 +22,12 @@ import { BookSessionCommand } from "./commands/booking/book-session.command";
 // Application Layer - Commands (兼容层)
 import { AuthCommandService } from "./commands/auth-command/auth-command.service";
 
-// Core Services (从main分支)
+// Core Services
 import { CalendarService } from "@core/calendar";
-import { MeetingProviderModule } from "@core/meeting-providers";
+import { MeetingModule } from "@core/meeting";
 
 // Domain Services
-import { SessionModule } from "@domains/services/session/session.module";
+import { MentoringModule } from "@domains/services/mentoring";
 import { ContractModule } from "@domains/contract/contract.module";
 
 // Shared
@@ -43,10 +43,10 @@ import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";
  */
 @Module({
   imports: [
-    DatabaseModule, // 导入数据库模块，提供事务支持
-    MeetingProviderModule, // 导入会议提供者模块
-    SessionModule, // Domain层：Session
-    ContractModule, // Domain层：Contract
+    DatabaseModule, // Database module for transaction support
+    MeetingModule, // Core Layer: Meeting management
+    MentoringModule, // Domain Layer: Mentoring sessions
+    ContractModule, // Domain Layer: Contract
     PassportModule.register({ defaultStrategy: "jwt" }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -88,10 +88,10 @@ import { JwtStrategy } from "@shared/guards/strategies/jwt.strategy";
   exports: [
     // Core Services
     CalendarService,
-    MeetingProviderModule,
+    MeetingModule,
 
     // Domain Services
-    SessionModule,
+    MentoringModule,
     ContractModule,
 
     // Queries

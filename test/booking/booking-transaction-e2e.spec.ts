@@ -5,8 +5,8 @@ import { ConfigModule } from "@nestjs/config";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { BookSessionCommand } from "../../src/application/commands/booking/book-session.command";
 import { CalendarService } from "../../src/core/calendar";
-import { MeetingProviderModule } from "../../src/core/meeting-providers/meeting-provider.module";
-import { SessionService } from "../../src/domains/services/session/services/session.service";
+import { MeetingManagerService } from "../../src/core/meeting";
+import { MentoringService } from "../../src/domains/services/mentoring/services/mentoring.service";
 // import { ContractService } from "../../src/domains/contract/services/contract.service";
 import { ContractService } from "../../src/domains/contract/contract.service";
 import { DATABASE_CONNECTION } from "../../src/infrastructure/database/database.provider";
@@ -53,12 +53,12 @@ describe("BookSessionCommand - E2E Integration Test", () => {
           isGlobal: true,
         }),
         DatabaseModule,
-        MeetingProviderModule,
+        MeetingManagerService,
         EventEmitterModule.forRoot(),
       ],
       providers: [
         BookSessionCommand,
-        SessionService,
+        MentoringService,
         ContractService,
         CalendarService,
         {

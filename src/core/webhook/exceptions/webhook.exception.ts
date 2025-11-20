@@ -20,27 +20,3 @@ export class WebhookSignatureVerificationException extends WebhookException {
     );
   }
 }
-
-/**
- * Exception thrown when webhook event type is not supported
- */
-export class WebhookEventNotSupportedException extends WebhookException {
-  constructor(eventType: string) {
-    super(
-      `Webhook event type not supported: ${eventType}`,
-      HttpStatus.BAD_REQUEST,
-    );
-  }
-}
-
-/**
- * Exception thrown when webhook processing fails
- */
-export class WebhookProcessingException extends WebhookException {
-  constructor(eventType: string, reason: string) {
-    super(
-      `Failed to process webhook event ${eventType}: ${reason}`,
-      HttpStatus.INTERNAL_SERVER_ERROR,
-    );
-  }
-}

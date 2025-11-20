@@ -11,18 +11,23 @@ import {
 } from "@nestjs/common";
 import { Request } from "express";
 import { WebhookVerificationService } from "../services/webhook-verification.service";
-import { WebhookHandlerRegistry } from "../handlers/webhook-handler.registry";
+import { FeishuWebhookHandler } from "../handlers/feishu-webhook.handler";
+import { ZoomWebhookHandler } from "../handlers/zoom-webhook.handler";
 import {
   IFeishuWebhookRequest,
   IZoomWebhookRequest,
 } from "../dto/webhook-event.dto";
-import { IWebhookEvent } from "../interfaces/webhook-handler.interface";
 
 /**
  * Webhook Gateway Controller
  *
- * HTTP entry point for receiving webhooks from different platforms
- * Handles signature verification and event dispatching
+ * Pure HTTP gateway for receiving webhooks from different platforms
+ * Responsibilities:
+ * 1. Handle URL verification challenges
+ * 2. Verify security (token/signature)
+ * 3. Forward to platform-specific handlers
+ * 
+ * NO business routing logic - handlers are kept minimal
  */
 @Controller("webhooks")
 export class WebhookGatewayController {
@@ -30,7 +35,8 @@ export class WebhookGatewayController {
 
   constructor(
     private readonly verificationService: WebhookVerificationService,
-    private readonly handlerRegistry: WebhookHandlerRegistry,
+    private readonly feishuHandler: FeishuWebhookHandler,
+    private readonly zoomHandler: ZoomWebhookHandler,
   ) {}
 
   /**
@@ -55,7 +61,7 @@ export class WebhookGatewayController {
     if (body.type === "url_verification" && body.challenge) {
       this.logger.log("Handling Feishu URL verification challenge");
 
-      // Verify token
+      // Verify token during challenge
       if (body.token) {
         this.verificationService.verifyFeishuToken(body.token);
       }
@@ -67,16 +73,8 @@ export class WebhookGatewayController {
     const rawBody = request.rawBody?.toString("utf-8") || JSON.stringify(body);
     this.verificationService.verifyFeishuWebhook(headers, rawBody);
 
-    // Extract event data
-    const event = this.extractFeishuEvent(body);
-
-    if (!event) {
-      this.logger.warn("No event data found in Feishu webhook");
-      return {};
-    }
-
-    // Dispatch event to handler
-    await this.handlerRegistry.dispatchEvent(event);
+    // Forward to handler (no routing logic here)
+    await this.feishuHandler.handle(body);
 
     return {};
   }
@@ -103,58 +101,7 @@ export class WebhookGatewayController {
     const rawBody = request.rawBody?.toString("utf-8") || JSON.stringify(body);
     this.verificationService.verifyZoomWebhook(headers, rawBody);
 
-    // Extract event data
-    const event = this.extractZoomEvent(body);
-
-    if (!event) {
-      this.logger.warn("No event data found in Zoom webhook");
-      return;
-    }
-
-    // Dispatch event to handler
-    await this.handlerRegistry.dispatchEvent(event);
-  }
-
-  /**
-   * Extract event from Feishu webhook payload
-   */
-  private extractFeishuEvent(
-    payload: IFeishuWebhookRequest,
-  ): IWebhookEvent | null {
-    // Handle v2.0 event structure (with header)
-    if (payload.header && payload.header.event_type) {
-      return {
-        eventType: payload.header.event_type,
-        eventData: payload.event || payload,
-        timestamp: parseInt(payload.header.create_time, 10),
-        eventId: payload.header.event_id,
-      };
-    }
-
-    // Handle v1.0 event structure (legacy)
-    if (payload.event && payload.event.type) {
-      return {
-        eventType: payload.event.type,
-        eventData: payload.event,
-        timestamp: Date.now(),
-      };
-    }
-
-    return null;
-  }
-
-  /**
-   * Extract event from Zoom webhook payload
-   */
-  private extractZoomEvent(payload: IZoomWebhookRequest): IWebhookEvent | null {
-    if (!payload.event) {
-      return null;
-    }
-
-    return {
-      eventType: payload.event,
-      eventData: payload.payload,
-      timestamp: payload.event_ts,
-    };
+    // Forward to handler (no routing logic here)
+    await this.zoomHandler.handle(body);
   }
 }

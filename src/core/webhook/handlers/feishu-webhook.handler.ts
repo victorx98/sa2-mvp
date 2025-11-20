@@ -1,216 +1,55 @@
 import { Injectable, Logger } from "@nestjs/common";
-import {
-  IWebhookHandler,
-  IWebhookEvent,
-} from "../interfaces/webhook-handler.interface";
-import { WebhookProcessingException } from "../exceptions/webhook.exception";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { FeishuEventExtractor } from "../extractors/feishu-event-extractor";
-import { MeetingEventService } from "@core/meeting-providers/services/meeting-event.service";
-import { WebhookEventBusService } from "../services/webhook-event-bus.service";
-import { MeetingEventCreated } from "../dto/meeting-event-created.event";
-
-/**
- * Feishu Webhook Event Types
- */
-export enum FeishuEventType {
-  MEETING_STARTED = "vc.meeting.meeting_started_v1",
-  MEETING_ENDED = "vc.meeting.meeting_ended_v1",
-  RECORDING_READY = "vc.meeting.recording_ready_v1",
-  RECORDING_STARTED = "vc.meeting.recording_started_v1",
-  RECORDING_ENDED = "vc.meeting.recording_ended_v1",
-  JOIN_MEETING = "vc.meeting.join_meeting_v1",
-  LEAVE_MEETING = "vc.meeting.leave_meeting_v1",
-  SHARE_STARTED = "vc.meeting.share_started_v1",
-  SHARE_ENDED = "vc.meeting.share_ended_v1",
-}
+import { IFeishuWebhookRequest } from "../dto/webhook-event.dto";
+import { StandardEventDto } from "../dto/webhook-event.dto";
 
 /**
  * Feishu Webhook Handler
  *
- * Processes webhook events from Feishu (Lark) platform
- * Flow: Extract → Store → Publish domain event
+ * Minimal adapter layer that:
+ * 1. Extracts standard fields from Feishu webhook payload
+ * 2. Emits event for subscribers (Core Meeting Module, other domains)
+ * 
+ * No business routing logic - pure protocol adaptation and event forwarding
+ * 
+ * Event Flow:
+ * Feishu HTTP Request → Extract StandardEventDto → Emit 'webhook.feishu.event' → Subscribers
  */
 @Injectable()
-export class FeishuWebhookHandler implements IWebhookHandler {
+export class FeishuWebhookHandler {
   private readonly logger = new Logger(FeishuWebhookHandler.name);
 
   constructor(
     private readonly feishuEventExtractor: FeishuEventExtractor,
-    private readonly meetingEventService: MeetingEventService,
-    private readonly eventBus: WebhookEventBusService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
-   * Get supported event types
+   * Handle Feishu webhook event
+   * 
+   * Single responsibility:
+   * 1. Extract standard fields using extractor
+   * 2. Emit event for downstream subscribers
+   * 3. Return immediately (no business logic here)
+   * 
+   * @param payload - Raw Feishu webhook payload
    */
-  getSupportedEventTypes(): string[] {
-    return Object.values(FeishuEventType);
-  }
-
-  /**
-   * Handle webhook event
-   */
-  async handleEvent(event: IWebhookEvent): Promise<void> {
-    this.logger.debug(`Handling Feishu event: ${event.eventType}`);
-
-    try {
-      switch (event.eventType) {
-        case FeishuEventType.MEETING_STARTED:
-          await this.handleMeetingStarted(event);
-          break;
-
-        case FeishuEventType.MEETING_ENDED:
-          await this.handleMeetingEnded(event);
-          break;
-
-        case FeishuEventType.RECORDING_READY:
-          await this.handleRecordingReady(event);
-          break;
-
-        case FeishuEventType.RECORDING_STARTED:
-          await this.handleRecordingStarted(event);
-          break;
-
-        case FeishuEventType.RECORDING_ENDED:
-          await this.handleRecordingEnded(event);
-          break;
-
-        case FeishuEventType.JOIN_MEETING:
-          await this.handleJoinMeeting(event);
-          break;
-
-        case FeishuEventType.LEAVE_MEETING:
-          await this.handleLeaveMeeting(event);
-          break;
-
-        case FeishuEventType.SHARE_STARTED:
-          await this.handleShareStarted(event);
-          break;
-
-        case FeishuEventType.SHARE_ENDED:
-          await this.handleShareEnded(event);
-          break;
-
-        default:
-          this.logger.warn(`Unsupported Feishu event type: ${event.eventType}`);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `Failed to handle Feishu event ${event.eventType}: ${message}`,
-      );
-      throw new WebhookProcessingException(event.eventType, message);
-    }
-  }
-
-  /**
-   * Generic event processor: Extract → Store → Publish
-   *
-   * @param rawEvent - Raw webhook event
-   */
-  private async processEvent(rawEvent: IWebhookEvent): Promise<void> {
-    // 1. Extract structured fields from raw webhook data
-    const extractedData = this.feishuEventExtractor.extract(
-      rawEvent.eventData as any,
-    );
-
+  async handle(payload: IFeishuWebhookRequest): Promise<void> {
     this.logger.debug(
-      `Extracted event: ${extractedData.eventType} (${extractedData.eventId})`,
+      `Processing Feishu webhook: ${payload.header?.event_type}`,
     );
 
-    // 2. Store event in meeting_events table (with automatic deduplication)
-    await this.meetingEventService.recordEvent(extractedData);
+    // 1. Extract standard event fields (meeting_no, event_type, provider, etc.)
+    const standardEvent = this.feishuEventExtractor.extractStandardEvent(payload);
 
-    // 3. Publish domain event for subscribers (Session Domain, Comm Session, etc.)
-    const domainEvent = new MeetingEventCreated(
-      extractedData.meetingId,
-      extractedData.meetingNo,
-      extractedData.eventId,
-      extractedData.eventType,
-      extractedData.provider,
-      extractedData.operatorId,
-      extractedData.operatorRole,
-      extractedData.meetingTopic,
-      extractedData.occurredAt,
-      extractedData.eventData,
-    );
-
-    await this.eventBus.publish(domainEvent);
+    // 2. Emit event for subscribers
+    // Event name format: "webhook.{provider}.event"
+    // Subscribers can filter by provider and event type
+    this.eventEmitter.emit("webhook.feishu.event", standardEvent);
 
     this.logger.log(
-      `Event processed and published: ${extractedData.eventType}`,
+      `Feishu event emitted: ${standardEvent.eventType} (meeting_no: ${standardEvent.meetingNo})`,
     );
-  }
-
-  /**
-   * Handle meeting started event
-   */
-  private async handleMeetingStarted(event: IWebhookEvent): Promise<void> {
-    this.logger.debug("Processing meeting_started event");
-    await this.processEvent(event);
-  }
-
-  /**
-   * Handle meeting ended event
-   */
-  private async handleMeetingEnded(event: IWebhookEvent): Promise<void> {
-    this.logger.debug("Processing meeting_ended event");
-    await this.processEvent(event);
-  }
-
-  /**
-   * Handle recording ready event
-   */
-  private async handleRecordingReady(event: IWebhookEvent): Promise<void> {
-    this.logger.debug("Processing recording_ready event");
-    await this.processEvent(event);
-  }
-
-  /**
-   * Handle recording started event
-   */
-  private async handleRecordingStarted(event: IWebhookEvent): Promise<void> {
-    this.logger.debug("Processing recording_started event");
-    await this.processEvent(event);
-  }
-
-  /**
-   * Handle recording ended event
-   */
-  private async handleRecordingEnded(event: IWebhookEvent): Promise<void> {
-    this.logger.debug("Processing recording_ended event");
-    await this.processEvent(event);
-  }
-
-  /**
-   * Handle participant joined event
-   */
-  private async handleJoinMeeting(event: IWebhookEvent): Promise<void> {
-    this.logger.debug("Processing join_meeting event");
-    await this.processEvent(event);
-  }
-
-  /**
-   * Handle participant left event
-   */
-  private async handleLeaveMeeting(event: IWebhookEvent): Promise<void> {
-    this.logger.debug("Processing leave_meeting event");
-    await this.processEvent(event);
-  }
-
-  /**
-   * Handle screen share started event
-   */
-  private async handleShareStarted(event: IWebhookEvent): Promise<void> {
-    this.logger.debug("Processing share_started event");
-    await this.processEvent(event);
-  }
-
-  /**
-   * Handle screen share ended event
-   */
-  private async handleShareEnded(event: IWebhookEvent): Promise<void> {
-    this.logger.debug("Processing share_ended event");
-    await this.processEvent(event);
   }
 }

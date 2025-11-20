@@ -51,3 +51,19 @@ export interface IWebhookRequest {
   body: IFeishuWebhookRequest | IZoomWebhookRequest | unknown;
   rawBody?: string; // Raw body for signature verification
 }
+
+/**
+ * Standard Event DTO
+ * 
+ * Standardized event format passed from Webhook Module to Core Meeting Module
+ * This is the single contract between infrastructure and core layers
+ */
+export interface StandardEventDto {
+  meetingNo: string; // Unified meeting number (e.g., "123456789")
+  meetingId?: string; // Platform-specific meeting ID (if available in payload)
+  eventType: string; // Original event type (e.g., "vc.meeting.meeting_ended_v1")
+  provider: "feishu" | "zoom"; // Platform identifier
+  eventData: Record<string, any>; // Complete raw webhook payload
+  occurredAt: Date; // Event occurrence timestamp (from platform)
+  operatorId?: string; // User ID who triggered the event (if available)
+}

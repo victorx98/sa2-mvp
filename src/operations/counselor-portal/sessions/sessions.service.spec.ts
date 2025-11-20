@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { CounselorSessionsService } from "./sessions.service";
 import { BookSessionCommand } from "@application/commands/booking/book-session.command";
-import { SessionService } from "@domains/services/session/services/session.service";
+import { MentoringService } from "@domains/services/mentoring/services/mentoring.service";
 import { ContractService } from "@domains/contract/services/contract.service";
 import { BookSessionRequestDto } from "./dto/book-session-request.dto";
 import type { BookSessionOutput } from "@application/commands/booking/dto/book-session-output.dto";
@@ -9,7 +9,7 @@ import type { BookSessionOutput } from "@application/commands/booking/dto/book-s
 describe("CounselorSessionsService (BFF Layer)", () => {
   let service: CounselorSessionsService;
   let mockBookSessionCommand: jest.Mocked<BookSessionCommand>;
-  let mockSessionService: jest.Mocked<SessionService>;
+  let mockSessionService: jest.Mocked<MentoringService>;
   let mockContractService: jest.Mocked<ContractService>;
 
   // 测试数据
@@ -50,7 +50,7 @@ describe("CounselorSessionsService (BFF Layer)", () => {
           useValue: mockBookSessionCommand,
         },
         {
-          provide: SessionService,
+          provide: MentoringService,
           useValue: mockSessionService,
         },
         {

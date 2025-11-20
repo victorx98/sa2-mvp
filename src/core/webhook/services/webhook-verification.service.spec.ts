@@ -2,34 +2,31 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
 import { WebhookVerificationService } from "./webhook-verification.service";
 import { WebhookSignatureVerificationException } from "../exceptions/webhook.exception";
-import * as crypto from "crypto";
 
 describe("WebhookVerificationService", () => {
   let service: WebhookVerificationService;
-  const mockEncryptKey = "test-encrypt-key";
-  const mockVerificationToken = "test-token";
-  const mockZoomSecret = "test-zoom-secret";
+  let configService: jest.Mocked<ConfigService>;
 
   beforeEach(async () => {
+    configService = {
+      get: jest.fn((key: string) => {
+        switch (key) {
+          case "FEISHU_VERIFICATION_TOKEN":
+            return "feishu_token_123";
+          case "ZOOM_VERIFICATION_TOKEN":
+            return "zoom_token_456";
+          default:
+            return null;
+        }
+      }),
+    } as any;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WebhookVerificationService,
         {
           provide: ConfigService,
-          useValue: {
-            get: jest.fn((key: string) => {
-              switch (key) {
-                case "FEISHU_ENCRYPT_KEY":
-                  return mockEncryptKey;
-                case "FEISHU_VERIFICATION_TOKEN":
-                  return mockVerificationToken;
-                case "ZOOM_WEBHOOK_SECRET_TOKEN":
-                  return mockZoomSecret;
-                default:
-                  return undefined;
-              }
-            }),
-          },
+          useValue: configService,
         },
       ],
     }).compile();
@@ -39,135 +36,244 @@ describe("WebhookVerificationService", () => {
     );
   });
 
-  describe("verifyFeishuSignature", () => {
-    it("should return true for valid signature", () => {
-      const timestamp = "1731247200";
-      const nonce = "test-nonce";
-      const body = '{"test":"data"}';
-
-      // Calculate expected signature
-      const content = timestamp + nonce + mockEncryptKey + body;
-      const signature = crypto
-        .createHash("sha256")
-        .update(content)
-        .digest("hex");
-
-      const result = service.verifyFeishuSignature(
-        timestamp,
-        nonce,
-        body,
-        signature,
-      );
-
-      expect(result).toBe(true);
-    });
-
-    it("should return false for invalid signature", () => {
-      const timestamp = "1731247200";
-      const nonce = "test-nonce";
-      const body = '{"test":"data"}';
-      const invalidSignature = "invalid-signature";
-
-      const result = service.verifyFeishuSignature(
-        timestamp,
-        nonce,
-        body,
-        invalidSignature,
-      );
-
-      expect(result).toBe(false);
-    });
-  });
-
   describe("verifyFeishuToken", () => {
-    it("should return true for valid token", () => {
-      const result = service.verifyFeishuToken(mockVerificationToken);
-      expect(result).toBe(true);
+    it("should verify valid Feishu token", () => {
+      expect(() => service.verifyFeishuToken("feishu_token_123")).not.toThrow();
     });
 
-    it("should return false for invalid token", () => {
-      const result = service.verifyFeishuToken("invalid-token");
-      expect(result).toBe(false);
+    it("should throw on invalid Feishu token", () => {
+      expect(() => service.verifyFeishuToken("invalid_token")).toThrow(
+        WebhookSignatureVerificationException,
+      );
+    });
+
+    it("should skip verification if token not configured", () => {
+      configService.get.mockReturnValue(null);
+      const newService = new WebhookVerificationService(configService);
+
+      expect(() => newService.verifyFeishuToken("any_token")).not.toThrow();
     });
   });
 
-  describe("verifyZoomSignature", () => {
-    it("should return true for valid signature", () => {
-      const timestamp = "1731247200";
-      const body = '{"test":"data"}';
-
-      // Calculate expected signature
-      const message = `v0:${timestamp}:${body}`;
-      const hash = crypto
-        .createHmac("sha256", mockZoomSecret)
-        .update(message)
-        .digest("hex");
-      const signature = `v0=${hash}`;
-
-      const result = service.verifyZoomSignature(timestamp, body, signature);
-
-      expect(result).toBe(true);
+  describe("verifyZoomToken", () => {
+    it("should verify valid Zoom token", () => {
+      expect(() => service.verifyZoomToken("zoom_token_456")).not.toThrow();
     });
 
-    it("should return false for invalid signature", () => {
-      const timestamp = "1731247200";
-      const body = '{"test":"data"}';
-      const invalidSignature = "v0=invalid-signature";
-
-      const result = service.verifyZoomSignature(
-        timestamp,
-        body,
-        invalidSignature,
+    it("should throw on invalid Zoom token", () => {
+      expect(() => service.verifyZoomToken("invalid_token")).toThrow(
+        WebhookSignatureVerificationException,
       );
-
-      expect(result).toBe(false);
     });
 
-    it("should return false for invalid signature format", () => {
-      const timestamp = "1731247200";
-      const body = '{"test":"data"}';
-      const invalidSignature = "invalid-format";
+    it("should skip verification if Zoom token not configured", () => {
+      configService.get.mockReturnValue(null);
+      const newService = new WebhookVerificationService(configService);
 
-      const result = service.verifyZoomSignature(
-        timestamp,
-        body,
-        invalidSignature,
-      );
-
-      expect(result).toBe(false);
+      expect(() => newService.verifyZoomToken("any_token")).not.toThrow();
     });
   });
 
   describe("verifyFeishuWebhook", () => {
-    it("should throw error if headers are missing", () => {
-      const headers = {};
-      const body = '{"test":"data"}';
+    it("should verify valid Feishu webhook with token", () => {
+      const headers = {
+        "x-lark-request-timestamp": Math.floor(Date.now() / 1000).toString(),
+      };
+      const body = JSON.stringify({
+        token: "feishu_token_123",
+        header: {
+          event_type: "vc.meeting.meeting_ended_v1",
+          create_time: Date.now().toString(),
+        },
+      });
 
-      expect(() => {
-        service.verifyFeishuWebhook(headers, body);
-      }).toThrow(WebhookSignatureVerificationException);
+      expect(() =>
+        service.verifyFeishuWebhook(headers, body),
+      ).not.toThrow();
     });
 
-    it("should throw error if timestamp is too old", () => {
-      const oldTimestamp = String(Math.floor(Date.now() / 1000) - 400); // 400 seconds ago
-      const nonce = "test-nonce";
-      const body = '{"test":"data"}';
+    it("should throw on invalid Feishu token in webhook", () => {
+      const headers = {
+        "x-lark-request-timestamp": Math.floor(Date.now() / 1000).toString(),
+      };
+      const body = JSON.stringify({
+        token: "invalid_token",
+      });
 
-      const content = oldTimestamp + nonce + mockEncryptKey + body;
-      const signature = crypto
-        .createHash("sha256")
-        .update(content)
-        .digest("hex");
+      expect(() =>
+        service.verifyFeishuWebhook(headers, body),
+      ).toThrow(WebhookSignatureVerificationException);
+    });
 
+    it("should throw on old timestamp (replay attack prevention)", () => {
+      const oldTimestamp = (Math.floor(Date.now() / 1000) - 400).toString(); // 400 seconds ago
       const headers = {
         "x-lark-request-timestamp": oldTimestamp,
-        "x-lark-request-nonce": nonce,
-        "x-lark-signature": signature,
       };
+      const body = JSON.stringify({
+        token: "feishu_token_123",
+      });
 
-      expect(() => {
-        service.verifyFeishuWebhook(headers, body);
-      }).toThrow(WebhookSignatureVerificationException);
+      expect(() =>
+        service.verifyFeishuWebhook(headers, body),
+      ).toThrow(WebhookSignatureVerificationException);
+    });
+
+    it("should accept recent timestamp within 5-minute window", () => {
+      const recentTimestamp = (
+        Math.floor(Date.now() / 1000) - 100
+      ).toString(); // 100 seconds ago
+      const headers = {
+        "x-lark-request-timestamp": recentTimestamp,
+      };
+      const body = JSON.stringify({
+        token: "feishu_token_123",
+      });
+
+      expect(() =>
+        service.verifyFeishuWebhook(headers, body),
+      ).not.toThrow();
+    });
+
+    it("should handle missing token in payload", () => {
+      const headers = {
+        "x-lark-request-timestamp": Math.floor(Date.now() / 1000).toString(),
+      };
+      const body = JSON.stringify({
+        header: {
+          event_type: "vc.meeting.meeting_ended_v1",
+        },
+      });
+
+      expect(() =>
+        service.verifyFeishuWebhook(headers, body),
+      ).not.toThrow();
+    });
+
+    it("should throw on invalid JSON in body", () => {
+      const headers = {
+        "x-lark-request-timestamp": Math.floor(Date.now() / 1000).toString(),
+      };
+      const body = "invalid json";
+
+      expect(() =>
+        service.verifyFeishuWebhook(headers, body),
+      ).toThrow(WebhookSignatureVerificationException);
+    });
+  });
+
+  describe("verifyZoomWebhook", () => {
+    it("should verify valid Zoom webhook with token", () => {
+      const headers = {
+        "x-zm-request-timestamp": Math.floor(Date.now() / 1000).toString(),
+      };
+      const body = JSON.stringify({
+        token: "zoom_token_456",
+        event: "meeting.ended",
+      });
+
+      expect(() => service.verifyZoomWebhook(headers, body)).not.toThrow();
+    });
+
+    it("should throw on invalid Zoom token in webhook", () => {
+      const headers = {
+        "x-zm-request-timestamp": Math.floor(Date.now() / 1000).toString(),
+      };
+      const body = JSON.stringify({
+        token: "invalid_token",
+        event: "meeting.ended",
+      });
+
+      expect(() => service.verifyZoomWebhook(headers, body)).toThrow(
+        WebhookSignatureVerificationException,
+      );
+    });
+
+    it("should throw on old Zoom webhook timestamp", () => {
+      const oldTimestamp = (Math.floor(Date.now() / 1000) - 400).toString();
+      const headers = {
+        "x-zm-request-timestamp": oldTimestamp,
+      };
+      const body = JSON.stringify({
+        token: "zoom_token_456",
+      });
+
+      expect(() => service.verifyZoomWebhook(headers, body)).toThrow(
+        WebhookSignatureVerificationException,
+      );
+    });
+
+    it("should handle missing token in Zoom payload", () => {
+      const headers = {
+        "x-zm-request-timestamp": Math.floor(Date.now() / 1000).toString(),
+      };
+      const body = JSON.stringify({
+        event: "meeting.started",
+      });
+
+      expect(() => service.verifyZoomWebhook(headers, body)).not.toThrow();
+    });
+
+    it("should throw on invalid JSON in Zoom body", () => {
+      const headers = {
+        "x-zm-request-timestamp": Math.floor(Date.now() / 1000).toString(),
+      };
+      const body = "invalid json";
+
+      expect(() => service.verifyZoomWebhook(headers, body)).toThrow(
+        WebhookSignatureVerificationException,
+      );
+    });
+  });
+
+  describe("Timestamp verification edge cases", () => {
+    it("should accept timestamp exactly at 5-minute boundary", () => {
+      const boundaryTimestamp = (
+        Math.floor(Date.now() / 1000) - 300
+      ).toString();
+      const headers = {
+        "x-lark-request-timestamp": boundaryTimestamp,
+      };
+      const body = JSON.stringify({
+        token: "feishu_token_123",
+      });
+
+      expect(() =>
+        service.verifyFeishuWebhook(headers, body),
+      ).not.toThrow();
+    });
+
+    it("should reject timestamp just beyond 5-minute boundary", () => {
+      const beyondBoundaryTimestamp = (
+        Math.floor(Date.now() / 1000) - 301
+      ).toString();
+      const headers = {
+        "x-lark-request-timestamp": beyondBoundaryTimestamp,
+      };
+      const body = JSON.stringify({
+        token: "feishu_token_123",
+      });
+
+      expect(() =>
+        service.verifyFeishuWebhook(headers, body),
+      ).toThrow(WebhookSignatureVerificationException);
+    });
+
+    it("should handle future timestamps (small clock skew)", () => {
+      const futureTimestamp = (
+        Math.floor(Date.now() / 1000) + 30
+      ).toString();
+      const headers = {
+        "x-lark-request-timestamp": futureTimestamp,
+      };
+      const body = JSON.stringify({
+        token: "feishu_token_123",
+      });
+
+      expect(() =>
+        service.verifyFeishuWebhook(headers, body),
+      ).not.toThrow();
     });
   });
 });
+
