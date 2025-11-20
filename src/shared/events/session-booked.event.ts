@@ -11,7 +11,7 @@ export interface SessionBookedEvent {
   counselorId: string;
   studentId: string;
   mentorId: string;
-  serviceType: ServiceType;
+  serviceType: string;
   mentorCalendarSlotId: string;
   studentCalendarSlotId: string;
   serviceHoldId: string;
