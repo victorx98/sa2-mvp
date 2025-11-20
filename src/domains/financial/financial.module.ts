@@ -1,7 +1,11 @@
 import { Module } from "@nestjs/common";
 import { DatabaseModule } from "@infrastructure/database/database.module";
 import { MentorPayableService } from "./services/mentor-payable.service";
+import { SettlementService } from "./services/settlement.service";
+import { MentorPaymentInfoService } from "./services/mentor-payment-info.service";
+import { MentorPaymentParamService } from "./services/mentor-payment-param.service";
 import { ServiceSessionCompletedListener } from "./events/listeners/service-session-completed-listener";
+import { SettlementConfirmedListener } from "./events/listeners/settlement-confirmed.listener";
 
 /**
  * Financial Domain Module(财务领域模块)
@@ -9,6 +13,9 @@ import { ServiceSessionCompletedListener } from "./events/listeners/service-sess
  * Core module for financial management including(财务管理核心模块，包括):
  * - Mentor payable management(导师应付管理)
  * - Session billing processing(会话计费处理)
+ * - Settlement processing(结算处理)
+ * - Payment information management(支付信息管理)
+ * - Payment parameter management(支付参数管理)
  * - Financial event handling(财务事件处理)
  *
  * Design Patterns(设计模式):
@@ -24,14 +31,39 @@ import { ServiceSessionCompletedListener } from "./events/listeners/service-sess
       provide: "IMentorPayableService",
       useClass: MentorPayableService,
     },
+    {
+      provide: "ISettlementService",
+      useClass: SettlementService,
+    },
+    {
+      provide: "IMentorPaymentInfoService",
+      useClass: MentorPaymentInfoService,
+    },
+    {
+      provide: "IMentorPaymentParamService",
+      useClass: MentorPaymentParamService,
+    },
     // Event listeners
     ServiceSessionCompletedListener,
+    SettlementConfirmedListener,
   ],
   exports: [
-    // Export the service with custom token for dependency injection
+    // Export services with custom token for dependency injection
     {
       provide: "IMentorPayableService",
       useClass: MentorPayableService,
+    },
+    {
+      provide: "ISettlementService",
+      useClass: SettlementService,
+    },
+    {
+      provide: "IMentorPaymentInfoService",
+      useClass: MentorPaymentInfoService,
+    },
+    {
+      provide: "IMentorPaymentParamService",
+      useClass: MentorPaymentParamService,
     },
   ],
 })

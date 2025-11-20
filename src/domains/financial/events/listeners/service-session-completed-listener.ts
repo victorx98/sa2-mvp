@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import {
   IServiceSessionCompletedEvent,
@@ -25,6 +25,7 @@ export class ServiceSessionCompletedListener {
   private readonly logger = new Logger(ServiceSessionCompletedListener.name);
 
   constructor(
+    @Inject("IMentorPayableService")
     private readonly mentorPayableService: MentorPayableService,
   ) {}
 

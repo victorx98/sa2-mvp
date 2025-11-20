@@ -277,13 +277,11 @@ erDiagram
 | target_amount | DECIMAL(15,2) | NOT NULL | 目标金额 |
 | original_currency | VARCHAR(3) | NOT NULL | 原始币种 |
 | target_currency | VARCHAR(3) | NOT NULL | 目标币种 |
-| exchange_rate | DECIMAL(10,6) | NOT NULL | 汇率 |
+| exchange_rate | DECIMAL(10,1) | NOT NULL | 汇率 |
 | deduction_rate | DECIMAL(5,4) | NOT NULL | 扣除比率 |
 | status | VARCHAR(20) | NOT NULL DEFAULT 'CONFIRMED' | 结算状态：仅使用CONFIRMED |
 | settlement_method | VARCHAR(50) | NOT NULL | 结算方式 |
 | mentor_payment_info_id | UUID | NOT NULL REFERENCES mentor_payment_infos(id) | 关联的支付信息ID |
-| payment_reference | VARCHAR(200) | NULL | 支付参考号 |
-| remarks | TEXT | NULL | 备注信息 |
 | created_at | TIMESTAMP | NOT NULL DEFAULT NOW() | 创建时间 |
 | created_by | VARCHAR(100) | NOT NULL | 创建人 |
 
@@ -322,7 +320,7 @@ erDiagram
 | id | UUID | PRIMARY KEY | 唯一标识符 |
 | currency | VARCHAR(3) | NOT NULL | 币种（ISO 4217） |
 | settlement_month | VARCHAR(7) | NOT NULL | 结算月份（YYYY-MM） |
-| default_exchange_rate | DECIMAL(10,6) | NOT NULL | 默认汇率 |
+| default_exchange_rate | DECIMAL(10,1) | NOT NULL | 默认汇率 |
 | default_deduction_rate | DECIMAL(5,4) | NOT NULL | 默认扣除比率 |
 | created_at | TIMESTAMP | NOT NULL DEFAULT NOW() | 创建时间 |
 | updated_at | TIMESTAMP | NOT NULL DEFAULT NOW() | 更新时间 |
@@ -717,9 +715,11 @@ export interface MentorPaymentParamService {
 
 ```typescript
 /**
- * 结算已创建并确认事件数据结构
+ * 结算已创建并确认事件数据结构[The settlement created and confirmed event payload]
+ * 该接口定义需要符合 @src/shared/events/event.types.ts 中的 IEvent<T> 规范
+ * [This interface definition needs to comply with IEvent<T> specification in @src/shared/events/event.types.ts]
  */
-export interface SettlementConfirmedEvent {
+export interface SettlementConfirmedPayload {
   settlementId: string;
   mentorId: string;
   settlementMonth: string;
@@ -732,18 +732,19 @@ export interface SettlementConfirmedEvent {
   settlementMethod: SettlementMethod;
   createdBy: string;
   createdAt: Date;
-  // 关联的结算明细ID列表
+  // 关联的结算明细ID列表[Associated settlement detail ID list]
   payableLedgerIds: string[];
 }
 
 /**
- * 结算事件发布服务
+ * 结算事件发布服务[Settlement event publisher service]
  */
 export interface SettlementEventPublisher {
   /**
    * 发布结算已创建并确认事件
+   * [Publish settlement created and confirmed event]
    */
-  publishSettlementConfirmedEvent(eventData: SettlementConfirmedEvent): void;
+  publishSettlementConfirmedEvent(eventData: SettlementConfirmedPayload): void;
 }
 ```
 
