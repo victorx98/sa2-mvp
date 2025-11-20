@@ -34,7 +34,7 @@ export class SessionCompletedListener {
     private readonly serviceLedgerService: ServiceLedgerService,
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-  ) {}
+  ) { }
 
   /**
    * 监听服务会话完成事件
@@ -50,17 +50,17 @@ export class SessionCompletedListener {
       const {
         sessionId,
         studentId,
-        sessionType,
+        sessionTypeCode,
         actualDurationHours,
       } = event.payload || {};
 
       this.logger.log(
-        `Processing session completed event: ${event.id}, sessionId: ${sessionId}, studentId: ${studentId}, sessionType: ${sessionType}, duration: ${actualDurationHours}h`,
+        `Processing session completed event: ${event.id}, sessionId: ${sessionId}, studentId: ${studentId}, sessionType: ${sessionTypeCode}, duration: ${actualDurationHours}h`,
       );
 
-      if (!sessionId || !studentId || !sessionType) {
+      if (!sessionId || !studentId || !sessionTypeCode) {
         this.logger.error(
-          `Missing required fields in event payload: sessionId=${sessionId}, studentId=${studentId}, sessionType=${sessionType}`,
+          `Missing required fields in event payload: sessionId=${sessionId}, studentId=${studentId}, sessionType=${sessionTypeCode}`,
         );
         return;
       }
@@ -73,7 +73,7 @@ export class SessionCompletedListener {
         .where(
           and(
             eq(schema.serviceHolds.studentId, studentId),
-            eq(schema.serviceHolds.serviceType, sessionType),
+            eq(schema.serviceHolds.serviceType, sessionTypeCode),
             eq(schema.serviceHolds.status, HoldStatus.ACTIVE),
             eq(schema.serviceHolds.relatedBookingId, sessionId),
           ),
@@ -81,7 +81,7 @@ export class SessionCompletedListener {
 
       if (activeHolds.length === 0) {
         this.logger.warn(
-          `No active hold found for session ${sessionId}, student ${studentId}, serviceType ${sessionType}. Skipping hold release.`,
+          `No active hold found for session ${sessionId}, student ${studentId}, serviceType ${sessionTypeCode}. Skipping hold release.`,
         );
         // 继续记录消耗，即使没有预占 (Continue to record consumption even without hold)
       } else if (activeHolds.length > 1) {
@@ -114,7 +114,7 @@ export class SessionCompletedListener {
         await this.serviceLedgerService.recordConsumption(
           {
             studentId,
-            serviceType: sessionType,
+            serviceType: sessionTypeCode,
             quantity: consumptionQuantity,
             relatedBookingId: sessionId,
             createdBy: studentId, // Use studentId as valid UUID for createdBy field [使用studentId作为有效的UUID]
@@ -123,7 +123,7 @@ export class SessionCompletedListener {
         );
 
         this.logger.log(
-          `Recorded consumption of ${consumptionQuantity} units for session ${sessionId}, student ${studentId}, serviceType ${sessionType}`,
+          `Recorded consumption of ${consumptionQuantity} units for session ${sessionId}, student ${studentId}, serviceType ${sessionTypeCode}`,
         );
       });
 

@@ -12,7 +12,6 @@ import { ContractService } from "@domains/contract/contract.service";
 import { ServiceHoldService } from "@domains/contract/services/service-hold.service";
 import { BookSessionInput } from "./dto/book-session-input.dto";
 import { BookSessionOutput } from "./dto/book-session-output.dto";
-import type { ServiceType } from "@infrastructure/database/schema/service-types.schema";
 import { TimeConflictException } from "@shared/exceptions";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import type {
@@ -106,7 +105,7 @@ export class BookSessionCommand {
         // Step 2: 创建服务预占
         const hold = await this.serviceHoldService.createHold({
           studentId: input.studentId,
-          serviceType: 'session' as ServiceType,
+          serviceType: 'session',
           quantity: 1,
           createdBy: input.counselorId,
         }, tx);
@@ -224,7 +223,7 @@ export class BookSessionCommand {
       studentId: input.studentId,
       mentorId: input.mentorId,
       counselorId: input.counselorId,
-      serviceType: 'session' as ServiceType,
+      serviceType: 'session',
       mentorCalendarSlotId: sessionResult.mentorCalendarSlot.id,
       studentCalendarSlotId: sessionResult.studentCalendarSlot.id,
       serviceHoldId: sessionResult.hold.id,

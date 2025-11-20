@@ -33,6 +33,10 @@ export * from "./mentoring-sessions.schema";
 // Financial domain
 export * from "./mentor-payable-ledgers.schema";
 export * from "./mentor-prices.schema";
+export * from "./mentor-payment-infos.schema";
+export * from "./settlement-ledgers.schema";
+export * from "./settlement-details.schema";
+export * from "./payment-params.schema";
 
 // Shared
 export * from "./calendar.schema";

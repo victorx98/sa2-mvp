@@ -310,7 +310,7 @@ describe("ProductService Integration Tests [ProductService集成测试]", () => 
         sortOrder: 1,
       });
 
-      let items = await db
+      const items = await db
         .select()
         .from(schema.productItems)
         .where(eq(schema.productItems.productId, createdProductId));
