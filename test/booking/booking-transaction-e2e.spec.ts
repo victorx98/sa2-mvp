@@ -189,6 +189,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         counselorId: testIds.counselor,
         studentId: testIds.student,
         mentorId: testIds.mentor,
+        serviceType: "session",
         scheduledStartTime: "2025-12-15T10:00:00Z",
         duration: 60,
         topic: `${testPrefix} - E2E Success Test`,
@@ -303,6 +304,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         counselorId: testIds.counselor,
         studentId: failingStudentId, // 使用新的student ID避免冲突
         mentorId: failingMentorId, // 使用新的mentor ID
+        serviceType: "session",
         scheduledStartTime: "2025-12-16T10:00:00Z",
         duration: 60,
         topic: `${testPrefix} - E2E Rollback Test`,
@@ -372,6 +374,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         counselorId: testIds.counselor,
         studentId: firstStudentId,
         mentorId: firstMentorId,
+        serviceType: "session",
         scheduledStartTime: "2025-12-17T10:00:00Z",
         duration: 60,
         topic: `${testPrefix} - First Booking`,
@@ -391,6 +394,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         counselorId: testIds.counselor,
         studentId: conflictStudentId,
         mentorId: firstMentorId, // 相同的mentor
+        serviceType: "session",
         scheduledStartTime: "2025-12-17T10:00:00Z", // 相同的时间
         duration: 60,
         topic: `${testPrefix} - Conflict Booking`,
@@ -445,6 +449,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         counselorId: testIds.counselor,
         studentId: consistencyStudentId,
         mentorId: uuidv4(),
+        serviceType: "session",
         scheduledStartTime: "2025-12-18T10:00:00Z",
         duration: 60,
         topic: `${testPrefix} - Consistency Test`,

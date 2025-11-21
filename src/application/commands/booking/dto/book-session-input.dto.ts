@@ -10,6 +10,9 @@ export interface BookSessionInput {
   studentId: string;
   mentorId: string;
 
+  // 服务类型
+  serviceType: string;
+
   // 时间安排
   scheduledStartTime: string;
   duration: number; // 分钟

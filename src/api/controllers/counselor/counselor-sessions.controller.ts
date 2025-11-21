@@ -66,6 +66,14 @@ class BookSessionRequestDto {
   duration: number;
 
   @ApiProperty({
+    description: "Service type",
+    example: "external",
+  })
+  @IsString()
+  @IsNotEmpty()
+  serviceType: string;
+
+  @ApiProperty({
     description: "Session topic",
     example: "Resume review guidance",
   })
@@ -151,6 +159,7 @@ export class CounselorSessionsController {
       counselorId: user.id,
       studentId: dto.studentId,
       mentorId: dto.mentorId,
+      serviceType: dto.serviceType,
       scheduledStartTime: dto.scheduledStartTime,
       duration: dto.duration,
       topic: dto.topic,
