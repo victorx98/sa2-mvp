@@ -551,10 +551,6 @@
             "type": "string",
             "description": "Student ID"
           },
-          "contractId": {
-            "type": "string",
-            "description": "Contract ID"
-          },
           "mentorId": {
             "type": "string",
             "description": "Mentor ID"
@@ -590,7 +586,6 @@
         },
         "required": [
           "studentId",
-          "contractId",
           "mentorId",
           "startTime",
           "duration",
