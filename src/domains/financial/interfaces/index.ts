@@ -5,4 +5,5 @@ export * from "./mentor-payable.interface";
 export * from "./settlement.interface";
 export * from "./mentor-payment-info.interface";
 export * from "./mentor-payment-param.interface";
+export * from "./mentor-appeal.interface";
 

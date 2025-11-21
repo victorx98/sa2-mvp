@@ -15,3 +15,8 @@ export const SERVICE_SESSION_COMPLETED_EVENT = "services.session.completed";
 
 // Financial Events (财务事件)
 export const SETTLEMENT_CONFIRMED_EVENT = "financial.settlement.confirmed";
+
+// Appeal Events (申诉事件)
+export const MENTOR_APPEAL_CREATED_EVENT = "financial.appeal.created";
+export const MENTOR_APPEAL_APPROVED_EVENT = "financial.appeal.approved";
+export const MENTOR_APPEAL_REJECTED_EVENT = "financial.appeal.rejected";
