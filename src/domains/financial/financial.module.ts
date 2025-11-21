@@ -4,6 +4,7 @@ import { MentorPayableService } from "./services/mentor-payable.service";
 import { SettlementService } from "./services/settlement.service";
 import { MentorPaymentInfoService } from "./services/mentor-payment-info.service";
 import { MentorPaymentParamService } from "./services/mentor-payment-param.service";
+import { MentorAppealService } from "./services/mentor-appeal.service";
 import { ServiceSessionCompletedListener } from "./events/listeners/service-session-completed-listener";
 import { SettlementConfirmedListener } from "./events/listeners/settlement-confirmed.listener";
 
@@ -16,6 +17,7 @@ import { SettlementConfirmedListener } from "./events/listeners/settlement-confi
  * - Settlement processing(结算处理)
  * - Payment information management(支付信息管理)
  * - Payment parameter management(支付参数管理)
+ * - Mentor appeal management(导师申诉管理)
  * - Financial event handling(财务事件处理)
  *
  * Design Patterns(设计模式):
@@ -43,6 +45,10 @@ import { SettlementConfirmedListener } from "./events/listeners/settlement-confi
       provide: "IMentorPaymentParamService",
       useClass: MentorPaymentParamService,
     },
+    {
+      provide: "IMentorAppealService",
+      useClass: MentorAppealService,
+    },
     // Event listeners
     ServiceSessionCompletedListener,
     SettlementConfirmedListener,
@@ -64,6 +70,10 @@ import { SettlementConfirmedListener } from "./events/listeners/settlement-confi
     {
       provide: "IMentorPaymentParamService",
       useClass: MentorPaymentParamService,
+    },
+    {
+      provide: "IMentorAppealService",
+      useClass: MentorAppealService,
     },
   ],
 })
