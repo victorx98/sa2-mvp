@@ -1,5 +1,6 @@
 /**
  * Validation utility functions for Contract Domain
+ * [Contract域验证工具函数]
  */
 
 import {
@@ -8,23 +9,25 @@ import {
   MIN_SERVICE_QUANTITY,
   MAX_SERVICE_QUANTITY,
 } from "../constants/contract.constants";
+import { ContractException } from "../exceptions/contract.exception";
 
 /**
  * Validate price amount
+ * [验证价格金额]
  * @param amount Price amount in cents
- * @returns True if valid, throws error otherwise
+ * @returns True if valid, throws ContractException otherwise
  */
 export function validatePrice(amount: number): boolean {
   if (amount < MIN_CONTRACT_AMOUNT) {
-    throw new Error(`Price must be at least ${MIN_CONTRACT_AMOUNT} cents`);
+    throw new ContractException(`Price must be at least ${MIN_CONTRACT_AMOUNT} cents`);
   }
 
   if (amount > MAX_CONTRACT_AMOUNT) {
-    throw new Error(`Price cannot exceed ${MAX_CONTRACT_AMOUNT} cents`);
+    throw new ContractException(`Price cannot exceed ${MAX_CONTRACT_AMOUNT} cents`);
   }
 
   if (!Number.isInteger(amount)) {
-    throw new Error("Price must be an integer (cents)");
+    throw new ContractException("Price must be an integer (cents)");
   }
 
   return true;
@@ -32,20 +35,21 @@ export function validatePrice(amount: number): boolean {
 
 /**
  * Validate service quantity
+ * [验证服务数量]
  * @param quantity Service quantity
- * @returns True if valid, throws error otherwise
+ * @returns True if valid, throws ContractException otherwise
  */
 export function validateQuantity(quantity: number): boolean {
   if (quantity < MIN_SERVICE_QUANTITY) {
-    throw new Error(`Quantity must be at least ${MIN_SERVICE_QUANTITY}`);
+    throw new ContractException(`Quantity must be at least ${MIN_SERVICE_QUANTITY}`);
   }
 
   if (quantity > MAX_SERVICE_QUANTITY) {
-    throw new Error(`Quantity cannot exceed ${MAX_SERVICE_QUANTITY}`);
+    throw new ContractException(`Quantity cannot exceed ${MAX_SERVICE_QUANTITY}`);
   }
 
   if (!Number.isInteger(quantity)) {
-    throw new Error("Quantity must be an integer");
+    throw new ContractException("Quantity must be an integer");
   }
 
   return true;
@@ -53,8 +57,9 @@ export function validateQuantity(quantity: number): boolean {
 
 /**
  * Validate validity days
+ * [验证有效天数]
  * @param validityDays Validity period in days
- * @returns True if valid, throws error otherwise
+ * @returns True if valid, throws ContractException otherwise
  */
 export function validateValidityDays(validityDays: number | null): boolean {
   if (validityDays === null || validityDays === undefined) {
@@ -62,11 +67,11 @@ export function validateValidityDays(validityDays: number | null): boolean {
   }
 
   if (validityDays <= 0) {
-    throw new Error("Validity days must be greater than 0 or null");
+    throw new ContractException("Validity days must be greater than 0 or null");
   }
 
   if (!Number.isInteger(validityDays)) {
-    throw new Error("Validity days must be an integer");
+    throw new ContractException("Validity days must be an integer");
   }
 
   return true;
@@ -74,10 +79,11 @@ export function validateValidityDays(validityDays: number | null): boolean {
 
 /**
  * Validate balance calculation
+ * [验证余额计算]
  * @param totalQuantity Total allocated quantity
  * @param consumedQuantity Consumed quantity
  * @param heldQuantity Held quantity
- * @returns True if valid, throws error otherwise
+ * @returns True if valid, throws ContractException otherwise
  */
 export function validateBalanceConsistency(
   totalQuantity: number,
@@ -85,24 +91,25 @@ export function validateBalanceConsistency(
   heldQuantity: number,
 ): boolean {
   if (consumedQuantity < 0) {
-    throw new Error("Consumed quantity cannot be negative");
+    throw new ContractException("Consumed quantity cannot be negative");
   }
 
   if (heldQuantity < 0) {
-    throw new Error("Held quantity cannot be negative");
+    throw new ContractException("Held quantity cannot be negative");
   }
 
   if (consumedQuantity + heldQuantity > totalQuantity) {
-    throw new Error("Consumed + held quantity cannot exceed total quantity");
+    throw new ContractException("Consumed + held quantity cannot exceed total quantity");
   }
 
   const expectedAvailable = totalQuantity - consumedQuantity - heldQuantity;
   if (expectedAvailable < 0) {
-    throw new Error("Available quantity cannot be negative");
+    throw new ContractException("Available quantity cannot be negative");
   }
 
   return true;
 }
+
 
 /**
  * Validate UUID format

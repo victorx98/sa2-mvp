@@ -168,18 +168,23 @@ export class ServiceHoldService {
    */
   async getActiveHolds(
     studentId: string,
-    serviceType: string,
+    serviceType?: string,
   ): Promise<ServiceHold[]> {
+    // Base condition: studentId and ACTIVE status
+    const conditions = [
+      eq(schema.serviceHolds.studentId, studentId),
+      eq(schema.serviceHolds.status, HoldStatus.ACTIVE),
+    ];
+
+    // Add serviceType condition if provided
+    if (serviceType) {
+      conditions.push(eq(schema.serviceHolds.serviceType, serviceType));
+    }
+
     return await this.db
       .select()
       .from(schema.serviceHolds)
-      .where(
-        and(
-          eq(schema.serviceHolds.studentId, studentId),
-          eq(schema.serviceHolds.serviceType, serviceType),
-          eq(schema.serviceHolds.status, HoldStatus.ACTIVE),
-        ),
-      );
+      .where(and(...conditions));
   }
 
   /**
