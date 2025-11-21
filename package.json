@@ -19,6 +19,7 @@
     "test:cov": "NODE_OPTIONS='--dns-result-order=ipv4first' jest --coverage --runInBand",
     "test:debug": "NODE_OPTIONS='--dns-result-order=ipv4first' node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "NODE_OPTIONS='--dns-result-order=ipv4first' jest --runInBand test",
+    "test:recent": "bash scripts/run-recent-test.sh",
     "db:generate": "NODE_OPTIONS='--dns-result-order=ipv4first' drizzle-kit generate",
     "db:migrate": "ts-node scripts/migrate.ts",
     "db:migrate:drizzle": "NODE_OPTIONS='--dns-result-order=ipv4first' drizzle-kit migrate",

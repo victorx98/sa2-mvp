@@ -8,6 +8,7 @@ trigger: always_on
 - **异常处理**: 所有异常消息和错误文本必须使用英文
 - **文档语言**: Markdown 文件必须使用中文编写
 - **代码导入**: 禁止未使用的 import 语句，保持代码整洁
+- **导入路径规范**: 必须使用别名路径导入模块，禁止使用相对路径
 - **代码质量**: 所有代码必须通过 ESLint 检查（`npm run lint`）
 - **代码格式**: 所有代码必须通过 Prettier 格式化（`npm run format`）
 - **规范遵循**: 所有文件必须遵循项目代码规范
@@ -65,6 +66,45 @@ trigger: always_on
 - **模拟依赖**: 使用 `jest.mock()` 或 `@golevelup/ts-jest` 模拟外部依赖
 - **测试覆盖率**: 每个单元测试覆盖率应达到 80% 以上
 
+### Mock数据生成规范
+
+- **ID属性规范**: 所有包含id属性的测试数据，其值必须严格使用UUID格式生成，确保符合RFC 4122标准定义的UUID格式规范
+  ```typescript
+  // 正确示例
+  const mockUser = {
+    id: '550e8400-e29b-41d4-a716-446655440000', // 标准UUID格式
+    name: 'Test User'
+  };
+  
+  // 错误示例
+  const mockUser = {
+    id: 'user-123', // 非UUID格式
+    name: 'Test User'
+  };
+  ```
+
+- **枚举类型规范**: 对于枚举类型的测试数据，必须严格匹配项目中对应枚举类型的定义，确保所有生成的枚举值均为该枚举类型的有效值之一，不允许出现未定义的枚举值
+  ```typescript
+  // 假设项目中有以下枚举定义
+  enum UserStatus {
+    ACTIVE = 'active',
+    INACTIVE = 'inactive',
+    PENDING = 'pending'
+  }
+  
+  // 正确示例 - 使用枚举中定义的值
+  const mockUser = {
+    id: '550e8400-e29b-41d4-a716-446655440000',
+    status: UserStatus.ACTIVE // 使用枚举定义的值
+  };
+  
+  // 错误示例 - 使用未定义的枚举值
+  const mockUser = {
+    id: '550e8400-e29b-41d4-a716-446655440000',
+    status: 'deleted' // 未在枚举中定义的值
+  };
+  ```
+
 ## 集成测试规范
 
 - **文件命名**: 集成测试文件使用 `.e2e-spec.ts` 后缀（如：`contract-flow.e2e-spec.ts`）
@@ -103,6 +143,59 @@ trigger: always_on
 - **错误处理**: 所有数据库操作必须包含适当的错误处理和日志记录
 - **连接管理**: 使用连接池管理数据库连接，避免频繁创建和销毁连接
 - **索引优化**: 为经常查询的字段添加适当的索引，提高查询性能
+
+# 模块导入别名路径规范
+
+## 别名路径命名规则
+
+- **命名格式**: 所有别名路径必须以 `@` 符号开头，后跟模块名称和通配符 `/*`
+- **模块名称**: 使用小写字母和连字符 `-` 分隔单词，避免使用驼峰命名
+- **一致性**: 同一模块的别名路径在整个项目中必须保持一致
+
+## 别名路径映射关系
+
+- **@core/\***: 映射到 `src/core/*` - 核心功能模块（邮件、通知、日历等）
+- **@domains/\***: 映射到 `src/domains/*` - 业务领域模块（财务、合同、目录等）
+- **@application/\***: 映射到 `src/application/*` - 应用层模块（命令、查询等）
+- **@infrastructure/\***: 映射到 `src/infrastructure/*` - 基础设施模块（数据库、认证等）
+- **@api/\***: 映射到 `src/api/*` - API层模块（控制器、DTO等）
+- **@shared/\***: 映射到 `src/shared/*` - 共享模块（事件、异常、类型等）
+- **@telemetry/\***: 映射到 `src/telemetry/*` - 遥测模块（指标、日志等）
+
+## 别名路径使用规范
+
+- **导入语句**: 所有模块导入必须使用别名路径，禁止使用相对路径
+- **正确示例**:
+  ```typescript
+  import { MentorAppealService } from '@domains/financial/services/mentor-appeal.service';
+  import { DatabaseModule } from '@infrastructure/database/database.module';
+  import { SessionCreatedEvent } from '@shared/events/session.events';
+  ```
+- **错误示例**:
+  ```typescript
+  import { MentorAppealService } from '../financial/services/mentor-appeal.service';
+  import { DatabaseModule } from '../../infrastructure/database/database.module';
+  import { SessionCreatedEvent } from '../../../shared/events/session.events';
+  ```
+
+## 环境配置方法
+
+- **开发环境**: 在 `tsconfig.json` 中配置 `paths` 属性，确保 TypeScript 编译器能正确解析别名路径
+- **测试环境**: 在 `jest.config.js` 中配置 `moduleNameMapper` 属性，确保 Jest 测试框架能正确解析别名路径
+- **生产环境**: 确保构建工具（如 Webpack）正确配置别名路径解析，与开发环境保持一致
+
+## 违规处理
+
+- **错误提示**: ESLint 检查应配置相应规则，对使用相对路径的导入语句发出警告或错误
+- **代码审查**: 代码审查过程中必须检查导入语句是否符合别名路径规范
+- **修复建议**: 发现违规导入时，应立即替换为对应的别名路径
+- **自动化修复**: 可配置 ESLint 自动修复功能，将相对路径导入自动转换为别名路径导入
+
+## 特殊情况处理
+
+- **第三方库导入**: 第三方库导入继续使用标准导入方式，不受别名路径规范约束
+- **类型定义导入**: 类型定义导入也应遵循别名路径规范，确保类型定义的一致性
+- **动态导入**: 动态导入语句也应使用别名路径，保持导入方式的一致性
 
 # 禁止事项
 
