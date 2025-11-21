@@ -19,28 +19,6 @@ describe("ServiceLedgerService Unit Tests [服务台账服务单元测试]", () 
   const testCreatedBy = randomUUID();
   const testRelatedBookingId = randomUUID();
 
-  /**
-   * Transaction callback factory - creates properly scoped transaction mocks
-   * Assigns mocks directly to avoid Jest scoping issues in async callbacks
-   */
-    return jest.fn(async (callback) => {
-      // Create transaction object with mocks configured INSIDE the callback
-      // This avoids the scoping issue by creating fresh mocks each time
-      const mockTx = {
-        select: jest.fn().mockReturnValue({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockResolvedValue(entitlements),
-          }),
-        }),
-        insert: jest.fn().mockReturnValue({
-          values: jest.fn().mockReturnValue({
-            returning: jest.fn().mockResolvedValue(ledgerResult),
-          }),
-        }),
-      };
-      return await callback(mockTx);
-    });
-
   beforeEach(async () => {
     // Create mock database with properly configured chains
     mockDb = {
