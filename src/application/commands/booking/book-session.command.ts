@@ -114,38 +114,39 @@ export class BookSessionCommand {
         }, tx);
 
 
-        // Step 3: Try to create calendar slot directly (atomic with DB constraint)
-        // Let the database EXCLUDE constraint handle conflicts
-        const [mentorCalendarSlot, studentCalendarSlot] = await Promise.all([
-          this.calendarService.createSlotDirect({
-            userId: input.mentorId,
-            userType: UserType.MENTOR,
-            startTime: input.scheduledStartTime,
-            durationMinutes: input.duration,
-            sessionType: CalendarSessionType.REGULAR_MENTORING,
-            title: input.topic || "Regular Mentoring Session",
-            sessionId: undefined, // Will be updated after session creation
-            metadata: {
-              otherPartyName: 'studentName', // TODO: should be fetched from student table
-            },
-          }, tx),
-          this.calendarService.createSlotDirect({
-            userId: input.studentId,
-            userType: UserType.STUDENT,
-            startTime: input.scheduledStartTime,
-            durationMinutes: input.duration,
-            sessionType: CalendarSessionType.REGULAR_MENTORING,
-            title: input.topic || "Regular Mentoring Session",
-            sessionId: undefined, // Will be updated after session creation
-            metadata: {
-              otherPartyName: 'mentorName', // TODO: should be fetched from mentor table
-            },
-          }, tx)
-        ]);
+        // Step 3: Try to create calendar slots sequentially (not in parallel)
+        // Sequential execution prevents second query from running in aborted transaction state
+        const mentorCalendarSlot = await this.calendarService.createSlotDirect({
+          userId: input.mentorId,
+          userType: UserType.MENTOR,
+          startTime: input.scheduledStartTime,
+          durationMinutes: input.duration,
+          sessionType: CalendarSessionType.REGULAR_MENTORING,
+          title: input.topic || "Regular Mentoring Session",
+          sessionId: undefined, // Will be updated after session creation
+          metadata: {
+            otherPartyName: 'studentName', // TODO: should be fetched from student table
+          },
+        }, tx);
         
         if (!mentorCalendarSlot) {
           throw new TimeConflictException("The mentor already has a conflict");
-        } if (!studentCalendarSlot) {
+        }
+
+        const studentCalendarSlot = await this.calendarService.createSlotDirect({
+          userId: input.studentId,
+          userType: UserType.STUDENT,
+          startTime: input.scheduledStartTime,
+          durationMinutes: input.duration,
+          sessionType: CalendarSessionType.REGULAR_MENTORING,
+          title: input.topic || "Regular Mentoring Session",
+          sessionId: undefined, // Will be updated after session creation
+          metadata: {
+            otherPartyName: 'mentorName', // TODO: should be fetched from mentor table
+          },
+        }, tx);
+        
+        if (!studentCalendarSlot) {
           throw new TimeConflictException("The student already has a conflict");
         }
 
