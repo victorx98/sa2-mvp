@@ -59,7 +59,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
     if (existingUsers.length === 0) {
       await db.insert(schema.userTable).values({
         id: userId,
-        nickname: `test-user-${userId.slice(0, 8)}`,
+        nameEn: `test-user-${userId.slice(0, 8)}`,
         status: "active",
       });
       createdUserIds.add(userId);

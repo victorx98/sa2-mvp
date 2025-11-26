@@ -70,8 +70,8 @@ export class LoginCommand {
       user: {
         id: user.id,
         email: user.email,
-        nickname: user.nickname,
-        cnNickname: user.cnNickname,
+        nameEn: user.nameEn,
+        nameZh: user.nameZh,
         status: user.status,
         roles: user.roles ?? [],
       },

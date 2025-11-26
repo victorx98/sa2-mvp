@@ -37,8 +37,8 @@ describe("UserService", () => {
       const mockUser = {
         id: "user-1",
         email: "test@example.com",
-        nickname: "Test User",
-        cnNickname: "测试用户",
+        nameEn: "Test User",
+        nameZh: "测试用户",
         gender: "male",
         status: "active",
         country: "CN",
@@ -85,8 +85,8 @@ describe("UserService", () => {
       const mockUser = {
         id: "user-1",
         email: "test@example.com",
-        nickname: "Test User",
-        cnNickname: null,
+        nameEn: "Test User",
+        nameZh: null,
         gender: null,
         status: "active",
         country: null,
@@ -130,15 +130,15 @@ describe("UserService", () => {
       const newUser = {
         id: "user-2",
         email: "newuser@example.com",
-        nickname: "New User",
+        nameEn: "New User",
         status: "active",
       };
 
       const mockCreatedUser = {
         id: "user-2",
         email: "newuser@example.com",
-        nickname: "New User",
-        cnNickname: null,
+        nameEn: "New User",
+        nameZh: null,
         gender: null,
         status: "active",
         country: null,
@@ -162,8 +162,8 @@ describe("UserService", () => {
       expect(mockInsert.values).toHaveBeenCalledWith({
         id: "user-2",
         email: "newuser@example.com",
-        nickname: "New User",
-        cnNickname: null,
+        nameEn: "New User",
+        nameZh: null,
         gender: null,
         status: "active",
         country: null,
@@ -174,7 +174,7 @@ describe("UserService", () => {
     it("should throw error when email is missing", async () => {
       const newUser = {
         password: "hashed-password",
-        nickname: "New User",
+        nameEn: "New User",
       };
 
       await expect(service.create(newUser as any)).rejects.toThrow(
@@ -190,14 +190,14 @@ describe("UserService", () => {
       const newUser = {
         id: "user-3",
         email: "roleuser@example.com",
-        nickname: "Role User",
+        nameEn: "Role User",
       };
 
       const mockCreatedUser = {
         id: "user-3",
         email: "roleuser@example.com",
-        nickname: "Role User",
-        cnNickname: null,
+        nameEn: "Role User",
+        nameZh: null,
         gender: null,
         status: "active",
         country: null,
@@ -260,15 +260,15 @@ describe("UserService", () => {
   describe("update", () => {
     it("should update an existing user", async () => {
       const updateData = {
-        nickname: "Updated User",
+        nameEn: "Updated User",
         status: "inactive",
       };
 
       const mockUpdatedUser = {
         id: "user-1",
         email: "test@example.com",
-        nickname: "Updated User",
-        cnNickname: null,
+        nameEn: "Updated User",
+        nameZh: null,
         gender: null,
         status: "inactive",
         country: null,
@@ -294,7 +294,7 @@ describe("UserService", () => {
       const result = await service.update("user-1", updateData);
 
       expect(result).toBeDefined();
-      expect(result.nickname).toBe("Updated User");
+      expect(result.nameEn).toBe("Updated User");
       expect(result.status).toBe("inactive");
       expect(result.roles).toEqual(["mentor"]);
       expect(mockDb.update).toHaveBeenCalled();
@@ -314,7 +314,7 @@ describe("UserService", () => {
       mockDb.update.mockReturnValue(mockUpdate);
 
       await expect(
-        service.update("non-existent", { nickname: "Test" }),
+        service.update("non-existent", { nameEn: "Test" }),
       ).rejects.toThrow("User with id non-existent not found");
     });
   });

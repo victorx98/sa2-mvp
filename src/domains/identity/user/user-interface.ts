@@ -8,8 +8,8 @@ export interface User {
   id: string;
   email: string;
   gender?: string;
-  nickname?: string;
-  cnNickname?: string;
+  nameEn?: string;
+  nameZh?: string;
   status?: string;
   country?: string;
   createdTime?: Date;
@@ -24,8 +24,8 @@ export interface User {
 export interface CreateUserInput {
   id: string;
   email: string;
-  nickname?: string;
-  cnNickname?: string;
+  nameEn?: string;
+  nameZh?: string;
   gender?: string;
   status?: string;
   country?: string;

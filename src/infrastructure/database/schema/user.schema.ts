@@ -3,8 +3,8 @@ import { pgTable, varchar, timestamp, uuid } from "drizzle-orm/pg-core";
 export const userTable = pgTable("user", {
   id: uuid("id").defaultRandom().primaryKey(),
   gender: varchar("gender", { length: 10 }),
-  nickname: varchar("nickname", { length: 100 }),
-  cnNickname: varchar("cn_nickname", { length: 100 }),
+  nameEn: varchar("name_en", { length: 100 }),
+  nameZh: varchar("name_zh", { length: 100 }),
   status: varchar("status", { length: 50 }),
   password: varchar("password", { length: 255 }),
   email: varchar("email", { length: 255 }),

@@ -8,6 +8,9 @@ export * from "./student-counselor.schema";
 export * from "./role.schema";
 export * from "./user-relationships.schema";
 export * from "./user-roles.schema";
+export * from "./schools.schema";
+export * from "./majors.schema";
+export * from "./social-networks.schema";
 
 // Catalog domain
 export * from "./service-types.schema";
