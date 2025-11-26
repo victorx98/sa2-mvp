@@ -27,12 +27,12 @@
 {
   id: string;                    // 申请ID
   studentId: string;            // 学生ID
-  indeedJobId: string;          // Indeed岗位ID
-  jobId?: string;               // 岗位原始ID
+  indeedJobId: string;          // 清洗后Indeed岗位ID
+  jobId?: string;               // 招聘平台原始岗位编号（如Indeed返回的job id）
   status: ApplicationStatus;    // 申请状态
   appliedAt: Date;              // 投递时间
   createdAt: Date;              // 创建时间
-  updatedAt: Date;                // 更新时间
+  updatedAt: Date;              // 更新时间
 }
 ```
 
@@ -53,6 +53,227 @@ enum ApplicationStatus {
 - 同一学生对同一岗位只能申请一次
 - 状态必须按预定义规则流转
 - 所有操作记录时间戳
+
+### 2.4 数据表关系图
+
+```mermaid
+erDiagram
+    MASS_APPLICATIONS {
+        string id PK
+        string student_id FK
+        string indeed_job_id FK
+        string job_id FK
+        string application_status
+        timestamp applied_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INDEED_JOBS {
+        string id PK
+        string indeed_job_id UK
+        jsonb source
+        jsonb norm_job_titles
+        jsonb job_types
+        timestamp post_date
+        jsonb ai_analysis
+        string status
+        int applied_count
+        text job_title
+        text job_locations
+        text job_url
+        string country_code
+        text job_description
+        text company_name
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    APPLICATION_REFERENCES {
+        string id PK
+        string application_id FK
+        string reference_type
+        string reference_code UK
+        timestamp created_at
+    }
+
+    INDEED_JOBS ||--o{ MASS_APPLICATIONS : "has many"
+    MASS_APPLICATIONS ||--|| APPLICATION_REFERENCES : "has one"
+```
+
+### 2.5 数据表详细设计
+
+#### 2.5.1 主表：mass_applications
+
+| 字段名 | 数据类型 | 约束 | 描述 |
+|--------|----------|------|------|
+| id | UUID | PRIMARY KEY | 申请记录唯一标识 |
+| student_id | UUID | NOT NULL, FK | 学生ID，外键关联students表 |
+| indeed_job_id | VARCHAR(255) | NOT NULL | 清洗后Indeed岗位ID |
+| job_id | VARCHAR(100) | NULL | 招聘平台原始岗位编号（如Indeed返回的job id） |
+| application_status | VARCHAR(50) | NOT NULL, DEFAULT 'submitted' | 申请状态 |
+| applied_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 投递时间 |
+| created_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 创建时间 |
+| updated_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 更新时间 |
+
+**索引设计**：
+```sql
+-- 主键索引
+ALTER TABLE mass_applications ADD PRIMARY KEY (id);
+
+-- 业务唯一索引
+CREATE UNIQUE INDEX uk_student_job
+ON mass_applications(student_id, indeed_job_id);
+
+-- 查询优化索引
+CREATE INDEX idx_student_status
+ON mass_applications(student_id, application_status);
+
+CREATE INDEX idx_job_status
+ON mass_applications(indeed_job_id, application_status);
+
+CREATE INDEX idx_applied_at
+ON mass_applications(applied_at DESC);
+
+CREATE INDEX idx_status_applied 
+ON mass_applications(application_status, applied_at DESC);
+```
+
+#### 2.5.2 Indeed岗位表：indeed_jobs
+
+| 字段名 | 数据类型 | 约束 | 描述 |
+|--------|----------|------|------|
+| id | UUID | PRIMARY KEY | 岗位记录唯一标识 |
+| indeed_job_id | VARCHAR(255) | NOT NULL, UNIQUE | Indeed平台岗位ID |
+| source | JSONB | NOT NULL | 数据源信息（包含type和id） |
+| norm_job_titles | JSONB | NOT NULL | 标准化职位标题数组 |
+| job_types | JSONB | NOT NULL | 工作类型数组（如：Full-time） |
+| post_date | TIMESTAMP | NOT NULL | 发布日期 |
+| ai_analysis | JSONB | NULL | AI分析结果（技能、H1B、教育要求等） |
+| status | VARCHAR(50) | NOT NULL, DEFAULT 'active' | 岗位状态 |
+| job_title | TEXT | NOT NULL | 职位标题 |
+| job_locations | TEXT | NOT NULL | 工作地点 |
+| job_url | TEXT | NOT NULL | 岗位链接 |
+| country_code | VARCHAR(10) | NOT NULL | 国家代码 |
+| job_description | TEXT | NOT NULL | 职位描述 |
+| company_name | TEXT | NOT NULL | 公司名称 |
+| created_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 创建时间 |
+| updated_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 更新时间 |
+
+**JSON字段结构示例**：
+```json
+{
+  "source": {
+    "type": "indeed",
+    "id": "e1f4b5f77600ec07"
+  },
+  "norm_job_titles": ["Sales"],
+  "job_types": ["Full-time"],
+  "ai_analysis": {
+    "required_skills": [
+      {"skill": "Outside sales / Sales", "YOP": 1},
+      {"skill": "Negotiation / Contract negotiation", "YOP": 1},
+      {"skill": "Prospecting / Lead generation", "YOP": 1}
+    ],
+    "h1b": "NA",
+    "h1b_evidence": "",
+    "us_citizenship": "NA",
+    "minimum_educational_requirement": "NA",
+    "job_responsibilities": [
+      "Diligently pursue leads and close sales",
+      "Conduct professional product demonstrations"
+    ],
+    "industry": "Automotive Retail",
+    "domain": "Sales / Retail Sales",
+    "field": "Automotive Sales",
+    "experience_level": "entry_level",
+    "matched_job_titles": [{"job_title": "Sales", "score": 100}],
+    "location": ["NA"]
+  }
+}
+```
+
+**索引设计**：
+```sql
+-- 主键索引
+ALTER TABLE indeed_jobs ADD PRIMARY KEY (id);
+
+-- Indeed ID唯一索引
+CREATE UNIQUE INDEX uk_indeed_job_id 
+ON indeed_jobs(indeed_job_id);
+
+-- 状态查询索引
+CREATE INDEX idx_job_status 
+ON indeed_jobs(status);
+
+-- 国家代码索引
+CREATE INDEX idx_country_code 
+ON indeed_jobs(country_code);
+
+-- 发布日期索引
+CREATE INDEX idx_post_date 
+ON indeed_jobs(post_date DESC);
+
+-- JSON字段GIN索引（用于JSONB字段查询）
+CREATE INDEX idx_source_gin 
+ON indeed_jobs USING gin(source);
+
+CREATE INDEX idx_job_types_gin 
+ON indeed_jobs USING gin(job_types);
+
+CREATE INDEX idx_ai_analysis_gin 
+ON indeed_jobs USING gin(ai_analysis);
+
+-- 复合查询索引
+CREATE INDEX idx_status_country 
+ON indeed_jobs(status, country_code);
+
+CREATE INDEX idx_created_updated 
+ON indeed_jobs(created_at DESC, updated_at DESC);
+```
+
+**查询示例**：
+```sql
+-- 查询特定类型的岗位
+SELECT * FROM indeed_jobs 
+WHERE job_types @> '["Full-time"]';
+
+-- 查询包含特定技能的岗位
+SELECT * FROM indeed_jobs 
+WHERE ai_analysis->'required_skills' @> '[{"skill": "Sales"}]';
+
+-- 查询特定行业的岗位
+SELECT * FROM indeed_jobs 
+WHERE ai_analysis->>'industry' = 'Automotive Retail';
+
+-- 查询特定经验级别的岗位
+SELECT * FROM indeed_jobs 
+WHERE ai_analysis->>'experience_level' = 'entry_level';
+```
+
+#### 2.5.3 关联表：application_references
+
+| 字段名 | 数据类型 | 约束 | 描述 |
+|--------|----------|------|------|
+| id | UUID | PRIMARY KEY | 引用记录唯一标识 |
+| application_id | UUID | NOT NULL, FK | 申请ID，外键关联mass_applications表 |
+| reference_type | VARCHAR(50) | NOT NULL | 引用类型（如：application_reference） |
+| reference_code | VARCHAR(100) | NOT NULL, UNIQUE | 统一引用编码 |
+| created_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 创建时间 |
+
+**索引设计**：
+```sql
+-- 主键索引
+ALTER TABLE application_references ADD PRIMARY KEY (id);
+
+-- 外键索引
+CREATE INDEX idx_application_id 
+ON application_references(application_id);
+
+-- 引用编码唯一索引
+CREATE UNIQUE INDEX uk_reference_code 
+ON application_references(reference_code);
+```
 
 ## 3. 服务接口
 
@@ -203,12 +424,12 @@ export interface IMassApplicationService {
 ```typescript
 interface CreateMassApplicationCommand {
     studentId: string;          // 学生ID
-    indeedJobId: string;        // Indeed岗位ID
-    jobId?: string;            // 岗位原始ID（可选）
+    indeedJobId: string;        // 清洗后Indeed岗位ID
+    jobId?: string;            // 招聘平台原始岗位编号（可选）
     appliedAt?: Date;          // 投递时间（可选，默认当前时间）
     metadata?: Record<string, any>; // 附加元数据
 }
-````
+```
 
 **CreateBatchMassApplicationCommand**：
 
@@ -216,8 +437,8 @@ interface CreateMassApplicationCommand {
 interface CreateBatchMassApplicationCommand {
   studentId: string; // 学生ID
   applications: Array<{
-    indeedJobId: string; // Indeed岗位ID
-    jobId?: string; // 岗位原始ID
+    indeedJobId: string; // 清洗后Indeed岗位ID
+    jobId?: string; // 招聘平台原始岗位编号
     appliedAt?: Date; // 投递时间
   }>; // 申请列表
   batchMetadata?: Record<string, any>; // 批量操作元数据
@@ -307,26 +528,6 @@ interface ExpireOfferCommand {
   metadata?: Record<string, any>;
 }
 ```
-
-## 5. 业务规则
-
-### 5.1 唯一性约束
-- 同一学生对同一岗位只能申请一次
-
-### 5.2 状态流转规则
-- submitted → [interviewed, rejected, expired]
-- interviewed → [offered, rejected]
-- offered → expired
-- rejected → 终态
-- expired → 终态
-
-### 5.3 批量操作规则
-- 事务内逐条处理
-- 失败记录不影响其他
-- 返回成功和失败列表
-```
-
-## 5. 服务实现设计
 
 ## 6. 业务流程设计
 
@@ -534,13 +735,10 @@ flowchart TD
 
 
 ## 8. 业务规则
-```
 
-## 9. 业务规则
+### 8.1 核心业务规则
 
-### 9.1 核心业务规则
-
-#### 9.1.1 唯一性约束规则
+#### 8.1.1 唯一性约束规则
 
 **规则定义**：同一学生对同一Indeed岗位只能有一条有效的申请记录
 
@@ -576,7 +774,7 @@ private isExpired(application: MassApplication): boolean {
 }
 ```
 
-#### 9.1.2 状态流转规则
+#### 8.1.2 状态流转规则
 
 **规则定义**：申请状态必须按照预定义的状态机进行流转，不允许非法状态变更
 
@@ -613,9 +811,9 @@ private validateStatusTransition(
 }
 ```
 
-#### 9.1.3 批量操作规则
+#### 8.1.3 批量操作规则
 
-**规则定义**：批量投递操作必须保证事务一致性，要么全部成功，要么全部失败
+**规则定义**：批量投递操作时，逐条处理申请记录。单条记录失败不影响其他记录的投递，最终返回成功和失败的列表
 
 **实现方式**：
 
@@ -632,54 +830,59 @@ async createBatchApplications(
         failures: []
     };
 
-    // 使用事务保证一致性
-    return await this.transactionManager.runInTransaction(async () => {
-        for (const appData of command.applications) {
-            try {
-                // 验证单个申请
-                await this.validateSingleApplication(appData, command.studentId);
+    // 使用事务保证每条记录的数据一致性，但失败不整体回滚
+    for (const appData of command.applications) {
+        try {
+            // 验证单个申请
+            await this.validateSingleApplication(appData, command.studentId);
 
-                // 创建申请
-                const application = await this.createSingleApplication(appData, command.studentId);
-                result.applications.push(application);
-                result.successCount++;
+            // 创建申请（每个申请独立事务）
+            const application = await this.createSingleApplicationInTransaction(
+                appData,
+                command.studentId
+            );
+            result.applications.push(application);
+            result.successCount++;
 
-            } catch (error) {
-                result.failures.push({
-                    indeedJobId: appData.indeedJobId,
-                    reason: error.message
-                });
-                result.failedCount++;
+        } catch (error) {
+            result.failures.push({
+                indeedJobId: appData.indeedJobId,
+                reason: error.message
+            });
+            result.failedCount++;
 
-                // 记录失败但不中断批处理
-                this.logger.warn(`Batch application failed for job ${appData.indeedJobId}: ${error.message}`);
-            }
+            // 记录失败但不中断批处理
+            this.logger.warn(
+                `Batch application failed for job ${appData.indeedJobId}: ${error.message}`
+            );
         }
+    }
 
-        return result;
-    });
+    return result;
 }
 ```
 
-### 9.2 数据一致性规则
+**设计说明**：批量投递采用"部分成功"模式，即每个岗位投递相互独立。某个岗位投递失败（如已投递过）不影响其他岗位的投递，符合海投业务场景：学生通常批量投递多个感兴趣岗位，希望尽可能多的投递成功。
 
-#### 9.2.1 事务一致性
+### 8.2 数据一致性规则
+
+#### 8.2.1 事务一致性
 
 **规则定义**：所有涉及多个数据变更的操作必须使用事务保证一致性
 
 **应用场景**：
 
 - 创建申请记录时必须同时创建application_references记录
-- 批量操作必须保证整体事务一致性
+- 批量操作中单条记录的创建使用独立事务
 
-#### 9.2.2 数据一致性
+#### 8.2.2 单条申请创建的原子性
 
-**规则定义**：所有数据库操作必须在同一事务中完成，确保数据一致性
+**规则定义**：单个申请的创建操作必须在同一事务中完成，确保数据一致性
 
 **实现方式**：
 
 ```typescript
-// 使用事务保证数据一致性
+// 使用事务保证单个申请的数据一致性
 async createApplicationWithTransaction(
     command: CreateMassApplicationCommand
 ): Promise<MassApplication> {
@@ -698,9 +901,9 @@ async createApplicationWithTransaction(
 }
 ```
 
-### 9.3 性能优化规则
+### 8.3 性能优化规则
 
-#### 9.3.1 查询优化规则
+#### 8.3.1 查询优化规则
 
 **规则定义**：高频查询必须使用索引优化，避免全表扫描
 
@@ -718,7 +921,7 @@ CREATE INDEX idx_mass_applications_student_status ON mass_applications(student_i
 CREATE INDEX idx_mass_applications_student_created ON mass_applications(student_id, created_at DESC);
 ```
 
-#### 9.3.2 批量操作优化
+#### 8.3.2 批量操作优化
 
 **规则定义**：批量操作必须使用批处理机制，减少数据库交互次数
 
@@ -759,7 +962,7 @@ async createBatchApplicationsOptimized(
 CREATE INDEX idx_mass_applications_student_created_desc 
 ON mass_applications(student_id, created_at DESC);
 
--- 状态查询索引  
+-- 状态查询索引
 CREATE INDEX idx_mass_applications_student_status
 ON mass_applications(student_id, application_status);
 
@@ -828,6 +1031,24 @@ async getApplicationsWithCursor(
 - [ ] 环境配置正确
 - [ ] 监控告警配置
 - [ ] 日志配置优化
+
+## 10. 架构决策清单 (2025-01-09)
+
+### 已决策项
+- ✅ **数据模型方案**: 采用共享主键设计，application_references作为中心表
+- ✅ **ID类型**: 使用UUID，利用PostgreSQL原生性能优势
+- ✅ **字段命名**: 全面对齐Placement域详细设计规范
+  - description → job_description
+  - 添加 department 字段
+  - 添加 created_by / updated_by 字段
+- ✅ **防腐层实现**: 遵循DDD防腐层原则，使用字符串引用
+  - student_id: string (非外键)
+  - indeed_job_id: string (非外键)
+- ✅ **领域事件机制**: 保持无事件设计（海投为免费服务，无需与Contract域集成）
+- ✅ **海投模块采用极简设计理念**: 直接调用模式，无事件无通知
+- ✅ **业务流程**: 学生自主投递，无需顾问介入
+- ✅ **业务规则**: 同一学生同一岗位只能申请一次
+- ✅ **批量操作**: 事务内逐条处理，失败不影响其他记录
 
 ---
 
