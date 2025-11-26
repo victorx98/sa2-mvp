@@ -20,13 +20,13 @@ import { BookSessionCommand } from "./commands/booking/book-session.command";
 // Application Layer - Commands (兼容层)
 import { AuthCommandService } from "./commands/auth-command/auth-command.service";
 
-// Core Services (从main分支)
-import { CalendarService } from "@core/calendar";
-import { MeetingProviderModule } from "@core/meeting-providers";
+// Core Services
+import { CalendarModule } from "@core/calendar";
+import { MeetingModule } from "@core/meeting";
 import { TelemetryModule } from "@telemetry/telemetry.module";
 
 // Domain Services
-import { SessionModule } from "@domains/services/session/session.module";
+import { ServicesModule } from "@domains/services/services.module";
 import { ContractModule } from "@domains/contract/contract.module";
 import { QueryModule } from "@domains/query/query.module";
 
@@ -41,16 +41,15 @@ import { QueryModule } from "@domains/query/query.module";
 @Module({
   imports: [
     DatabaseModule, // 导入数据库模块，提供事务支持
-    MeetingProviderModule, // 导入会议提供者模块
+    CalendarModule, // 导入日历模块（包含事件监听器）
+    MeetingModule, // 导入会议提供者模块
     TelemetryModule, // 提供 MetricsService 等遥测服务
     UserModule, // Domain层：User (Identity)
-    SessionModule, // Domain层：Session
+    ServicesModule, // Domain层：Services
     ContractModule, // Domain层：Contract
     QueryModule, // Domain层：Query (跨域查询)
   ],
   providers: [
-    // Core Services
-    CalendarService,
 
     // Queries
     UserQueryService,
@@ -68,12 +67,12 @@ import { QueryModule } from "@domains/query/query.module";
   ],
   exports: [
     // Core Services
-    CalendarService,
-    MeetingProviderModule,
+    CalendarModule,
+    MeetingModule,
 
     // Domain Services
+    ServicesModule,
     UserModule,
-    SessionModule,
     ContractModule,
 
     // Queries

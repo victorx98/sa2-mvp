@@ -8,6 +8,7 @@ import {
   index,
   customType,
   check,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -23,8 +24,8 @@ export const calendarUserTypeEnum = pgEnum("calendar_user_type", [
 ]);
 
 /**
- * Slot type enum - represents the type of time slot
- * Values: session, class_session
+ * Slot type enum - represents the type of time slot (legacy, to be deprecated)
+ * Values: session, class_session, comm_session
  */
 export const calendarTypeEnum = pgEnum("calendar_type", [
   "session",
@@ -33,11 +34,24 @@ export const calendarTypeEnum = pgEnum("calendar_type", [
 ]);
 
 /**
+ * Session type enum (v5.3) - represents the type of session/class
+ * Values: regular_mentoring, gap_analysis, ai_career, comm_session, class_session
+ */
+export const calendarSessionTypeEnum = pgEnum("calendar_session_type", [
+  "regular_mentoring",
+  "gap_analysis",
+  "ai_career",
+  "comm_session",
+  "class_session",
+]);
+
+/**
  * Slot status enum - represents the booking status of a slot
- * Values: booked, cancelled
+ * Values: booked, completed, cancelled
  */
 export const calendarStatusEnum = pgEnum("calendar_status", [
   "booked",
+  "completed",
   "cancelled",
 ]);
 
@@ -121,16 +135,45 @@ export const calendarSlots = pgTable(
     sessionId: uuid("session_id"),
 
     /**
-     * Slot type (session/class_session)
+     * Associated meeting ID (nullable) - v4.1
+     * Links this slot directly to a meeting record
+     * Used for event-driven status updates when meeting completes
      */
-    type: calendarTypeEnum("type").notNull(),
+    meetingId: uuid("meeting_id"),
 
     /**
-     * Booking status (booked/cancelled)
+     * Session type (v5.3) - regular_mentoring/gap_analysis/ai_career/comm_session/class_session
+     * Replaces legacy 'type' field with more granular categorization
+     */
+    sessionType: calendarSessionTypeEnum("session_type").notNull(),
+
+    /**
+     * Course title (v5.3)
+     * Stores the name/title of the session/class
+     */
+    title: varchar("title", { length: 255 }).notNull(),
+
+    /**
+     * Scheduled start time (v5.3)
+     * Redundant field extracted from time_range for query optimization
+     * Used for efficient sorting and filtering
+     */
+    scheduledStartTime: timestamp("scheduled_start_time", { withTimezone: true }).notNull(),
+
+    /**
+     * Booking status (booked/completed/cancelled)
      * Default: booked
      * Only 'booked' slots trigger the EXCLUDE constraint
      */
     status: calendarStatusEnum("status").notNull().default("booked"),
+
+    /**
+     * Metadata (v5.3) - JSONB snapshot data
+     * Stores: { otherPartyName: string, meetingUrl: string }
+     * otherPartyName: snapshot (not synchronized)
+     * meetingUrl: synchronized with actual meeting URL
+     */
+    metadata: jsonb("metadata").default(sql`'{}'::jsonb`),
 
     /**
      * Reason or remarks (for blocking or cancellation)
@@ -155,15 +198,36 @@ export const calendarSlots = pgTable(
   },
   (table) => ({
     /**
-     * Index for user-based queries
+     * Index for user-based queries (legacy)
      * Searches by user_id and user_type
      */
     userIdx: index("idx_calendar_user").on(table.userId, table.userType),
 
     /**
+     * Index for user-scheduled queries (v5.3)
+     * Optimized for sorting by scheduled_start_time
+     * Used in calendar views and upcoming sessions queries
+     */
+    userScheduledIdx: index("idx_calendar_user_scheduled").on(
+      table.userId,
+      table.scheduledStartTime,
+    ),
+
+    /**
      * Session index for joining with sessions table
      */
     sessionIdx: index("idx_calendar_session").on(table.sessionId),
+
+    /**
+     * Meeting index for event-driven updates (v4.1)
+     * Used to update calendar status when meeting completes
+     */
+    meetingIdx: index("idx_calendar_meeting").on(table.meetingId),
+
+    /**
+     * Status index for filtering by status
+     */
+    statusIdx: index("idx_calendar_status").on(table.status),
 
     /**
      * Check constraints for enum values
@@ -173,11 +237,14 @@ export const calendarSlots = pgTable(
       "user_type_check",
       sql`user_type IN ('mentor', 'student', 'counselor')`,
     ),
-    typeCheck: check(
-      "type_check",
-      sql`type IN ('session', 'class_session', 'comm_session')`,
+    sessionTypeCheck: check(
+      "check_calendar_session_type",
+      sql`session_type IN ('regular_mentoring', 'gap_analysis', 'ai_career', 'comm_session', 'class_session')`,
     ),
-    statusCheck: check("status_check", sql`status IN ('booked', 'cancelled')`),
+    statusCheck: check(
+      "check_calendar_status",
+      sql`status IN ('booked', 'completed', 'cancelled')`,
+    ),
     durationCheck: check(
       "duration_check",
       sql`duration_minutes >= 30 AND duration_minutes <= 180`,
@@ -186,8 +253,8 @@ export const calendarSlots = pgTable(
     /**
      * Note: GIST index and EXCLUDE constraint are created via migration
      * See migration file for details on:
-     * - GIST index for time_range overlap detection
-     * - EXCLUDE constraint for preventing overlapping bookings
+     * - GIST index for time_range overlap detection (idx_calendar_time_range)
+     * - EXCLUDE constraint for preventing overlapping bookings (exclude_calendar_time_overlap)
      */
   }),
 );
@@ -209,25 +276,33 @@ export interface ITimeRange {
 /**
  * IMPORTANT: GIST Index and EXCLUDE Constraint Configuration
  *
- * These constraints are defined in the Drizzle migration file:
- * @see src/infrastructure/database/migrations/0004_add_calendar_constraints.sql
+ * These constraints are defined in the Drizzle migration files:
+ * @see src/infrastructure/database/migrations/0004_add_calendar_constraints.sql (original)
+ * @see src/infrastructure/database/migrations/0018_add_calendar_v5_3_fields.sql (v5.3 update)
  *
  * The migration includes:
- * 1. CHECK constraints for enums (user_type, slot_type, status)
+ * 1. CHECK constraints for enums (user_type, slot_type, session_type, status)
  * 2. CHECK constraint for duration (30-180 minutes)
- * 3. GIST index for time_range overlap detection
+ * 3. GIST index for time_range overlap detection (idx_calendar_time_range)
  * 4. EXCLUDE constraint to prevent overlapping bookings for the same user:
  *    - Only user_id + time_range are in the constraint (not user_type)
  *    - Reason: Each user_id has unique identity, user_type is denormalized
  *    - Applies only to status = 'booked' slots
- *    - Cancelled slots do not participate in overlap detection
- * 5. Foreign key constraints to users and sessions tables
+ *    - Completed/cancelled slots do not participate in overlap detection
+ * 5. Foreign key constraints to users table
+ * 6. Additional indexes for v5.3:
+ *    - idx_calendar_user_scheduled: (user_id, scheduled_start_time DESC) for query optimization
+ *    - idx_calendar_status: (status) for filtering
  *
  * To execute the migration:
  * 1. Make sure your database schema matches this table definition
  * 2. Run: npm run db:migrate
  *    or: drizzle-kit migrate
  *
- * The migration uses "NOT VALID" constraints to ensure compatibility with
- * existing data, and then validates each constraint after creation.
+ * V5.3 Enhancements:
+ * - Added session_type field (5 types: regular_mentoring, gap_analysis, ai_career, comm_session, class_session)
+ * - Added title field for course name
+ * - Added scheduled_start_time field for query optimization
+ * - Added metadata JSONB field for snapshot data (otherPartyName, meetingUrl)
+ * - Updated status enum to include 'completed' state
  */

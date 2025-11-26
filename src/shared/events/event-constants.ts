@@ -13,6 +13,10 @@ export const SESSION_CREATED_EVENT = "session.created";
 // Service Session Events (服务会话事件)
 export const SERVICE_SESSION_COMPLETED_EVENT = "services.session.completed";
 
+// Meeting Events (会议事件) - v4.1
+export const MEETING_LIFECYCLE_COMPLETED_EVENT = "meeting.lifecycle.completed";
+export const MEETING_RECORDING_READY_EVENT = "meeting.recording.ready";
+
 // Financial Events (财务事件)
 export const SETTLEMENT_CONFIRMED_EVENT = "financial.settlement.confirmed";
 
