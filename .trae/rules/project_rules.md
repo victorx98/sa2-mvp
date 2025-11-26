@@ -9,8 +9,8 @@ trigger: always_on
 - **文档语言**: Markdown 文件必须使用中文编写
 - **代码导入**: 禁止未使用的 import 语句，保持代码整洁
 - **导入路径规范**: 必须使用别名路径导入模块，禁止使用相对路径
-- **代码质量**: 所有代码必须通过 ESLint 检查（`npm run lint`）
-- **代码格式**: 所有代码必须通过 Prettier 格式化（`npm run format`）
+- **代码质量**: 项目中的代码必须通过 ESLint 检查（`npm run lint`）
+- **代码格式**: 项目中的代码格式必须通过 Prettier 格式化（`npm run format`）
 - **规范遵循**: 所有文件必须遵循项目代码规范
 
 # 事件管理规范
