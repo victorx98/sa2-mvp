@@ -80,7 +80,7 @@ export class FeishuMeetingProvider implements IMeetingProvider {
         meeting_settings: {
           topic: input.topic,
           meeting_initial_type: 1, // Reserved meeting type
-          auto_record: input.autoRecord ?? false,
+          auto_record: input.autoRecord ?? false, // Auto-record setting
           open_lobby: false,
           allow_attendees_start: input.participantJoinEarly ?? true,
         },
@@ -91,11 +91,12 @@ export class FeishuMeetingProvider implements IMeetingProvider {
       // Call Feishu API
       const response = await this.feishuClient.applyReservation(payload);
 
-      // Map Feishu response to standard MeetingInfo
+      // Map Feishu response to standard MeetingInfo (v4.1)
+      // Following Feishu API naming convention: reserve.id -> reserveId
       const meetingInfo: IMeetingInfo = {
         provider: MeetingProviderType.FEISHU,
-        meetingId: response.reserve.id,
         meetingNo: response.reserve.meeting_no,
+        reserveId: response.reserve.id, // v4.1 - Feishu reserve_id (used for update/cancel)
         meetingUrl: response.reserve.url,
         meetingPassword: null, // Feishu doesn't use passwords
         hostJoinUrl: null, // Feishu doesn't have separate host URL
@@ -105,12 +106,12 @@ export class FeishuMeetingProvider implements IMeetingProvider {
 
       // Add result attributes to span
       addSpanAttributes({
-        'meeting.id': meetingInfo.meetingId,
+        'meeting.reserve_id': meetingInfo.reserveId,
         'meeting.no': meetingInfo.meetingNo,
       });
 
       this.logger.debug(
-        `Successfully created Feishu meeting: ${meetingInfo.meetingId}`,
+        `Successfully created Feishu meeting: ${meetingInfo.reserveId} (${meetingInfo.meetingNo})`,
       );
       return meetingInfo;
     } catch (error) {
@@ -231,11 +232,11 @@ export class FeishuMeetingProvider implements IMeetingProvider {
       // Call Feishu API
       const response = await this.feishuClient.getReservationInfo(meetingId);
 
-      // Map Feishu response to standard MeetingInfo
+      // Map Feishu response to standard MeetingInfo (v4.1)
       const meetingInfo: IMeetingInfo = {
         provider: MeetingProviderType.FEISHU,
-        meetingId: response.reserve.id,
         meetingNo: response.reserve.meeting_no,
+        reserveId: response.reserve.id, // v4.1 - Feishu reserve_id
         meetingUrl: response.reserve.url,
         meetingPassword: null,
         hostJoinUrl: null,

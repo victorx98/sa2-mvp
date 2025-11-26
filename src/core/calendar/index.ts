@@ -6,6 +6,7 @@ export * from "./services/calendar.service";
 
 // DTOs
 export * from "./dto/create-slot.dto";
+export * from "./dto/update-slot.dto";
 export * from "./dto/query-slot.dto";
 
 // Interfaces

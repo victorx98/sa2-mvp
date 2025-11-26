@@ -6,9 +6,10 @@ import { FeishuWebhookHandler } from "./handlers/feishu-webhook.handler";
 import { ZoomWebhookHandler } from "./handlers/zoom-webhook.handler";
 import { FeishuEventExtractor } from "./extractors/feishu-event-extractor";
 import { ZoomEventExtractor } from "./extractors/zoom-event-extractor";
+import { MeetingModule } from "@core/meeting/meeting.module";
 
 /**
- * Webhook Module
+ * Webhook Module (v4.0)
  *
  * Pure infrastructure gateway for receiving webhook callbacks from third-party services.
  * 
@@ -16,22 +17,21 @@ import { ZoomEventExtractor } from "./extractors/zoom-event-extractor";
  * 1. HTTP callback reception (Controller)
  * 2. Security verification - Token validation + Timestamp replay check (Verification Service)
  * 3. Protocol adaptation - Platform-specific to StandardEventDto (Handlers + Extractors)
- * 4. Event forwarding to subscribers via event bus
+ * 4. Direct invocation of MeetingEventService.recordEvent() (v4.0)
  * 
  * NOT Responsible For:
  * - Business event routing (Core Meeting Module handles this)
- * - Event publishing to domain subscribers (Event bus handles this)
  * - Domain-specific business logic
- * - Storage or persistence (handled by subscribers)
+ * - Event sourcing storage (Meeting Module handles this)
  * 
- * Design Principles:
+ * Design Principles (v4.0):
  * - Minimal: Only handles HTTP gateway and protocol translation
- * - Decoupled: No dependencies on business modules
+ * - Direct call: No event bus, directly calls Meeting Module
  * - Extensible: Easy to add new webhook providers
  * - Secure: Token verification + replay attack prevention
  */
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, MeetingModule],
   controllers: [WebhookGatewayController],
   providers: [
     // Security Services

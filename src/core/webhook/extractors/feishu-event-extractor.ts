@@ -40,10 +40,10 @@ export class FeishuEventExtractor {
    * Extract standard event DTO from Feishu webhook payload
    * 
    * Extracts only essential fields required for event forwarding:
-   * - meetingNo, meetingId, eventType, provider, occurredAt, operatorId
+   * - meetingNo, meetingId, eventId, eventType, provider, occurredAt, operatorId
    *
    * @param rawEvent - Raw Feishu webhook event
-   * @returns StandardEventDto ready for event bus
+   * @returns StandardEventDto ready for Meeting Module
    */
   extractStandardEvent(rawEvent: IFeishuWebhookRequest): StandardEventDto {
     const event = rawEvent.event || {};
@@ -52,6 +52,7 @@ export class FeishuEventExtractor {
     return {
       meetingNo: this.extractMeetingNo(event) || "",
       meetingId: this.extractMeetingId(event),
+      eventId: this.extractEventId(header),
       eventType: this.extractEventType(header),
       provider: "feishu",
       eventData: rawEvent as any,

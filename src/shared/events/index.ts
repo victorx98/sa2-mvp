@@ -13,3 +13,14 @@ export type { IServiceSessionCompletedPayload, IServiceSessionCompletedEvent } f
 // Session Events
 export type { SessionBookedEvent } from "./session-booked.event";
 export type { SessionCreatedEvent } from "./session-created.event";
+
+// Meeting Events (v4.1)
+export type { 
+  MeetingLifecycleCompletedPayload, 
+  MeetingLifecycleCompletedEvent,
+  MeetingTimeSegment 
+} from "./meeting-lifecycle-completed.event";
+export type { 
+  MeetingRecordingReadyPayload, 
+  MeetingRecordingReadyEvent 
+} from "./meeting-recording-ready.event";

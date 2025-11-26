@@ -45,9 +45,9 @@ export class MeetingCompletionTask {
           now.getTime() - meeting.scheduleStartTime.getTime();
 
         if (timeSinceScheduled > expirationThreshold) {
-          // Meeting is stale - expire it
+          // Meeting is stale - mark as cancelled (v4.1)
           await this.meetingRepo.update(meeting.id, {
-            status: MeetingStatus.EXPIRED,
+            status: MeetingStatus.CANCELLED,
           });
 
           this.logger.debug(

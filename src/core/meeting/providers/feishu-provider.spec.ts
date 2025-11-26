@@ -67,7 +67,7 @@ describe('FeishuMeetingProvider', () => {
       const result = await provider.createMeeting(input);
 
       expect(result.provider).toBe(MeetingProviderType.FEISHU);
-      expect(result.meetingId).toBe('reserve_123');
+      expect(result.reserveId).toBe('reserve_123'); // v4.1 - use reserveId
       expect(result.meetingNo).toBe('123456789');
       expect(result.meetingUrl).toBe('https://feishu.cn/meeting/123');
       expect(result.duration).toBe(60);
@@ -186,7 +186,7 @@ describe('FeishuMeetingProvider', () => {
       const result = await provider.getMeetingInfo(meetingId);
 
       expect(result.provider).toBe(MeetingProviderType.FEISHU);
-      expect(result.meetingId).toBe('reserve_123');
+      expect(result.reserveId).toBe('reserve_123'); // v4.1 - use reserveId
       expect(result.meetingNo).toBe('123456789');
       expect(result.duration).toBe(60);
     });

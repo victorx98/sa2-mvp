@@ -15,13 +15,13 @@ export class ZoomEventExtractor {
   private readonly logger = new Logger(ZoomEventExtractor.name);
 
   /**
-   * Extract standard event DTO from Zoom webhook payload
+   * Extract standard event DTO from Zoom webhook payload (v4.0)
    * 
    * Extracts only essential fields required for event forwarding:
-   * - meetingNo (from meetingId), meetingId, eventType, provider, occurredAt, operatorId
+   * - meetingNo, meetingId, eventId, eventType, provider, occurredAt, operatorId
    *
    * @param rawEvent - Raw Zoom webhook event
-   * @returns StandardEventDto ready for event bus
+   * @returns StandardEventDto ready for MeetingEventService
    */
   extractStandardEvent(rawEvent: IZoomWebhookRequest): StandardEventDto {
     const payload = (rawEvent.payload || {}) as Record<string, any>;
@@ -30,6 +30,7 @@ export class ZoomEventExtractor {
     return {
       meetingNo: this.extractMeetingId(object), // Zoom uses meeting ID as meeting number
       meetingId: this.extractMeetingId(object),
+      eventId: this.extractEventId(rawEvent), // v4.0: Required for deduplication
       eventType: this.extractEventType(rawEvent),
       provider: "zoom",
       eventData: rawEvent as any,

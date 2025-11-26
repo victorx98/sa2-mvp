@@ -28,7 +28,12 @@ export * from "./sessions.schema";
 export * from "./session-events.schema"; // Legacy, kept for backward compatibility
 export * from "./meeting-events.schema";
 export * from "./meetings.schema";
-export * from "./mentoring-sessions.schema";
+export * from "./mentoring-sessions.schema"; // Legacy, kept for backward compatibility
+export * from "./session-types.schema";
+export * from "./regular-mentoring-sessions.schema";
+export * from "./gap-analysis-sessions.schema";
+export * from "./ai-career-sessions.schema";
+export * from "./service-references.schema";
 
 // Financial domain
 export * from "./mentor-payable-ledgers.schema";

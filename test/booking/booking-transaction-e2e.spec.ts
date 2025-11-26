@@ -9,7 +9,7 @@ import { eq, and } from "drizzle-orm";
 import { BookSessionCommand } from "../../src/application/commands/booking/book-session.command";
 import { CalendarService } from "../../src/core/calendar";
 import { MeetingManagerService } from "../../src/core/meeting";
-import { MentoringService } from "../../src/domains/services/mentoring/services/mentoring.service";
+import { RegularMentoringService } from "../../src/domains/services/sessions/regular-mentoring/services/regular-mentoring.service";
 import { DATABASE_CONNECTION } from "../../src/infrastructure/database/database.provider";
 import { DatabaseModule } from "../../src/infrastructure/database/database.module";
 import { BookSessionInput } from "../../src/application/commands/booking/dto/book-session-input.dto";
@@ -119,8 +119,8 @@ describe("BookSessionCommand - E2E Integration Test", () => {
       ],
       providers: [
         BookSessionCommand,
-        MentoringService,
-        ContractService,
+        RegularMentoringService,
+        // ContractService,
         CalendarService,
         ServiceHoldService,
       ],
@@ -266,13 +266,15 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         id: savedMentorSlotRaw.id,
         resourceId: savedMentorSlotRaw.userId,
         sessionId: savedMentorSlotRaw.sessionId,
-        slotType: savedMentorSlotRaw.type,
+        sessionType: savedMentorSlotRaw.sessionType,
+        title: savedMentorSlotRaw.title,
         status: savedMentorSlotRaw.status,
         timeRange: `[${savedMentorSlotRaw.timeRange.start.toISOString()}, ${savedMentorSlotRaw.timeRange.end.toISOString()})`,
       };
       expect(savedMentorSlot.id).toBe(result.mentorCalendarSlotId);
       expect(savedMentorSlot.sessionId).toBe(result.sessionId);
-      expect(savedMentorSlot.slotType).toBeDefined();
+      expect(savedMentorSlot.sessionType).toBeDefined();
+      expect(savedMentorSlot.title).toBeDefined();
       expect(savedMentorSlot.status).toBeDefined();
 
       // 验证会议信息

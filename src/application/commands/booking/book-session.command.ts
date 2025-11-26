@@ -3,16 +3,17 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { CalendarService } from "@core/calendar";
 import {
   UserType,
-  SlotType,
+  SessionType as CalendarSessionType,
 } from "@core/calendar/interfaces/calendar-slot.interface";
 import { MeetingManagerService } from "@core/meeting";
 import { MeetingProviderType } from "@core/meeting";
-import { MentoringService } from "@domains/services/mentoring";
-import { ContractService } from "@domains/contract/contract.service";
+import { RegularMentoringService } from "@domains/services/sessions/regular-mentoring/services/regular-mentoring.service";
+import { SessionType } from "@domains/services/sessions/shared/enums/session-type.enum";
 import { ServiceHoldService } from "@domains/contract/services/service-hold.service";
 import { BookSessionInput } from "./dto/book-session-input.dto";
 import { BookSessionOutput } from "./dto/book-session-output.dto";
 import { TimeConflictException } from "@shared/exceptions";
+import { FEISHU_DEFAULT_HOST_USER_ID } from "src/constants";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import type {
   DrizzleDatabase,
@@ -48,9 +49,8 @@ export class BookSessionCommand {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-    private readonly contractService: ContractService,
     private readonly meetingManagerService: MeetingManagerService,
-    private readonly mentoringService: MentoringService,
+    private readonly mentoringService: RegularMentoringService,
     private readonly calendarService: CalendarService,
     private readonly eventEmitter: EventEmitter2,
     private readonly serviceHoldService: ServiceHoldService,
@@ -119,16 +119,24 @@ export class BookSessionCommand {
             userType: UserType.MENTOR,
             startTime: input.scheduledStartTime,
             durationMinutes: input.duration,
-            slotType: SlotType.SESSION,
+            sessionType: CalendarSessionType.REGULAR_MENTORING,
+            title: input.topic || "Regular Mentoring Session",
             sessionId: undefined, // Will be updated after session creation
+            metadata: {
+              otherPartyName: 'studentName', // TODO: should be fetched from student table
+            },
           }, tx),
           this.calendarService.createSlotDirect({
             userId: input.studentId,
             userType: UserType.STUDENT,
             startTime: input.scheduledStartTime,
             durationMinutes: input.duration,
-            slotType: SlotType.SESSION,
+            sessionType: CalendarSessionType.REGULAR_MENTORING,
+            title: input.topic || "Regular Mentoring Session",
             sessionId: undefined, // Will be updated after session creation
+            metadata: {
+              otherPartyName: 'mentorName', // TODO: should be fetched from mentor table
+            },
           }, tx)
         ]);
         
@@ -139,7 +147,6 @@ export class BookSessionCommand {
         }
 
         // Step 5: 创建会议链接（在事务内，先创建）
-        // 使用新的 MeetingManagerService 创建会议
         let meetingInfo;
         try {
           meetingInfo = await this.meetingManagerService.createMeeting({
@@ -147,7 +154,7 @@ export class BookSessionCommand {
             startTime: input.scheduledStartTime,
             duration: input.duration,
             provider: (input.meetingProvider as MeetingProviderType) || MeetingProviderType.FEISHU,
-            hostUserId: input.mentorId,
+            hostUserId: FEISHU_DEFAULT_HOST_USER_ID,
             autoRecord: true,
             participantJoinEarly: true,
           }, tx);
@@ -160,29 +167,33 @@ export class BookSessionCommand {
         }
 
         // Step 6: 创建会话记录（包含会议URL）
-        // 使用新的 MentoringService 创建辅导会话
-        const mentoringSession = await this.mentoringService.createSession(
-          {
-            meetingId: meetingInfo.id, // FK reference to meetings.id
-            studentId: input.studentId,
-            mentorId: input.mentorId,
-            topic: input.topic,
-            notes: null,
-          },
-          tx,
-        );
+        const mentoringSession = await this.mentoringService.createSession({
+          meetingId: meetingInfo.id,
+          sessionType: SessionType.REGULAR_MENTORING,
+          sessionTypeId: '11111111-1111-1111-1111-111111111111', // TODO: should be fetched from session_types table
+          studentUserId: input.studentId,
+          mentorUserId: input.mentorId,
+          createdByCounselorId: input.counselorId,
+          scheduledAt: input.scheduledStartTime,
+          title: input.topic,
+          description: null,
+        }, tx);
 
-        // Step 7: Update calendar slot with session ID
+        // Step 7: Update calendar slot with session ID, meeting ID, and meeting URL
         const [updatedMentorCalendarSlot, updatedStudentCalendarSlot] = await Promise.all([
           this.calendarService.updateSlotSessionId(
             mentorCalendarSlot.id,
             mentoringSession.id,
             tx,
+            meetingInfo.id, // v4.1 - Link meeting_id for event-driven updates
+            { meetingUrl: meetingInfo.meetingUrl }, // Add meetingUrl to metadata
           ),
           this.calendarService.updateSlotSessionId(
             studentCalendarSlot.id,
             mentoringSession.id,
             tx,
+            meetingInfo.id, // v4.1 - Link meeting_id for event-driven updates
+            { meetingUrl: meetingInfo.meetingUrl }, // Add meetingUrl to metadata
           ),
         ]);
 
@@ -198,8 +209,8 @@ export class BookSessionCommand {
       // Transaction succeeded
       addSpanEvent('booking.transaction.success');
       addSpanAttributes({
-        'session.id': sessionResult.session.id,
-        'hold.id': sessionResult.hold.id,
+        'session.id': sessionResult.mentoringSession.id,
+        'meeting.id': sessionResult.meetingInfo.id,// TODO: should be the hold ID, not the meeting ID
       });
     } catch (error) {
       this.logger.error(`Book session transaction rollback: ${error.message}`, error.stack);
@@ -219,7 +230,7 @@ export class BookSessionCommand {
     }
 
     const bookResult: SessionBookedEvent = {
-      sessionId: sessionResult.session.id,
+      sessionId: sessionResult.mentoringSession.id,
       studentId: input.studentId,
       mentorId: input.mentorId,
       counselorId: input.counselorId,
@@ -227,6 +238,7 @@ export class BookSessionCommand {
       mentorCalendarSlotId: sessionResult.mentorCalendarSlot.id,
       studentCalendarSlotId: sessionResult.studentCalendarSlot.id,
       serviceHoldId: sessionResult.hold.id,
+      // serviceHoldId: sessionResult.meetingInfo.id, 
       scheduledStartTime: input.scheduledStartTime,
       duration: input.duration,
       meetingUrl: sessionResult.meetingInfo.meetingUrl,
@@ -235,7 +247,7 @@ export class BookSessionCommand {
     };
 
     this.logger.debug(
-      `Emitting session booked event for session ${sessionResult.session.id}`,
+      `Emitting session booked event for session ${sessionResult.mentoringSession.id}`,
     );
     this.eventEmitter.emit(SESSION_BOOKED_EVENT, bookResult);
 
@@ -253,13 +265,13 @@ export class BookSessionCommand {
     });
 
     addSpanEvent('booking.completed', {
-      session_id: sessionResult.session.id,
+      session_id: sessionResult.mentoringSession.id,
       duration_ms: bookingDuration,
     });
 
     return {
       ...bookResult,
-      status: sessionResult.session.status,
+      status: sessionResult.mentoringSession.status,
     };
   }
 }

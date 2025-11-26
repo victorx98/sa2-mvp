@@ -34,6 +34,6 @@ export class UpdateMeetingDto {
 
   @IsBoolean()
   @IsOptional()
-  autoRecord?: boolean; // Enable auto-recording
+  autoRecord?: boolean; // Enable auto-recording (passed to provider, not saved in DB)
 }
 

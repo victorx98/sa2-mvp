@@ -16,7 +16,7 @@ export interface ICreateMeetingInput {
   startTime: Date; // Start time
   duration: number; // Duration in minutes
   hostUserId?: string; // Platform-specific host user ID (e.g., Feishu user ID)
-  autoRecord?: boolean; // Enable auto-recording
+  autoRecord?: boolean; // Enable auto-recording (passed to provider, not saved in DB)
   enableWaitingRoom?: boolean; // Enable waiting room (not supported by Feishu)
   participantJoinEarly?: boolean; // Allow participants to join early
 }
@@ -26,14 +26,14 @@ export interface IUpdateMeetingInput {
   topic?: string; // Meeting topic
   startTime?: Date; // Start time
   duration?: number; // Duration in minutes
-  autoRecord?: boolean; // Enable auto-recording
+  autoRecord?: boolean; // Enable auto-recording (passed to provider, not saved in DB)
 }
 
-// Meeting info interface
+// Meeting info interface (v4.1)
 export interface IMeetingInfo {
   provider: MeetingProviderType; // Meeting platform
-  meetingId: string; // Third-party meeting ID
   meetingNo: string | null; // Meeting number (Feishu 9-digit, Zoom null)
+  reserveId: string; // Reserve ID - Feishu reserve_id or Zoom meeting_id (for update/cancel) - v4.1
   meetingUrl: string; // Meeting link
   meetingPassword: string | null; // Meeting password
   hostJoinUrl: string | null; // Host-only join URL (Zoom only)
@@ -51,28 +51,28 @@ export interface IMeetingProvider {
   createMeeting(input: ICreateMeetingInput): Promise<IMeetingInfo>;
 
   /**
-   * Update a meeting
-   * @param meetingId - Meeting ID
+   * Update a meeting (v4.1)
+   * @param reserveId - Reserve ID (Feishu reserve_id or Zoom meeting_id)
    * @param input - Meeting update parameters
    * @returns Success status
    */
   updateMeeting(
-    meetingId: string,
+    reserveId: string,
     input: IUpdateMeetingInput,
   ): Promise<boolean>;
 
   /**
-   * Cancel a meeting
-   * @param meetingId - Meeting ID
+   * Cancel a meeting (v4.1)
+   * @param reserveId - Reserve ID (Feishu reserve_id or Zoom meeting_id)
    * @returns Success status
    */
-  cancelMeeting(meetingId: string): Promise<boolean>;
+  cancelMeeting(reserveId: string): Promise<boolean>;
 
   /**
    * Get meeting information
-   * @param meetingId - Meeting ID
+   * @param reserveId - Reserve ID (Feishu reserve_id or Zoom meeting_id)
    * @returns Meeting information
    */
-  getMeetingInfo(meetingId: string): Promise<IMeetingInfo>;
+  getMeetingInfo(reserveId: string): Promise<IMeetingInfo>;
 }
 

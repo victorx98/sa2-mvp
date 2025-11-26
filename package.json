@@ -55,13 +55,14 @@
     "class-transformer": "~0.5.1",
     "class-validator": "~0.14.2",
     "drizzle-orm": "~0.44.7",
+    "https-proxy-agent": "^7.0.6",
     "nodemailer": "~7.0.10",
     "passport": "~0.7.0",
     "passport-jwt": "~4.0.1",
     "pg": "~8.16.3",
     "reflect-metadata": "~0.2.2",
     "rxjs": "~7.8.2",
-    "uuid": "^13.0.0"
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

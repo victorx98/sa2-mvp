@@ -1,25 +1,9 @@
-import { MeetingTimeSegment } from "../entities/meeting.entity";
-
 /**
- * Meeting Lifecycle Completed Event
- *
- * Published by Core Meeting Module when a meeting has been finalized
- * Downstream domains (mentoring, interview, etc.) listen to this event
+ * NOTE: MeetingLifecycleCompletedEvent has been moved to @shared/events
+ * Import from there: import { MeetingLifecycleCompletedPayload } from '@shared/events';
+ * 
+ * This file now only contains internal events for the Meeting module
  */
-export class MeetingLifecycleCompletedEvent {
-  readonly eventName = "meeting.lifecycle.completed";
-
-  constructor(
-    public readonly meetingId: string, // UUID - Primary key for downstream FK lookups
-    public readonly meetingNo: string, // Meeting number (Feishu 9-digit)
-    public readonly provider: string, // 'feishu' | 'zoom'
-    public readonly scheduleStartTime: Date, // Scheduled start time
-    public readonly actualDuration: number, // Physical duration in seconds
-    public readonly recordingUrl: string | null, // Recording URL (if available)
-    public readonly endedAt: Date, // Final completion timestamp
-    public readonly timeList: MeetingTimeSegment[], // Meeting time segments
-  ) {}
-}
 
 /**
  * Meeting Status Changed Event
@@ -39,18 +23,13 @@ export class MeetingStatusChangedEvent {
 }
 
 /**
- * Meeting Recording Ready Event
- *
- * Published when meeting recording becomes available
+ * NOTE: MeetingRecordingReadyEvent has been moved to @shared/events
+ * Import from there: import { MeetingRecordingReadyPayload } from '@shared/events';
  */
-export class MeetingRecordingReadyEvent {
-  readonly eventName = "meeting.recording.ready";
 
-  constructor(
-    public readonly meetingId: string,
-    public readonly meetingNo: string,
-    public readonly recordingUrl: string,
-    public readonly readyAt: Date,
-  ) {}
-}
+/**
+ * NOTE: MeetingCancelledEvent has been REMOVED
+ * Reason: Meeting cancellation is handled synchronously in Application layer
+ * No event is published for cancellations - updates happen directly in transaction
+ */
 

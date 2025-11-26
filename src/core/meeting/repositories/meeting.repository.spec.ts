@@ -65,7 +65,7 @@ describe('MeetingRepository', () => {
       const result = await repository.create({
         meetingNo: '123456789',
         meetingProvider: 'feishu',
-        meetingId: 'vc_xxxxx',
+        reserveId: 'reserve_xxxxx', // v4.1 - use reserveId
         topic: 'Team Meeting',
         meetingUrl: 'https://feishu.cn/meeting/123',
         scheduleStartTime: new Date('2025-11-20T10:00:00Z'),

@@ -9,7 +9,7 @@ export enum MeetingStatus {
   SCHEDULED = "scheduled", // Meeting is created and scheduled
   ACTIVE = "active", // Meeting has started (first join event received)
   ENDED = "ended", // Meeting has ended and finalized
-  EXPIRED = "expired", // Meeting expired without being used
+  CANCELLED = "cancelled", // Meeting was cancelled (v4.1)
 }
 
 export interface MeetingTimeSegment {
@@ -21,9 +21,10 @@ export interface MeetingEntity {
   id: string; // UUID primary key
   meetingNo: string; // Meeting number (Feishu 9-digit, Zoom number)
   meetingProvider: string; // 'feishu' | 'zoom'
-  meetingId: string; // Third-party platform meeting ID
+  reserveId: string; // Reserve ID (Feishu reserve_id, Zoom meeting_id) - v4.1
   topic: string; // Meeting topic/title
   meetingUrl: string; // Meeting join URL
+  ownerId: string | null; // Meeting owner ID (usually mentor) - v4.1
   scheduleStartTime: Date; // Scheduled start time
   scheduleDuration: number; // Scheduled duration in minutes
   status: MeetingStatus; // Current lifecycle status
@@ -38,14 +39,15 @@ export interface MeetingEntity {
 }
 
 /**
- * Create Meeting Input
+ * Create Meeting Input (v4.1)
  */
 export interface CreateMeetingInput {
   meetingNo: string;
   meetingProvider: string;
-  meetingId: string;
+  reserveId: string; // v4.1 - Reserve ID (Feishu reserve_id, Zoom meeting_id)
   topic: string;
   meetingUrl: string;
+  ownerId?: string; // v4.1 - Meeting owner ID
   scheduleStartTime: Date;
   scheduleDuration: number;
 }

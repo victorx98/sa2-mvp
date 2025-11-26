@@ -61,6 +61,7 @@ export interface IWebhookRequest {
 export interface StandardEventDto {
   meetingNo: string; // Unified meeting number (e.g., "123456789")
   meetingId?: string; // Platform-specific meeting ID (if available in payload)
+  eventId: string; // Unique event ID for deduplication (from webhook header)
   eventType: string; // Original event type (e.g., "vc.meeting.meeting_ended_v1")
   provider: "feishu" | "zoom"; // Platform identifier
   eventData: Record<string, any>; // Complete raw webhook payload

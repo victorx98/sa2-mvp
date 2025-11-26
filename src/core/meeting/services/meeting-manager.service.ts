@@ -46,8 +46,7 @@ export class MeetingManagerService {
     this.logger.debug(`Creating meeting: ${dto.topic}`);
 
     const startTime = new Date(dto.startTime);
-    const provider =
-      dto.provider || this.providerFactory.getDefaultProviderType();
+    const provider = dto.provider || this.providerFactory.getDefaultProviderType();
 
     // Step 1: Deduplication check
     // We check if a meeting with same meeting_no exists within 7-day window
@@ -61,13 +60,13 @@ export class MeetingManagerService {
       startTime,
       duration: dto.duration,
       hostUserId: dto.hostUserId,
-      autoRecord: dto.autoRecord,
+      autoRecord: dto.autoRecord, // Pass to provider, not saved in DB
       enableWaitingRoom: dto.enableWaitingRoom,
       participantJoinEarly: dto.participantJoinEarly,
     });
 
     this.logger.debug(
-      `Meeting created on ${provider}: ${meetingInfo.meetingId}`,
+      `Meeting created on ${provider}: ${meetingInfo.reserveId} (${meetingInfo.meetingNo})`,
     );
 
     // Step 2.5: Now check for duplicates using meeting_no
@@ -79,9 +78,9 @@ export class MeetingManagerService {
       );
 
       if (isDuplicate) {
-        // Attempt to cancel the just-created meeting
+        // Attempt to cancel the just-created meeting (v4.1 - use reserveId)
         try {
-          await providerInstance.cancelMeeting(meetingInfo.meetingId);
+          await providerInstance.cancelMeeting(meetingInfo.reserveId);
           this.logger.warn(
             `Cancelled duplicate meeting ${meetingInfo.meetingNo}`,
           );
@@ -99,12 +98,14 @@ export class MeetingManagerService {
     }
 
     // Step 3: Store in database (use transaction if provided)
+    // v4.1: Following Feishu API naming - reserve_id (Feishu reserve_id, Zoom meeting_id)
     const meeting = await this.meetingRepo.create({
       meetingNo: meetingInfo.meetingNo || "",
       meetingProvider: provider,
-      meetingId: meetingInfo.meetingId,
+      reserveId: meetingInfo.reserveId, // v4.1 - Reserve ID (Feishu reserve_id, Zoom meeting_id)
       topic: dto.topic,
       meetingUrl: meetingInfo.meetingUrl,
+      ownerId: dto.hostUserId || null, // v4.1 - Meeting owner (host user)
       scheduleStartTime: startTime,
       scheduleDuration: dto.duration,
       status: MeetingStatus.SCHEDULED,
@@ -113,7 +114,6 @@ export class MeetingManagerService {
       recordingUrl: null,
       lastMeetingEndedTimestamp: null,
       pendingTaskId: null,
-      eventType: null,
     }, tx); // Pass transaction context if provided
 
     this.logger.log(
@@ -160,16 +160,16 @@ export class MeetingManagerService {
       );
     }
 
-    // Call provider to update
+    // Call provider to update (v4.1 - use reserveId)
     const provider = this.providerFactory.getProvider(
       meeting.meetingProvider as any,
     );
 
-    await provider.updateMeeting(meeting.meetingId, {
+    await provider.updateMeeting(meeting.reserveId, {
       topic: dto.topic,
       startTime: dto.startTime ? new Date(dto.startTime) : undefined,
       duration: dto.duration,
-      autoRecord: dto.autoRecord,
+      autoRecord: dto.autoRecord, // Pass to provider, not saved in DB
     });
 
     this.logger.debug(
@@ -219,20 +219,20 @@ export class MeetingManagerService {
       );
     }
 
-    // Call provider to cancel
+    // Call provider to cancel (v4.1 - use reserveId)
     const provider = this.providerFactory.getProvider(
       meeting.meetingProvider as any,
     );
 
-    await provider.cancelMeeting(meeting.meetingId);
+    await provider.cancelMeeting(meeting.reserveId);
 
     this.logger.debug(
       `Meeting cancelled on provider: ${meeting.meetingProvider}`,
     );
 
-    // Update status to expired
+    // Update status to cancelled (v4.1)
     await this.meetingRepo.update(meetingId, {
-      status: MeetingStatus.EXPIRED,
+      status: MeetingStatus.CANCELLED,
     });
 
     this.logger.log(`Meeting cancelled successfully: ${meetingId}`);
@@ -265,8 +265,8 @@ export class MeetingManagerService {
 
     return {
       provider: meeting.meetingProvider as any,
-      meetingId: meeting.meetingId,
       meetingNo: meeting.meetingNo,
+      reserveId: meeting.reserveId, // v4.1
       meetingUrl: meeting.meetingUrl,
       meetingPassword: null, // Not stored in meetings table
       hostJoinUrl: null, // Not stored in meetings table

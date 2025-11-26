@@ -10,7 +10,7 @@ import { AppModule } from "../src/app.module";
 import { ApiModule } from "../src/api/api.module";
 import { DATABASE_CONNECTION } from "../src/infrastructure/database/database.provider";
 import { SupabaseAuthService } from "../src/infrastructure/auth/supabase-auth.service";
-import { NotificationQueueService } from "../src/core/notification/queue/notification-queue.service";
+// import { NotificationQueueService } from "../src/core/notification/queue/notification-queue.service";
 import type * as schema from "../src/infrastructure/database/schema";
 
 /**
@@ -30,8 +30,8 @@ async function generateOpenApiDocument(): Promise<void> {
     .useValue(createDatabaseStub())
     .overrideProvider(SupabaseAuthService)
     .useValue(createSupabaseAuthStub())
-    .overrideProvider(NotificationQueueService)
-    .useValue(createNotificationQueueStub())
+    // .overrideProvider(NotificationQueueService)
+    // .useValue(createNotificationQueueStub())
     .compile();
 
   const app = testingModule.createNestApplication();
@@ -125,26 +125,26 @@ function createSupabaseAuthStub(): SupabaseAuthService {
 /**
  * Provide a lightweight notification queue stub.
  */
-function createNotificationQueueStub(): NotificationQueueService {
-  const noopAsync = async () => undefined;
-  const noopStats = async () => ({
-    total: 0,
-    pending: 0,
-    sent: 0,
-    failed: 0,
-    cancelled: 0,
-  });
+// function createNotificationQueueStub(): NotificationQueueService {
+//   const noopAsync = async () => undefined;
+//   const noopStats = async () => ({
+//     total: 0,
+//     pending: 0,
+//     sent: 0,
+//     failed: 0,
+//     cancelled: 0,
+//   });
 
-  return {
-    enqueue: noopAsync,
-    processDueNotifications: noopAsync,
-    cancelBySessionId: async () => 0,
-    updateBySessionId: async () => 0,
-    getBySessionId: async () => [],
-    getStatistics: noopStats,
-    cleanupOldNotifications: noopAsync,
-  } as unknown as NotificationQueueService;
-}
+//   return {
+//     enqueue: noopAsync,
+//     processDueNotifications: noopAsync,
+//     cancelBySessionId: async () => 0,
+//     updateBySessionId: async () => 0,
+//     getBySessionId: async () => [],
+//     getStatistics: noopStats,
+//     cleanupOldNotifications: noopAsync,
+//   } as unknown as NotificationQueueService;
+// }
 
 generateOpenApiDocument()
   .then(() => process.exit(0))

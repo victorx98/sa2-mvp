@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import axios, { AxiosError, AxiosInstance } from "axios";
+import { HttpsProxyAgent } from "https-proxy-agent";
 
 export interface SupabaseAuthUser {
   id: string;
@@ -57,10 +58,25 @@ export class SupabaseAuthService {
       throw new Error("SUPABASE_ANON_KEY is not configured");
     }
 
-    this.http = axios.create({
+    const authTimeout = this.configService.get<number>("SUPABASE_AUTH_TIMEOUT") ?? 30000;
+
+    // check proxy environment variables and configure HTTPS proxy agent
+    const httpsProxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy || 
+                          process.env.HTTP_PROXY || process.env.http_proxy;
+    
+    const axiosConfig: Parameters<typeof axios.create>[0] = {
       baseURL: `${supabaseUrl}/auth/v1`,
-      timeout: 10000,
-    });
+      timeout: authTimeout,
+      proxy: false, // disable axios built-in proxy handling (will cause HTTP to be sent to HTTPS ports)
+    };
+
+    // if proxy environment variables exist, use https-proxy-agent to correctly handle HTTPS requests
+    if (httpsProxyUrl) {
+      this.logger.log(`Using HTTPS proxy: ${httpsProxyUrl}`);
+      axiosConfig.httpsAgent = new HttpsProxyAgent(httpsProxyUrl);
+    }
+
+    this.http = axios.create(axiosConfig);
 
     this.serviceHeaders = {
       apikey: serviceRoleKey,
@@ -162,12 +178,16 @@ export class SupabaseAuthService {
    */
   async getUserByToken(token: string): Promise<SupabaseAuthUser> {
     try {
+      const startTime = Date.now();
       const { data } = await this.http.get("/user", {
         headers: {
           ...this.publicHeaders,
           Authorization: `Bearer ${token}`,
         },
       });
+
+      const duration = Date.now() - startTime;
+      this.logger.debug(`Supabase user verification completed in ${duration}ms`);
 
       if (!data?.id) {
         throw new SupabaseAuthException("Supabase user not found");
@@ -184,14 +204,30 @@ export class SupabaseAuthService {
 
   private handleAxiosError(error: unknown, message: string): SupabaseAuthException {
     if (axios.isAxiosError(error)) {
-      const axiosError = error as AxiosError<{ error?: string; msg?: string }>;
+      const axiosError = error as AxiosError<{ error?: string; msg?: string; error_description?: string }>;
       const status = axiosError.response?.status;
       const errorMessage =
         axiosError.response?.data?.error ||
+        axiosError.response?.data?.error_description ||
         axiosError.response?.data?.msg ||
         axiosError.message;
 
-      this.logger.error(`${message}: ${errorMessage}`, axiosError.stack);
+      // 区分超时错误和其他网络错误
+      if (axiosError.code === "ECONNABORTED") {
+        this.logger.warn(
+          `${message}: Request timeout (${this.http.defaults.timeout}ms). ` +
+          `This may indicate network latency issues. ` +
+          `Consider adjusting SUPABASE_AUTH_TIMEOUT environment variable.`,
+        );
+      } else {
+        // 更详细的错误日志，包括响应数据和请求信息
+        this.logger.error(
+          `${message}: Status=${status}, Message=${errorMessage}. ` +
+          `Response Data: ${JSON.stringify(axiosError.response?.data)}`,
+          axiosError.stack,
+        );
+      }
+
       return new SupabaseAuthException(message, status, axiosError.response?.data);
     }
 

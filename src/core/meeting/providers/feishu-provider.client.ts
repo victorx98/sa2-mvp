@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import axios, { AxiosInstance } from "axios";
+import { HttpsProxyAgent } from "https-proxy-agent";
 import {
   MeetingProviderAuthenticationException,
   MeetingProviderAPIException,
@@ -87,13 +88,26 @@ export class FeishuMeetingClient {
       );
     }
 
-    this.axiosInstance = axios.create({
+    // check proxy environment variables and configure HTTPS proxy agent
+    const httpsProxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy || 
+                          process.env.HTTP_PROXY || process.env.http_proxy;
+    
+    const axiosConfig: Parameters<typeof axios.create>[0] = {
       baseURL: this.baseUrl,
       timeout: 30000,
       headers: {
         "Content-Type": "application/json",
       },
-    });
+      proxy: false, // disable axios built-in proxy handling
+    };
+
+    // if proxy environment variables exist, use https-proxy-agent to correctly handle HTTPS requests
+    if (httpsProxyUrl) {
+      this.logger.log(`Using HTTPS proxy for Feishu API: ${httpsProxyUrl}`);
+      axiosConfig.httpsAgent = new HttpsProxyAgent(httpsProxyUrl);
+    }
+
+    this.axiosInstance = axios.create(axiosConfig);
   }
 
   /**

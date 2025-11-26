@@ -11,13 +11,13 @@ import {
 } from "drizzle-orm/pg-core";
 
 /**
- * Meeting Status Enum
+ * Meeting Status Enum (v4.1)
  */
 export const MEETING_STATUS = {
   SCHEDULED: "scheduled",
   ACTIVE: "active",
   ENDED: "ended",
-  EXPIRED: "expired",
+  CANCELLED: "cancelled", // v4.1 - replaced EXPIRED
 } as const;
 
 /**
@@ -29,15 +29,16 @@ export interface MeetingTimeSegment {
 }
 
 /**
- * Meetings Table
+ * Meetings Table (v4.1)
  *
  * Core aggregate root for meeting resources
  * Stores physical meeting lifecycle and state
  *
  * Design principles:
  * 1. This is the "Core Meeting Layer" that manages meeting resources
- * 2. Downstream domains (mentoring_sessions, etc.) reference this via meeting_id FK
+ * 2. Downstream domains (mentoring_sessions, etc.) reference this via meetings.id FK
  * 3. meeting_no can be reused over time (7+ days), so we use (meeting_no, schedule_start_time) for lookups
+ * 4. reserve_id follows Feishu API naming (Feishu: reserve_id, Zoom: meeting_id)
  */
 export const meetings = pgTable(
   "meetings",
@@ -47,11 +48,12 @@ export const meetings = pgTable(
     // Meeting identification
     meetingNo: varchar("meeting_no", { length: 20 }).notNull(), // Feishu 9-digit number, Zoom meeting number
     meetingProvider: varchar("meeting_provider", { length: 20 }).notNull(), // 'feishu' | 'zoom'
-    meetingId: varchar("meeting_id", { length: 255 }).notNull(), // Third-party platform meeting ID
+    reserveId: varchar("reserve_id", { length: 255 }).notNull(), // v4.1 - Reserve ID (Feishu reserve_id, Zoom meeting_id)
 
     // Meeting details
     topic: varchar("topic", { length: 255 }).notNull(), // Meeting topic/title
     meetingUrl: text("meeting_url").notNull(), // Meeting join URL
+    ownerId: varchar("owner_id", { length: 255 }), // Meeting owner ID (Feishu open_id/union_id, not UUID)
 
     // Scheduled time
     scheduleStartTime: timestamp("schedule_start_time", {
@@ -60,7 +62,7 @@ export const meetings = pgTable(
     scheduleDuration: integer("schedule_duration").notNull(), // Duration in minutes
 
     // Lifecycle status
-    status: varchar("status", { length: 20 }).notNull().default("scheduled"), // scheduled | active | ended | expired
+    status: varchar("status", { length: 20 }).notNull().default("scheduled"), // scheduled | active | ended | cancelled (v4.1)
 
     // Actual duration (calculated after meeting ends)
     actualDuration: integer("actual_duration"), // Duration in seconds
@@ -78,9 +80,6 @@ export const meetings = pgTable(
       withTimezone: true,
     }), // Last meeting.ended event timestamp
     pendingTaskId: varchar("pending_task_id", { length: 255 }), // Pending delayed task ID
-
-    // Event tracking
-    eventType: varchar("event_type", { length: 100 }), // Last processed event type
 
     // Timestamps
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -111,6 +110,12 @@ export const meetings = pgTable(
     idxScheduleStartTime: index("idx_schedule_start_time").on(
       table.scheduleStartTime,
     ),
+
+    // v4.1 - Index for reserve_id (for update/cancel operations)
+    idxReserveId: index("idx_meeting_reserve_id").on(table.reserveId),
+
+    // v4.1 - Index for owner_id
+    idxOwnerId: index("idx_meeting_owner").on(table.ownerId),
   }),
 );
 

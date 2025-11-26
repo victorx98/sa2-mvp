@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { SchedulerRegistry } from "@nestjs/schedule";
 import { MeetingLifecycleService } from "./meeting-lifecycle.service";
 
@@ -27,8 +27,9 @@ export class DelayedTaskService {
 
   constructor(
     private readonly schedulerRegistry: SchedulerRegistry,
-    // Note: We inject lifecycle service via setter to avoid circular dependency
-    private lifecycleService?: MeetingLifecycleService,
+    // Note: We use @Optional() to avoid circular dependency
+    // Lifecycle service is set manually via setLifecycleService() in MeetingModule constructor
+    @Optional() private lifecycleService?: MeetingLifecycleService,
   ) {}
 
   /**
@@ -71,6 +72,7 @@ export class DelayedTaskService {
             meetingId,
             meetingNo,
             lastEndedTimestamp,
+            taskId, // v4.2: Pass taskId for verification
           );
         } else {
           this.logger.error(

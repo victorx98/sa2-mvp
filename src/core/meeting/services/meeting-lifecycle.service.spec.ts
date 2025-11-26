@@ -203,7 +203,8 @@ describe('MeetingLifecycleService', () => {
   });
 
   describe('finalizeMeeting', () => {
-    it('should complete meeting when no new join events', async () => {
+    it('should complete meeting when taskId matches (v4.2)', async () => {
+      const taskId = 'task-123';
       const meeting = {
         id: '550e8400-e29b-41d4-a716-446655440000',
         meetingNo: '123456789',
@@ -211,20 +212,17 @@ describe('MeetingLifecycleService', () => {
         scheduleStartTime: new Date('2025-11-20T10:00:00Z'),
         scheduleDuration: 60,
         recordingUrl: null,
+        pendingTaskId: taskId, // Match the executing task
+        actualDuration: 3600,
+        meetingTimeList: [{ start: '2025-11-20T10:00:00Z', end: '2025-11-20T11:00:00Z' }],
       };
 
       mockMeetingRepo.findById.mockResolvedValue(meeting as any);
-      mockEventRepo.hasNewJoinEventsAfter.mockResolvedValue(false);
-      mockEventRepo.findByMeetingNo.mockResolvedValue([]);
-      mockDurationCalculator.calculateDuration.mockReturnValue({
-        durationSeconds: 3600,
-        timeSegments: [],
-      });
       mockDurationCalculator.validateDuration.mockReturnValue(true);
       mockMeetingRepo.update.mockResolvedValue({
         ...meeting,
         status: MeetingStatus.ENDED,
-        actualDuration: 3600,
+        pendingTaskId: null,
       } as any);
 
       const lastEndedTimestamp = new Date();
@@ -232,6 +230,7 @@ describe('MeetingLifecycleService', () => {
         '550e8400-e29b-41d4-a716-446655440000',
         '123456789',
         lastEndedTimestamp,
+        taskId,
       );
 
       expect(mockMeetingRepo.update).toHaveBeenCalledWith(
@@ -244,35 +243,27 @@ describe('MeetingLifecycleService', () => {
       );
     });
 
-    it('should reschedule check if new join events detected', async () => {
+    it('should skip finalization if taskId does not match (v4.2)', async () => {
       const meeting = {
         id: '550e8400-e29b-41d4-a716-446655440000',
         meetingNo: '123456789',
-        pendingTaskId: null,
+        pendingTaskId: 'different-task-id', // Different from the executing task
       };
 
       mockMeetingRepo.findById.mockResolvedValue(meeting as any);
-      mockEventRepo.hasNewJoinEventsAfter.mockResolvedValue(true);
-      mockDelayedTaskService.scheduleCompletionCheck.mockResolvedValue(
-        'new_task_id',
-      );
-      mockMeetingRepo.update.mockResolvedValue({
-        ...meeting,
-        pendingTaskId: 'new_task_id',
-      } as any);
 
       const lastEndedTimestamp = new Date();
+      const executingTaskId = 'old-task-id';
       await service.finalizeMeeting(
         meeting.id,
         meeting.meetingNo,
         lastEndedTimestamp,
+        executingTaskId,
       );
 
-      expect(mockDelayedTaskService.scheduleCompletionCheck).toHaveBeenCalled();
-      expect(mockMeetingRepo.update).toHaveBeenCalledWith(
-        meeting.id,
-        expect.objectContaining({ pendingTaskId: 'new_task_id' }),
-      );
+      // Should not call update or emit when task is outdated
+      expect(mockMeetingRepo.update).not.toHaveBeenCalled();
+      expect(mockEventEmitter.emit).not.toHaveBeenCalled();
     });
   });
 

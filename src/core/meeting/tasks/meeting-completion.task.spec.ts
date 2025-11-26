@@ -74,11 +74,11 @@ describe('MeetingCompletionTask', () => {
       expect(mockRepository.update).toHaveBeenCalledTimes(2);
       expect(mockRepository.update).toHaveBeenCalledWith(
         'meeting_1',
-        { status: MeetingStatus.EXPIRED },
+        { status: MeetingStatus.CANCELLED },
       );
       expect(mockRepository.update).toHaveBeenCalledWith(
         'meeting_2',
-        { status: MeetingStatus.EXPIRED },
+        { status: MeetingStatus.CANCELLED },
       );
     });
 
@@ -148,7 +148,7 @@ describe('MeetingCompletionTask', () => {
       expect(mockRepository.update).toHaveBeenCalledTimes(1);
       expect(mockRepository.update).toHaveBeenCalledWith(
         'old_meeting',
-        { status: MeetingStatus.EXPIRED },
+        { status: MeetingStatus.CANCELLED },
       );
     });
   });
@@ -198,7 +198,7 @@ describe('MeetingCompletionTask', () => {
       expect(mockRepository.update).toHaveBeenCalledTimes(1);
       expect(mockRepository.update).toHaveBeenCalledWith(
         'meeting_over_24h',
-        { status: MeetingStatus.EXPIRED },
+        { status: MeetingStatus.CANCELLED },
       );
     });
   });

@@ -19,7 +19,7 @@ describe('IMeetingInfo', () => {
   it('should have required properties', () => {
     const mockInfo: IMeetingInfo = {
       provider: MeetingProviderType.FEISHU,
-      meetingId: 'vc_12345',
+      reserveId: 'reserve_12345', // v4.1 - use reserveId
       meetingNo: '123456789',
       meetingUrl: 'https://feishu.cn/xxxx',
       meetingPassword: null,
@@ -29,7 +29,7 @@ describe('IMeetingInfo', () => {
     };
 
     expect(mockInfo.provider).toBe(MeetingProviderType.FEISHU);
-    expect(mockInfo.meetingId).toBe('vc_12345');
+    expect(mockInfo.reserveId).toBe('reserve_12345'); // v4.1
     expect(mockInfo.meetingNo).toBe('123456789');
     expect(mockInfo.meetingUrl).toBeTruthy();
     expect(mockInfo.duration).toBe(60);
@@ -38,7 +38,7 @@ describe('IMeetingInfo', () => {
   it('should allow null values for optional fields', () => {
     const mockInfo: IMeetingInfo = {
       provider: MeetingProviderType.ZOOM,
-      meetingId: 'zoom_xyz',
+      reserveId: 'zoom_xyz', // v4.1 - use reserveId (Zoom meeting_id)
       meetingNo: null,
       meetingUrl: 'https://zoom.us/xxxx',
       meetingPassword: 'pass123',

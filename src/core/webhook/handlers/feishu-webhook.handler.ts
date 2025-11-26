@@ -1,20 +1,19 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { EventEmitter2 } from "@nestjs/event-emitter";
 import { FeishuEventExtractor } from "../extractors/feishu-event-extractor";
 import { IFeishuWebhookRequest } from "../dto/webhook-event.dto";
-import { StandardEventDto } from "../dto/webhook-event.dto";
+import { MeetingEventService } from "@core/meeting/services/meeting-event.service";
 
 /**
- * Feishu Webhook Handler
+ * Feishu Webhook Handler (v4.0)
  *
  * Minimal adapter layer that:
  * 1. Extracts standard fields from Feishu webhook payload
- * 2. Emits event for subscribers (Core Meeting Module, other domains)
+ * 2. Directly calls MeetingEventService.recordEvent()
  * 
- * No business routing logic - pure protocol adaptation and event forwarding
+ * No business routing logic - pure protocol adaptation and forwarding
  * 
- * Event Flow:
- * Feishu HTTP Request → Extract StandardEventDto → Emit 'webhook.feishu.event' → Subscribers
+ * Data Flow (v4.0):
+ * Feishu HTTP Request → Extract StandardEventDto → MeetingEventService.recordEvent()
  */
 @Injectable()
 export class FeishuWebhookHandler {
@@ -22,16 +21,16 @@ export class FeishuWebhookHandler {
 
   constructor(
     private readonly feishuEventExtractor: FeishuEventExtractor,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly meetingEventService: MeetingEventService,
   ) {}
 
   /**
-   * Handle Feishu webhook event
+   * Handle Feishu webhook event (v4.0)
    * 
    * Single responsibility:
-   * 1. Extract standard fields using extractor
-   * 2. Emit event for downstream subscribers
-   * 3. Return immediately (no business logic here)
+   * 1. Extract full event fields using extractor
+   * 2. Directly call MeetingEventService.recordEvent()
+   * 3. Return immediately (no business routing logic)
    * 
    * @param payload - Raw Feishu webhook payload
    */
@@ -40,16 +39,27 @@ export class FeishuWebhookHandler {
       `Processing Feishu webhook: ${payload.header?.event_type}`,
     );
 
-    // 1. Extract standard event fields (meeting_no, event_type, provider, etc.)
-    const standardEvent = this.feishuEventExtractor.extractStandardEvent(payload);
+    // 1. Extract full event fields (including meeting_topic, meeting_start_time, meeting_end_time)
+    const fullEvent = this.feishuEventExtractor.extractFullEvent(payload);
 
-    // 2. Emit event for subscribers
-    // Event name format: "webhook.{provider}.event"
-    // Subscribers can filter by provider and event type
-    this.eventEmitter.emit("webhook.feishu.event", standardEvent);
+    // 2. Directly call Meeting Module to record event
+    await this.meetingEventService.recordEvent({
+      meetingNo: fullEvent.meetingNo || "",
+      meetingId: fullEvent.meetingId || "",
+      eventId: fullEvent.eventId,
+      eventType: fullEvent.eventType,
+      provider: fullEvent.provider,
+      operatorId: fullEvent.operatorId,
+      operatorRole: fullEvent.operatorRole,
+      meetingTopic: fullEvent.meetingTopic,
+      meetingStartTime: fullEvent.meetingStartTime,
+      meetingEndTime: fullEvent.meetingEndTime,
+      eventData: fullEvent.eventData,
+      occurredAt: fullEvent.occurredAt,
+    });
 
     this.logger.log(
-      `Feishu event emitted: ${standardEvent.eventType} (meeting_no: ${standardEvent.meetingNo})`,
+      `Feishu event recorded: ${fullEvent.eventType} (meeting_no: ${fullEvent.meetingNo})`,
     );
   }
 }
