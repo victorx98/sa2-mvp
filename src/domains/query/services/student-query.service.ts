@@ -54,8 +54,8 @@ export class StudentQueryService {
         s.created_time,
         s.modified_time,
         u.email,
-        u.nickname,
-        u.cn_nickname,
+        u.name_en,
+        u.name_zh,
         u.country,
         u.gender
       FROM student s
@@ -104,8 +104,8 @@ export class StudentQueryService {
         s.created_time,
         s.modified_time,
         u.email,
-        u.nickname,
-        u.cn_nickname,
+        u.name_en,
+        u.name_zh,
         u.country,
         u.gender,
         sc.status as counselor_status,
@@ -153,8 +153,8 @@ export class StudentQueryService {
         s.created_time,
         s.modified_time,
         u.email,
-        u.nickname,
-        u.cn_nickname,
+        u.name_en,
+        u.name_zh,
         u.country,
         u.gender
       FROM student s
@@ -174,8 +174,8 @@ export class StudentQueryService {
     const searchTerm = `%${search.trim()}%`;
     return sql`
       AND (
-        u.nickname ILIKE ${searchTerm}
-        OR u.cn_nickname ILIKE ${searchTerm}
+        u.name_en ILIKE ${searchTerm}
+        OR u.name_zh ILIKE ${searchTerm}
         OR u.email ILIKE ${searchTerm}
       )
     `;
@@ -200,8 +200,8 @@ export class StudentQueryService {
       createdAt: row.created_time as Date,
       modifiedAt: row.modified_time as Date,
       email: String(row.email || ""),
-      nickname: String(row.nickname || ""),
-      cnNickname: String(row.cn_nickname || ""),
+      nameEn: String(row.name_en || ""),
+      nameZh: String(row.name_zh || ""),
       country: String(row.country || ""),
       gender: String(row.gender || ""),
     };
@@ -232,8 +232,8 @@ export interface StudentListItem {
 
   // User 表补充字段（通过 LEFT JOIN 获取）
   email: string; // user.email
-  nickname: string; // user.nickname
-  cnNickname: string; // user.cn_nickname
+  nameEn: string; // user.name_en
+  nameZh: string; // user.name_zh
   country: string; // user.country
   gender: string; // user.gender
 

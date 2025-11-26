@@ -11,8 +11,8 @@ export interface AuthResultDto {
   user: {
     id: string;
     email: string;
-    nickname?: string;
-    cnNickname?: string;
+    nameEn?: string;
+    nameZh?: string;
     status?: string;
     roles: string[];
   };

@@ -285,8 +285,8 @@ CREATE TABLE "sessions" (
 CREATE TABLE "user" (
 	"id" varchar(32) PRIMARY KEY NOT NULL,
 	"gender" varchar(10),
-	"nickname" varchar(100),
-	"cn_nickname" varchar(100),
+	"name_en" varchar(100),
+	"name_zh" varchar(100),
 	"status" varchar(50),
 	"password" varchar(255),
 	"email" varchar(255),

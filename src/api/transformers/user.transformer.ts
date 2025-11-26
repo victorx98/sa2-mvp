@@ -6,8 +6,8 @@ export class UserTransformer {
     return {
       id: user.id,
       gender: user.gender,
-      nickname: user.nickname,
-      cnNickname: user.cnNickname,
+      nameEn: user.nameEn,
+      nameZh: user.nameZh,
       status: user.status,
       email: user.email,
       country: user.country,
