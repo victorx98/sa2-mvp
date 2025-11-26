@@ -301,8 +301,8 @@ erDiagram
     %% 学校主数据表
     schools {
         uuid id PK
-        varchar zh_name "NOT NULL"
-        varchar en_name "NOT NULL"
+        varchar name_zh "NOT NULL"
+        varchar name_en "NOT NULL"
         varchar country_code
         timestamptz created_time "NOT NULL, DEFAULT NOW()"
         timestamptz modified_time
@@ -311,8 +311,8 @@ erDiagram
     %% 专业主数据表
     majors {
         uuid id PK
-        varchar zh_name "NOT NULL"
-        varchar en_name "NOT NULL"
+        varchar name_zh "NOT NULL"
+        varchar name_en "NOT NULL"
         varchar degree_level
         timestamptz created_time "NOT NULL, DEFAULT NOW()"
         timestamptz modified_time
@@ -607,8 +607,8 @@ CREATE INDEX idx_counselor_status ON public.counselor(status);
 | 字段名 | 类型 | 约束 | 业务含义 |
 |-------|------|------|----------|
 | id | UUID | PK, NOT NULL | 学校唯一标识 |
-| zh_name | VARCHAR | NOT NULL | 学校中文名 |
-| en_name | VARCHAR | NOT NULL | 学校英文名 |
+| name_zh | VARCHAR | NOT NULL | 学校中文名 |
+| name_en | VARCHAR | NOT NULL | 学校英文名 |
 | country_code | VARCHAR | | ISO 国家/地区代码（如 CN / US） |
 | created_time | TIMESTAMP WITH TIME ZONE | NOT NULL, DEFAULT NOW() | 创建时间 |
 | modified_time | TIMESTAMP WITH TIME ZONE | | 更新时间 |
@@ -621,10 +621,10 @@ CREATE INDEX idx_counselor_status ON public.counselor(status);
 **索引设计：**
 ```sql
 -- 按中文名查询
-CREATE INDEX idx_schools_zh_name ON public.schools(zh_name);
+CREATE INDEX idx_schools_name_zh ON public.schools(name_zh);
 
 -- 按英文名查询
-CREATE INDEX idx_schools_en_name ON public.schools(en_name);
+CREATE INDEX idx_schools_name_en ON public.schools(name_en);
 
 -- 按国家代码查询
 CREATE INDEX idx_schools_country_code ON public.schools(country_code);
@@ -635,8 +635,8 @@ CREATE INDEX idx_schools_country_code ON public.schools(country_code);
 | 字段名 | 类型 | 约束 | 业务含义 |
 |-------|------|------|----------|
 | id | UUID | PK, NOT NULL | 专业唯一标识 |
-| zh_name | VARCHAR | NOT NULL | 专业中文名 |
-| en_name | VARCHAR | NOT NULL | 专业英文名 |
+| name_zh | VARCHAR | NOT NULL | 专业中文名 |
+| name_en | VARCHAR | NOT NULL | 专业英文名 |
 | degree_level | VARCHAR | | 学历层级（如 bachelor / master / phd） |
 | created_time | TIMESTAMP WITH TIME ZONE | NOT NULL, DEFAULT NOW() | 创建时间 |
 | modified_time | TIMESTAMP WITH TIME ZONE | | 更新时间 |
@@ -648,10 +648,10 @@ CREATE INDEX idx_schools_country_code ON public.schools(country_code);
 **索引设计：**
 ```sql
 -- 按中文名查询
-CREATE INDEX idx_majors_zh_name ON public.majors(zh_name);
+CREATE INDEX idx_majors_name_zh ON public.majors(name_zh);
 
 -- 按英文名查询
-CREATE INDEX idx_majors_en_name ON public.majors(en_name);
+CREATE INDEX idx_majors_name_en ON public.majors(name_en);
 
 -- 按学历层级查询
 CREATE INDEX idx_majors_degree_level ON public.majors(degree_level);

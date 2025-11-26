@@ -2,8 +2,8 @@ import { pgTable, varchar, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const schoolsTable = pgTable("schools", {
   id: uuid("id").defaultRandom().primaryKey(),
-  zhName: varchar("zh_name", { length: 500 }).notNull(),
-  enName: varchar("en_name", { length: 500 }).notNull(),
+  nameZh: varchar("name_zh", { length: 500 }).notNull(),
+  nameEn: varchar("name_en", { length: 500 }).notNull(),
   countryCode: varchar("country_code", { length: 10 }),
   createdTime: timestamp("created_time", { withTimezone: true, mode: "date" })
     .notNull()
@@ -16,4 +16,3 @@ export const schoolsTable = pgTable("schools", {
 
 export type School = typeof schoolsTable.$inferSelect;
 export type InsertSchool = typeof schoolsTable.$inferInsert;
-
