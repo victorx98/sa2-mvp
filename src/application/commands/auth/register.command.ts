@@ -94,8 +94,8 @@ export class RegisterCommand {
           {
             id: authUserId,
             email: registerDto.email,
-            nickname: registerDto.nickname,
-            cnNickname: registerDto.cnNickname,
+            nameEn: registerDto.nameEn,
+            nameZh: registerDto.nameZh,
             gender: registerDto.gender,
             country: registerDto.country,
             status: "active",
@@ -123,8 +123,8 @@ export class RegisterCommand {
         user: {
           id: user.id,
           email: user.email,
-          nickname: user.nickname,
-          cnNickname: user.cnNickname,
+          nameEn: user.nameEn,
+          nameZh: user.nameZh,
           status: user.status ?? "active",
           roles: user.roles ?? roles,
         },

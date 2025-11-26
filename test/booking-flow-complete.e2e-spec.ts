@@ -1,9 +1,16 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigModule } from "@nestjs/config";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 import { BookSessionCommand } from "../src/application/commands/booking/book-session.command";
-import { MeetingProviderModule } from "../src/core/meeting-providers/meeting-provider.module";
+import { MeetingModule } from "../src/core/meeting/meeting.module";
+import { CalendarModule } from "../src/core/calendar/calendar.module";
 import { ContractService } from "../src/domains/contract/services/contract.service";
 import { ServiceHoldService } from "../src/domains/contract/services/service-hold.service";
+import { RegularMentoringService } from "../src/domains/services/sessions/regular-mentoring/services/regular-mentoring.service";
+import { RegularMentoringRepository } from "../src/domains/services/sessions/regular-mentoring/regular-mentoring.repository";
+import { SessionTypesRepository } from "../src/domains/services/session-types/session-types.repository";
+import { ServiceRegistryService } from "../src/domains/services/service-registry/services/service-registry.service";
+import { ServiceReferenceRepository } from "../src/domains/services/service-registry/service-reference.repository";
 import { DATABASE_CONNECTION } from "../src/infrastructure/database/database.provider";
 import { DatabaseModule } from "../src/infrastructure/database/database.module";
 import { BookSessionInput } from "../src/application/commands/booking/dto/book-session-input.dto";
@@ -52,14 +59,21 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
           envFilePath: ".env",
           isGlobal: true,
         }),
+        EventEmitterModule.forRoot(),
         DatabaseModule,
-        MeetingProviderModule,
+        MeetingModule,
+        CalendarModule,
         TelemetryModule,
       ],
       providers: [
         BookSessionCommand,
         ContractService,
         ServiceHoldService,
+        RegularMentoringService,
+        RegularMentoringRepository,
+        SessionTypesRepository,
+        ServiceRegistryService,
+        ServiceReferenceRepository,
       ],
     }).compile();
 
@@ -89,8 +103,8 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
           .where(eq(schema.serviceLedgers.studentId, testPrefix));
 
         await db
-          .delete(schema.sessions)
-          .where(eq(schema.sessions.studentId, testPrefix));
+          .delete(schema.regularMentoringSessions)
+          .where(eq(schema.regularMentoringSessions.studentUserId, testPrefix));
 
         await db
           .delete(schema.contractServiceEntitlements)
@@ -208,15 +222,14 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       // Verify Session in database
       const [savedSession] = await db
         .select()
-        .from(schema.sessions)
-        .where(eq(schema.sessions.id, result.sessionId));
+        .from(schema.regularMentoringSessions)
+        .where(eq(schema.regularMentoringSessions.id, result.sessionId));
 
       expect(savedSession).toBeDefined();
-      expect(savedSession.studentId).toBe(studentId);
-      expect(savedSession.mentorId).toBe(mentorId);
+      expect(savedSession.studentUserId).toBe(studentId);
+      expect(savedSession.mentorUserId).toBe(mentorId);
       expect(savedSession.status).toBe("scheduled");
-      expect(savedSession.meetingUrl).toBeDefined();
-      expect(savedSession.sessionName).toBe(testInput.topic);
+      expect(savedSession.title).toBe(testInput.topic);
       console.log("✓ Verified: Session saved in database");
 
       // Verify Calendar Slot
@@ -228,7 +241,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       expect(savedSlot).toBeDefined();
       expect(savedSlot.userId).toBe(mentorId);
       expect(savedSlot.sessionId).toBe(result.sessionId);
-      expect(savedSlot.type).toBe("session");
+      expect(savedSlot.sessionType).toBe("regular_mentoring");
       expect(savedSlot.status).toBe("booked");
       console.log("✓ Verified: Calendar slot created");
 
@@ -337,8 +350,8 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       // Verify no session created
       const sessions = await db
         .select()
-        .from(schema.sessions)
-        .where(eq(schema.sessions.studentId, studentId));
+        .from(schema.regularMentoringSessions)
+        .where(eq(schema.regularMentoringSessions.studentUserId, studentId));
 
       expect(sessions).toHaveLength(0);
       console.log("✓ Verified: No session created");
@@ -474,8 +487,8 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       // Verify only one session exists for this mentor
       const sessions = await db
         .select()
-        .from(schema.sessions)
-        .where(eq(schema.sessions.mentorId, mentorId));
+        .from(schema.regularMentoringSessions)
+        .where(eq(schema.regularMentoringSessions.mentorUserId, mentorId));
 
       expect(sessions).toHaveLength(1);
       console.log("✓ Verified: Only one session exists for mentor");
@@ -557,8 +570,8 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       // Verify complete rollback - no session
       const sessions = await db
         .select()
-        .from(schema.sessions)
-        .where(eq(schema.sessions.studentId, studentId));
+        .from(schema.regularMentoringSessions)
+        .where(eq(schema.regularMentoringSessions.studentUserId, studentId));
 
       expect(sessions).toHaveLength(0);
       console.log("✓ Verified: No session created (rolled back)");
@@ -671,9 +684,9 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
 
       // Update session to completed status
       await db
-        .update(schema.sessions)
+        .update(schema.regularMentoringSessions)
         .set({ status: "completed" })
-        .where(eq(schema.sessions.id, bookingResult.sessionId));
+        .where(eq(schema.regularMentoringSessions.id, bookingResult.sessionId));
 
       // Act - Consume service
       console.log("\n📝 Consuming service...");

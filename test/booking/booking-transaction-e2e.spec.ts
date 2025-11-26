@@ -8,9 +8,8 @@ import { v4 as uuidv4 } from "uuid";
 import { eq, and } from "drizzle-orm";
 import { BookSessionCommand } from "../../src/application/commands/booking/book-session.command";
 import { CalendarService } from "../../src/core/calendar";
-import { MeetingProviderModule } from "../../src/core/meeting-providers/meeting-provider.module";
-import { SessionService } from "../../src/domains/services/session/services/session.service";
-import { ContractService } from "../../src/domains/contract/services/contract.service";
+import { MeetingManagerService } from "../../src/core/meeting";
+import { RegularMentoringService } from "../../src/domains/services/sessions/regular-mentoring/services/regular-mentoring.service";
 import { DATABASE_CONNECTION } from "../../src/infrastructure/database/database.provider";
 import { DatabaseModule } from "../../src/infrastructure/database/database.module";
 import { BookSessionInput } from "../../src/application/commands/booking/dto/book-session-input.dto";
@@ -60,7 +59,7 @@ describe("BookSessionCommand - E2E Integration Test", () => {
     if (existingUsers.length === 0) {
       await db.insert(schema.userTable).values({
         id: userId,
-        nickname: `test-user-${userId.slice(0, 8)}`,
+        nameEn: `test-user-${userId.slice(0, 8)}`,
         status: "active",
       });
       createdUserIds.add(userId);
@@ -114,14 +113,14 @@ describe("BookSessionCommand - E2E Integration Test", () => {
           isGlobal: true,
         }),
         DatabaseModule,
-        MeetingProviderModule,
+        MeetingManagerService,
         EventEmitterModule.forRoot(),
         TelemetryModule,
       ],
       providers: [
         BookSessionCommand,
-        SessionService,
-        ContractService,
+        RegularMentoringService,
+        // ContractService,
         CalendarService,
         ServiceHoldService,
       ],
@@ -268,13 +267,15 @@ describe("BookSessionCommand - E2E Integration Test", () => {
         id: savedMentorSlotRaw.id,
         resourceId: savedMentorSlotRaw.userId,
         sessionId: savedMentorSlotRaw.sessionId,
-        slotType: savedMentorSlotRaw.type,
+        sessionType: savedMentorSlotRaw.sessionType,
+        title: savedMentorSlotRaw.title,
         status: savedMentorSlotRaw.status,
         timeRange: `[${savedMentorSlotRaw.timeRange.start.toISOString()}, ${savedMentorSlotRaw.timeRange.end.toISOString()})`,
       };
       expect(savedMentorSlot.id).toBe(result.mentorCalendarSlotId);
       expect(savedMentorSlot.sessionId).toBe(result.sessionId);
-      expect(savedMentorSlot.slotType).toBeDefined();
+      expect(savedMentorSlot.sessionType).toBeDefined();
+      expect(savedMentorSlot.title).toBeDefined();
       expect(savedMentorSlot.status).toBeDefined();
 
       // 验证会议信息

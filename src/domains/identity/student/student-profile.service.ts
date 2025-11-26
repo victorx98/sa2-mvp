@@ -21,13 +21,12 @@ export class StudentProfileService {
       .insert(schema.studentTable)
       .values({
         id: userId,
-        userId,
         status: "active",
         createdBy: userId, // 显式设置创建者为当前用户
         updatedBy: userId, // 显式设置更新者为当前用户
       })
       .onConflictDoNothing({
-        target: [schema.studentTable.userId],
+        target: [schema.studentTable.id],
       });
   }
 }

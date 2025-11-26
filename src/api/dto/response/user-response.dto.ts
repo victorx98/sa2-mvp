@@ -7,11 +7,11 @@ export class UserResponseDto {
   @ApiProperty({ description: "User gender", required: false })
   gender?: string;
 
-  @ApiProperty({ description: "English nickname", required: false })
-  nickname?: string;
+  @ApiProperty({ description: "English name", required: false })
+  nameEn?: string;
 
-  @ApiProperty({ description: "Chinese nickname", required: false })
-  cnNickname?: string;
+  @ApiProperty({ description: "Chinese name", required: false })
+  nameZh?: string;
 
   @ApiProperty({
     description: "Account status (e.g., active, suspended)",

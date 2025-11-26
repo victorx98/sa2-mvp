@@ -121,8 +121,8 @@ export class UserService implements IUserService {
       .values({
         id: user.id || uuidv4(),
         email: user.email,
-        nickname: user.nickname || null,
-        cnNickname: user.cnNickname || null,
+        nameEn: user.nameEn || null,
+        nameZh: user.nameZh || null,
         gender: user.gender || null,
         status: user.status || "active",
         country: user.country || null,
@@ -234,11 +234,11 @@ export class UserService implements IUserService {
     if (user.email !== undefined) {
       updateValues.email = user.email;
     }
-    if (user.nickname !== undefined) {
-      updateValues.nickname = user.nickname;
+    if (user.nameEn !== undefined) {
+      updateValues.nameEn = user.nameEn;
     }
-    if (user.cnNickname !== undefined) {
-      updateValues.cnNickname = user.cnNickname;
+    if (user.nameZh !== undefined) {
+      updateValues.nameZh = user.nameZh;
     }
     if (user.gender !== undefined) {
       updateValues.gender = user.gender;
@@ -272,8 +272,8 @@ export class UserService implements IUserService {
     return {
       id: record.id,
       email: record.email || "",
-      nickname: record.nickname || undefined,
-      cnNickname: record.cnNickname || undefined,
+      nameEn: record.nameEn || undefined,
+      nameZh: record.nameZh || undefined,
       gender: record.gender || undefined,
       status: record.status || undefined,
       country: record.country || undefined,

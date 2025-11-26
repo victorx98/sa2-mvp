@@ -13,155 +13,74 @@ describe("FeishuEventExtractor", () => {
     extractor = module.get<FeishuEventExtractor>(FeishuEventExtractor);
   });
 
-  describe("extract", () => {
-    it("should extract all fields from a valid Feishu join_meeting event", () => {
-      const rawEvent: IFeishuWebhookRequest = {
-        schema: "2.0",
-        header: {
-          event_id: "5e3702a84e847582be8db7fb73283c02",
-          event_type: "vc.meeting.join_meeting_v1",
-          create_time: "1608725989000",
-          token: "rvaYgkND1GOiu5MM0E1rncYC6PLtF7JV",
-          app_id: "cli_9f5343c580712544",
-          tenant_key: "2ca1d211f64f6438",
-        },
-        event: {
-          type: "vc.meeting.join_meeting_v1",
-          meeting: {
-            id: "6911188411934433028",
-            topic: "my meeting",
-            meeting_no: "235812466",
-            start_time: "1608883322",
-            end_time: "1608883899",
-            host_user: {
-              id: {
-                union_id: "on_8ed6aa67826108097d9ee143816345",
-                user_id: "e33ggbyz",
-                open_id: "ou_84aad35d084aa403a838cf73ee18467",
-              },
-              user_role: 1,
-              user_type: 1,
-            },
-            owner: {
-              id: {
-                union_id: "on_8ed6aa67826108097d9ee143816345",
-                user_id: "e33ggbyz",
-                open_id: "ou_84aad35d084aa403a838cf73ee18467",
-              },
-              user_role: 1,
-              user_type: 1,
-            },
-          },
-          operator: {
-            id: {
-              union_id: "on_8ed6aa67826108097d9ee143816345",
-              user_id: "e33ggbyz",
-              open_id: "ou_84aad35d084aa403a838cf73ee18467",
-            },
-            user_role: 1,
-            user_type: 1,
-          },
-        },
-      };
-
-      const extracted = extractor.extract(rawEvent);
-
-      // Assertions for extracted data
-      expect(extracted.meetingId).toBe("6911188411934433028");
-      expect(extracted.meetingNo).toBe("235812466");
-      expect(extracted.eventId).toBe("5e3702a84e847582be8db7fb73283c02");
-      expect(extracted.eventType).toBe("vc.meeting.join_meeting_v1");
-      expect(extracted.provider).toBe("feishu");
-      expect(extracted.operatorId).toBe("e33ggbyz"); // user_id is prioritized
-      expect(extracted.operatorRole).toBe(1); // host
-      expect(extracted.meetingTopic).toBe("my meeting");
-      expect(extracted.meetingStartTime).toEqual(
-        new Date(1608883322 * 1000)
-      );
-      expect(extracted.meetingEndTime).toEqual(new Date(1608883899 * 1000));
-      expect(extracted.occurredAt).toEqual(new Date(1608725989 * 1000)); // create_time in milliseconds
-      expect(extracted.eventData).toBeDefined();
-    });
-
-    it("should handle missing operator id gracefully", () => {
-      const rawEvent: IFeishuWebhookRequest = {
-        schema: "2.0",
+  describe("extractStandardEvent", () => {
+    it("should extract minimal required fields", () => {
+      const payload: IFeishuWebhookRequest = {
         header: {
           event_id: "event_123",
-          event_type: "vc.meeting.meeting_started_v1",
-          create_time: "1608725989000",
-          token: "token",
-          app_id: "app_id",
-          tenant_key: "tenant_key",
+          event_type: "vc.meeting.meeting_ended_v1",
+          create_time: "1609459200000",
+          token: "test_token",
+          app_id: "app_123",
+          tenant_key: "tenant_123",
         },
         event: {
-          type: "vc.meeting.join_meeting_v1",
+          type: "vc.meeting.meeting_ended_v1",
           meeting: {
             id: "meeting_123",
-            topic: "test meeting",
             meeting_no: "123456789",
-            start_time: "1608883322",
-            end_time: "1608883899",
-          },
-          operator: {
-            // No id provided
-            user_role: 1,
-            user_type: 1,
           },
         },
       };
 
-      const extracted = extractor.extract(rawEvent);
+      const result = extractor.extractStandardEvent(payload);
 
-      expect(extracted.operatorId).toBeNull();
-      expect(extracted.operatorRole).toBe(1);
+      expect(result.meetingNo).toBe("123456789");
+      expect(result.meetingId).toBe("meeting_123");
+      expect(result.eventType).toBe("vc.meeting.meeting_ended_v1");
+      expect(result.provider).toBe("feishu");
+      expect(result.eventData).toEqual(payload);
+      expect(result.operatorId).toBeUndefined();
     });
 
-    it("should fallback to open_id when user_id is not available", () => {
-      const rawEvent: IFeishuWebhookRequest = {
-        schema: "2.0",
+    it("should extract operator ID when present", () => {
+      const payload: IFeishuWebhookRequest = {
         header: {
           event_id: "event_456",
-          event_type: "vc.meeting.join_meeting_v1",
-          create_time: "1608725989000",
-          token: "token",
-          app_id: "app_id",
-          tenant_key: "tenant_key",
+          event_type: "vc.meeting.meeting_started_v1",
+          create_time: "1609459200000",
+          token: "test_token",
+          app_id: "app_123",
+          tenant_key: "tenant_123",
         },
         event: {
-          type: "vc.meeting.join_meeting_v1",
+          type: "vc.meeting.meeting_started_v1",
           meeting: {
             id: "meeting_456",
             meeting_no: "987654321",
-            start_time: "1608883322",
-            end_time: "1608883899",
           },
           operator: {
             id: {
-              open_id: "ou_84aad35d084aa403a838cf73ee18467",
-              // user_id not provided
+              user_id: "user_123",
             },
-            user_role: 2,
           },
         },
       };
 
-      const extracted = extractor.extract(rawEvent);
+      const result = extractor.extractStandardEvent(payload);
 
-      expect(extracted.operatorId).toBe("ou_84aad35d084aa403a838cf73ee18467");
-      expect(extracted.operatorRole).toBe(2); // participant
+      expect(result.operatorId).toBe("user_123");
     });
 
-    it("should handle recording event with recording_id and url", () => {
-      const rawEvent: IFeishuWebhookRequest = {
-        schema: "2.0",
+    it("should use open_id when user_id is not available", () => {
+      const payload: IFeishuWebhookRequest = {
         header: {
-          event_id: "recording_event_789",
-          event_type: "vc.meeting.recording_ready_v1",
-          create_time: "1608725989000",
-          token: "token",
-          app_id: "app_id",
-          tenant_key: "tenant_key",
+          event_id: "event_789",
+          event_type: "vc.meeting.join_meeting_v1",
+          create_time: "1609459200000",
+          token: "test_token",
+          app_id: "app_123",
+          tenant_key: "tenant_123",
         },
         event: {
           type: "vc.meeting.join_meeting_v1",
@@ -169,165 +88,379 @@ describe("FeishuEventExtractor", () => {
             id: "meeting_789",
             meeting_no: "555555555",
           },
-          recording: {
-            id: "rec_001",
-            url: "https://example.com/recording/001",
-            duration: 3600,
-            start_time: "2021-01-01T10:00:00Z",
-            end_time: "2021-01-01T11:00:00Z",
+          operator: {
+            id: {
+              open_id: "open_id_456",
+            },
           },
         },
       };
 
-      const extracted = extractor.extract(rawEvent);
+      const result = extractor.extractStandardEvent(payload);
 
-      expect(extracted.recordingId).toBe("rec_001");
-      expect(extracted.recordingUrl).toBe("https://example.com/recording/001");
+      expect(result.operatorId).toBe("open_id_456");
     });
 
-    it("should handle missing meeting_no (not all events have it)", () => {
-      const rawEvent: IFeishuWebhookRequest = {
-        schema: "2.0",
+    it("should handle missing meeting_no", () => {
+      const payload: IFeishuWebhookRequest = {
         header: {
-          event_id: "event_without_meeting_no",
-          event_type: "vc.meeting.share_started_v1",
-          create_time: "1608725989000",
-          token: "token",
-          app_id: "app_id",
-          tenant_key: "tenant_key",
+          event_id: "event_101",
+          event_type: "vc.meeting.meeting_ended_v1",
+          create_time: "1609459200000",
+          token: "test_token",
+          app_id: "app_123",
+          tenant_key: "tenant_123",
         },
         event: {
-          type: "vc.meeting.join_meeting_v1",
+          type: "vc.meeting.meeting_ended_v1",
           meeting: {
-            id: "meeting_with_id_only",
-            // meeting_no not provided
+            id: "meeting_101",
           },
         },
       };
 
-      const extracted = extractor.extract(rawEvent);
+      const result = extractor.extractStandardEvent(payload);
 
-      expect(extracted.meetingId).toBe("meeting_with_id_only");
-      expect(extracted.meetingNo).toBeNull();
+      expect(result.meetingNo).toBe("");
     });
 
-    it("should parse create_time correctly when in milliseconds format", () => {
-      const rawEvent: IFeishuWebhookRequest = {
-        schema: "2.0",
+    it("should parse occurredAt timestamp correctly", () => {
+      const payload: IFeishuWebhookRequest = {
         header: {
-          event_id: "event_time_test",
-          event_type: "vc.meeting.meeting_started_v1",
-          create_time: "1608725989000", // milliseconds
-          token: "token",
-          app_id: "app_id",
-          tenant_key: "tenant_key",
+          event_id: "event_time",
+          event_type: "vc.meeting.meeting_ended_v1",
+          create_time: "1609459200000", // milliseconds
+          token: "test_token",
+          app_id: "app_123",
+          tenant_key: "tenant_123",
         },
         event: {
-          type: "vc.meeting.join_meeting_v1",
+          type: "vc.meeting.meeting_ended_v1",
           meeting: {
-            id: "meeting_time_test",
-          },
-        },
-      };
-
-      const extracted = extractor.extract(rawEvent);
-
-      // The service should recognize this as milliseconds and convert properly
-      expect(extracted.occurredAt).toBeDefined();
-      expect(extracted.occurredAt instanceof Date).toBe(true);
-    });
-
-    it("should handle invalid time values gracefully", () => {
-      const rawEvent: IFeishuWebhookRequest = {
-        schema: "2.0",
-        header: {
-          event_id: "event_invalid_time",
-          event_type: "vc.meeting.meeting_started_v1",
-          create_time: "invalid_timestamp", // Invalid
-          token: "token",
-          app_id: "app_id",
-          tenant_key: "tenant_key",
-        },
-        event: {
-          type: "vc.meeting.join_meeting_v1",
-          meeting: {
-            id: "meeting_invalid_time",
-            start_time: "invalid", // Invalid
-            end_time: "also_invalid", // Invalid
-          },
-        },
-      };
-
-      const extracted = extractor.extract(rawEvent);
-
-      // Should handle invalid times by returning null or current time
-      expect(extracted.meetingStartTime).toBeNull();
-      expect(extracted.meetingEndTime).toBeNull();
-      expect(extracted.occurredAt).toBeDefined();
-    });
-
-    it("should preserve complete raw event data in eventData field", () => {
-      const rawEvent: IFeishuWebhookRequest = {
-        schema: "2.0",
-        header: {
-          event_id: "event_data_preservation",
-          event_type: "vc.meeting.join_meeting_v1",
-          create_time: "1608725989000",
-          token: "token",
-          app_id: "app_id",
-          tenant_key: "tenant_key",
-        },
-        event: {
-          type: "vc.meeting.join_meeting_v1",
-          meeting: {
-            id: "meeting_data_test",
+            id: "meeting_time",
             meeting_no: "111111111",
-            custom_field: "custom_value", // Non-standard field
           },
         },
       };
 
-      const extracted = extractor.extract(rawEvent);
+      const result = extractor.extractStandardEvent(payload);
 
-      // eventData should contain the raw event
-      expect(extracted.eventData).toBeDefined();
-      expect(extracted.eventData.header).toBeDefined();
-      expect(extracted.eventData.event).toBeDefined();
+      expect(result.occurredAt).toEqual(new Date(1609459200000));
     });
   });
 
-  describe("extract - edge cases for meeting_no", () => {
-    it("should extract meeting_no from various formats", () => {
-      const testCases = [
-        { input: "123456789", expected: "123456789" },
-        { input: 123456789, expected: "123456789" },
-        { input: null, expected: null },
-        { input: undefined, expected: null },
-      ];
-
-      for (const testCase of testCases) {
-        const rawEvent: IFeishuWebhookRequest = {
-          schema: "2.0",
-          header: {
-            event_id: "test",
-            event_type: "vc.meeting.join_meeting_v1",
-            create_time: "1608725989000",
-            token: "token",
-            app_id: "app_id",
-            tenant_key: "tenant_key",
+  describe("extractFullEvent", () => {
+    it("should extract all available fields", () => {
+      const payload: IFeishuWebhookRequest = {
+        header: {
+          event_id: "event_full",
+          event_type: "vc.meeting.meeting_ended_v1",
+          create_time: "1609459200000",
+          token: "test_token",
+          app_id: "app_123",
+          tenant_key: "tenant_123",
+        },
+        event: {
+          type: "vc.meeting.meeting_ended_v1",
+          meeting: {
+            id: "meeting_full",
+            meeting_no: "999999999",
+            topic: "Full Meeting",
+            start_time: "1609459200",
+            end_time: "1609462800",
           },
-          event: {
+          operator: {
+            id: {
+              user_id: "user_full",
+            },
+            user_role: 1,
+          },
+          recording: {
+            id: "recording_full",
+            url: "https://example.com/recording",
+          },
+        },
+      };
+
+      const result = extractor.extractFullEvent(payload);
+
+      expect(result.meetingId).toBe("meeting_full");
+      expect(result.meetingNo).toBe("999999999");
+      expect(result.eventId).toBe("event_full");
+      expect(result.eventType).toBe("vc.meeting.meeting_ended_v1");
+      expect(result.provider).toBe("feishu");
+      expect(result.operatorId).toBe("user_full");
+      expect(result.operatorRole).toBe(1);
+      expect(result.meetingTopic).toBe("Full Meeting");
+      expect(result.meetingStartTime).toEqual(
+        new Date("2021-01-01T00:00:00Z"),
+      );
+      expect(result.meetingEndTime).toEqual(new Date("2021-01-01T01:00:00Z"));
+      expect(result.recordingId).toBe("recording_full");
+      expect(result.recordingUrl).toBe("https://example.com/recording");
+    });
+
+    it("should handle missing recording fields", () => {
+      const payload: IFeishuWebhookRequest = {
+        header: {
+          event_id: "event_no_recording",
+          event_type: "vc.meeting.meeting_started_v1",
+          create_time: "1609459200000",
+          token: "test_token",
+          app_id: "app_123",
+          tenant_key: "tenant_123",
+        },
+        event: {
+          type: "vc.meeting.meeting_started_v1",
+          meeting: {
+            id: "meeting_started",
+            meeting_no: "888888888",
+          },
+        },
+      };
+
+      const result = extractor.extractFullEvent(payload);
+
+      expect(result.recordingId).toBeNull();
+      expect(result.recordingUrl).toBeNull();
+    });
+
+    it("should handle operator role correctly", () => {
+      const payload: IFeishuWebhookRequest = {
+        header: {
+          event_id: "event_role",
+          event_type: "vc.meeting.leave_meeting_v1",
+          create_time: "1609459200000",
+          token: "test_token",
+          app_id: "app_123",
+          tenant_key: "tenant_123",
+        },
+        event: {
+          type: "vc.meeting.leave_meeting_v1",
+          meeting: {
+            id: "meeting_role",
+            meeting_no: "777777777",
+          },
+          operator: {
+            id: {
+              user_id: "user_participant",
+            },
+            user_role: 2,
+          },
+        },
+      };
+
+      const result = extractor.extractFullEvent(payload);
+
+      expect(result.operatorRole).toBe(2);
+    });
+
+    it("should parse Unix seconds to Date correctly", () => {
+      const payload: IFeishuWebhookRequest = {
+        header: {
+          event_id: "event_unix",
+          event_type: "vc.meeting.recording_ready_v1",
+          create_time: "1609459200000",
+          token: "test_token",
+          app_id: "app_123",
+          tenant_key: "tenant_123",
+        },
+        event: {
+          type: "vc.meeting.recording_ready_v1",
+          meeting: {
+            id: "meeting_unix",
+            meeting_no: "666666666",
+            start_time: "1609459200", // Unix seconds
+            end_time: "1609462800",
+          },
+        },
+      };
+
+      const result = extractor.extractFullEvent(payload);
+
+      expect(result.meetingStartTime).toEqual(
+        new Date("2021-01-01T00:00:00Z"),
+      );
+      expect(result.meetingEndTime).toEqual(
+        new Date("2021-01-01T01:00:00Z"),
+      );
+    });
+
+    it("should handle invalid time formats gracefully", () => {
+      const payload: IFeishuWebhookRequest = {
+        header: {
+          event_id: "event_invalid",
+          event_type: "vc.meeting.meeting_ended_v1",
+          create_time: "1609459200000",
+          token: "test_token",
+          app_id: "app_123",
+          tenant_key: "tenant_123",
+        },
+        event: {
+          type: "vc.meeting.meeting_ended_v1",
+          meeting: {
+            id: "meeting_invalid",
+            meeting_no: "555555555",
+            start_time: "invalid_time",
+            end_time: "also_invalid",
+          },
+        },
+      };
+
+      const result = extractor.extractFullEvent(payload);
+
+      expect(result.meetingStartTime).toBeNull();
+      expect(result.meetingEndTime).toBeNull();
+    });
+
+    it("should convert milliseconds timestamp when needed", () => {
+      const millisecondsTimestamp = "1609459200000"; // > 10^10
+
+      const payload: IFeishuWebhookRequest = {
+        header: {
+          event_id: "event_ms",
+          event_type: "vc.meeting.meeting_ended_v1",
+          create_time: millisecondsTimestamp,
+          token: "test_token",
+          app_id: "app_123",
+          tenant_key: "tenant_123",
+        },
+        event: {
+          type: "vc.meeting.meeting_ended_v1",
+          meeting: {
+            id: "meeting_ms",
+            meeting_no: "444444444",
+          },
+        },
+      };
+
+      const result = extractor.extractFullEvent(payload);
+
+      expect(result.occurredAt).toEqual(new Date(1609459200000));
+    });
+
+    it("should handle missing operator information", () => {
+      const payload: IFeishuWebhookRequest = {
+        header: {
+          event_id: "event_no_operator",
+          event_type: "vc.meeting.recording_started_v1",
+          create_time: "1609459200000",
+          token: "test_token",
+          app_id: "app_123",
+          tenant_key: "tenant_123",
+        },
+        event: {
+          type: "vc.meeting.recording_started_v1",
+          meeting: {
+            id: "meeting_no_op",
+            meeting_no: "333333333",
+          },
+        },
+      };
+
+      const result = extractor.extractFullEvent(payload);
+
+      expect(result.operatorId).toBeNull();
+      expect(result.operatorRole).toBeNull();
+    });
+
+    it("should store complete raw event data", () => {
+      const payload: IFeishuWebhookRequest = {
+        header: {
+          event_id: "event_raw",
+          event_type: "vc.meeting.meeting_ended_v1",
+          create_time: "1609459200000",
+          token: "test_token",
+          app_id: "app_123",
+          tenant_key: "tenant_123",
+        },
+        event: {
+          type: "vc.meeting.meeting_ended_v1",
+          meeting: {
+            id: "meeting_raw",
+            meeting_no: "222222222",
+          },
+        },
+      };
+
+      const result = extractor.extractFullEvent(payload);
+
+      expect(result.eventData).toEqual(payload);
+    });
+  });
+
+  describe("Edge cases", () => {
+    it("should handle empty event object", () => {
+      const payload: any = {
+        header: {
+          event_id: "event_empty",
+          event_type: "vc.meeting.meeting_ended_v1",
+          create_time: "1609459200000",
+          token: "test_token",
+          app_id: "app_123",
+          tenant_key: "tenant_123",
+        },
+        event: {},
+      };
+
+      const result = extractor.extractStandardEvent(payload);
+
+      expect(result.meetingId).toBe("");
+      expect(result.meetingNo).toBe("");
+    });
+
+    it("should handle NaN create_time gracefully", () => {
+      const payload: IFeishuWebhookRequest = {
+        header: {
+          event_id: "event_nan",
+          event_type: "vc.meeting.meeting_ended_v1",
+          create_time: "not_a_number",
+          token: "test_token",
+          app_id: "app_123",
+          tenant_key: "tenant_123",
+        },
+        event: {
+          type: "vc.meeting.meeting_ended_v1",
+          meeting: {
+            id: "meeting_nan",
+            meeting_no: "111111111",
+          },
+        },
+      };
+
+      const result = extractor.extractStandardEvent(payload);
+
+      expect(result.occurredAt.getTime()).toBeGreaterThan(0);
+    });
+
+    it("should prioritize user_id over open_id", () => {
+      const payload: IFeishuWebhookRequest = {
+        header: {
+          event_id: "event_priority",
+          event_type: "vc.meeting.join_meeting_v1",
+          create_time: "1609459200000",
+          token: "test_token",
+          app_id: "app_123",
+          tenant_key: "tenant_123",
+        },
+        event: {
           type: "vc.meeting.join_meeting_v1",
-            meeting: {
-              id: "meeting_test",
-              meeting_no: testCase.input as any,
+          meeting: {
+            id: "meeting_priority",
+            meeting_no: "999999999",
+          },
+          operator: {
+            id: {
+              user_id: "user_priority",
+              open_id: "open_priority",
             },
           },
-        };
+        },
+      };
 
-        const extracted = extractor.extract(rawEvent);
-        expect(extracted.meetingNo).toBe(testCase.expected);
-      }
+      const result = extractor.extractStandardEvent(payload);
+
+      expect(result.operatorId).toBe("user_priority");
     });
   });
 });

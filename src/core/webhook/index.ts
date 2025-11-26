@@ -6,8 +6,6 @@ export * from "./controllers/webhook-gateway.controller";
 
 // Services
 export * from "./services/webhook-verification.service";
-export * from "./services/event-bus.interface";
-export * from "./services/meeting-event.service.interface";
 
 // Extractors
 export * from "./extractors/feishu-event-extractor";
@@ -16,10 +14,6 @@ export * from "./extractors/zoom-event-extractor";
 // Handlers
 export * from "./handlers/feishu-webhook.handler";
 export * from "./handlers/zoom-webhook.handler";
-export * from "./handlers/webhook-handler.registry";
-
-// Interfaces
-export * from "./interfaces/webhook-handler.interface";
 
 // DTOs
 export * from "./dto/webhook-event.dto";

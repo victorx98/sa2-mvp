@@ -8,11 +8,16 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  IsObject,
 } from "class-validator";
-import { UserType, SlotType } from "../interfaces/calendar-slot.interface";
+import { 
+  UserType, 
+  SessionType,
+  ICalendarMetadata 
+} from "../interfaces/calendar-slot.interface";
 
 /**
- * DTO for creating a calendar slot
+ * DTO for creating a calendar slot (v5.3 extended)
  * Represents user input for booking or creating a time slot
  */
 export class CreateSlotDto {
@@ -50,10 +55,31 @@ export class CreateSlotDto {
   sessionId?: string;
 
   /**
-   * Slot type (session/class_session/comm_session)
+   * Associated meeting ID (optional)
    */
-  @IsEnum(SlotType)
-  slotType: SlotType;
+  @IsOptional()
+  @IsUUID()
+  meetingId?: string;
+
+  /**
+   * Session type - regular_mentoring/gap_analysis/ai_career/comm_session/class_session
+   */
+  @IsEnum(SessionType)
+  sessionType: SessionType;
+
+  /**
+   * Course title (v5.3)
+   */
+  @IsString()
+  @MaxLength(255)
+  title: string;
+
+  /**
+   * Metadata (v5.3) - snapshot data (optional)
+   */
+  @IsOptional()
+  @IsObject()
+  metadata?: ICalendarMetadata;
 
   /**
    * Reason for blocking or remarks (optional, max 255 characters)

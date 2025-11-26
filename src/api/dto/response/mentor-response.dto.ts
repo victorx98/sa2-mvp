@@ -55,11 +55,11 @@ export class MentorSummaryResponseDto {
   @ApiProperty({ description: "Email address" })
   email: string;
 
-  @ApiProperty({ description: "Nickname", required: false })
-  nickname?: string;
+  @ApiProperty({ description: "English name", required: false })
+  nameEn?: string;
 
-  @ApiProperty({ description: "Chinese nickname", required: false })
-  cnNickname?: string;
+  @ApiProperty({ description: "Chinese name", required: false })
+  nameZh?: string;
 
   @ApiProperty({ description: "Country", required: false })
   country?: string;
