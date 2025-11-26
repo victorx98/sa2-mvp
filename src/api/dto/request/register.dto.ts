@@ -13,11 +13,11 @@ export class RegisterDto {
 
   @IsOptional()
   @IsString()
-  nickname?: string;
+  nameEn?: string;
 
   @IsOptional()
   @IsString()
-  cnNickname?: string;
+  nameZh?: string;
 
   @IsOptional()
   @IsString()

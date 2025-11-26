@@ -21,13 +21,12 @@ export class MentorProfileService {
       .insert(schema.mentorTable)
       .values({
         id: userId,
-        userId,
         status: "pending_review",
         createdBy: userId, // 显式设置创建者为当前用户
         updatedBy: userId, // 显式设置更新者为当前用户
       })
       .onConflictDoNothing({
-        target: [schema.mentorTable.userId],
+        target: [schema.mentorTable.id],
       });
   }
 }

@@ -62,11 +62,11 @@ export class StudentSummaryResponseDto {
   @ApiProperty({ description: "Student email", required: false })
   email: string;
 
-  @ApiProperty({ description: "Student nickname", required: false })
-  nickname: string;
+  @ApiProperty({ description: "Student English name", required: false })
+  nameEn?: string;
 
-  @ApiProperty({ description: "Student Chinese nickname", required: false })
-  cnNickname: string;
+  @ApiProperty({ description: "Student Chinese name", required: false })
+  nameZh?: string;
 
   @ApiProperty({ description: "Country/region", required: false })
   country: string;

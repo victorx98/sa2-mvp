@@ -26,26 +26,25 @@ export class MentorQueryService {
     const result = await this.db.execute(sql`
       SELECT
         m.id,
-        m.user_id,
         m.status,
         m.type,
         m.company,
         m.company_title,
         m.brief_intro,
-        m.school,
+        m.high_school,
         m.location,
         m.level,
         m.rating,
         m.created_time,
         m.modified_time,
         u.email,
-        u.nickname,
-        u.cn_nickname,
+        u.name_en,
+        u.name_zh,
         u.country,
         u.gender
       FROM mentor m
-      LEFT JOIN "user" u ON m.user_id = u.id
-      WHERE m.user_id IS NOT NULL
+      LEFT JOIN "user" u ON m.id = u.id
+      WHERE m.id IS NOT NULL
       ${searchFilter}
       ORDER BY m.created_time DESC
     `);
@@ -61,8 +60,8 @@ export class MentorQueryService {
     return sql`
       AND (
         u.email ILIKE ${term}
-        OR u.nickname ILIKE ${term}
-        OR u.cn_nickname ILIKE ${term}
+        OR u.name_en ILIKE ${term}
+        OR u.name_zh ILIKE ${term}
       )
     `;
   }
@@ -70,13 +69,13 @@ export class MentorQueryService {
   private mapRowToMentor(row: Record<string, unknown>): MentorListItem {
     return {
       id: String(row.id || ""),
-      userId: String(row.user_id || ""),
+      userId: String(row.id || ""), // id 就是 user.id
       status: row.status ? String(row.status) : undefined,
       type: row.type ? String(row.type) : undefined,
       company: row.company ? String(row.company) : undefined,
       companyTitle: row.company_title ? String(row.company_title) : undefined,
       briefIntro: row.brief_intro ? String(row.brief_intro) : undefined,
-      school: row.school ? String(row.school) : undefined,
+      school: row.high_school ? String(row.high_school) : undefined, // 使用 high_school 字段
       location: row.location ? String(row.location) : undefined,
       level: row.level ? String(row.level) : undefined,
       rating:
@@ -86,8 +85,8 @@ export class MentorQueryService {
       createdAt: row.created_time as Date,
       modifiedAt: row.modified_time as Date,
       email: String(row.email || ""),
-      nickname: row.nickname ? String(row.nickname) : undefined,
-      cnNickname: row.cn_nickname ? String(row.cn_nickname) : undefined,
+      nameEn: row.name_en ? String(row.name_en) : undefined,
+      nameZh: row.name_zh ? String(row.name_zh) : undefined,
       country: row.country ? String(row.country) : undefined,
       gender: row.gender ? String(row.gender) : undefined,
     };
@@ -109,8 +108,8 @@ export interface MentorListItem {
   createdAt: Date;
   modifiedAt: Date;
   email: string;
-  nickname?: string;
-  cnNickname?: string;
+  nameEn?: string;
+  nameZh?: string;
   country?: string;
   gender?: string;
 }
