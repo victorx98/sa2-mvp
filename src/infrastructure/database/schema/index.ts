@@ -42,6 +42,7 @@ export * from "./mentor-payment-infos.schema";
 export * from "./settlement-ledgers.schema";
 export * from "./settlement-details.schema";
 export * from "./payment-params.schema";
+export * from "./mentor-appeals.schema";
 
 // Shared
 export * from "./calendar.schema";

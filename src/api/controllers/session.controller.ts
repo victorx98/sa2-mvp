@@ -14,7 +14,6 @@ import {
   IsDateString,
   IsOptional,
 } from "class-validator";
-import { ServiceType } from "@infrastructure/database/schema/service-types.schema";
 import { ApiPrefix } from "@api/api.constants";
 import { BookSessionResponseDto } from "@api/dto/response/session-response.dto";
 import { plainToInstance } from "class-transformer";
@@ -28,11 +27,6 @@ class BookSessionDto {
   @IsString()
   @IsNotEmpty()
   studentId: string;
-
-  @ApiProperty({ description: "Contract ID" })
-  @IsString()
-  @IsNotEmpty()
-  contractId: string;
 
   @ApiProperty({ description: "Mentor ID" })
   @IsString()
@@ -64,7 +58,7 @@ class BookSessionDto {
   })
   @IsString()
   @IsOptional()
-  serviceType?: ServiceType;
+  serviceType?: string;
 
   @ApiProperty({
     description: "Meeting provider (optional, defaults to zoom)",
@@ -123,6 +117,7 @@ export class SessionController {
       studentId: bookSessionDto.studentId,
       mentorId: bookSessionDto.mentorId,
       scheduledStartTime: bookSessionDto.startTime,
+      serviceType: bookSessionDto.serviceType,
       duration: bookSessionDto.duration,
       topic: bookSessionDto.name,
       meetingProvider: bookSessionDto.provider,

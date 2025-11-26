@@ -38,3 +38,24 @@ export enum PriceStatus {
   ACTIVE = "active",
   INACTIVE = "inactive",
 }
+
+/**
+ * 申诉类型枚举
+ * 定义导师申诉的不同类型
+ */
+export enum AppealType {
+  BILLING_ERROR = "billing_error", // 费用计算错误
+  MISSING_SERVICE = "missing_service", // 遗漏服务记录
+  PRICE_DISPUTE = "price_dispute", // 价格争议
+  OTHER = "other", // 其他
+}
+
+/**
+ * 申诉状态枚举
+ * 定义申诉处理的三种状态
+ */
+export enum AppealStatus {
+  PENDING = "PENDING", // 待处理
+  APPROVED = "APPROVED", // 已批准
+  REJECTED = "REJECTED", // 已驳回
+}

@@ -161,6 +161,11 @@ export class ContractService {
    * - Update status to active(- 更新状态为已激活)
    * - Set activatedAt timestamp(- 设置激活时间戳)
    * - Create service entitlements from product snapshot(- 从产品快照创建服务权利)
+   *
+   * v2.16.13: Optimized with batch queries and upsert
+   * - Pre-fetch: Batch query service types and existing entitlements
+   * - In-memory merge: Calculate quantities in memory
+   * - Batch write: Upsert all records at once
    */
   async activate(id: string): Promise<Contract> {
     // 1. Find the contract(1. 查找合约)
@@ -195,130 +200,102 @@ export class ContractService {
       // Create service entitlements from product snapshot(从产品快照创建服务权益)
       const productSnapshot = contract.productSnapshot as IProductSnapshot;
 
-      if (productSnapshot.items && productSnapshot.items.length > 0) {
-        for (const item of productSnapshot.items) {
-          // Get service type from serviceTypeId(从serviceTypeId获取服务类型code)
-          const [serviceTypeRecord] = await tx
-            .select({ code: schema.serviceTypes.code })
-            .from(schema.serviceTypes)
-            .where(eq(schema.serviceTypes.id, item.serviceTypeId))
-            .limit(1);
+      // Pre-fetch: Prepare data structures for batch operations
+      const items = productSnapshot.items || [];
 
-          if (!serviceTypeRecord) {
+      if (items.length > 0) {
+        // Pre-fetch phase: Get all serviceTypeIds and query in batch
+        const serviceTypeIds = items
+          .map((item) => item.serviceTypeId)
+          .filter(Boolean);
+
+        // Batch query: Get service types for all IDs at once
+        const serviceTypesResult = await tx
+          .select({
+            id: schema.serviceTypes.id,
+            code: schema.serviceTypes.code,
+          })
+          .from(schema.serviceTypes)
+          .where(
+            schema.serviceTypes.id
+              ? sql`(${schema.serviceTypes.id} IN ${serviceTypeIds})`
+              : undefined,
+          );
+
+        // Create map for quick lookup
+        const serviceTypeMap = new Map(
+          serviceTypesResult.map((st) => [st.id, st.code]),
+        );
+
+        // Calculate quantities per service type (in-memory merge)
+        const quantitiesByServiceType = new Map<string, number>();
+        for (const item of items) {
+          const serviceTypeCode = serviceTypeMap.get(item.serviceTypeId);
+          if (!serviceTypeCode) {
             throw new ContractException("SERVICE_TYPE_NOT_FOUND");
           }
+          const currentQty = quantitiesByServiceType.get(serviceTypeCode) || 0;
+          quantitiesByServiceType.set(
+            serviceTypeCode,
+            currentQty + (item.quantity || 1),
+          );
+        }
 
-          const serviceTypeCode = serviceTypeRecord.code;
+        // Prepare batch insert values
+        const insertValues = [];
+        for (const [serviceType, quantity] of quantitiesByServiceType) {
+          insertValues.push({
+            studentId: contract.studentId,
+            serviceType,
+            totalQuantity: quantity,
+            availableQuantity: quantity,
+            createdBy: contract.createdBy,
+          });
+        }
 
-          // Check if entitlement already exists for this student and service type(检查此学生和服务类型是否已存在权益)
-          const [existingEntitlement] = await tx
-            .select()
-            .from(schema.contractServiceEntitlements)
-            .where(
-              and(
-                eq(
-                  schema.contractServiceEntitlements.studentId,
-                  contract.studentId,
-                ),
-                eq(
-                  schema.contractServiceEntitlements.serviceType,
-                  serviceTypeCode,
-                ),
-              ),
-            )
-            .limit(1);
-
-          if (existingEntitlement) {
-            // Update existing entitlement(更新现有权益)
-            await tx
-              .update(schema.contractServiceEntitlements)
-              .set({
-                totalQuantity:
-                  existingEntitlement.totalQuantity + (item.quantity || 1),
+        // Batch write: Upsert all records at once
+        if (insertValues.length > 0) {
+          await tx
+            .insert(schema.contractServiceEntitlements)
+            .values(insertValues)
+            .onConflictDoUpdate({
+              target: [
+                schema.contractServiceEntitlements.studentId,
+                schema.contractServiceEntitlements.serviceType,
+              ],
+              set: {
+                totalQuantity: sql`${schema.contractServiceEntitlements.totalQuantity} + EXCLUDED.total_quantity`,
                 availableQuantity:
-                  existingEntitlement.availableQuantity + (item.quantity || 1),
+                  sql`${schema.contractServiceEntitlements.availableQuantity} + EXCLUDED.available_quantity`,
                 updatedAt: new Date(),
-              })
-              .where(
-                and(
-                  eq(
-                    schema.contractServiceEntitlements.studentId,
-                    contract.studentId,
-                  ),
-                  eq(
-                    schema.contractServiceEntitlements.serviceType,
-                    serviceTypeCode,
-                  ),
-                ),
-              );
-          } else {
-            // Insert new service entitlement(插入新的服务权益)
-            await tx.insert(schema.contractServiceEntitlements).values({
-              studentId: contract.studentId,
-              serviceType: serviceTypeCode,
-              totalQuantity: item.quantity || 1,
-              consumedQuantity: 0,
-              heldQuantity: 0,
-              availableQuantity: item.quantity || 1,
-              createdBy: "system",
+              },
             });
-          }
         }
       } else {
-        // If no items in product snapshot, create a default service entitlement(如果产品快照中没有项目，创建默认服务权益)
+        // If no items in product snapshot, create a default service entitlement
+        // using upsert for consistency
         const defaultServiceType = "DEFAULT_SERVICE";
 
-        // Check if entitlement already exists(检查权益是否已存在)
-        const [existingEntitlement] = await tx
-          .select()
-          .from(schema.contractServiceEntitlements)
-          .where(
-            and(
-              eq(
-                schema.contractServiceEntitlements.studentId,
-                contract.studentId,
-              ),
-              eq(
-                schema.contractServiceEntitlements.serviceType,
-                defaultServiceType,
-              ),
-            ),
-          )
-          .limit(1);
-
-        if (existingEntitlement) {
-          // Update existing entitlement(更新现有权益)
-          await tx
-            .update(schema.contractServiceEntitlements)
-            .set({
-              totalQuantity: existingEntitlement.totalQuantity + 1,
-              availableQuantity: existingEntitlement.availableQuantity + 1,
-              updatedAt: new Date(),
-            })
-            .where(
-              and(
-                eq(
-                  schema.contractServiceEntitlements.studentId,
-                  contract.studentId,
-                ),
-                eq(
-                  schema.contractServiceEntitlements.serviceType,
-                  defaultServiceType,
-                ),
-              ),
-            );
-        } else {
-          // Insert new service entitlement(插入新的服务权益)
-          await tx.insert(schema.contractServiceEntitlements).values({
+        await tx
+          .insert(schema.contractServiceEntitlements)
+          .values({
             studentId: contract.studentId,
             serviceType: defaultServiceType,
             totalQuantity: 1,
-            consumedQuantity: 0,
-            heldQuantity: 0,
             availableQuantity: 1,
-            createdBy: "system",
+            createdBy: contract.createdBy,
+          })
+          .onConflictDoUpdate({
+            target: [
+              schema.contractServiceEntitlements.studentId,
+              schema.contractServiceEntitlements.serviceType,
+            ],
+            set: {
+              totalQuantity: sql`${schema.contractServiceEntitlements.totalQuantity} + 1`,
+              availableQuantity: sql`${schema.contractServiceEntitlements.availableQuantity} + 1`,
+              updatedAt: new Date(),
+            },
           });
-        }
       }
 
       return updatedContract;
@@ -726,7 +703,7 @@ export class ContractService {
     }
 
     // 5. Prepare update data(5. 准备更新数据)
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       updatedAt: new Date(),
       ...lifecycleFields,
     };

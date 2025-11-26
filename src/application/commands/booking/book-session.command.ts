@@ -103,9 +103,12 @@ export class BookSessionCommand {
         );
 
         // Step 2: 创建服务预占
+        if (!input.serviceType) {
+          throw new Error("serviceType is required");
+        }
         const hold = await this.serviceHoldService.createHold({
           studentId: input.studentId,
-          serviceType: 'session',
+          serviceType: input.serviceType,
           quantity: 1,
           createdBy: input.counselorId,
         }, tx);
@@ -234,7 +237,7 @@ export class BookSessionCommand {
       studentId: input.studentId,
       mentorId: input.mentorId,
       counselorId: input.counselorId,
-      serviceType: 'session',
+      serviceType: input.serviceType,
       mentorCalendarSlotId: sessionResult.mentorCalendarSlot.id,
       studentCalendarSlotId: sessionResult.studentCalendarSlot.id,
       serviceHoldId: sessionResult.hold.id,
