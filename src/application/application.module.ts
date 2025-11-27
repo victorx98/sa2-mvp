@@ -18,6 +18,9 @@ import { ServiceBalanceQuery } from "./queries/contract/service-balance.query";
 import { RegisterCommand } from "./commands/auth/register.command";
 import { LoginCommand } from "./commands/auth/login.command";
 import { BookSessionCommand } from "./commands/booking/book-session.command";
+import { UpdateStudentProfileCommand } from "./commands/profile/update-student-profile.command";
+import { UpdateMentorProfileCommand } from "./commands/profile/update-mentor-profile.command";
+import { UpdateCounselorProfileCommand } from "./commands/profile/update-counselor-profile.command";
 
 // Application Layer - Commands (兼容层)
 import { AuthCommandService } from "./commands/auth-command/auth-command.service";
@@ -65,6 +68,9 @@ import { QueryModule } from "@domains/query/query.module";
     RegisterCommand,
     LoginCommand,
     BookSessionCommand,
+    UpdateStudentProfileCommand,
+    UpdateMentorProfileCommand,
+    UpdateCounselorProfileCommand,
 
     // Commands (兼容层)
     AuthCommandService,
@@ -91,6 +97,9 @@ import { QueryModule } from "@domains/query/query.module";
     RegisterCommand,
     LoginCommand,
     BookSessionCommand,
+    UpdateStudentProfileCommand,
+    UpdateMentorProfileCommand,
+    UpdateCounselorProfileCommand,
 
     // Commands (兼容层 - 保持向后兼容)
     AuthCommandService,

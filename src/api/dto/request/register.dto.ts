@@ -11,13 +11,13 @@ export class RegisterDto {
   @MinLength(6)
   password: string;
 
-  @IsOptional()
+  @IsNotEmpty()
   @IsString()
-  nameEn?: string;
+  nameEn: string;
 
-  @IsOptional()
+  @IsNotEmpty()
   @IsString()
-  nameZh?: string;
+  nameZh: string;
 
   @IsOptional()
   @IsString()
