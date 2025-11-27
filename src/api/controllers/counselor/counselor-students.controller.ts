@@ -34,8 +34,8 @@ export class CounselorStudentsController {
     private readonly studentListQuery: StudentListQuery,
   ) {}
 
-  @Get("student/list")
-  @ApiOperation({ summary: "Get student list for counselor" })
+  @Get("student/find")
+  @ApiOperation({ summary: "Search counselor's students" })
   @ApiOkResponse({
     description: "Student list retrieved successfully",
     type: StudentSummaryResponseDto,

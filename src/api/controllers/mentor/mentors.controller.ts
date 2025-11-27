@@ -12,8 +12,8 @@ import { plainToInstance } from "class-transformer";
 export class MentorsController {
   constructor(private readonly mentorListQuery: MentorListQuery) {}
 
-  @Get()
-  @ApiOperation({ summary: "Get mentor list" })
+  @Get("/search")
+  @ApiOperation({ summary: "search mentor" })
   @ApiOkResponse({
     description: "Mentors retrieved successfully",
     type: MentorSummaryResponseDto,
@@ -26,6 +26,17 @@ export class MentorsController {
     return plainToInstance(MentorSummaryResponseDto, mentors, {
       enableImplicitConversion: false,
     });
+  }
+
+  @Get("/list")
+  @ApiOperation({ summary: "list mentor total info" })
+  @ApiOkResponse({
+    description: "Mentors retrieved successfully",
+    type: MentorSummaryResponseDto,
+    isArray: true,
+  })
+  async getMentorList(): Promise<MentorSummaryResponseDto[]> {
+    return [];
   }
 }
 

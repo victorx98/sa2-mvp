@@ -34,10 +34,10 @@ export class MentorStudentsController {
     private readonly studentListQuery: StudentListQuery,
   ) {}
 
-  @Get("student/list")
-  @ApiOperation({ summary: "Get student list for mentor" })
+  @Get("student/find")
+  @ApiOperation({ summary: "Search mentor's students" })
   @ApiOkResponse({
-    description: "Student list retrieved successfully",
+    description: "Student results retrieved successfully",
     type: StudentSummaryResponseDto,
     isArray: true,
   })
