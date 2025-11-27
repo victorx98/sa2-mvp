@@ -48,7 +48,7 @@ export * from "./payment-params.schema";
 export * from "./mentor-appeals.schema";
 
 // Placement domain
-export * from "./placement";
+export * from "./placement.schema";
 
 // Shared
 export * from "./calendar.schema";
