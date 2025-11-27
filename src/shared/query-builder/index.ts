@@ -105,3 +105,6 @@ export {
 
 // NestJS 模块
 export { QueryBuilderModule } from './query-builder.module';
+
+// REST API 查询协议
+export * from './api';
