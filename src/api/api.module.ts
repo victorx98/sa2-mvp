@@ -7,6 +7,7 @@ import { MentorStudentsController } from "./controllers/mentor/mentor-students.c
 import { CounselorStudentsController } from "./controllers/counselor/counselor-students.controller";
 import { CounselorStudentContractController } from "./controllers/counselor/counselor-student-contract.controller";
 import { MentorsController } from "./controllers/mentor/mentors.controller";
+import { ReferenceDataController } from "./controllers/reference-data.controller";
 import { ApplicationModule } from "@application/application.module";
 import { WebhookModule } from "@core/webhook/webhook.module";
 
@@ -29,6 +30,7 @@ import { WebhookModule } from "@core/webhook/webhook.module";
     AuthController,
     UserController,
     SessionController,
+    ReferenceDataController,
 
     // Counselor Controllers
     CounselorSessionsController,
