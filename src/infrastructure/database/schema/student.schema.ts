@@ -21,6 +21,7 @@ export const studentTable = pgTable(
   graduateCollege: uuid("graduate_college").references(() => schoolsTable.id),
   graduateMajor: uuid("graduate_major").references(() => majorsTable.id),
   aiResumeSummary: text("ai_resume_summary"),
+  backgroundInfo: text("background_info"),
   customerImportance: varchar("customer_importance", { length: 50 }),
   graduationDate: date("graduation_date"),
   grades: text("grades"),

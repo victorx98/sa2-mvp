@@ -109,6 +109,11 @@
             }
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Get current authenticated user",
         "tags": [
           "Users"
@@ -123,6 +128,7 @@
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "User ID",
             "schema": {
               "type": "string"
             }
@@ -140,6 +146,11 @@
             }
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Get user by ID",
         "tags": [
           "Users"
@@ -186,6 +197,86 @@
         "summary": "Book a session",
         "tags": [
           "Sessions"
+        ]
+      }
+    },
+    "/api/reference/schools": {
+      "get": {
+        "operationId": "ReferenceDataController_getSchools",
+        "parameters": [
+          {
+            "name": "text",
+            "required": false,
+            "in": "query",
+            "description": "Search keyword (searches in both Chinese and English names)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "School list retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SchoolResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Search schools by Chinese or English name",
+        "tags": [
+          "Reference Data"
+        ]
+      }
+    },
+    "/api/reference/majors": {
+      "get": {
+        "operationId": "ReferenceDataController_getMajors",
+        "parameters": [
+          {
+            "name": "text",
+            "required": false,
+            "in": "query",
+            "description": "Search keyword (searches in both Chinese and English names)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Major list retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MajorResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Search majors by Chinese or English name",
+        "tags": [
+          "Reference Data"
         ]
       }
     },
@@ -236,40 +327,6 @@
         ]
       }
     },
-    "/api/counselor/student/list": {
-      "get": {
-        "operationId": "CounselorStudentsController_getStudentList",
-        "parameters": [
-          {
-            "name": "search",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Student list retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/StudentSummaryResponseDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "Get student list for counselor",
-        "tags": [
-          "Counselor Portal"
-        ]
-      }
-    },
     "/api/student/contract/getServiceBalance": {
       "get": {
         "operationId": "CounselorStudentContractController_getServiceBalance",
@@ -310,20 +367,65 @@
             }
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Get service balance for a student",
         "tags": [
           "Counselor Portal"
         ]
       }
     },
-    "/api/mentor/student/list": {
+    "/api/counselor/profile": {
+      "put": {
+        "operationId": "CounselorProfileController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCounselorProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Counselor profile updated successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update counselor profile",
+        "tags": [
+          "Counselor Profile"
+        ]
+      }
+    },
+    "/api/mentors/find": {
       "get": {
-        "operationId": "MentorStudentsController_getStudentList",
+        "operationId": "MentorsController_findMentors",
         "parameters": [
           {
-            "name": "search",
-            "required": true,
+            "name": "text",
+            "required": false,
             "in": "query",
+            "description": "Search keyword to filter mentors",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "studentId",
+            "required": false,
+            "in": "query",
+            "description": "Filter mentors by student ID",
             "schema": {
               "type": "string"
             }
@@ -331,38 +433,34 @@
         ],
         "responses": {
           "200": {
-            "description": "Student list retrieved successfully",
+            "description": "Mentor results retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/StudentSummaryResponseDto"
+                    "$ref": "#/components/schemas/MentorSummaryResponseDto"
                   }
                 }
               }
             }
           }
         },
-        "summary": "Get student list for mentor",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "find mentor",
         "tags": [
-          "Mentor Portal"
+          "Mentors"
         ]
       }
     },
-    "/api/mentors": {
+    "/api/mentors/list": {
       "get": {
-        "operationId": "MentorsController_getMentors",
-        "parameters": [
-          {
-            "name": "query",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "operationId": "MentorsController_getMentorList",
+        "parameters": [],
         "responses": {
           "200": {
             "description": "Mentors retrieved successfully",
@@ -378,9 +476,114 @@
             }
           }
         },
-        "summary": "Get mentor list",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "list mentor total info",
         "tags": [
           "Mentors"
+        ]
+      }
+    },
+    "/api/mentor/profile": {
+      "put": {
+        "operationId": "MentorProfileController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMentorProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mentor profile updated successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update mentor profile",
+        "tags": [
+          "Mentor Profile"
+        ]
+      }
+    },
+    "/api/student/find": {
+      "get": {
+        "operationId": "StudentController_findStudents",
+        "parameters": [
+          {
+            "name": "text",
+            "required": false,
+            "in": "query",
+            "description": "Search keyword (searches in both Chinese and English names)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Student results retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StudentSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "find students",
+        "tags": [
+          "Student"
+        ]
+      }
+    },
+    "/api/student/profile": {
+      "put": {
+        "operationId": "StudentController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStudentProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Student profile updated successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update student profile",
+        "tags": [
+          "Student"
         ]
       }
     }
@@ -404,7 +607,56 @@
     "schemas": {
       "RegisterDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email address",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "User password (minimum 6 characters)",
+            "example": "password123",
+            "minLength": 6
+          },
+          "nameEn": {
+            "type": "string",
+            "description": "User English name",
+            "example": "John Doe"
+          },
+          "nameZh": {
+            "type": "string",
+            "description": "User Chinese name",
+            "example": "张三"
+          },
+          "gender": {
+            "type": "string",
+            "description": "User gender",
+            "example": "male"
+          },
+          "country": {
+            "type": "string",
+            "description": "User country",
+            "example": "China"
+          },
+          "role": {
+            "type": "string",
+            "description": "User role",
+            "enum": [
+              "student",
+              "mentor",
+              "counselor"
+            ],
+            "example": "student"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "nameEn",
+          "nameZh",
+          "role"
+        ]
       },
       "AuthUserResponseDto": {
         "type": "object",
@@ -417,13 +669,13 @@
             "type": "string",
             "description": "User email address"
           },
-          "nickname": {
+          "nameEn": {
             "type": "string",
-            "description": "English nickname"
+            "description": "English name"
           },
-          "cnNickname": {
+          "nameZh": {
             "type": "string",
-            "description": "Chinese nickname"
+            "description": "Chinese name"
           },
           "status": {
             "type": "string",
@@ -486,7 +738,22 @@
       },
       "LoginDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email address",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "User password",
+            "example": "password123"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
       },
       "UserResponseDto": {
         "type": "object",
@@ -499,13 +766,13 @@
             "type": "string",
             "description": "User gender"
           },
-          "nickname": {
+          "nameEn": {
             "type": "string",
-            "description": "English nickname"
+            "description": "English name"
           },
-          "cnNickname": {
+          "nameZh": {
             "type": "string",
-            "description": "Chinese nickname"
+            "description": "Chinese name"
           },
           "status": {
             "type": "string",
@@ -608,7 +875,7 @@
             "description": "Mentor ID"
           },
           "serviceType": {
-            "type": "string",
+            "type": "object",
             "description": "Type of service fulfilled by this session"
           },
           "mentorCalendarSlotId": {
@@ -662,6 +929,84 @@
           "status"
         ]
       },
+      "SchoolResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "School ID"
+          },
+          "nameZh": {
+            "type": "string",
+            "description": "School name in Chinese"
+          },
+          "nameEn": {
+            "type": "string",
+            "description": "School name in English"
+          },
+          "countryCode": {
+            "type": "string",
+            "description": "ISO country/region code (e.g., CN, US)",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Record creation time",
+            "format": "date-time"
+          },
+          "modifiedAt": {
+            "type": "string",
+            "description": "Record last modification time",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "nameZh",
+          "nameEn",
+          "createdAt",
+          "modifiedAt"
+        ]
+      },
+      "MajorResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Major ID"
+          },
+          "nameZh": {
+            "type": "string",
+            "description": "Major name in Chinese"
+          },
+          "nameEn": {
+            "type": "string",
+            "description": "Major name in English"
+          },
+          "degreeLevel": {
+            "type": "string",
+            "description": "Degree level (e.g., bachelor, master, phd)",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Record creation time",
+            "format": "date-time"
+          },
+          "modifiedAt": {
+            "type": "string",
+            "description": "Record last modification time",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "nameZh",
+          "nameEn",
+          "createdAt",
+          "modifiedAt"
+        ]
+      },
       "BookSessionRequestDto": {
         "type": "object",
         "properties": {
@@ -685,6 +1030,11 @@
             "description": "Session duration (minutes)",
             "example": 60
           },
+          "serviceType": {
+            "type": "string",
+            "description": "Service type",
+            "example": "external"
+          },
           "topic": {
             "type": "string",
             "description": "Session topic",
@@ -701,8 +1051,211 @@
           "mentorId",
           "scheduledStartTime",
           "duration",
+          "serviceType",
           "topic"
         ]
+      },
+      "ServiceBalanceResponseDto": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "description": "Student ID"
+          },
+          "serviceType": {
+            "type": "string",
+            "description": "Service type"
+          },
+          "totalQuantity": {
+            "type": "number",
+            "description": "Total quantity"
+          },
+          "consumedQuantity": {
+            "type": "number",
+            "description": "Consumed quantity"
+          },
+          "heldQuantity": {
+            "type": "number",
+            "description": "Held quantity"
+          },
+          "availableQuantity": {
+            "type": "number",
+            "description": "Available quantity"
+          }
+        },
+        "required": [
+          "studentId",
+          "serviceType",
+          "totalQuantity",
+          "consumedQuantity",
+          "heldQuantity",
+          "availableQuantity"
+        ]
+      },
+      "UpdateCounselorProfileDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Counselor status"
+          }
+        }
+      },
+      "MentorSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Mentor ID"
+          },
+          "userId": {
+            "type": "string",
+            "description": "Associated user ID"
+          },
+          "status": {
+            "type": "string",
+            "description": "Mentor status"
+          },
+          "type": {
+            "type": "string",
+            "description": "Mentor type"
+          },
+          "company": {
+            "type": "string",
+            "description": "Company"
+          },
+          "companyTitle": {
+            "type": "string",
+            "description": "Company title"
+          },
+          "briefIntro": {
+            "type": "string",
+            "description": "Brief introduction"
+          },
+          "school": {
+            "type": "string",
+            "description": "School"
+          },
+          "location": {
+            "type": "string",
+            "description": "Location"
+          },
+          "level": {
+            "type": "string",
+            "description": "Mentor level"
+          },
+          "rating": {
+            "type": "number",
+            "description": "Mentor rating",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Record created time",
+            "format": "date-time"
+          },
+          "modifiedAt": {
+            "type": "string",
+            "description": "Record last modified time",
+            "format": "date-time"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address"
+          },
+          "nameEn": {
+            "type": "string",
+            "description": "English name"
+          },
+          "nameZh": {
+            "type": "string",
+            "description": "Chinese name"
+          },
+          "country": {
+            "type": "string",
+            "description": "Country"
+          },
+          "gender": {
+            "type": "string",
+            "description": "Gender"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "createdAt",
+          "modifiedAt",
+          "email"
+        ]
+      },
+      "UpdateMentorProfileDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Mentor status"
+          },
+          "type": {
+            "type": "string",
+            "description": "Mentor type",
+            "nullable": true
+          },
+          "company": {
+            "type": "string",
+            "description": "Company name",
+            "nullable": true
+          },
+          "companyTitle": {
+            "type": "string",
+            "description": "Company title",
+            "nullable": true
+          },
+          "briefIntro": {
+            "type": "string",
+            "description": "Brief introduction",
+            "nullable": true
+          },
+          "highSchool": {
+            "type": "string",
+            "description": "High school ID",
+            "nullable": true
+          },
+          "location": {
+            "type": "string",
+            "description": "Location",
+            "nullable": true
+          },
+          "level": {
+            "type": "string",
+            "description": "Level",
+            "nullable": true
+          },
+          "rating": {
+            "type": "number",
+            "description": "Rating",
+            "nullable": true
+          },
+          "underCollege": {
+            "type": "string",
+            "description": "Undergraduate college ID",
+            "nullable": true
+          },
+          "underMajor": {
+            "type": "string",
+            "description": "Undergraduate major ID",
+            "nullable": true
+          },
+          "graduateCollege": {
+            "type": "string",
+            "description": "Graduate college ID",
+            "nullable": true
+          },
+          "graduateMajor": {
+            "type": "string",
+            "description": "Graduate major ID",
+            "nullable": true
+          }
+        }
       },
       "StudentSummaryResponseDto": {
         "type": "object",
@@ -771,13 +1324,13 @@
             "type": "string",
             "description": "Student email"
           },
-          "nickname": {
+          "nameEn": {
             "type": "string",
-            "description": "Student nickname"
+            "description": "Student English name"
           },
-          "cnNickname": {
+          "nameZh": {
             "type": "string",
-            "description": "Student Chinese nickname"
+            "description": "Student Chinese name"
           },
           "country": {
             "type": "string",
@@ -805,129 +1358,60 @@
           "modifiedAt"
         ]
       },
-      "ServiceBalanceResponseDto": {
+      "UpdateStudentProfileDto": {
         "type": "object",
         "properties": {
-          "studentId": {
-            "type": "string",
-            "description": "Student ID"
-          },
-          "serviceType": {
-            "type": "string",
-            "description": "Service type"
-          },
-          "totalQuantity": {
-            "type": "number",
-            "description": "Total quantity"
-          },
-          "consumedQuantity": {
-            "type": "number",
-            "description": "Consumed quantity"
-          },
-          "heldQuantity": {
-            "type": "number",
-            "description": "Held quantity"
-          },
-          "availableQuantity": {
-            "type": "number",
-            "description": "Available quantity"
-          }
-        },
-        "required": [
-          "studentId",
-          "serviceType",
-          "totalQuantity",
-          "consumedQuantity",
-          "heldQuantity",
-          "availableQuantity"
-        ]
-      },
-      "MentorSummaryResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Mentor ID"
-          },
-          "userId": {
-            "type": "string",
-            "description": "Associated user ID"
-          },
           "status": {
             "type": "string",
-            "description": "Mentor status"
+            "description": "Student status"
           },
-          "type": {
+          "highSchool": {
             "type": "string",
-            "description": "Mentor type"
-          },
-          "company": {
-            "type": "string",
-            "description": "Company"
-          },
-          "companyTitle": {
-            "type": "string",
-            "description": "Company title"
-          },
-          "briefIntro": {
-            "type": "string",
-            "description": "Brief introduction"
-          },
-          "school": {
-            "type": "string",
-            "description": "School"
-          },
-          "location": {
-            "type": "string",
-            "description": "Location"
-          },
-          "level": {
-            "type": "string",
-            "description": "Mentor level"
-          },
-          "rating": {
-            "type": "number",
-            "description": "Mentor rating",
+            "description": "High school ID",
             "nullable": true
           },
-          "createdAt": {
+          "underCollege": {
             "type": "string",
-            "description": "Record created time",
-            "format": "date-time"
+            "description": "Undergraduate college ID",
+            "nullable": true
           },
-          "modifiedAt": {
+          "underMajor": {
             "type": "string",
-            "description": "Record last modified time",
-            "format": "date-time"
+            "description": "Undergraduate major ID",
+            "nullable": true
           },
-          "email": {
+          "graduateCollege": {
             "type": "string",
-            "description": "Email address"
+            "description": "Graduate college ID",
+            "nullable": true
           },
-          "nickname": {
+          "graduateMajor": {
             "type": "string",
-            "description": "Nickname"
+            "description": "Graduate major ID",
+            "nullable": true
           },
-          "cnNickname": {
+          "aiResumeSummary": {
             "type": "string",
-            "description": "Chinese nickname"
+            "description": "AI resume summary",
+            "nullable": true
           },
-          "country": {
+          "customerImportance": {
             "type": "string",
-            "description": "Country"
+            "description": "Customer importance",
+            "nullable": true
           },
-          "gender": {
+          "graduationDate": {
             "type": "string",
-            "description": "Gender"
+            "description": "Graduation date",
+            "nullable": true,
+            "format": "date"
+          },
+          "grades": {
+            "type": "string",
+            "description": "Grades information",
+            "nullable": true
           }
-        },
-        "required": [
-          "id",
-          "userId",
-          "createdAt",
-          "modifiedAt",
-          "email"
-        ]
+        }
       }
     }
   }

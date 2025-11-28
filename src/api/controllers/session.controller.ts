@@ -1,5 +1,5 @@
 import { Controller, Post, Body, UseGuards } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiCreatedResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiCreatedResponse, ApiBody } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import { User } from "@domains/identity/user/user-interface";
@@ -94,6 +94,7 @@ export class SessionController {
    */
   @Post("book")
   @ApiOperation({ summary: "Book a session" })
+  @ApiBody({ type: BookSessionDto })
   @ApiCreatedResponse({
     description: "Booking created successfully",
     type: BookSessionResponseDto,

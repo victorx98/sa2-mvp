@@ -1,5 +1,5 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, Logger } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse, ApiBody } from "@nestjs/swagger";
 import { RegisterCommand } from "@application/commands/auth/register.command";
 import { LoginCommand } from "@application/commands/auth/login.command";
 import { RegisterDto } from "@api/dto/request/register.dto";
@@ -38,6 +38,7 @@ export class AuthController {
   @Post("register")
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "User registration" })
+  @ApiBody({ type: RegisterDto })
   @ApiCreatedResponse({
     description: "Registration successful",
     type: AuthResponseDto,
@@ -53,6 +54,7 @@ export class AuthController {
   @Post("login")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "User login" })
+  @ApiBody({ type: LoginDto })
   @ApiOkResponse({
     description: "Login successful",
     type: AuthResponseDto,
