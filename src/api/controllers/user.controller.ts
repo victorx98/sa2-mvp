@@ -1,5 +1,5 @@
 import { Controller, Get, Param, UseGuards } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiOkResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiOkResponse, ApiBearerAuth, ApiParam } from "@nestjs/swagger";
 import { UserQueryService } from "@application/queries/user-query.service";
 import { User } from "@domains/identity/user/user-interface";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
@@ -25,6 +25,7 @@ import { plainToInstance } from "class-transformer";
 @ApiTags("Users")
 @Controller(`${ApiPrefix}/users`)
 @UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
 export class UserController {
   constructor(
     // ✅ 直接注入 Application Layer 服务
@@ -43,6 +44,11 @@ export class UserController {
 
   @Get(":id")
   @ApiOperation({ summary: "Get user by ID" })
+  @ApiParam({
+    name: "id",
+    description: "User ID",
+    type: String,
+  })
   @ApiOkResponse({
     description: "User retrieved successfully",
     type: UserResponseDto,

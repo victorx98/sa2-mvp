@@ -1,5 +1,5 @@
 import { Controller, Get, Query, UseGuards } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiOkResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiOkResponse, ApiBearerAuth, ApiQuery } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
 import { Roles } from "@shared/decorators/roles.decorator";
@@ -27,6 +27,7 @@ import { plainToInstance } from "class-transformer";
 @Controller(`${ApiPrefix}/student/contract`)
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles("counselor")
+@ApiBearerAuth()
 export class CounselorStudentContractController {
   constructor(
     // ✅ 直接注入 Application Layer 服务
@@ -35,6 +36,18 @@ export class CounselorStudentContractController {
 
   @Get("getServiceBalance")
   @ApiOperation({ summary: "Get service balance for a student" })
+  @ApiQuery({
+    name: "studentId",
+    required: true,
+    description: "Student ID",
+    type: String,
+  })
+  @ApiQuery({
+    name: "serviceType",
+    required: false,
+    description: "Service type (optional)",
+    type: String,
+  })
   @ApiOkResponse({
     description: "Service balance retrieved successfully",
     type: ServiceBalanceResponseDto,

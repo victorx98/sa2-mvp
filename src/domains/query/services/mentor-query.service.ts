@@ -52,6 +52,54 @@ export class MentorQueryService {
     return result.rows.map((row) => this.mapRowToMentor(row));
   }
 
+  /**
+   * 根据学生ID查询导师列表
+   * 通过 student_mentor 表关联，查找分配给该学生的导师
+   */
+  async findByStudentId(
+    studentId: string,
+    search?: string,
+  ): Promise<MentorListItem[]> {
+    this.logger.log(
+      `Finding mentors for student: ${studentId}${
+        search ? ` with search=${search}` : ""
+      }`,
+    );
+
+    const searchFilter = this.buildSearchFilter(search);
+
+    const result = await this.db.execute(sql`
+      SELECT DISTINCT
+        m.id,
+        m.status,
+        m.type,
+        m.company,
+        m.company_title,
+        m.brief_intro,
+        m.high_school,
+        m.location,
+        m.level,
+        m.rating,
+        m.created_time,
+        m.modified_time,
+        u.email,
+        u.name_en,
+        u.name_zh,
+        u.country,
+        u.gender
+      FROM mentor m
+      LEFT JOIN "user" u ON m.id = u.id
+      INNER JOIN student_mentor sm ON m.id = sm.mentor_id
+      INNER JOIN student s ON sm.student_id = s.id
+      WHERE s.id = ${studentId}
+        AND m.id IS NOT NULL
+        ${searchFilter}
+      ORDER BY m.created_time DESC
+    `);
+
+    return result.rows.map((row) => this.mapRowToMentor(row));
+  }
+
   private buildSearchFilter(search?: string) {
     if (!search || search.trim().length === 0) {
       return sql``;

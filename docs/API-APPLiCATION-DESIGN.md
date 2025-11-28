@@ -45,9 +45,12 @@ The architecture is composed of four primary layers. This document focuses on th
     - For read operations, efficiently fetch data from domain and transform from entities/DTOs into specific Response DTOs for the client
     - Manage cross-domain transactions to ensure data consistency.
     - Remain role-agnostic, returning business data that can be reused by multiple BFFs.
+    - 提供api(可以用不同api区分意图); controller代码只做路由/参数解析/鉴权，不识别意图
 
 - **Implementation Strategy: Command Query Responsibility Segregation (CQRS)**
-    To balance business rule integrity with query performance, the application layer adopts a CQRS approach. This means the implementation strategy for write operations (Commands, Sagas) is different from read operations (Queries).
+    To balance business rule integrity with query performance, the application layer adopts a CQRS approach. This means the implementation strategy for write operations (Commands, Sagas) is different from read operations (Queries). Responsibility: 
+    1. 意图识别、决定查询策略: 比如根据当前用户role/参数值, 来决定调用哪个domain query
+    2. 提供用例语义明确的方法: 比如findByCounselorId、findByMentorId
 
     - **Commands & Sagas (Write Path)**:
         - **Goal**: Ensure business rules and data consistency are strictly enforced.
