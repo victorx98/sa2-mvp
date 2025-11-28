@@ -1,5 +1,5 @@
 import { Controller, Put, Body, UseGuards } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiOkResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiOkResponse, ApiBearerAuth, ApiBody } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
 import { Roles } from "@shared/decorators/roles.decorator";
@@ -26,6 +26,7 @@ import { UpdateCounselorProfileCommand } from "@application/commands/profile/upd
 @Controller(`${ApiPrefix}/counselor/profile`)
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles("counselor")
+@ApiBearerAuth()
 export class CounselorProfileController {
   constructor(
     private readonly updateCounselorProfileCommand: UpdateCounselorProfileCommand,
@@ -33,6 +34,7 @@ export class CounselorProfileController {
 
   @Put()
   @ApiOperation({ summary: "Update counselor profile" })
+  @ApiBody({ type: UpdateCounselorProfileDto })
   @ApiOkResponse({
     description: "Counselor profile updated successfully",
   })

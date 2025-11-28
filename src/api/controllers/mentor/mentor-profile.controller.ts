@@ -1,5 +1,5 @@
 import { Controller, Put, Body, UseGuards } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiOkResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiOkResponse, ApiBearerAuth, ApiBody } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
 import { Roles } from "@shared/decorators/roles.decorator";
@@ -26,6 +26,7 @@ import { UpdateMentorProfileCommand } from "@application/commands/profile/update
 @Controller(`${ApiPrefix}/mentor/profile`)
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles("mentor")
+@ApiBearerAuth()
 export class MentorProfileController {
   constructor(
     private readonly updateMentorProfileCommand: UpdateMentorProfileCommand,
@@ -33,6 +34,7 @@ export class MentorProfileController {
 
   @Put()
   @ApiOperation({ summary: "Update mentor profile" })
+  @ApiBody({ type: UpdateMentorProfileDto })
   @ApiOkResponse({
     description: "Mentor profile updated successfully",
   })

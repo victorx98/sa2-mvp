@@ -1,5 +1,5 @@
 import { Controller, Get, Query, UseGuards } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiOkResponse, ApiQuery } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiOkResponse, ApiQuery, ApiBearerAuth } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { SchoolListQuery } from "@application/queries/school/school-list.query";
 import { MajorListQuery } from "@application/queries/major/major-list.query";
@@ -24,6 +24,7 @@ import { plainToInstance } from "class-transformer";
 @ApiTags("Reference Data")
 @Controller(`${ApiPrefix}/reference`)
 @UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
 export class ReferenceDataController {
   constructor(
     private readonly schoolListQuery: SchoolListQuery,

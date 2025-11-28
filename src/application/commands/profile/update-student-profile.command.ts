@@ -34,7 +34,7 @@ export class UpdateStudentProfileCommand {
         graduateMajor: dto.graduateMajor,
         aiResumeSummary: dto.aiResumeSummary,
         customerImportance: dto.customerImportance,
-        graduationDate: dto.graduationDate ? new Date(dto.graduationDate) : null,
+        graduationDate: dto.graduationDate,
         grades: dto.grades,
       },
       userId, // updatedBy

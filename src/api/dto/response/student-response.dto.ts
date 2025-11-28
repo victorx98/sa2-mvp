@@ -4,9 +4,6 @@ export class StudentSummaryResponseDto {
   @ApiProperty({ description: "Student record ID" })
   id: string;
 
-  @ApiProperty({ description: "Associated user ID" })
-  userId: string;
-
   @ApiProperty({ description: "Student status" })
   status: string;
 
@@ -32,12 +29,12 @@ export class StudentSummaryResponseDto {
   customerImportance: string;
 
   @ApiProperty({
-    description: "Fulltime start date",
+    description: "Graduation date",
     type: String,
     format: "date-time",
     nullable: true,
   })
-  fulltimeStartdate: Date | null;
+  graduationDate: Date | null;
 
   @ApiProperty({ description: "Background information", required: false })
   backgroundInfo: string;

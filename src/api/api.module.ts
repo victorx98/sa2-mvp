@@ -7,7 +7,6 @@ import { CounselorStudentContractController } from "./controllers/counselor/coun
 import { MentorsController } from "./controllers/mentor/mentors.controller";
 import { ReferenceDataController } from "./controllers/reference-data.controller";
 import { StudentController } from "./controllers/student/student.controller";
-import { StudentProfileController } from "./controllers/student/student-profile.controller";
 import { MentorProfileController } from "./controllers/mentor/mentor-profile.controller";
 import { CounselorProfileController } from "./controllers/counselor/counselor-profile.controller";
 import { ApplicationModule } from "@application/application.module";
@@ -45,7 +44,6 @@ import { WebhookModule } from "@core/webhook/webhook.module";
 
     // Student Controllers
     StudentController,
-    StudentProfileController,
   ],
 })
 export class ApiModule {}

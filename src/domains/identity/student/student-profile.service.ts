@@ -8,7 +8,7 @@ import type {
   DrizzleTransaction,
 } from "@shared/types/database.types";
 
-export interface UpdateStudentProfileInput {
+export interface IUpdateStudentProfileInput {
   status?: string;
   highSchool?: string | null;
   underCollege?: string | null;
@@ -17,7 +17,7 @@ export interface UpdateStudentProfileInput {
   graduateMajor?: string | null;
   aiResumeSummary?: string | null;
   customerImportance?: string | null;
-  graduationDate?: Date | null;
+  graduationDate?: string | null;
   grades?: string | null;
 }
 
@@ -67,7 +67,7 @@ export class StudentProfileService {
    */
   async update(
     userId: string,
-    input: UpdateStudentProfileInput,
+    input: IUpdateStudentProfileInput,
     updatedBy: string,
     tx?: DrizzleTransaction,
   ): Promise<schema.Student> {
