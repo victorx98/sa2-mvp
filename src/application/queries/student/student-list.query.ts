@@ -1,6 +1,7 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, BadRequestException } from "@nestjs/common";
 import { StudentQueryService } from "@domains/query/services/student-query.service";
 import { StudentListItem } from "@domains/query/services/student-query.service";
+import { User } from "@domains/identity/user/user-interface";
 
 /**
  * Student List Query (Application Layer)
@@ -14,6 +15,30 @@ export class StudentListQuery {
   constructor(
     private readonly studentQueryService: StudentQueryService,
   ) {}
+
+  /**
+   * 根据用户角色自动选择查询策略
+   * 如果用户是 mentor，调用 findByMentorId
+   * 如果用户是 counselor，调用 findByCounselorId
+   */
+  async find(
+    user: User,
+    search?: string,
+  ): Promise<StudentListItem[]> {
+    const roles = user.roles || [];
+    
+    if (roles.includes("mentor")) {
+      return this.findByMentorId(user.id, search);
+    }
+    
+    if (roles.includes("counselor")) {
+      return this.findByCounselorId(user.id, search);
+    }
+    
+    throw new BadRequestException(
+      "User must have either 'mentor' or 'counselor' role to search students",
+    );
+  }
 
   /**
    * 根据导师ID获取学生列表

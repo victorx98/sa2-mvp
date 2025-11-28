@@ -11,9 +11,9 @@ import { StudentSummaryResponseDto } from "@api/dto/response/student-response.dt
 import { plainToInstance } from "class-transformer";
 
 /**
- * API Layer - Mentor Students Controller
+ * API Layer - Student Controller
  * 职责：
- * 1. 定义 HTTP 路由
+ * 1. 定义学生相关的 HTTP 路由
  * 2. 提取请求参数
  * 3. 调用 Application Layer 服务
  * 4. 返回 HTTP 响应
@@ -24,31 +24,32 @@ import { plainToInstance } from "class-transformer";
  * ❌ 不包含业务逻辑
  * ❌ 不进行数据转换（由 Application Layer 负责）
  */
-@ApiTags("Mentor Portal")
-@Controller(`${ApiPrefix}/mentor`)
+@ApiTags("Student")
+@Controller(`${ApiPrefix}/student`)
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles("mentor")
-export class MentorStudentsController {
+@Roles("mentor", "counselor")
+export class StudentController {
   constructor(
     // ✅ 直接注入 Application Layer 服务
     private readonly studentListQuery: StudentListQuery,
   ) {}
 
-  @Get("student/find")
-  @ApiOperation({ summary: "Search mentor's students" })
+  @Get("find")
+  @ApiOperation({ summary: "Search students by current user's role" })
   @ApiOkResponse({
     description: "Student results retrieved successfully",
     type: StudentSummaryResponseDto,
     isArray: true,
   })
-  async getStudentList(
+  async findStudents(
     @CurrentUser() user: User,
     @Query("search") search?: string,
   ): Promise<StudentSummaryResponseDto[]> {
-    // ✅ 直接调用 Application Layer 服务
-    const items = await this.studentListQuery.findByMentorId(user.id, search);
+    // ✅ 调用 Application Layer 服务，根据用户角色自动选择查询策略
+    const items = await this.studentListQuery.find(user, search);
     return plainToInstance(StudentSummaryResponseDto, items, {
       enableImplicitConversion: false,
     });
   }
 }
+

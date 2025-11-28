@@ -33,7 +33,7 @@ export class ReferenceDataController {
   @Get("schools")
   @ApiOperation({ summary: "Search schools by Chinese or English name" })
   @ApiQuery({
-    name: "search",
+    name: "text",
     required: false,
     description: "Search keyword (searches in both Chinese and English names)",
     type: String,
@@ -44,9 +44,9 @@ export class ReferenceDataController {
     isArray: true,
   })
   async getSchools(
-    @Query("search") search?: string,
+    @Query("text") text?: string,
   ): Promise<SchoolResponseDto[]> {
-    const items = await this.schoolListQuery.search(search);
+    const items = await this.schoolListQuery.search(text);
     return plainToInstance(SchoolResponseDto, items, {
       enableImplicitConversion: false,
     });
@@ -55,7 +55,7 @@ export class ReferenceDataController {
   @Get("majors")
   @ApiOperation({ summary: "Search majors by Chinese or English name" })
   @ApiQuery({
-    name: "search",
+    name: "text",
     required: false,
     description: "Search keyword (searches in both Chinese and English names)",
     type: String,
@@ -66,9 +66,9 @@ export class ReferenceDataController {
     isArray: true,
   })
   async getMajors(
-    @Query("search") search?: string,
+    @Query("text") text?: string,
   ): Promise<MajorResponseDto[]> {
-    const items = await this.majorListQuery.search(search);
+    const items = await this.majorListQuery.search(text);
     return plainToInstance(MajorResponseDto, items, {
       enableImplicitConversion: false,
     });
