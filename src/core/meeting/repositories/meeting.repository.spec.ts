@@ -65,7 +65,7 @@ describe('MeetingRepository', () => {
       const result = await repository.create({
         meetingNo: '123456789',
         meetingProvider: 'feishu',
-        reserveId: 'reserve_xxxxx', // v4.1 - use reserveId
+        meetingId: 'reserve_xxxxx',
         topic: 'Team Meeting',
         meetingUrl: 'https://feishu.cn/meeting/123',
         scheduleStartTime: new Date('2025-11-20T10:00:00Z'),
@@ -96,6 +96,32 @@ describe('MeetingRepository', () => {
       mockDb.limit.mockResolvedValue([]);
 
       const result = await repository.findById('nonexistent-id');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('findByMeetingId', () => {
+    it('should find meeting by provider and meeting_id', async () => {
+      const mockMeeting = {
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        meetingProvider: 'feishu',
+        meetingId: 'reserve_12345',
+        meetingNo: '123456789',
+      };
+
+      mockDb.limit.mockResolvedValue([mockMeeting]);
+
+      const result = await repository.findByMeetingId('feishu', 'reserve_12345');
+
+      expect(result).toEqual(mockMeeting);
+      expect(mockDb.where).toHaveBeenCalled();
+    });
+
+    it('should return null if no meeting found', async () => {
+      mockDb.limit.mockResolvedValue([]);
+
+      const result = await repository.findByMeetingId('zoom', 'nonexistent_id');
 
       expect(result).toBeNull();
     });

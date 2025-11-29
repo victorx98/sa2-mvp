@@ -87,10 +87,6 @@ export class FeishuMeetingClient {
         "Feishu APP_ID or APP_SECRET not configured. Feishu meeting provider will not work.",
       );
     }
-
-    // check proxy environment variables and configure HTTPS proxy agent
-    const httpsProxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy || 
-                          process.env.HTTP_PROXY || process.env.http_proxy;
     
     const axiosConfig: Parameters<typeof axios.create>[0] = {
       baseURL: this.baseUrl,
@@ -100,12 +96,6 @@ export class FeishuMeetingClient {
       },
       proxy: false, // disable axios built-in proxy handling
     };
-
-    // if proxy environment variables exist, use https-proxy-agent to correctly handle HTTPS requests
-    if (httpsProxyUrl) {
-      this.logger.log(`Using HTTPS proxy for Feishu API: ${httpsProxyUrl}`);
-      axiosConfig.httpsAgent = new HttpsProxyAgent(httpsProxyUrl);
-    }
 
     this.axiosInstance = axios.create(axiosConfig);
   }
