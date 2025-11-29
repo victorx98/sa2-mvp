@@ -91,12 +91,12 @@ export class FeishuMeetingProvider implements IMeetingProvider {
       // Call Feishu API
       const response = await this.feishuClient.applyReservation(payload);
 
-      // Map Feishu response to standard MeetingInfo (v4.1)
-      // Following Feishu API naming convention: reserve.id -> reserveId
+      // Map Feishu response to standard MeetingInfo
+      // Feishu's reserve.id maps to our unified meetingId field
       const meetingInfo: IMeetingInfo = {
         provider: MeetingProviderType.FEISHU,
         meetingNo: response.reserve.meeting_no,
-        reserveId: response.reserve.id, // v4.1 - Feishu reserve_id (used for update/cancel)
+        meetingId: response.reserve.id, // Feishu reserve.id (used for update/cancel and event mapping)
         meetingUrl: response.reserve.url,
         meetingPassword: null, // Feishu doesn't use passwords
         hostJoinUrl: null, // Feishu doesn't have separate host URL
@@ -106,12 +106,12 @@ export class FeishuMeetingProvider implements IMeetingProvider {
 
       // Add result attributes to span
       addSpanAttributes({
-        'meeting.reserve_id': meetingInfo.reserveId,
+        'meeting.meeting_id': meetingInfo.meetingId,
         'meeting.no': meetingInfo.meetingNo,
       });
 
       this.logger.debug(
-        `Successfully created Feishu meeting: ${meetingInfo.reserveId} (${meetingInfo.meetingNo})`,
+        `Successfully created Feishu meeting: ${meetingInfo.meetingId} (${meetingInfo.meetingNo})`,
       );
       return meetingInfo;
     } catch (error) {
@@ -124,7 +124,7 @@ export class FeishuMeetingProvider implements IMeetingProvider {
   /**
    * Update a meeting on Feishu
    *
-   * @param meetingId - Meeting ID (reserve_id)
+   * @param meetingId - Meeting ID (Feishu reserve.id)
    * @param input - Meeting update parameters
    * @returns Success status
    */
@@ -188,7 +188,7 @@ export class FeishuMeetingProvider implements IMeetingProvider {
   /**
    * Cancel a meeting on Feishu
    *
-   * @param meetingId - Meeting ID (reserve_id)
+   * @param meetingId - Meeting ID (Feishu reserve.id)
    * @returns Success status
    */
   @Trace({
@@ -218,7 +218,7 @@ export class FeishuMeetingProvider implements IMeetingProvider {
   /**
    * Get meeting information from Feishu
    *
-   * @param meetingId - Meeting ID (reserve_id)
+   * @param meetingId - Meeting ID (Feishu reserve.id)
    * @returns Meeting information
    */
   @Trace({
@@ -232,11 +232,11 @@ export class FeishuMeetingProvider implements IMeetingProvider {
       // Call Feishu API
       const response = await this.feishuClient.getReservationInfo(meetingId);
 
-      // Map Feishu response to standard MeetingInfo (v4.1)
+      // Map Feishu response to standard MeetingInfo
       const meetingInfo: IMeetingInfo = {
         provider: MeetingProviderType.FEISHU,
         meetingNo: response.reserve.meeting_no,
-        reserveId: response.reserve.id, // v4.1 - Feishu reserve_id
+        meetingId: response.reserve.id, // Feishu reserve.id
         meetingUrl: response.reserve.url,
         meetingPassword: null,
         hostJoinUrl: null,

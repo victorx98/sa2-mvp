@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
+import { Country, Gender } from "@shared/types/identity-enums";
 
 /**
  * Student Query Service
@@ -198,8 +199,8 @@ export class StudentQueryService {
       email: String(row.email || ""),
       nameEn: String(row.name_en || ""),
       nameZh: String(row.name_zh || ""),
-      country: String(row.country || ""),
-      gender: String(row.gender || ""),
+      country: row.country ? (row.country as Country) : undefined,
+      gender: row.gender ? (row.gender as Gender) : undefined,
     };
   }
 }
@@ -229,8 +230,8 @@ export interface StudentListItem {
   email: string; // user.email
   nameEn: string; // user.name_en
   nameZh: string; // user.name_zh
-  country: string; // user.country
-  gender: string; // user.gender
+  country?: Country; // user.country
+  gender?: Gender; // user.gender
 
   // 关联信息
   counselorStatus?: string; // student_counselor.status (仅当通过顾问查询时)

@@ -1,7 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { MeetingRepository } from "../repositories/meeting.repository";
-import { MeetingEventRepository } from "../repositories/meeting-event.repository";
 import { DurationCalculatorService } from "./duration-calculator.service";
 import { DelayedTaskService } from "./delayed-task.service";
 import { MeetingStatus } from "../entities/meeting.entity";
@@ -14,6 +13,7 @@ import {
 } from "@shared/events";
 import { MeetingStatusChangedEvent } from "../events/meeting-lifecycle.events";
 import type { Meeting } from "@infrastructure/database/schema/meetings.schema";
+import type { MeetingTimeSegment as TimeSegment } from "../adapters/event-adapter.interface";
 
 /**
  * Meeting Lifecycle Service
@@ -21,8 +21,9 @@ import type { Meeting } from "@infrastructure/database/schema/meetings.schema";
  * Core state machine for meeting lifecycle management
  * Handles state transitions: scheduled -> active -> ended
  *
- * Query optimization:
- * - All queries by meeting_no MUST include time window constraint (7 days)
+ * Query optimization (v4.4):
+ * - Use meeting_id (unique & permanent) for event lookups instead of meeting_no
+ * - Direct index lookup, no time window constraints needed
  */
 @Injectable()
 export class MeetingLifecycleService {
@@ -30,38 +31,39 @@ export class MeetingLifecycleService {
 
   constructor(
     private readonly meetingRepo: MeetingRepository,
-    private readonly eventRepo: MeetingEventRepository,
     private readonly durationCalculator: DurationCalculatorService,
     private readonly delayedTaskService: DelayedTaskService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
-   * Handle meeting started event (v4.2 optimized)
+   * Handle meeting started event (v4.4 optimized - using meeting_id)
    *
    * Transitions meeting from 'scheduled' to 'active'
    * If meeting was previously ended (with pending completion task), cancels the task
    * This handles the "meeting restart" scenario immediately
    *
-   * @param meetingNo - Meeting number
+   * @param provider - Meeting provider ('feishu' | 'zoom')
+   * @param meetingId - Meeting ID from provider (Feishu reserve.id, Zoom id)
    * @param occurredAt - Event occurrence time
    */
   async handleMeetingStarted(
-    meetingNo: string,
+    provider: string,
+    meetingId: string,
     occurredAt: Date,
   ): Promise<void> {
     try {
-      this.logger.debug(`Handling meeting started: ${meetingNo}`);
+      this.logger.debug(`Handling meeting started: ${provider}/${meetingId}`);
 
-      // Find meeting within 7-day window
-      const meeting = await this.meetingRepo.findByMeetingNoWithinWindow(
-        meetingNo,
-        occurredAt,
+      // Find meeting by provider and meeting_id (direct lookup, no time window needed)
+      const meeting = await this.meetingRepo.findByMeetingId(
+        provider,
+        meetingId,
       );
 
       if (!meeting) {
         this.logger.warn(
-          `Meeting ${meetingNo} not found for meeting_started event`,
+          `Meeting ${provider}/${meetingId} not found for meeting_started event`,
         );
         return;
       }
@@ -69,7 +71,7 @@ export class MeetingLifecycleService {
       // Cancel pending completion task if exists (meeting restart scenario)
       if (meeting.pendingTaskId) {
         this.logger.log(
-          `Meeting ${meetingNo} restarted, cancelling pending completion task ${meeting.pendingTaskId}`,
+          `Meeting ${meeting.meetingNo} restarted, cancelling pending completion task ${meeting.pendingTaskId}`,
         );
         await this.delayedTaskService.cancelTask(meeting.pendingTaskId);
       }
@@ -84,7 +86,7 @@ export class MeetingLifecycleService {
       });
 
       this.logger.log(
-        `Meeting ${meetingNo} transitioned to ACTIVE (previous: ${previousStatus})`,
+        `Meeting ${meeting.meetingNo} transitioned to ACTIVE (previous: ${previousStatus})`,
       );
 
       // Emit status changed event
@@ -92,7 +94,7 @@ export class MeetingLifecycleService {
         "meeting.status.changed",
         new MeetingStatusChangedEvent(
           meeting.id,
-          meetingNo,
+          meeting.meetingNo,
           previousStatus,
           MeetingStatus.ACTIVE,
           occurredAt,
@@ -100,39 +102,43 @@ export class MeetingLifecycleService {
       );
     } catch (error) {
       this.logger.error(
-        `Error handling meeting started for ${meetingNo}: ${error instanceof Error ? error.message : String(error)}`,
+        `Error handling meeting started for ${provider}/${meetingId}: ${error instanceof Error ? error.message : String(error)}`,
       );
       throw error;
     }
   }
 
   /**
-   * Handle meeting ended event (v4.2 optimized)
+   * Handle meeting ended event (v4.4 optimized - using meeting_id)
    *
-   * Immediately calculates and stores duration from the latest meeting_ended event,
-   * then schedules delayed completion check (30 minutes) for final confirmation
+   * Immediately appends time segment to meeting_time_list and recalculates duration
+   * Then schedules delayed completion check (30 minutes) for final confirmation
    *
-   * Duration calculation is done once here - delayed task only confirms meeting completion
+   * Key change: No longer queries event table - time segment is passed directly from webhook
    *
-   * @param meetingNo - Meeting number
+   * @param provider - Meeting provider ('feishu' | 'zoom')
+   * @param meetingId - Meeting ID from provider (Feishu reserve.id, Zoom id)
+   * @param timeSegment - Time segment extracted from meeting.ended event
    * @param occurredAt - Event occurrence time
    */
   async handleMeetingEnded(
-    meetingNo: string,
+    provider: string,
+    meetingId: string,
+    timeSegment: TimeSegment,
     occurredAt: Date,
   ): Promise<void> {
     try {
-      this.logger.debug(`Handling meeting ended: ${meetingNo}`);
+      this.logger.debug(`Handling meeting ended: ${provider}/${meetingId}`);
 
-      // Find meeting within 7-day window
-      const meeting = await this.meetingRepo.findByMeetingNoWithinWindow(
-        meetingNo,
-        occurredAt,
+      // Find meeting by provider and meeting_id (direct lookup, no time window needed)
+      const meeting = await this.meetingRepo.findByMeetingId(
+        provider,
+        meetingId,
       );
 
       if (!meeting) {
         this.logger.warn(
-          `Meeting ${meetingNo} not found for meeting_ended event`,
+          `Meeting ${provider}/${meetingId} not found for meeting_ended event`,
         );
         return;
       }
@@ -145,34 +151,34 @@ export class MeetingLifecycleService {
         await this.delayedTaskService.cancelTask(meeting.pendingTaskId);
       }
 
-      // Calculate duration from all meeting segments
-      const durationData = await this.calculateDurationFromEvents(meetingNo);
+      // Append new time segment to meeting_time_list
+      const existingSegments = (meeting.meetingTimeList as TimeSegment[]) || [];
+      const updatedSegments = [...existingSegments, timeSegment];
+
+      // Calculate total duration from all segments
+      const totalDuration = this.calculateTotalDuration(updatedSegments);
 
       // Schedule delayed completion check (30 minutes)
       const taskId = await this.delayedTaskService.scheduleCompletionCheck(
         meeting.id,
-        meetingNo,
+        meeting.meetingNo,
         occurredAt,
       );
 
-      // Update meeting with calculated duration and new task ID
+      // Update meeting with new time segment and recalculated duration
       await this.meetingRepo.update(meeting.id, {
         lastMeetingEndedTimestamp: occurredAt,
         pendingTaskId: taskId,
-        ...(durationData.actualDuration !== null && {
-          actualDuration: durationData.actualDuration,
-        }),
-        ...(durationData.meetingTimeList && {
-          meetingTimeList: durationData.meetingTimeList,
-        }),
+        actualDuration: totalDuration,
+        meetingTimeList: updatedSegments,
       });
 
       this.logger.log(
-        `Meeting ${meetingNo} updated with duration: ${durationData.actualDuration}s, scheduled completion check (task: ${taskId})`,
+        `Meeting ${meeting.meetingNo} updated with duration: ${totalDuration}s (${updatedSegments.length} segment(s)), scheduled completion check (task: ${taskId})`,
       );
     } catch (error) {
       this.logger.error(
-        `Error handling meeting ended for ${meetingNo}: ${error instanceof Error ? error.message : String(error)}`,
+        `Error handling meeting ended for ${provider}/${meetingId}: ${error instanceof Error ? error.message : String(error)}`,
       );
       throw error;
     }
@@ -230,139 +236,36 @@ export class MeetingLifecycleService {
   }
 
   /**
-   * Calculate duration from meeting_ended events (v4.2 optimized)
+   * Calculate total duration from time segments (v4.3)
    * 
-   * Extracts duration directly from meeting_ended event's start_time and end_time
-   * This is the single source of truth - no fallback to join/leave events
+   * Simple calculation from ISO timestamp strings in meeting_time_list
+   * No event table query needed
    *
-   * @param meetingNo - Meeting number
-   * @returns Calculated duration and time segments
+   * @param timeSegments - Array of time segments
+   * @returns Total duration in seconds
    */
-  private async calculateDurationFromEvents(
-    meetingNo: string,
-  ): Promise<{
-    actualDuration: number | null;
-    meetingTimeList: Array<{ start: string; end: string }> | null;
-  }> {
-    try {
-      // Fetch all events
-      const allEvents = await this.eventRepo.findByMeetingNo(meetingNo);
+  private calculateTotalDuration(timeSegments: TimeSegment[]): number {
+    let totalDurationSeconds = 0;
 
-      if (allEvents.length === 0) {
-        this.logger.warn(
-          `No events found for ${meetingNo}, cannot calculate duration`,
-        );
-        return { actualDuration: null, meetingTimeList: null };
-      }
-
-      // Find all meeting_ended events
-      const endedEvents = allEvents.filter(
-        (e) =>
-          e.eventType === "vc.meeting.meeting_ended_v1" ||
-          e.eventType === "meeting.ended",
-      );
-
-      if (endedEvents.length === 0) {
-        this.logger.warn(
-          `No meeting_ended events found for ${meetingNo}, cannot calculate duration`,
-        );
-        return { actualDuration: null, meetingTimeList: null };
-      }
-
-      // Extract time segments from all meeting_ended events (supports meeting restart)
-      const timeSegments: Array<{ start: string; end: string }> = [];
-      let totalDuration = 0;
-
-      for (const endedEvent of endedEvents) {
-        const segment = this.extractTimeSegmentFromEvent(endedEvent);
-        if (segment) {
-          timeSegments.push(segment);
-          totalDuration += segment.durationSeconds;
-        }
-      }
-
-      if (timeSegments.length === 0) {
-        this.logger.warn(
-          `Could not extract time segments from meeting_ended events for ${meetingNo}`,
-        );
-        return { actualDuration: null, meetingTimeList: null };
-      }
-
-      this.logger.debug(
-        `Calculated duration for ${meetingNo}: ${totalDuration}s from ${timeSegments.length} segment(s)`,
-      );
-
-      return {
-        actualDuration: totalDuration,
-        meetingTimeList: timeSegments.map(({ start, end }) => ({ start, end })),
-      };
-    } catch (error) {
-      this.logger.error(
-        `Error calculating duration for ${meetingNo}: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return { actualDuration: null, meetingTimeList: null };
-    }
-  }
-
-  /**
-   * Extract time segment from a single meeting_ended event
-   * 
-   * @param event - Meeting ended event
-   * @returns Time segment with duration, or null if extraction fails
-   */
-  private extractTimeSegmentFromEvent(event: any): {
-    start: string;
-    end: string;
-    durationSeconds: number;
-  } | null {
-    try {
-      const eventData = event.eventData as any;
-      const meeting = eventData?.event?.meeting || eventData?.payload?.object;
-
-      if (!meeting) {
-        this.logger.warn(
-          `No meeting data in event ${event.eventId}, event may be malformed`,
-        );
-        return null;
-      }
-
-      const startTime = meeting.start_time;
-      const endTime = meeting.end_time;
-
-      if (!startTime || !endTime) {
-        this.logger.warn(
-          `Missing start_time or end_time in event ${event.eventId}, platform webhook may be incomplete`,
-        );
-        return null;
-      }
-
-      // Convert Unix timestamps (seconds) to Date objects
-      const startDate = new Date(Number(startTime) * 1000);
-      const endDate = new Date(Number(endTime) * 1000);
-
-      // Calculate duration in seconds
+    for (const segment of timeSegments) {
+      const startDate = new Date(segment.start);
+      const endDate = new Date(segment.end);
+      
       const durationSeconds = Math.floor(
         (endDate.getTime() - startDate.getTime()) / 1000,
       );
 
-      if (durationSeconds < 0) {
-        this.logger.error(
-          `Invalid duration (negative) in event ${event.eventId}: ${durationSeconds}s`,
+      if (durationSeconds > 0) {
+        totalDurationSeconds += durationSeconds;
+      } else {
+        this.logger.warn(
+          `Invalid time segment: start=${segment.start}, end=${segment.end}`,
         );
-        return null;
       }
-
-      return {
-        start: startDate.toISOString(),
-        end: endDate.toISOString(),
-        durationSeconds,
-      };
-    } catch (error) {
-      this.logger.error(
-        `Error extracting time segment from event: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return null;
     }
+
+    // Convert to minutes (rounded)
+    return Math.round(totalDurationSeconds / 60);
   }
 
   /**
@@ -432,29 +335,31 @@ export class MeetingLifecycleService {
   }
 
   /**
-   * Handle recording ready event
+   * Handle recording ready event (v4.4 optimized - using meeting_id)
    *
    * Updates meeting with recording URL
    *
-   * @param meetingNo - Meeting number
+   * @param provider - Meeting provider ('feishu' | 'zoom')
+   * @param meetingId - Meeting ID from provider (Feishu reserve.id, Zoom id)
    * @param recordingUrl - Recording URL
    */
   async handleRecordingReady(
-    meetingNo: string,
+    provider: string,
+    meetingId: string,
     recordingUrl: string,
   ): Promise<void> {
     try {
-      this.logger.debug(`Handling recording ready: ${meetingNo}`);
+      this.logger.debug(`Handling recording ready: ${provider}/${meetingId}`);
 
-      // Find meeting within 7-day window
-      const meeting = await this.meetingRepo.findByMeetingNoWithinWindow(
-        meetingNo,
-        new Date(),
+      // Find meeting by provider and meeting_id (direct lookup, no time window needed)
+      const meeting = await this.meetingRepo.findByMeetingId(
+        provider,
+        meetingId,
       );
 
       if (!meeting) {
         this.logger.warn(
-          `Meeting ${meetingNo} not found for recording_ready event`,
+          `Meeting ${provider}/${meetingId} not found for recording_ready event`,
         );
         return;
       }
@@ -464,12 +369,12 @@ export class MeetingLifecycleService {
         recordingUrl,
       });
 
-      this.logger.log(`Recording URL updated for meeting ${meetingNo}`);
+      this.logger.log(`Recording URL updated for meeting ${meeting.meetingNo}`);
 
       // Emit recording ready event 
       const recordingPayload: MeetingRecordingReadyPayload = {
         meetingId: meeting.id,
-        meetingNo,
+        meetingNo: meeting.meetingNo,
         recordingUrl,
         readyAt: new Date(),
       };
@@ -480,7 +385,7 @@ export class MeetingLifecycleService {
       );
     } catch (error) {
       this.logger.error(
-        `Error handling recording ready for ${meetingNo}: ${error instanceof Error ? error.message : String(error)}`,
+        `Error handling recording ready for ${provider}/${meetingId}: ${error instanceof Error ? error.message : String(error)}`,
       );
       throw error;
     }

@@ -1,14 +1,15 @@
 import { pgTable, varchar, timestamp, uuid } from "drizzle-orm/pg-core";
+import { genderEnum, countryEnum } from "./enums";
 
 export const userTable = pgTable("user", {
   id: uuid("id").defaultRandom().primaryKey(),
-  gender: varchar("gender", { length: 10 }),
+  gender: genderEnum("gender"),
   nameEn: varchar("name_en", { length: 100 }),
   nameZh: varchar("name_zh", { length: 100 }),
   status: varchar("status", { length: 50 }),
   password: varchar("password", { length: 255 }),
   email: varchar("email", { length: 255 }),
-  country: varchar("country", { length: 100 }),
+  country: countryEnum("country"),
   createdTime: timestamp("created_time", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),

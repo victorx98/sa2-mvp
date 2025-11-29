@@ -1,36 +1,30 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { FeishuEventExtractor } from "../extractors/feishu-event-extractor";
 import { IFeishuWebhookRequest } from "../dto/webhook-event.dto";
-import { MeetingEventService } from "@core/meeting/services/meeting-event.service";
+import { UnifiedMeetingEventService } from "@core/meeting/services/unified-meeting-event.service";
 
 /**
- * Feishu Webhook Handler (v4.0)
+ * Feishu Webhook Handler (v4.3)
  *
  * Minimal adapter layer that:
- * 1. Extracts standard fields from Feishu webhook payload
- * 2. Directly calls MeetingEventService.recordEvent()
+ * 1. Receives Feishu webhook payload
+ * 2. Passes to UnifiedMeetingEventService for processing
  * 
- * No business routing logic - pure protocol adaptation and forwarding
- * 
- * Data Flow (v4.0):
- * Feishu HTTP Request → Extract StandardEventDto → MeetingEventService.recordEvent()
+ * Data Flow (v4.3):
+ * Feishu HTTP Request → UnifiedMeetingEventService → Adapter → Store + Lifecycle
  */
 @Injectable()
 export class FeishuWebhookHandler {
   private readonly logger = new Logger(FeishuWebhookHandler.name);
 
   constructor(
-    private readonly feishuEventExtractor: FeishuEventExtractor,
-    private readonly meetingEventService: MeetingEventService,
+    private readonly unifiedEventService: UnifiedMeetingEventService,
   ) {}
 
   /**
-   * Handle Feishu webhook event (v4.0)
+   * Handle Feishu webhook event (v4.3)
    * 
-   * Single responsibility:
-   * 1. Extract full event fields using extractor
-   * 2. Directly call MeetingEventService.recordEvent()
-   * 3. Return immediately (no business routing logic)
+   * Simple forwarding to UnifiedMeetingEventService
+   * All extraction and processing logic is delegated to the adapter pattern
    * 
    * @param payload - Raw Feishu webhook payload
    */
@@ -39,27 +33,11 @@ export class FeishuWebhookHandler {
       `Processing Feishu webhook: ${payload.header?.event_type}`,
     );
 
-    // 1. Extract full event fields (including meeting_topic, meeting_start_time, meeting_end_time)
-    const fullEvent = this.feishuEventExtractor.extractFullEvent(payload);
-
-    // 2. Directly call Meeting Module to record event
-    await this.meetingEventService.recordEvent({
-      meetingNo: fullEvent.meetingNo || "",
-      meetingId: fullEvent.meetingId || "",
-      eventId: fullEvent.eventId,
-      eventType: fullEvent.eventType,
-      provider: fullEvent.provider,
-      operatorId: fullEvent.operatorId,
-      operatorRole: fullEvent.operatorRole,
-      meetingTopic: fullEvent.meetingTopic,
-      meetingStartTime: fullEvent.meetingStartTime,
-      meetingEndTime: fullEvent.meetingEndTime,
-      eventData: fullEvent.eventData,
-      occurredAt: fullEvent.occurredAt,
-    });
+    // Forward to unified event service
+    await this.unifiedEventService.recordFeishuEvent(payload);
 
     this.logger.log(
-      `Feishu event recorded: ${fullEvent.eventType} (meeting_no: ${fullEvent.meetingNo})`,
+      `Feishu webhook processed: ${payload.header?.event_type}`,
     );
   }
 }

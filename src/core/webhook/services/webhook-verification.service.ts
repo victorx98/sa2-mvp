@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { createHmac } from "crypto";
 import { WebhookSignatureVerificationException } from "../exceptions/webhook.exception";
 
 /**
@@ -67,28 +68,35 @@ export class WebhookVerificationService {
   }
 
   /**
-   * Verify Zoom webhook token
+   * Verify Zoom webhook using simple Authorization header check
    * 
-   * Note: This is a simplified token-based verification
-   * For production, consider implementing Zoom's signature verification
-   *
-   * @param token - Token from request payload
+   * Simplified verification strategy:
+   * - Check Authorization header matches ZOOM_WEBHOOK_VERIFICATION_TOKEN
+   * 
+   * @param headers - Request headers containing authorization
    * @throws WebhookSignatureVerificationException if verification fails
    */
-  verifyZoomToken(token: string): void {
+  verifyZoomWebhookByAuthorization(headers: Record<string, string>): void {
     if (!this.zoomVerificationToken) {
       this.logger.warn(
-        "ZOOM_VERIFICATION_TOKEN not configured, skipping token verification",
+        "ZOOM_WEBHOOK_VERIFICATION_TOKEN not configured, skipping verification",
       );
       return;
     }
 
-    if (token !== this.zoomVerificationToken) {
-      this.logger.warn("Zoom token verification failed");
+    const authorization = headers["authorization"] || headers["Authorization"];
+
+    if (!authorization) {
+      this.logger.warn("Missing Authorization header in Zoom webhook");
       throw new WebhookSignatureVerificationException("Zoom");
     }
 
-    this.logger.debug("Zoom token verified successfully");
+    if (authorization !== this.zoomVerificationToken) {
+      this.logger.warn("Zoom webhook authorization verification failed");
+      throw new WebhookSignatureVerificationException("Zoom");
+    }
+
+    this.logger.debug("Zoom webhook authorization verified successfully");
   }
 
   /**
@@ -181,43 +189,29 @@ export class WebhookVerificationService {
   }
 
   /**
-   * Verify Zoom webhook request
-   * 
-   * Verification strategy:
-   * 1. Check token (from payload)
-   * 2. Check timestamp to prevent replay attacks
-   *
-   * Note: For production, implement Zoom's HMAC-SHA256 signature verification
+   * Verify Zoom webhook request (simple authorization header check)
    *
    * @param headers - Request headers
-   * @param body - Request body (stringified)
    * @throws WebhookSignatureVerificationException if verification fails
    */
-  verifyZoomWebhook(headers: Record<string, string>, body: string): void {
-    const timestamp = headers["x-zm-request-timestamp"];
+  verifyZoomWebhook(headers: Record<string, string>): void {
+    this.verifyZoomWebhookByAuthorization(headers);
+  }
 
-    // Parse body to get token (if using custom token field)
-    let payload: any;
-    try {
-      payload = JSON.parse(body);
-    } catch (error) {
-      this.logger.error("Failed to parse Zoom webhook body");
-      throw new WebhookSignatureVerificationException("Zoom");
+  /**
+   * Generate encrypted token for Zoom URL validation
+   * 
+   * @param plainToken - Plain token from Zoom validation request
+   * @returns Encrypted token (HMAC-SHA256 hash)
+   */
+  generateZoomEncryptedToken(plainToken: string): string {
+    if (!this.zoomVerificationToken) {
+      this.logger.error("ZOOM_WEBHOOK_VERIFICATION_TOKEN not configured");
+      throw new Error("ZOOM_WEBHOOK_VERIFICATION_TOKEN not configured");
     }
 
-    // 1. Verify token (if present)
-    if (payload.token) {
-      this.verifyZoomToken(payload.token);
-    }
-
-    // 2. Verify timestamp (prevent replay attacks)
-    if (timestamp) {
-      const requestTime = parseInt(timestamp, 10);
-      if (!this.verifyTimestamp(requestTime)) {
-        throw new WebhookSignatureVerificationException("Zoom");
-      }
-    }
-
-    this.logger.debug("Zoom webhook verified successfully");
+    return createHmac("sha256", this.zoomVerificationToken)
+      .update(plainToken)
+      .digest("hex");
   }
 }

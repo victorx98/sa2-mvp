@@ -6,17 +6,23 @@ import { ScheduleModule } from "@nestjs/schedule";
 // Providers
 import { FeishuMeetingClient } from "./providers/feishu-provider.client";
 import { FeishuMeetingProvider } from "./providers/feishu-provider";
+import { ZoomMeetingClient } from "./providers/zoom-provider.client";
 import { ZoomMeetingProvider } from "./providers/zoom-provider";
 import { MeetingProviderFactory } from "./providers/provider.factory";
 
 // Repositories
 import { MeetingRepository } from "./repositories/meeting.repository";
-import { MeetingEventRepository } from "./repositories/meeting-event.repository";
+import { FeishuMeetingEventRepository } from "./repositories/feishu-meeting-event.repository";
+import { ZoomMeetingEventRepository } from "./repositories/zoom-meeting-event.repository";
+
+// Adapters
+import { FeishuEventAdapter } from "./adapters/feishu-event.adapter";
+import { ZoomEventAdapter } from "./adapters/zoom-event.adapter";
 
 // Services
 import { MeetingManagerService } from "./services/meeting-manager.service";
 import { MeetingLifecycleService } from "./services/meeting-lifecycle.service";
-import { MeetingEventService } from "./services/meeting-event.service";
+import { UnifiedMeetingEventService } from "./services/unified-meeting-event.service";
 import { DurationCalculatorService } from "./services/duration-calculator.service";
 import { DelayedTaskService } from "./services/delayed-task.service";
 
@@ -39,17 +45,23 @@ import { MeetingCompletionTask } from "./tasks/meeting-completion.task";
     // Providers
     FeishuMeetingClient,
     FeishuMeetingProvider,
+    ZoomMeetingClient,
     ZoomMeetingProvider,
     MeetingProviderFactory,
 
     // Repositories
     MeetingRepository,
-    MeetingEventRepository,
+    FeishuMeetingEventRepository,
+    ZoomMeetingEventRepository,
+
+    // Adapters
+    FeishuEventAdapter,
+    ZoomEventAdapter,
 
     // Services
     MeetingManagerService,
     MeetingLifecycleService,
-    MeetingEventService,
+    UnifiedMeetingEventService,
     DurationCalculatorService,
     DelayedTaskService,
 
@@ -59,7 +71,7 @@ import { MeetingCompletionTask } from "./tasks/meeting-completion.task";
   exports: [
     // Export main services for use by other modules
     MeetingManagerService,
-    MeetingEventService,
+    UnifiedMeetingEventService,
     MeetingProviderFactory,
   ],
 })

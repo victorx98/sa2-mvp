@@ -1,4 +1,4 @@
-import { Controller, Put, Body, UseGuards } from "@nestjs/common";
+import { Controller, Get, Put, Body, UseGuards } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiOkResponse, ApiBearerAuth, ApiBody } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
@@ -8,6 +8,7 @@ import { User } from "@domains/identity/user/user-interface";
 import { ApiPrefix } from "@api/api.constants";
 import { UpdateMentorProfileDto } from "@api/dto/request/update-mentor-profile.dto";
 import { UpdateMentorProfileCommand } from "@application/commands/profile/update-mentor-profile.command";
+import { MentorProfileQuery } from "@application/queries/mentor/mentor-profile.query";
 
 /**
  * API Layer - Mentor Profile Controller
@@ -30,7 +31,17 @@ import { UpdateMentorProfileCommand } from "@application/commands/profile/update
 export class MentorProfileController {
   constructor(
     private readonly updateMentorProfileCommand: UpdateMentorProfileCommand,
+    private readonly mentorProfileQuery: MentorProfileQuery,
   ) {}
+
+  @Get()
+  @ApiOperation({ summary: "Get mentor profile" })
+  @ApiOkResponse({
+    description: "Mentor profile retrieved successfully",
+  })
+  async getProfile(@CurrentUser() user: User) {
+    return this.mentorProfileQuery.getProfile(user.id);
+  }
 
   @Put()
   @ApiOperation({ summary: "Update mentor profile" })

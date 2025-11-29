@@ -17,6 +17,7 @@ describe('MeetingCompletionTask', () => {
       update: jest.fn(),
       create: jest.fn(),
       findById: jest.fn(),
+      findByMeetingId: jest.fn(),
       existsWithinTimeWindow: jest.fn(),
       delete: jest.fn(),
       findByMeetingNoWithinWindow: jest.fn(),

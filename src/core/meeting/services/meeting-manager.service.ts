@@ -66,7 +66,7 @@ export class MeetingManagerService {
     });
 
     this.logger.debug(
-      `Meeting created on ${provider}: ${meetingInfo.reserveId} (${meetingInfo.meetingNo})`,
+      `Meeting created on ${provider}: ${meetingInfo.meetingId} (${meetingInfo.meetingNo})`,
     );
 
     // Step 2.5: Now check for duplicates using meeting_no
@@ -78,9 +78,9 @@ export class MeetingManagerService {
       );
 
       if (isDuplicate) {
-        // Attempt to cancel the just-created meeting (v4.1 - use reserveId)
+        // Attempt to cancel the just-created meeting
         try {
-          await providerInstance.cancelMeeting(meetingInfo.reserveId);
+          await providerInstance.cancelMeeting(meetingInfo.meetingId);
           this.logger.warn(
             `Cancelled duplicate meeting ${meetingInfo.meetingNo}`,
           );
@@ -98,14 +98,13 @@ export class MeetingManagerService {
     }
 
     // Step 3: Store in database (use transaction if provided)
-    // v4.1: Following Feishu API naming - reserve_id (Feishu reserve_id, Zoom meeting_id)
     const meeting = await this.meetingRepo.create({
       meetingNo: meetingInfo.meetingNo || "",
       meetingProvider: provider,
-      reserveId: meetingInfo.reserveId, // v4.1 - Reserve ID (Feishu reserve_id, Zoom meeting_id)
+      meetingId: meetingInfo.meetingId, // Meeting ID from provider (Feishu reserve.id, Zoom id)
       topic: dto.topic,
       meetingUrl: meetingInfo.meetingUrl,
-      ownerId: dto.hostUserId || null, // v4.1 - Meeting owner (host user)
+      ownerId: dto.hostUserId || null, // Meeting owner (host user)
       scheduleStartTime: startTime,
       scheduleDuration: dto.duration,
       status: MeetingStatus.SCHEDULED,
@@ -160,12 +159,12 @@ export class MeetingManagerService {
       );
     }
 
-    // Call provider to update (v4.1 - use reserveId)
+    // Call provider to update
     const provider = this.providerFactory.getProvider(
       meeting.meetingProvider as any,
     );
 
-    await provider.updateMeeting(meeting.reserveId, {
+    await provider.updateMeeting(meeting.meetingId, {
       topic: dto.topic,
       startTime: dto.startTime ? new Date(dto.startTime) : undefined,
       duration: dto.duration,
@@ -219,12 +218,12 @@ export class MeetingManagerService {
       );
     }
 
-    // Call provider to cancel (v4.1 - use reserveId)
+    // Call provider to cancel
     const provider = this.providerFactory.getProvider(
       meeting.meetingProvider as any,
     );
 
-    await provider.cancelMeeting(meeting.reserveId);
+    await provider.cancelMeeting(meeting.meetingId);
 
     this.logger.debug(
       `Meeting cancelled on provider: ${meeting.meetingProvider}`,
@@ -266,7 +265,7 @@ export class MeetingManagerService {
     return {
       provider: meeting.meetingProvider as any,
       meetingNo: meeting.meetingNo,
-      reserveId: meeting.reserveId, // v4.1
+      meetingId: meeting.meetingId,
       meetingUrl: meeting.meetingUrl,
       meetingPassword: null, // Not stored in meetings table
       hostJoinUrl: null, // Not stored in meetings table

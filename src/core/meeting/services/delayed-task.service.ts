@@ -1,6 +1,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { SchedulerRegistry } from "@nestjs/schedule";
 import { MeetingLifecycleService } from "./meeting-lifecycle.service";
+import { MEETING_COMPLETION_CHECK_DELAY_MINUTES } from "../../../constants";
 
 /**
  * Delayed Task Service
@@ -11,7 +12,7 @@ import { MeetingLifecycleService } from "./meeting-lifecycle.service";
 @Injectable()
 export class DelayedTaskService {
   private readonly logger = new Logger(DelayedTaskService.name);
-  private readonly DELAY_MINUTES = 30; // 30 minutes delay as per design doc
+  private readonly DELAY_MINUTES = MEETING_COMPLETION_CHECK_DELAY_MINUTES;
 
   // In-memory task storage (for simple implementation)
   // Production: Replace with Redis or message queue

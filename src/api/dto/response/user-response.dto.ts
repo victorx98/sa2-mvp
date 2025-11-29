@@ -1,11 +1,16 @@
 import { ApiProperty } from "@nestjs/swagger";
+import { Gender, Country } from "@shared/types/identity-enums";
 
 export class UserResponseDto {
   @ApiProperty({ description: "User ID" })
   id: string;
 
-  @ApiProperty({ description: "User gender", required: false })
-  gender?: string;
+  @ApiProperty({ 
+    description: "User gender", 
+    required: false,
+    enum: Gender 
+  })
+  gender?: Gender;
 
   @ApiProperty({ description: "English name", required: false })
   nameEn?: string;
@@ -22,8 +27,12 @@ export class UserResponseDto {
   @ApiProperty({ description: "Email address", required: false })
   email?: string;
 
-  @ApiProperty({ description: "Country or region", required: false })
-  country?: string;
+  @ApiProperty({ 
+    description: "ISO 3166-1 alpha-2 country code (US, CN, GB, CA)", 
+    required: false,
+    enum: Country 
+  })
+  country?: Country;
 
   @ApiProperty({
     description: "User roles",
