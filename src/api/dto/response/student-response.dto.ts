@@ -1,4 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
+import { Gender, Country } from "@shared/types/identity-enums";
 
 export class StudentSummaryResponseDto {
   @ApiProperty({ description: "Student record ID" })
@@ -65,11 +66,19 @@ export class StudentSummaryResponseDto {
   @ApiProperty({ description: "Student Chinese name", required: false })
   nameZh?: string;
 
-  @ApiProperty({ description: "Country/region", required: false })
-  country: string;
+  @ApiProperty({ 
+    description: "ISO 3166-1 alpha-2 country code (US, CN, GB, CA)", 
+    required: false,
+    enum: Country 
+  })
+  country?: Country;
 
-  @ApiProperty({ description: "Gender", required: false })
-  gender: string;
+  @ApiProperty({ 
+    description: "Gender", 
+    required: false,
+    enum: Gender 
+  })
+  gender?: Gender;
 
   @ApiProperty({
     description: "Counselor assignment status",

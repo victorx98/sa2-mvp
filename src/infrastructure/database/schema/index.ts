@@ -1,3 +1,6 @@
+// Shared enums
+export * from "./enums";
+
 // User and identity
 export * from "./user.schema";
 export * from "./student.schema";

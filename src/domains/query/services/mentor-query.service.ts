@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
+import { Country, Gender } from "@shared/types/identity-enums";
 
 /**
  * 提供导师列表相关的只读查询能力
@@ -135,8 +136,8 @@ export class MentorQueryService {
       email: String(row.email || ""),
       nameEn: row.name_en ? String(row.name_en) : undefined,
       nameZh: row.name_zh ? String(row.name_zh) : undefined,
-      country: row.country ? String(row.country) : undefined,
-      gender: row.gender ? String(row.gender) : undefined,
+      country: row.country ? (row.country as Country) : undefined,
+      gender: row.gender ? (row.gender as Gender) : undefined,
     };
   }
 }
@@ -158,7 +159,7 @@ export interface MentorListItem {
   email: string;
   nameEn?: string;
   nameZh?: string;
-  country?: string;
-  gender?: string;
+  country?: Country;
+  gender?: Gender;
 }
 

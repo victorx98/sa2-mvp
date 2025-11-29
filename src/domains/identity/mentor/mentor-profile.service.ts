@@ -7,6 +7,12 @@ import type {
   DrizzleExecutor,
   DrizzleTransaction,
 } from "@shared/types/database.types";
+import {
+  CreateUserInput,
+  IUserService,
+  USER_SERVICE,
+  User,
+} from "@domains/identity/user/user-interface";
 
 export interface UpdateMentorProfileInput {
   status?: string;
@@ -24,11 +30,24 @@ export interface UpdateMentorProfileInput {
   graduateMajor?: string | null;
 }
 
+export interface UpdateMentorProfileAggregateInput {
+  /**
+   * 需要更新的 User 基础信息字段（可选）
+   */
+  user?: Partial<CreateUserInput>;
+  /**
+   * 需要更新的 Mentor Profile 字段（可选）
+   */
+  profile?: UpdateMentorProfileInput;
+}
+
 @Injectable()
 export class MentorProfileService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
+    @Inject(USER_SERVICE)
+    private readonly userService: IUserService,
   ) {}
 
   async ensureProfile(userId: string, tx?: DrizzleTransaction): Promise<void> {
@@ -109,5 +128,49 @@ export class MentorProfileService {
       .returning();
 
     return updated;
+  }
+
+  /**
+   * 聚合更新：在同一事务中同时更新 User 与 Mentor Profile
+   */
+  async updateAggregate(
+    userId: string,
+    input: UpdateMentorProfileAggregateInput,
+  ): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      // 1. 更新 user 表
+      if (input.user && Object.keys(input.user).length > 0) {
+        await this.userService.update(userId, input.user, tx);
+      }
+
+      // 2. 更新 mentor profile 表
+      if (input.profile && Object.keys(input.profile).length > 0) {
+        await this.update(userId, input.profile, userId, tx);
+      }
+    });
+  }
+
+  /**
+   * 聚合查询：获取包含 User + Mentor Profile 的完整档案
+   */
+  async getAggregateByUserId(
+    userId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<{ user: User; profile: schema.Mentor }> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    const [user, profile] = await Promise.all([
+      this.userService.findByIdWithRoles(userId),
+      this.findByUserId(userId, tx),
+    ]);
+
+    if (!user) {
+      throw new NotFoundException(`User not found for id ${userId}`);
+    }
+    if (!profile) {
+      throw new NotFoundException(`Mentor profile not found for user ${userId}`);
+    }
+
+    return { user, profile };
   }
 }

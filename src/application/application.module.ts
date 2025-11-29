@@ -9,7 +9,9 @@ import { UserModule } from "@domains/identity/user/user.module";
 // Application Layer - Queries
 import { UserQueryService } from "./queries/user-query.service";
 import { StudentListQuery } from "./queries/student/student-list.query";
+import { StudentProfileQuery } from "./queries/student/student-profile.query";
 import { MentorListQuery } from "./queries/mentor/mentor-list.query";
+import { MentorProfileQuery } from "./queries/mentor/mentor-profile.query";
 import { SchoolListQuery } from "./queries/school/school-list.query";
 import { MajorListQuery } from "./queries/major/major-list.query";
 import { ServiceBalanceQuery } from "./queries/contract/service-balance.query";
@@ -59,7 +61,9 @@ import { QueryModule } from "@domains/query/query.module";
     // Queries
     UserQueryService,
     StudentListQuery,
+    StudentProfileQuery,
     MentorListQuery,
+    MentorProfileQuery,
     SchoolListQuery,
     MajorListQuery,
     ServiceBalanceQuery,
@@ -88,7 +92,9 @@ import { QueryModule } from "@domains/query/query.module";
     // Queries
     UserQueryService,
     StudentListQuery,
+    StudentProfileQuery,
     MentorListQuery,
+    MentorProfileQuery,
     SchoolListQuery,
     MajorListQuery,
     ServiceBalanceQuery,
