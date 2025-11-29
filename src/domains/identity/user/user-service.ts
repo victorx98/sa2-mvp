@@ -8,6 +8,7 @@ import type {
   DrizzleExecutor,
   DrizzleTransaction,
 } from "@shared/types/database.types";
+import { Gender, Country } from "@shared/types/identity-enums";
 import {
   CreateUserInput,
   IUserService,
@@ -274,9 +275,9 @@ export class UserService implements IUserService {
       email: record.email || "",
       nameEn: record.nameEn || undefined,
       nameZh: record.nameZh || undefined,
-      gender: record.gender || undefined,
+      gender: record.gender ? (record.gender as Gender) : undefined,
       status: record.status || undefined,
-      country: record.country || undefined,
+      country: record.country ? (record.country as Country) : undefined,
       createdTime: record.createdTime || undefined,
       modifiedTime: record.modifiedTime || undefined,
     };

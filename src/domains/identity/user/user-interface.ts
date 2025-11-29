@@ -1,4 +1,5 @@
 import type { DrizzleTransaction } from "@shared/types/database.types";
+import { Gender, Country } from "@shared/types/identity-enums";
 
 /**
  * User Interface
@@ -7,11 +8,11 @@ import type { DrizzleTransaction } from "@shared/types/database.types";
 export interface User {
   id: string;
   email: string;
-  gender?: string;
+  gender?: Gender;
   nameEn?: string;
   nameZh?: string;
   status?: string;
-  country?: string;
+  country?: Country;
   createdTime?: Date;
   modifiedTime?: Date;
   roles?: string[];
@@ -26,9 +27,9 @@ export interface CreateUserInput {
   email: string;
   nameEn?: string;
   nameZh?: string;
-  gender?: string;
+  gender?: Gender;
   status?: string;
-  country?: string;
+  country?: Country;
 }
 
 /**

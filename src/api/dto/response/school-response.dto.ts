@@ -1,4 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
+import { Country } from "@shared/types/identity-enums";
 
 export class SchoolResponseDto {
   @ApiProperty({ description: "School ID" })
@@ -11,11 +12,13 @@ export class SchoolResponseDto {
   nameEn: string;
 
   @ApiProperty({
-    description: "ISO country/region code (e.g., CN, US)",
+    description: "ISO 3166-1 alpha-2 country code (US, CN, GB, CA)",
     required: false,
     nullable: true,
+    enum: Country,
+    example: Country.US,
   })
-  countryCode: string | null;
+  country: Country | null;
 
   @ApiProperty({
     description: "Record creation time",

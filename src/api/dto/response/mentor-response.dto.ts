@@ -1,4 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
+import { Gender, Country } from "@shared/types/identity-enums";
 
 export class MentorSummaryResponseDto {
   @ApiProperty({ description: "Mentor ID" })
@@ -61,10 +62,18 @@ export class MentorSummaryResponseDto {
   @ApiProperty({ description: "Chinese name", required: false })
   nameZh?: string;
 
-  @ApiProperty({ description: "Country", required: false })
-  country?: string;
+  @ApiProperty({ 
+    description: "ISO 3166-1 alpha-2 country code (US, CN, GB, CA)", 
+    required: false,
+    enum: Country 
+  })
+  country?: Country;
 
-  @ApiProperty({ description: "Gender", required: false })
-  gender?: string;
+  @ApiProperty({ 
+    description: "Gender", 
+    required: false,
+    enum: Gender 
+  })
+  gender?: Gender;
 }
 

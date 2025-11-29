@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
+import { Country } from "@shared/types/identity-enums";
 
 /**
  * School Query Service
@@ -36,7 +37,7 @@ export class SchoolQueryService {
         s.id,
         s.name_zh,
         s.name_en,
-        s.country_code,
+        s.country,
         s.created_time,
         s.modified_time
       FROM schools s
@@ -60,7 +61,7 @@ export class SchoolQueryService {
         s.id,
         s.name_zh,
         s.name_en,
-        s.country_code,
+        s.country,
         s.created_time,
         s.modified_time
       FROM schools s
@@ -94,7 +95,7 @@ export class SchoolQueryService {
       id: String(row.id || ""),
       nameZh: String(row.name_zh || ""),
       nameEn: String(row.name_en || ""),
-      countryCode: row.country_code ? String(row.country_code) : null,
+      country: row.country ? (row.country as Country) : null,
       createdAt: row.created_time as Date,
       modifiedAt: row.modified_time as Date,
     };
@@ -109,7 +110,7 @@ export interface SchoolListItem {
   id: string;
   nameZh: string;
   nameEn: string;
-  countryCode: string | null;
+  country: Country | null;
   createdAt: Date;
   modifiedAt: Date;
 }
