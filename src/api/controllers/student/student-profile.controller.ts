@@ -1,4 +1,4 @@
-import { Body, Controller, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Put, UseGuards } from "@nestjs/common";
 import {
   ApiBearerAuth,
   ApiBody,
@@ -14,6 +14,7 @@ import { User } from "@domains/identity/user/user-interface";
 import { ApiPrefix } from "@api/api.constants";
 import { UpdateStudentProfileDto } from "@api/dto/request/update-student-profile.dto";
 import { UpdateStudentProfileCommand } from "@application/commands/profile/update-student-profile.command";
+import { StudentProfileQuery } from "@application/queries/student/student-profile.query";
 
 /**
  * API Layer - Student Profile Controller
@@ -36,7 +37,17 @@ import { UpdateStudentProfileCommand } from "@application/commands/profile/updat
 export class StudentProfileController {
   constructor(
     private readonly updateStudentProfileCommand: UpdateStudentProfileCommand,
+    private readonly studentProfileQuery: StudentProfileQuery,
   ) {}
+
+  @Get()
+  @ApiOperation({ summary: "Get student profile" })
+  @ApiOkResponse({
+    description: "Student profile retrieved successfully",
+  })
+  async getProfile(@CurrentUser() user: User) {
+    return this.studentProfileQuery.getProfile(user.id);
+  }
 
   @Put()
   @ApiOperation({ summary: "Update student profile" })

@@ -1,12 +1,7 @@
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { StudentProfileService } from "@domains/identity/student/student-profile.service";
 import { UpdateStudentProfileDto } from "@api/dto/request/update-student-profile.dto";
-import {
-  IUserService,
-  USER_SERVICE,
-} from "@domains/identity/user/user-interface";
-import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
-import type { DrizzleDatabase } from "@shared/types/database.types";
+import type { UpdateStudentProfileAggregateInput } from "@domains/identity/student/student-profile.service";
 
 /**
  * Application Layer - Update Student Profile Command
@@ -20,10 +15,6 @@ export class UpdateStudentProfileCommand {
   private readonly logger = new Logger(UpdateStudentProfileCommand.name);
 
   constructor(
-    @Inject(USER_SERVICE)
-    private readonly userService: IUserService,
-    @Inject(DATABASE_CONNECTION)
-    private readonly db: DrizzleDatabase,
     private readonly studentProfileService: StudentProfileService,
   ) {}
 
@@ -33,46 +24,44 @@ export class UpdateStudentProfileCommand {
   ): Promise<void> {
     this.logger.log(`Updating student profile for user: ${userId}`);
 
-    await this.db.transaction(async (tx) => {
-      // 1. 更新 user 表（如果有相关字段）
-      const userUpdatePayload: Parameters<IUserService["update"]>[1] = {};
+    const input: UpdateStudentProfileAggregateInput = {
+      user: {},
+      profile: {},
+    };
 
-      if (dto.nameEn !== undefined) {
-        userUpdatePayload.nameEn = dto.nameEn;
-      }
-      if (dto.nameZh !== undefined) {
-        userUpdatePayload.nameZh = dto.nameZh;
-      }
-      if (dto.gender !== undefined) {
-        userUpdatePayload.gender = dto.gender;
-      }
-      if (dto.country !== undefined) {
-        userUpdatePayload.country = dto.country;
-      }
+    // User 基础信息
+    if (dto.nameEn !== undefined) {
+      input.user!.nameEn = dto.nameEn;
+    }
+    if (dto.nameZh !== undefined) {
+      input.user!.nameZh = dto.nameZh;
+    }
+    if (dto.gender !== undefined) {
+      input.user!.gender = dto.gender;
+    }
+    if (dto.country !== undefined) {
+      input.user!.country = dto.country;
+    }
 
-      if (Object.keys(userUpdatePayload).length > 0) {
-        await this.userService.update(userId, userUpdatePayload, tx);
-      }
+    // Student Profile 信息
+    if (dto.status !== undefined) input.profile!.status = dto.status;
+    if (dto.highSchool !== undefined) input.profile!.highSchool = dto.highSchool;
+    if (dto.underCollege !== undefined)
+      input.profile!.underCollege = dto.underCollege;
+    if (dto.underMajor !== undefined) input.profile!.underMajor = dto.underMajor;
+    if (dto.graduateCollege !== undefined)
+      input.profile!.graduateCollege = dto.graduateCollege;
+    if (dto.graduateMajor !== undefined)
+      input.profile!.graduateMajor = dto.graduateMajor;
+    if (dto.aiResumeSummary !== undefined)
+      input.profile!.aiResumeSummary = dto.aiResumeSummary;
+    if (dto.customerImportance !== undefined)
+      input.profile!.customerImportance = dto.customerImportance;
+    if (dto.graduationDate !== undefined)
+      input.profile!.graduationDate = dto.graduationDate;
+    if (dto.grades !== undefined) input.profile!.grades = dto.grades;
 
-      // 2. 更新 student profile 表
-      await this.studentProfileService.update(
-        userId,
-        {
-          status: dto.status,
-          highSchool: dto.highSchool,
-          underCollege: dto.underCollege,
-          underMajor: dto.underMajor,
-          graduateCollege: dto.graduateCollege,
-          graduateMajor: dto.graduateMajor,
-          aiResumeSummary: dto.aiResumeSummary,
-          customerImportance: dto.customerImportance,
-          graduationDate: dto.graduationDate,
-          grades: dto.grades,
-        },
-        userId, // updatedBy
-        tx,
-      );
-    });
+    await this.studentProfileService.updateAggregate(userId, input);
   }
 }
 

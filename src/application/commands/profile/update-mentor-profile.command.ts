@@ -1,12 +1,7 @@
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { MentorProfileService } from "@domains/identity/mentor/mentor-profile.service";
 import { UpdateMentorProfileDto } from "@api/dto/request/update-mentor-profile.dto";
-import {
-  IUserService,
-  USER_SERVICE,
-} from "@domains/identity/user/user-interface";
-import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
-import type { DrizzleDatabase } from "@shared/types/database.types";
+import type { UpdateMentorProfileAggregateInput } from "@domains/identity/mentor/mentor-profile.service";
 
 /**
  * Application Layer - Update Mentor Profile Command
@@ -20,10 +15,6 @@ export class UpdateMentorProfileCommand {
   private readonly logger = new Logger(UpdateMentorProfileCommand.name);
 
   constructor(
-    @Inject(USER_SERVICE)
-    private readonly userService: IUserService,
-    @Inject(DATABASE_CONNECTION)
-    private readonly db: DrizzleDatabase,
     private readonly mentorProfileService: MentorProfileService,
   ) {}
 
@@ -33,49 +24,48 @@ export class UpdateMentorProfileCommand {
   ): Promise<void> {
     this.logger.log(`Updating mentor profile for user: ${userId}`);
 
-    await this.db.transaction(async (tx) => {
-      // 1. 更新 user 表（如果有相关字段）
-      const userUpdatePayload: Parameters<IUserService["update"]>[1] = {};
+    const input: UpdateMentorProfileAggregateInput = {
+      user: {},
+      profile: {},
+    };
 
-      if (dto.nameEn !== undefined) {
-        userUpdatePayload.nameEn = dto.nameEn;
-      }
-      if (dto.nameZh !== undefined) {
-        userUpdatePayload.nameZh = dto.nameZh;
-      }
-      if (dto.gender !== undefined) {
-        userUpdatePayload.gender = dto.gender;
-      }
-      if (dto.country !== undefined) {
-        userUpdatePayload.country = dto.country;
-      }
+    // User 基础信息
+    if (dto.nameEn !== undefined) {
+      input.user!.nameEn = dto.nameEn;
+    }
+    if (dto.nameZh !== undefined) {
+      input.user!.nameZh = dto.nameZh;
+    }
+    if (dto.gender !== undefined) {
+      input.user!.gender = dto.gender;
+    }
+    if (dto.country !== undefined) {
+      input.user!.country = dto.country;
+    }
 
-      if (Object.keys(userUpdatePayload).length > 0) {
-        await this.userService.update(userId, userUpdatePayload, tx);
-      }
+    // Mentor Profile 信息
+    if (dto.status !== undefined) input.profile!.status = dto.status;
+    if (dto.type !== undefined) input.profile!.type = dto.type;
+    if (dto.company !== undefined) input.profile!.company = dto.company;
+    if (dto.companyTitle !== undefined)
+      input.profile!.companyTitle = dto.companyTitle;
+    if (dto.briefIntro !== undefined)
+      input.profile!.briefIntro = dto.briefIntro;
+    if (dto.highSchool !== undefined)
+      input.profile!.highSchool = dto.highSchool;
+    if (dto.location !== undefined) input.profile!.location = dto.location;
+    if (dto.level !== undefined) input.profile!.level = dto.level;
+    if (dto.rating !== undefined) input.profile!.rating = dto.rating;
+    if (dto.underCollege !== undefined)
+      input.profile!.underCollege = dto.underCollege;
+    if (dto.underMajor !== undefined)
+      input.profile!.underMajor = dto.underMajor;
+    if (dto.graduateCollege !== undefined)
+      input.profile!.graduateCollege = dto.graduateCollege;
+    if (dto.graduateMajor !== undefined)
+      input.profile!.graduateMajor = dto.graduateMajor;
 
-      // 2. 更新 mentor profile 表
-      await this.mentorProfileService.update(
-        userId,
-        {
-          status: dto.status,
-          type: dto.type,
-          company: dto.company,
-          companyTitle: dto.companyTitle,
-          briefIntro: dto.briefIntro,
-          highSchool: dto.highSchool,
-          location: dto.location,
-          level: dto.level,
-          rating: dto.rating,
-          underCollege: dto.underCollege,
-          underMajor: dto.underMajor,
-          graduateCollege: dto.graduateCollege,
-          graduateMajor: dto.graduateMajor,
-        },
-        userId, // updatedBy
-        tx,
-      );
-    });
+    await this.mentorProfileService.updateAggregate(userId, input);
   }
 }
 

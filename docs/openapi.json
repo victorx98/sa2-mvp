@@ -488,6 +488,24 @@
       }
     },
     "/api/mentor/profile": {
+      "get": {
+        "operationId": "MentorProfileController_getProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Mentor profile retrieved successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get mentor profile",
+        "tags": [
+          "Mentor Profile"
+        ]
+      },
       "put": {
         "operationId": "MentorProfileController_updateProfile",
         "parameters": [],
@@ -558,8 +576,26 @@
       }
     },
     "/api/student/profile": {
+      "get": {
+        "operationId": "StudentProfileController_getProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Student profile retrieved successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get student profile",
+        "tags": [
+          "Student Profile"
+        ]
+      },
       "put": {
-        "operationId": "StudentController_updateProfile",
+        "operationId": "StudentProfileController_updateProfile",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -583,7 +619,7 @@
         ],
         "summary": "Update student profile",
         "tags": [
-          "Student"
+          "Student Profile"
         ]
       }
     }
@@ -632,12 +668,22 @@
           "gender": {
             "type": "string",
             "description": "User gender",
+            "enum": [
+              "male",
+              "female"
+            ],
             "example": "male"
           },
           "country": {
             "type": "string",
-            "description": "User country",
-            "example": "China"
+            "description": "ISO 3166-1 alpha-2 country code (US, CN, GB, CA)",
+            "enum": [
+              "US",
+              "CN",
+              "GB",
+              "CA"
+            ],
+            "example": "US"
           },
           "role": {
             "type": "string",
@@ -764,7 +810,11 @@
           },
           "gender": {
             "type": "string",
-            "description": "User gender"
+            "description": "User gender",
+            "enum": [
+              "male",
+              "female"
+            ]
           },
           "nameEn": {
             "type": "string",
@@ -784,7 +834,13 @@
           },
           "country": {
             "type": "string",
-            "description": "Country or region"
+            "description": "ISO 3166-1 alpha-2 country code (US, CN, GB, CA)",
+            "enum": [
+              "US",
+              "CN",
+              "GB",
+              "CA"
+            ]
           },
           "roles": {
             "description": "User roles",
@@ -944,10 +1000,17 @@
             "type": "string",
             "description": "School name in English"
           },
-          "countryCode": {
+          "country": {
             "type": "string",
-            "description": "ISO country/region code (e.g., CN, US)",
-            "nullable": true
+            "description": "ISO 3166-1 alpha-2 country code (US, CN, GB, CA)",
+            "nullable": true,
+            "enum": [
+              "US",
+              "CN",
+              "GB",
+              "CA"
+            ],
+            "example": "US"
           },
           "createdAt": {
             "type": "string",
@@ -1173,11 +1236,21 @@
           },
           "country": {
             "type": "string",
-            "description": "Country"
+            "description": "ISO 3166-1 alpha-2 country code (US, CN, GB, CA)",
+            "enum": [
+              "US",
+              "CN",
+              "GB",
+              "CA"
+            ]
           },
           "gender": {
             "type": "string",
-            "description": "Gender"
+            "description": "Gender",
+            "enum": [
+              "male",
+              "female"
+            ]
           }
         },
         "required": [
@@ -1191,6 +1264,34 @@
       "UpdateMentorProfileDto": {
         "type": "object",
         "properties": {
+          "nameEn": {
+            "type": "string",
+            "description": "User English name"
+          },
+          "nameZh": {
+            "type": "string",
+            "description": "User Chinese name"
+          },
+          "gender": {
+            "type": "string",
+            "description": "User gender",
+            "enum": [
+              "male",
+              "female"
+            ],
+            "example": "male"
+          },
+          "country": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2 country code",
+            "enum": [
+              "US",
+              "CN",
+              "GB",
+              "CA"
+            ],
+            "example": "US"
+          },
           "status": {
             "type": "string",
             "description": "Mentor status"
@@ -1264,10 +1365,6 @@
             "type": "string",
             "description": "Student record ID"
           },
-          "userId": {
-            "type": "string",
-            "description": "Associated user ID"
-          },
           "status": {
             "type": "string",
             "description": "Student status"
@@ -1296,9 +1393,9 @@
             "type": "string",
             "description": "Customer importance label"
           },
-          "fulltimeStartdate": {
+          "graduationDate": {
             "type": "string",
-            "description": "Fulltime start date",
+            "description": "Graduation date",
             "format": "date-time",
             "nullable": true
           },
@@ -1334,11 +1431,21 @@
           },
           "country": {
             "type": "string",
-            "description": "Country/region"
+            "description": "ISO 3166-1 alpha-2 country code (US, CN, GB, CA)",
+            "enum": [
+              "US",
+              "CN",
+              "GB",
+              "CA"
+            ]
           },
           "gender": {
             "type": "string",
-            "description": "Gender"
+            "description": "Gender",
+            "enum": [
+              "male",
+              "female"
+            ]
           },
           "counselorStatus": {
             "type": "string",
@@ -1351,9 +1458,8 @@
         },
         "required": [
           "id",
-          "userId",
           "status",
-          "fulltimeStartdate",
+          "graduationDate",
           "createdAt",
           "modifiedAt"
         ]
@@ -1361,6 +1467,34 @@
       "UpdateStudentProfileDto": {
         "type": "object",
         "properties": {
+          "nameEn": {
+            "type": "string",
+            "description": "User English name"
+          },
+          "nameZh": {
+            "type": "string",
+            "description": "User Chinese name"
+          },
+          "gender": {
+            "type": "string",
+            "description": "User gender",
+            "enum": [
+              "male",
+              "female"
+            ],
+            "example": "male"
+          },
+          "country": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2 country code",
+            "enum": [
+              "US",
+              "CN",
+              "GB",
+              "CA"
+            ],
+            "example": "US"
+          },
           "status": {
             "type": "string",
             "description": "Student status"
