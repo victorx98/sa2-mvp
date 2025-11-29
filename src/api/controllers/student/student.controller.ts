@@ -1,15 +1,13 @@
-import { Controller, Get, Query, Put, Body, UseGuards } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiOkResponse, ApiQuery, ApiBearerAuth, ApiBody } from "@nestjs/swagger";
+import { Controller, Get, Query, UseGuards } from "@nestjs/common";
+import { ApiTags, ApiOperation, ApiOkResponse, ApiQuery, ApiBearerAuth } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
 import { Roles } from "@shared/decorators/roles.decorator";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import { StudentListQuery } from "@application/queries/student/student-list.query";
-import { UpdateStudentProfileCommand } from "@application/commands/profile/update-student-profile.command";
 import { User } from "@domains/identity/user/user-interface";
 import { ApiPrefix } from "@api/api.constants";
 import { StudentSummaryResponseDto } from "@api/dto/response/student-response.dto";
-import { UpdateStudentProfileDto } from "@api/dto/request/update-student-profile.dto";
 import { plainToInstance } from "class-transformer";
 
 /**
@@ -35,7 +33,6 @@ export class StudentController {
   constructor(
     // ✅ 直接注入 Application Layer 服务
     private readonly studentListQuery: StudentListQuery,
-    private readonly updateStudentProfileCommand: UpdateStudentProfileCommand,
   ) {}
 
   @Get("find")
@@ -63,19 +60,5 @@ export class StudentController {
     });
   }
 
-  @Put("profile")
-  @Roles("student")
-  @ApiOperation({ summary: "Update student profile" })
-  @ApiBody({ type: UpdateStudentProfileDto })
-  @ApiOkResponse({
-    description: "Student profile updated successfully",
-  })
-  async updateProfile(
-    @CurrentUser() user: User,
-    @Body() dto: UpdateStudentProfileDto,
-  ): Promise<{ message: string }> {
-    await this.updateStudentProfileCommand.execute(user.id, dto);
-    return { message: "Student profile updated successfully" };
-  }
 }
 

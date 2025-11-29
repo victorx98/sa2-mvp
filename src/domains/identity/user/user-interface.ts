@@ -55,7 +55,11 @@ export interface IUserService {
     userId: string,
     tx?: DrizzleTransaction,
   ): Promise<string[]>;
-  update(id: string, user: Partial<CreateUserInput>): Promise<User>;
+  update(
+    id: string,
+    user: Partial<CreateUserInput>,
+    tx?: DrizzleTransaction,
+  ): Promise<User>;
 }
 
 /**
