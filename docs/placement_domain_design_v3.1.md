@@ -36,12 +36,21 @@ flowchart LR
     M -->|通过| N[获得Offer]
     M -->|拒绝| O[结束]
     N --> P[结束]
-    G -->|撤回| Q[结束]
-    H -->|撤回| Q
-    J -->|撤回| Q
-    K -->|撤回| Q
-    M -->|撤回| Q
-    N -->|撤回| Q
+    
+    %% 状态回撤流程
+    N --> R{状态回撤}
+    M --> R
+    K --> R
+    J --> R
+    H --> R
+    G --> R
+    R --> S[上一个状态]
+    S --> G
+    S --> H
+    S --> J
+    S --> K
+    S --> M
+    S --> N
 ```
 
 ## 🏗️ 领域模型概览
@@ -93,17 +102,26 @@ stateDiagram-v2
     interviewed --> got_offer: 获得Offer
     interviewed --> rejected: 面试未过
     
-    recommended --> withdrawn: 学生撤回
-    interested --> withdrawn: 学生撤回
-    mentor_assigned --> withdrawn: 学生撤回
-    submitted --> withdrawn: 学生撤回
-    interviewed --> withdrawn: 学生撤回
-    got_offer --> withdrawn: 学生撤回
+    %% 支持状态回撤到上一个有效状态
+    got_offer --> recommended: 状态回撤
+    got_offer --> interested: 状态回撤
+    got_offer --> mentor_assigned: 状态回撤
+    got_offer --> submitted: 状态回撤
+    got_offer --> interviewed: 状态回撤
+    interviewed --> recommended: 状态回撤
+    interviewed --> interested: 状态回撤
+    interviewed --> mentor_assigned: 状态回撤
+    interviewed --> submitted: 状态回撤
+    submitted --> recommended: 状态回撤
+    submitted --> interested: 状态回撤
+    submitted --> mentor_assigned: 状态回撤
+    mentor_assigned --> recommended: 状态回撤
+    mentor_assigned --> interested: 状态回撤
+    interested --> recommended: 状态回撤
     
     not_interested --> [*]
     rejected --> [*]
     got_offer --> [*]
-    withdrawn --> [*]
 ```
 
 **状态说明**：
@@ -115,7 +133,6 @@ stateDiagram-v2
 - **interviewed**: 学生已参加面试
 - **got_offer**: 学生获得工作Offer
 - **rejected**: 申请被拒绝
-- **withdrawn**: 学生主动撤回申请
 
 **状态转换约束**：
 - **recommended → interested/not_interested**: 学生决策阶段，二选一
@@ -123,7 +140,7 @@ stateDiagram-v2
 - **mentor_assigned → submitted/rejected**: 导师评估结果
 - **submitted → interviewed/rejected**: 企业简历筛选结果
 - **interviewed → got_offer/rejected**: 面试结果
-- 部分状态可转换为withdrawn（学生主动撤回）
+- 支持状态回撤功能，可安全回退到上一个有效状态，通过`rollbackApplicationStatus`方法实现
 
 **关键状态转换规则**：
 | 转换路径 | 触发条件 | 权限要求 | 业务规则 |
@@ -137,12 +154,8 @@ stateDiagram-v2
 | **submitted → rejected** | 企业拒绝简历 | 系统 | 需记录拒绝原因 |
 | **interviewed → got_offer** | 企业发放Offer | 系统 | 需记录Offer详情 |
 | **interviewed → rejected** | 面试未通过 | 系统 | 需记录拒绝原因 |
-| **recommended → withdrawn** | 学生主动撤回 | 学生 | 推荐阶段可撤回 |
-| **interested → withdrawn** | 学生主动撤回 | 学生 | 感兴趣阶段可撤回 |
-| **mentor_assigned → withdrawn** | 学生主动撤回 | 学生 | 导师分配后可撤回 |
-| **submitted → withdrawn** | 学生主动撤回 | 学生 | 正式提交后可撤回 |
-| **interviewed → withdrawn** | 学生主动撤回 | 学生 | 面试阶段可撤回 |
-| **got_offer → withdrawn** | 学生主动撤回 | 学生 | 获得Offer后可撤回 |
+| **状态回撤** | 学生/管理员发起 | 学生/管理员 | 可回退到上一个有效状态，保留完整历史记录 |
+
 
 **四种投递类型差异化处理**：
 
@@ -188,130 +201,54 @@ CREATE TABLE recommended_jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(200) NOT NULL COMMENT '岗位标题',
     company_name VARCHAR(200) NOT NULL COMMENT '公司名称',
+    company_name_normalized VARCHAR(200) COMMENT '标准化公司名称',
+    location VARCHAR(200) COMMENT '地点',
+    salary_range VARCHAR(100) COMMENT '薪资范围',
     
     -- 岗位详情
     description TEXT COMMENT '岗位描述',
-    requirements JSONB COMMENT '岗位要求（技能、经验等）',
+    requirements VARCHAR[] COMMENT '岗位要求（技能、经验等）',
+    benefits VARCHAR[] COMMENT '福利',
+    skills_required VARCHAR[] COMMENT '所需技能',
     responsibilities TEXT COMMENT '岗位职责',
     
     -- 分类信息
     job_type VARCHAR(50) COMMENT '岗位类型（fulltime/internship/contract）',
     experience_level VARCHAR(50) COMMENT '经验等级（entry/mid/senior/executive）',
     industry VARCHAR(100) COMMENT '行业分类',
+    department VARCHAR(100) COMMENT '部门',
+    employment_type VARCHAR(50) COMMENT '雇佣类型',
     
-    -- 地点信息
-    locations JSONB COMMENT '工作地点列表（支持多个国家城市）',
-    /* JSON结构示例：
-    [
-      {
-        "city": "New York",
-        "state": "NY", 
-        "country": "USA",
-        "address": "123 Broadway, New York, NY 10001",
-        "is_primary": true
-      },
-      {
-        "city": "London",
-        "state": "England",
-        "country": "UK", 
-        "address": "456 Oxford Street, London W1C 1JG",
-        "is_primary": false
-      }
-    ]
-    */
+    -- 远程类型
     remote_type VARCHAR(50) COMMENT '远程类型（onsite/remote/hybrid）',
     
-    -- 薪资信息
-    salary_min DECIMAL(10,2) COMMENT '最低薪资',
-    salary_max DECIMAL(10,2) COMMENT '最高薪资',
-    salary_currency VARCHAR(10) COMMENT '薪资货币',
-    
     -- 状态管理
-    status VARCHAR(50) NOT NULL DEFAULT 'draft' COMMENT '岗位状态',
-    
-    -- 时间戳
-    posted_date DATE COMMENT '发布日期',
-    expiry_date DATE COMMENT '过期日期',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+    status VARCHAR(50) NOT NULL DEFAULT 'active' COMMENT '岗位状态',
+    duplicate_check_status VARCHAR(50) COMMENT '重复检查状态',
+    duplicate_confidence_score DECIMAL(3,2) COMMENT '重复置信度分数',
     
     -- 业务字段
     source VARCHAR(100) NOT NULL COMMENT '数据来源',
-    job_source VARCHAR(20) NOT NULL COMMENT '岗位来源（web/bd）',
     source_url TEXT COMMENT '原始链接',
-    source_job_id VARCHAR(100) COMMENT '原始平台岗位ID',
-    view_count INTEGER DEFAULT 0 COMMENT '查看次数',
-    application_count INTEGER DEFAULT 0 COMMENT '申请次数',
-    quality_score DECIMAL(3,2) COMMENT '岗位质量评分（0-1）',
+    external_id VARCHAR(100) COMMENT '外部ID',
     
-    -- AI分析结果（新增）
-    ai_analysis JSONB COMMENT 'AI分析结果',
-    /* JSON结构示例：
-    {
-      "required_skills": [
-        {
-          "skill": "Outside sales / Sales",
-          "YOP": 1,
-          "category": "core"
-        }
-      ],
-      "h1b": "NA",
-      "h1b_evidence": "",
-      "us_citizenship": "NA", 
-      "us_citizenship_evidence": "",
-      "minimum_educational_requirement": "NA",
-      "minimum_educational_requirement_evidence": "",
-      "job_responsibilities": ["职责1", "职责2"],
-      "industry": "Automotive Retail / Auto Dealership",
-      "domain": "Sales / Retail Sales",
-      "field": "Automotive Sales",
-      "experience_level": "entry_level",
-      "experience_level_evidence": "相关证据文本",
-      "matched_job_titles": [
-        {
-          "job_title": "Sales",
-          "score": 100
-        }
-      ],
-      "location": ["Hallstead, PA 18822"],
-      "salary_analysis": {
-        "estimated_range": "$60,000 - $100,000+",
-        "type": "uncapped"
-      }
-    }
-    */
+    -- 时间戳
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '创建时间',
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '更新时间',
+    created_by UUID COMMENT '创建人',
+    updated_by UUID COMMENT '更新人',
+    version INTEGER DEFAULT 1 NOT NULL COMMENT '版本',
     
     -- 约束
     CONSTRAINT idx_company_title UNIQUE(company_name, title),
-    CONSTRAINT idx_source_job_unique UNIQUE(source, source_job_id),
-    CONSTRAINT idx_job_source CHECK (job_source IN ('web', 'bd')),
-    CONSTRAINT idx_status_active CHECK (status IN ('active', 'inactive', 'expired')),
-    CONSTRAINT chk_salary_range CHECK (salary_min IS NULL OR salary_max IS NULL OR salary_min <= salary_max),
-    CONSTRAINT chk_posted_expiry CHECK (posted_date IS NULL OR expiry_date IS NULL OR posted_date <= expiry_date)
+    CONSTRAINT idx_status_active CHECK (status IN ('active', 'inactive', 'expired'))
 );
 
 -- 核心查询索引
-CREATE INDEX idx_recommended_jobs_status ON recommended_jobs(status) WHERE status = 'active';
+CREATE INDEX idx_recommended_jobs_status ON recommended_jobs(status);
 CREATE INDEX idx_recommended_jobs_company ON recommended_jobs(company_name);
-CREATE INDEX idx_recommended_jobs_job_source ON recommended_jobs(job_source);
-CREATE INDEX idx_recommended_jobs_location ON recommended_jobs USING gin((locations->>'city'), (locations->>'country'));
-CREATE INDEX idx_recommended_jobs_salary ON recommended_jobs(salary_min, salary_max);
-CREATE INDEX idx_recommended_jobs_type_level ON recommended_jobs(job_type, experience_level);
-CREATE INDEX idx_recommended_jobs_posted_date ON recommended_jobs(posted_date DESC);
-CREATE INDEX idx_recommended_jobs_quality ON recommended_jobs(quality_score DESC) WHERE status = 'active';
-
--- GIN索引支持全文搜索
-CREATE INDEX idx_recommended_jobs_search ON recommended_jobs USING gin(to_tsvector('english', title || ' ' || description));
-
--- 标签索引
-CREATE INDEX idx_recommended_jobs_tags ON recommended_jobs USING gin(tags);
-CREATE INDEX idx_recommended_jobs_skills ON recommended_jobs USING gin(skills_required);
-
--- AI分析复合索引（减少冗余，提高查询效率）
-CREATE INDEX idx_recommended_jobs_ai_composite ON recommended_jobs USING gin((ai_analysis->'industry'), (ai_analysis->'domain'), (ai_analysis->'experience_level'));
-CREATE INDEX idx_recommended_jobs_ai_skills ON recommended_jobs USING gin((ai_analysis->'required_skills'));
-CREATE INDEX idx_recommended_jobs_ai_location ON recommended_jobs USING gin((ai_analysis->'location'));
-CREATE INDEX idx_recommended_jobs_source_job_id ON recommended_jobs(source_job_id);
+CREATE INDEX idx_recommended_jobs_title ON recommended_jobs(title);
+CREATE INDEX idx_recommended_jobs_created_at ON recommended_jobs(created_at);
 ```
 
 #### 5.2 投递申请表结构（job_applications）
@@ -320,8 +257,8 @@ CREATE INDEX idx_recommended_jobs_source_job_id ON recommended_jobs(source_job_i
 CREATE TABLE job_applications (
     -- 基础信息
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    student_id UUID NOT NULL COMMENT '学生ID（字符串引用，不建外键）',
-    job_id UUID NOT NULL REFERENCES recommended_jobs(id) COMMENT '岗位ID（外键引用recommended_jobs）',
+    student_id VARCHAR(36) NOT NULL COMMENT '学生ID（字符串引用，不建外键）',
+    job_id UUID NOT NULL REFERENCES recommended_jobs(id) ON DELETE CASCADE COMMENT '岗位ID（外键引用recommended_jobs）',
 
     -- 申请信息
     application_type VARCHAR(50) NOT NULL COMMENT '申请类型（direct/mentor_referral/bd_referral/counselor_assisted）',
@@ -344,20 +281,22 @@ CREATE TABLE job_applications (
     */
     
     -- 结果记录
-    result VARCHAR(50) COMMENT '申请结果（rejected/withdrawn）',
+    result VARCHAR(50) COMMENT '申请结果（rejected）',
+    result_reason TEXT COMMENT '结果原因',
     result_date DATE COMMENT '结果日期',
     
     -- 时间戳
-    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '提交时间',
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+    submitted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '提交时间',
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '更新时间',
     
     -- 业务字段
-    is_urgent BOOLEAN DEFAULT FALSE COMMENT '是否加急申请',
+    is_urgent BOOLEAN DEFAULT FALSE NOT NULL COMMENT '是否加急申请',
+    notes TEXT COMMENT '内部备注',
     
     -- 约束
     CONSTRAINT idx_student_job UNIQUE(student_id, job_id),
-    CONSTRAINT idx_application_status CHECK (status IN ('recommended', 'interested', 'not_interested', 'mentor_assigned', 'submitted', 'interviewed', 'got_offer', 'rejected', 'withdrawn')),
-    CONSTRAINT idx_application_result CHECK (result IN ('rejected', 'withdrawn'))
+    CONSTRAINT idx_application_status CHECK (status IN ('recommended', 'interested', 'not_interested', 'mentor_assigned', 'submitted', 'interviewed', 'got_offer', 'rejected')),
+    CONSTRAINT idx_application_result CHECK (result IN ('rejected'))
 );
 
 -- 核心查询索引
@@ -365,7 +304,7 @@ CREATE INDEX idx_job_applications_student ON job_applications(student_id);
 CREATE INDEX idx_job_applications_job ON job_applications(job_id);
 CREATE INDEX idx_job_applications_status ON job_applications(status);
 CREATE INDEX idx_job_applications_type ON job_applications(application_type);
-CREATE INDEX idx_job_applications_submitted ON job_applications(submitted_at DESC);
+CREATE INDEX idx_job_applications_submitted ON job_applications(submitted_at);
 ```
 
 #### 5.3 申请历史记录表结构（application_history）
@@ -374,28 +313,28 @@ CREATE INDEX idx_job_applications_submitted ON job_applications(submitted_at DES
 CREATE TABLE application_history (
     -- 基础信息
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    application_id UUID NOT NULL REFERENCES job_applications(id) COMMENT '申请ID（外键引用job_applications）',
+    application_id UUID NOT NULL REFERENCES job_applications(id) ON DELETE CASCADE COMMENT '申请ID（外键引用job_applications）',
     
     -- 状态变更
     previous_status VARCHAR(50) COMMENT '之前状态',
     new_status VARCHAR(50) NOT NULL COMMENT '新状态',
     
     -- 变更信息
-    changed_by UUID COMMENT '变更人ID（系统或用户）',
+    changed_by VARCHAR(36) COMMENT '变更人ID（系统或用户）',
     changed_by_type VARCHAR(50) COMMENT '变更人类型（system/student/mentor/bd/counselor）',
     change_reason TEXT COMMENT '变更原因',
     change_metadata JSONB COMMENT '变更元数据（面试安排、Offer详情等）',
     
     -- 时间戳
-    changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '变更时间',
+    changed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '变更时间',
     
-    -- 索引
-    CONSTRAINT idx_application_history_status CHECK (new_status IN ('recommended', 'interested', 'not_interested', 'mentor_assigned', 'submitted', 'interviewed', 'got_offer', 'rejected', 'withdrawn'))
+    -- 约束
+    CONSTRAINT idx_application_history_status CHECK (new_status IN ('recommended', 'interested', 'not_interested', 'mentor_assigned', 'submitted', 'interviewed', 'got_offer', 'rejected'))
 );
 
 -- 查询索引
 CREATE INDEX idx_application_history_application ON application_history(application_id);
-CREATE INDEX idx_application_history_changed_at ON application_history(changed_at DESC);
+CREATE INDEX idx_application_history_changed_at ON application_history(changed_at);
 CREATE INDEX idx_application_history_status_change ON application_history(previous_status, new_status);
 ```
 
@@ -455,33 +394,7 @@ erDiagram
 
 ## 5. 领域事件
 
-### 5.1 岗位相关事件
-
-```typescript
-// 岗位创建事件
-export const JOB_POSITION_CREATED_EVENT = "placement.position.created"
-export interface JobPositionCreatedEvent {
-  positionId: string
-  title: string
-  companyName: string
-  jobSource: JobSource
-  locations: JobLocation[]
-  sourceJobId?: string
-  aiAnalysis?: AIAnalysis
-  createdBy: string
-}
-
-// 岗位状态变更事件
-export const JOB_POSITION_STATUS_CHANGED_EVENT = "placement.position.status_changed"
-export interface JobPositionStatusChangedEvent {
-  positionId: string
-  previousStatus: PositionStatus
-  newStatus: PositionStatus
-  changedBy: string
-}
-```
-
-### 5.2 投递相关事件
+### 5.1 投递相关事件
 
 ```typescript
 // 投递申请事件
@@ -490,16 +403,29 @@ export interface JobApplicationSubmittedEvent {
   applicationId: string
   studentId: string
   positionId: string
-  applicationType: ApplicationType
+  applicationType: "direct" | "counselor_assisted" | "mentor_referral" | "bd_referral"
+  submittedAt: string
 }
 
 // 投递状态变更事件
 export const JOB_APPLICATION_STATUS_CHANGED_EVENT = "placement.application.status_changed"
 export interface JobApplicationStatusChangedEvent {
   applicationId: string
-  previousStatus: ApplicationStatus
-  newStatus: ApplicationStatus
+  previousStatus: "recommended" | "interested" | "not_interested" | "mentor_assigned" | "submitted" | "interviewed" | "got_offer" | "rejected"
+  newStatus: "recommended" | "interested" | "not_interested" | "mentor_assigned" | "submitted" | "interviewed" | "got_offer" | "rejected"
+  changedBy?: string
   changedAt: string
+  changeMetadata?: {
+    interviewDate?: string
+    interviewLocation?: string
+    offerDetails?: {
+      salary?: string
+      startDate?: string
+      offerExpiryDate?: string
+    }
+    rejectionReason?: string
+    withdrawalReason?: string
+  }
 }
 
 // 内推导师评估事件
@@ -511,41 +437,10 @@ export interface MentorScreeningCompletedEvent {
     technicalSkills: number
     experienceMatch: number
     culturalFit: number
-    overallRecommendation: 'strongly_recommend' | 'recommend' | 'neutral' | 'not_recommend'
+    overallRecommendation: "strongly_recommend" | "recommend" | "neutral" | "not_recommend"
     screeningNotes?: string
   }
   evaluatedAt: string
-}
-
-// 岗位过期标记事件
-export const JOB_POSITION_EXPIRED_EVENT = "placement.position.expired"
-export interface JobPositionExpiredEvent {
-  positionId: string
-  expiredBy: string
-  expiredByType: 'student' | 'mentor' | 'counselor' | 'bd'
-  expiredAt: string
-}
-
-// 核心类型定义
-export type JobSource = 'web' | 'bd'
-
-export interface JobLocation {
-  city: string
-  state?: string
-  country: string
-  is_primary: boolean
-}
-
-export interface AIAnalysis {
-  required_skills: Array<{
-    skill: string
-    YOP: number
-    category: 'core' | 'preferred' | 'optional'
-  }>
-  industry: string
-  domain: string
-  field: string
-  location: string[]
 }
 ```
 
@@ -628,47 +523,153 @@ supabase_execute_sql
 ```typescript
 // 核心schema定义（完整实现见 src/infrastructure/database/schema/placement.schema.ts）
 
-import { pgTable, uuid, varchar, timestamp, jsonb, pgEnum } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { pgTable, uuid, varchar, text, decimal, timestamp, jsonb, integer, boolean, date, pgEnum, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { APPLICATION_STATUSES } from "@domains/placement/types/application-status.types";
 
-// 枚举定义（3个核心状态）
+// 枚举定义
+// 岗位状态枚举
 export const jobStatusEnum = pgEnum("job_status", ["active", "inactive", "expired"]);
-export const applicationStatusEnum = pgEnum("application_status", [
-  "submitted", "screening", "interview", "offer", "hired", "rejected", "withdrawn", "declined"
-]);
+// 投递状态枚举（从APPLICATION_STATUSES常量导入）
+export const applicationStatusEnum = pgEnum("application_status", APPLICATION_STATUSES);
+// 投递类型枚举
 export const applicationTypeEnum = pgEnum("application_type", [
   "direct", "counselor_assisted", "mentor_referral", "bd_referral"
 ]);
+// 变更人类型枚举
+export const changedByTypeEnum = pgEnum("changed_by_type", [
+  "system", "student", "mentor", "bd", "counselor"
+]);
+// 整体推荐度枚举
+export const overallRecommendationEnum = pgEnum("overall_recommendation_enum", [
+  "strongly_recommend", "recommend", "neutral", "not_recommend"
+]);
+// 结果枚举
+export const resultEnum = pgEnum("result_enum", ["rejected"]);
 
-// 核心表结构（含索引配置）
+// 推荐岗位表
 export const recommendedJobs = pgTable("recommended_jobs", {
+  // 主键
   id: uuid("id").defaultRandom().primaryKey(),
-  title: varchar("title", { length: 200 }).notNull(),
-  companyName: varchar("company_name", { length: 200 }).notNull(),
-  status: jobStatusEnum("status").notNull().default("active"),
-  locations: jsonb("locations"),
-  aiAnalysis: jsonb("ai_analysis"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-}, (table) => ({
-  companyTitleUnique: uniqueIndex("idx_company_title").on(table.companyName, table.title),
-  statusActiveIdx: index("idx_recommended_jobs_status_active").on(table.status).where(sql\`\${table.status} = 'active'\`),
-}));
 
+  // 基础信息
+  title: varchar("title", { length: 200 }).notNull(), // 岗位标题
+  companyName: varchar("company_name", { length: 200 }).notNull(), // 公司名称
+  companyNameNormalized: varchar("company_name_normalized", { length: 200 }), // 标准化公司名称
+  location: varchar("location", { length: 200 }), // 地点
+  salaryRange: varchar("salary_range", { length: 100 }), // 薪资范围
+
+  // 岗位详情
+  description: text("description"), // 岗位描述
+  requirements: varchar("requirements").array(), // 岗位要求
+  benefits: varchar("benefits").array(), // 福利
+  skillsRequired: varchar("skills_required").array(), // 所需技能
+  responsibilities: text("responsibilities"), // 岗位职责
+
+  // 分类信息
+  jobType: varchar("job_type", { length: 50 }), // 岗位类型
+  experienceLevel: varchar("experience_level", { length: 50 }), // 经验等级
+  industry: varchar("industry", { length: 100 }), // 行业分类
+  department: varchar("department", { length: 100 }), // 部门
+  employmentType: varchar("employment_type", { length: 50 }), // 雇佣类型
+
+  // 远程类型
+  remoteType: varchar("remote_type", { length: 50 }), // 远程类型
+
+  // 状态管理
+  status: varchar("status", { length: 50 }).notNull().default("active"), // 岗位状态
+  duplicateCheckStatus: varchar("duplicate_check_status", { length: 50 }), // 重复检查状态
+  duplicateConfidenceScore: decimal("duplicate_confidence_score", { precision: 3, scale: 2 }), // 重复置信度分数
+
+  // 业务字段
+  source: varchar("source", { length: 100 }).notNull(), // 数据来源
+  sourceUrl: text("source_url"), // 原始链接
+  externalId: varchar("external_id", { length: 100 }), // 外部ID
+
+  // 时间戳
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(), // 创建时间
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(), // 更新时间
+  createdBy: uuid("created_by"), // 创建人
+  updatedBy: uuid("updated_by"), // 更新人
+  version: integer("version").default(1).notNull(), // 版本
+}, (table) => [
+  // 核心查询索引
+  index("idx_recommended_jobs_status").on(table.status),
+  index("idx_recommended_jobs_company").on(table.companyName),
+  index("idx_recommended_jobs_title").on(table.title),
+  index("idx_recommended_jobs_created_at").on(table.createdAt),
+]);
+
+// 投递申请表
 export const jobApplications = pgTable("job_applications", {
+  // 主键
   id: uuid("id").defaultRandom().primaryKey(),
-  studentId: varchar("student_id", { length: 36 }).notNull(), // 字符串引用（跨域）
-  jobId: uuid("job_id").notNull().references(() => recommendedJobs.id), // 域内外键
-  status: applicationStatusEnum("status").notNull().default("submitted"),
-  submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
-}, (table) => ({
-  studentJobUnique: uniqueIndex("idx_student_job").on(table.studentId, table.jobId),
-}));
 
+  // 基础信息
+  studentId: varchar("student_id", { length: 36 }).notNull(), // 学生ID
+  jobId: uuid("job_id").notNull().references(() => recommendedJobs.id, { onDelete: "cascade" }), // 岗位ID
+
+  // 申请信息
+  applicationType: applicationTypeEnum("application_type").notNull(), // 申请类型
+  coverLetter: text("cover_letter"), // 求职信
+  customAnswers: jsonb("custom_answers"), // 自定义问题回答
+
+  // 状态管理
+  status: applicationStatusEnum("status").notNull().default("submitted"), // 申请状态
+
+  // 内推导师评估信息
+  mentorScreening: jsonb("mentor_screening"), // 导师评估信息
+
+  // 结果记录
+  result: resultEnum("result"), // 申请结果
+  resultReason: text("result_reason"), // 结果原因
+  resultDate: date("result_date"), // 结果日期
+
+  // 时间戳
+  submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(), // 提交时间
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(), // 更新时间
+
+  // 业务字段
+  isUrgent: boolean("is_urgent").default(false).notNull(), // 是否加急申请
+  notes: text("notes"), // 内部备注
+}, (table) => [
+  // 唯一约束
+  uniqueIndex("idx_student_job").on(table.studentId, table.jobId),
+
+  // 核心查询索引
+  index("idx_job_applications_student").on(table.studentId),
+  index("idx_job_applications_job").on(table.jobId),
+  index("idx_job_applications_status").on(table.status),
+  index("idx_job_applications_type").on(table.applicationType),
+  index("idx_job_applications_submitted").on(table.submittedAt),
+]);
+
+// 申请历史记录表
 export const applicationHistory = pgTable("application_history", {
+  // 主键
   id: uuid("id").defaultRandom().primaryKey(),
-  applicationId: uuid("application_id").notNull().references(() => jobApplications.id),
-  newStatus: applicationStatusEnum("new_status").notNull(),
-  changedAt: timestamp("changed_at", { withTimezone: true }).defaultNow().notNull(),
-});
+
+  // 申请信息
+  applicationId: uuid("application_id").notNull().references(() => jobApplications.id, { onDelete: "cascade" }), // 申请ID
+
+  // 状态变更
+  previousStatus: applicationStatusEnum("previous_status"), // 之前状态
+  newStatus: applicationStatusEnum("new_status").notNull(), // 新状态
+
+  // 变更信息
+  changedBy: varchar("changed_by", { length: 36 }), // 变更人ID
+  changedByType: changedByTypeEnum("changed_by_type"), // 变更人类型
+  changeReason: text("change_reason"), // 变更原因
+  changeMetadata: jsonb("change_metadata"), // 变更元数据
+
+  // 时间戳
+  changedAt: timestamp("changed_at", { withTimezone: true }).defaultNow().notNull(), // 变更时间
+}, (table) => [
+  // 核心查询索引
+  index("idx_application_history_application").on(table.applicationId),
+  index("idx_application_history_changed_at").on(table.changedAt),
+  index("idx_application_history_status_change").on(table.previousStatus, table.newStatus),
+]);
 ```
 
 **完整实现**: 参考 `src/infrastructure/database/schema/placement.schema.ts`
@@ -735,6 +736,7 @@ export const applicationHistory = pgTable("application_history", {
 | `submitApplication(dto)` | `ISubmitApplicationDto` | `IServiceResult<Record<string, any>, Record<string, any>>` | 提交投递申请 |
 | `submitMentorScreening(dto)` | `any` | `IServiceResult<Record<string, any>, Record<string, any>>` | 提交导师评估 |
 | `updateApplicationStatus(dto)` | `IUpdateApplicationStatusDto` | `IServiceResult<Record<string, any>, Record<string, any>>` | 更新投递状态 |
+| `rollbackApplicationStatus(applicationId, changedBy)` | `string, string` | `IServiceResult<Record<string, any>, Record<string, any>>` | 回撤申请状态到上一个状态 |
 | `search(filter, pagination, sort)` | `IJobApplicationSearchFilter, IPaginationQuery, ISortQuery` | `{items: Record<string, any>[], total: number, offset: number, limit: number}` | 搜索投递申请 |
 | `findOne(params)` | `{id?, studentId?, jobId?, status?, applicationType?}` | `Record<string, any>` | 根据条件获取投递申请 |
 | `getStatusHistory(applicationId)` | `string` | `Array<Record<string, any>>` | 获取投递状态历史 |

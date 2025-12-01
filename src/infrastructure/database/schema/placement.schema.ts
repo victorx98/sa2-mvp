@@ -48,7 +48,7 @@ export const overallRecommendationEnum = pgEnum("overall_recommendation_enum", [
 ]);
 
 // Result enum [结果枚举]
-export const resultEnum = pgEnum("result_enum", ["hired", "rejected", "withdrawn", "declined"]);
+export const resultEnum = pgEnum("result_enum", ["rejected"]);
 
 /**
  * Recommended jobs table [推荐岗位表]

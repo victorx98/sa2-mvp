@@ -1,10 +1,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigModule } from "@nestjs/config";
-import { NotFoundException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { JobApplicationService } from "./job-application.service";
 import { ISubmitApplicationDto, IUpdateApplicationStatusDto } from "../dto";
 import { randomUUID } from "crypto";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
 /**
  * Unit Tests for JobApplicationService
@@ -35,9 +36,12 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
           from: jest.fn(() => {
             return {
               where: jest.fn(() => {
-                // Return a promise that resolves to an empty array
-                // This allows destructuring like const [application] = await ...
-                return Promise.resolve([]);
+                return {
+                  // Support chaining orderBy after where
+                  orderBy: jest.fn(() => Promise.resolve([])),
+                  // Support await on the result
+                  then: jest.fn((resolve) => resolve([]))
+                };
               }),
               limit: jest.fn(() => {
                 return {
@@ -79,6 +83,12 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         {
           provide: DATABASE_CONNECTION,
           useValue: mockDb,
+        },
+        {
+          provide: EventEmitter2,
+          useValue: {
+            emit: jest.fn(),
+          },
         },
         JobApplicationService,
       ],
@@ -224,7 +234,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         studentId: testStudentId,
         jobId: testJobId,
         applicationType: "mentor_referral",
-        status: "submitted",
+        status: "mentor_assigned",
       };
 
       const updatedApplication = {
@@ -350,7 +360,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act & Assert [执行和断言]
-      await expect(jobApplicationService.submitMentorScreening(dto)).rejects.toThrow(/only be submitted for applications in submitted status/);
+      await expect(jobApplicationService.submitMentorScreening(dto)).rejects.toThrow(/only be submitted for applications in mentor_assigned status/);
     });
   });
 
@@ -801,6 +811,168 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Assert [断言]
       expect(result).toEqual(mockHistory);
       expect(mockDb.select).toHaveBeenCalled();
+    });
+  });
+
+  describe("rollbackApplicationStatus() [回撤申请状态到上一个状态]", () => {
+    it("should rollback application status successfully [应该成功回撤申请状态]", async () => {
+      // Arrange [准备]
+      const mockApplication = {
+        id: testApplicationId,
+        studentId: testStudentId,
+        jobId: testJobId,
+        status: "interviewed",
+      };
+
+      const statusHistory = [
+        {
+          id: randomUUID(),
+          applicationId: testApplicationId,
+          previousStatus: null,
+          newStatus: "submitted",
+          changedBy: testStudentId,
+          changedByType: "student",
+          changeReason: "Initial submission",
+          changedAt: new Date(Date.now() - 30000),
+        },
+        {
+          id: randomUUID(),
+          applicationId: testApplicationId,
+          previousStatus: "submitted",
+          newStatus: "interviewed",
+          changedBy: testMentorId,
+          changedByType: "mentor",
+          changeReason: "Moving to interview",
+          changedAt: new Date(),
+        },
+      ];
+
+      const updatedApplication = {
+        ...mockApplication,
+        status: "submitted",
+        result: null,
+        resultDate: null,
+      };
+
+      // Mock database operations
+      mockDb.select = jest.fn((columns?: any) => {
+        if (columns && columns.count) {
+          return {
+            from: jest.fn(() => ({
+              where: jest.fn(() => {
+                return Promise.resolve([{ count: 1 }]);
+              }),
+            })),
+          };
+        }
+        return {
+          from: jest.fn(() => ({
+            where: jest.fn(() => {
+              // Return an object that supports both direct await and orderBy chaining
+              return {
+                // For status history query with orderBy
+                orderBy: jest.fn(() => {
+                  return Promise.resolve(statusHistory);
+                }),
+                // For direct await (application existence check)
+                then: jest.fn((resolve) => {
+                  resolve([mockApplication]);
+                })
+              };
+            }),
+            orderBy: jest.fn(() => {
+              return Promise.resolve(statusHistory);
+            }),
+          })),
+        };
+      });
+
+      mockDb.update = jest.fn(() => ({
+        set: jest.fn(() => ({
+          where: jest.fn(() => ({
+            returning: jest.fn().mockResolvedValue([updatedApplication]),
+          })),
+        })),
+      }));
+
+      mockDb.insert = jest.fn(() => ({
+        values: jest.fn(() => ({
+          returning: jest.fn().mockResolvedValue([]),
+        })),
+      }));
+
+      // Act [执行]
+      const result = await jobApplicationService.rollbackApplicationStatus(testApplicationId, testStudentId);
+
+      // Assert [断言]
+      expect(result.data).toEqual(updatedApplication);
+      expect(result.event).toBeDefined();
+      expect(result.event?.type).toBe("placement.application.status_changed");
+      expect(mockDb.update).toHaveBeenCalled();
+      expect(mockDb.insert).toHaveBeenCalled();
+    });
+
+    it("should throw error if application not found [如果申请未找到应该抛出错误]", async () => {
+      // Arrange [准备]
+      mockDb.select = jest.fn(() => ({
+        from: jest.fn(() => ({
+          where: jest.fn(() => {
+            return Promise.resolve([]);
+          }),
+          orderBy: jest.fn(() => {
+            return Promise.resolve([]);
+          }),
+        })),
+      }));
+
+      // Act & Assert [执行和断言]
+      await expect(jobApplicationService.rollbackApplicationStatus(testApplicationId, testStudentId)).rejects.toThrow(NotFoundException);
+    });
+
+    it("should throw error if insufficient status history [如果状态历史不足应该抛出错误]", async () => {
+      // Arrange [准备]
+      const mockApplication = {
+        id: testApplicationId,
+        studentId: testStudentId,
+        jobId: testJobId,
+        status: "submitted",
+      };
+
+      const statusHistory = [
+        {
+          id: randomUUID(),
+          applicationId: testApplicationId,
+          previousStatus: null,
+          newStatus: "submitted",
+          changedBy: testStudentId,
+          changedByType: "student",
+          changeReason: "Initial submission",
+          changedAt: new Date(),
+        },
+      ];
+
+      mockDb.select = jest.fn(() => ({
+        from: jest.fn(() => ({
+          where: jest.fn(() => {
+            // Return an object that supports orderBy chaining for status history query
+            return {
+              orderBy: jest.fn(() => {
+                return Promise.resolve(statusHistory);
+              }),
+              // For direct await (application existence check)
+              then: jest.fn((resolve) => {
+                resolve([mockApplication]);
+              })
+            };
+          }),
+          orderBy: jest.fn(() => {
+            return Promise.resolve(statusHistory);
+          }),
+        })),
+      }));
+
+      // Act & Assert [执行和断言]
+      await expect(jobApplicationService.rollbackApplicationStatus(testApplicationId, testStudentId)).rejects.toThrow(BadRequestException);
     });
   });
 });

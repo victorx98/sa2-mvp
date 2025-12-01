@@ -10,8 +10,7 @@ export const APPLICATION_STATUSES = [
   "submitted",
   "interviewed",
   "got_offer",
-  "rejected",
-  "withdrawn"
+  "rejected"
 ] as const;
 
 /**
@@ -33,8 +32,7 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   submitted: "已提交",
   interviewed: "已面试",
   got_offer: "已拿到Offer",
-  rejected: "已拒绝",
-  withdrawn: "已撤回"
+  rejected: "已拒绝"
 };
 
 /**
@@ -47,6 +45,6 @@ export const ALLOWED_APPLICATION_STATUS_TRANSITIONS: Partial<
   mentor_assigned: ["submitted", "rejected"],
   interviewed: ["got_offer", "rejected"],
   recommended: ["interested", "not_interested"],
-  interested: ["mentor_assigned", "withdrawn"],
-  not_interested: ["interested", "withdrawn"],
+  interested: ["mentor_assigned"],
+  not_interested: ["interested"],
 };

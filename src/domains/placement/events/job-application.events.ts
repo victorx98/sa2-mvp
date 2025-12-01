@@ -34,8 +34,7 @@ export interface JobApplicationStatusChangedEvent {
     | "submitted"
     | "interviewed"
     | "got_offer"
-    | "rejected"
-    | "withdrawn"; // Previous status [之前状态]
+    | "rejected"; // Previous status [之前状态]
   newStatus:
     | "recommended"
     | "interested"
@@ -44,8 +43,7 @@ export interface JobApplicationStatusChangedEvent {
     | "submitted"
     | "interviewed"
     | "got_offer"
-    | "rejected"
-    | "withdrawn"; // New status [新状态]
+    | "rejected"; // New status [新状态]
   changedBy?: string; // Changer ID [变更人ID]
   changedAt: string; // Change time [变更时间]
   changeMetadata?: {

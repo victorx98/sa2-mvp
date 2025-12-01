@@ -1,17 +1,18 @@
-import { Test, TestingModule } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { EventEmitter2, EventEmitterModule } from "@nestjs/event-emitter";
-import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
-import { DatabaseModule } from "@infrastructure/database/database.module";
+import { Test } from "@nestjs/testing";
 import { PlacementModule } from "@domains/placement/placement.module";
 import { JobApplicationService } from "@domains/placement/services/job-application.service";
 import { JobPositionService } from "@domains/placement/services/job-position.service";
 import { ISubmitApplicationDto, ISubmitMentorScreeningDto } from "@domains/placement/dto/job-application.dto";
-
+import { DatabaseModule } from "@infrastructure/database/database.module";
+import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import * as schema from "@infrastructure/database/schema";
+
 import { v4 as uuidv4 } from "uuid";
-import { sql } from "drizzle-orm";
+import { TestDatabaseHelper } from "../../utils/test-database.helper";
 
 /**
  * Mentor Referral Flow E2E Tests
@@ -23,7 +24,7 @@ describe("Mentor Referral Flow (e2e)", () => {
   let jobApplicationService: JobApplicationService;
   let jobPositionService: JobPositionService;
   let eventEmitter: EventEmitter2;
-  let db: NodePgDatabase;
+  let testDatabaseHelper: TestDatabaseHelper;
 
   // Test data
   const testStudentId = uuidv4();
@@ -32,46 +33,59 @@ describe("Mentor Referral Flow (e2e)", () => {
   let testApplicationId: string;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
+    // Create a mock event emitter that we can spy on
+    const mockEventEmitter = new EventEmitter2();
+    
+    // Create testing module with all required dependencies
+    const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({
-          envFilePath: ".env",
           isGlobal: true,
-        }),
-        EventEmitterModule.forRoot({
-          wildcard: true,
-          delimiter: ".",
+          envFilePath: ".env",
         }),
         DatabaseModule,
-        PlacementModule,
+        PlacementModule, // Add PlacementModule to access its services
+        EventEmitterModule.forRoot(),
+      ],
+      providers: [
+        // Override the EventEmitter2 provider with our mock instance
+        { provide: EventEmitter2, useValue: mockEventEmitter },
       ],
     }).compile();
 
-    jobApplicationService = moduleFixture.get<JobApplicationService>(JobApplicationService);
-    jobPositionService = moduleFixture.get<JobPositionService>(JobPositionService);
-    eventEmitter = moduleFixture.get<EventEmitter2>(EventEmitter2);
-    db = moduleFixture.get<NodePgDatabase>(DATABASE_CONNECTION);
+    // Initialize test database helper
+    testDatabaseHelper = new TestDatabaseHelper();
+    // Override the moduleRef with our own that includes PlacementModule
+    (testDatabaseHelper as any).moduleRef = moduleRef;
+    (testDatabaseHelper as any).db = moduleRef.get<NodePgDatabase<typeof schema>>(DATABASE_CONNECTION);
 
-    app = moduleFixture.createNestApplication();
+    // Get services from module
+    jobApplicationService = moduleRef.get<JobApplicationService>(JobApplicationService);
+    jobPositionService = moduleRef.get<JobPositionService>(JobPositionService);
+    eventEmitter = mockEventEmitter; // Use our mock event emitter
+
+    // Create nest application
+    app = moduleRef.createNestApplication();
     await app.init();
   });
 
   afterAll(async () => {
-    await app.close();
+    // Close application and database connection
+    if (app) {
+      await app.close();
+    }
+    if (testDatabaseHelper) {
+      await testDatabaseHelper.close();
+    }
   });
 
   beforeEach(async () => {
     // Clean up test data before each test
-    // Note: This requires careful execution order to avoid foreign key constraints
-    try {
-      if (testApplicationId) {
-        await db.execute(sql`DELETE FROM application_history WHERE application_id = ${testApplicationId}`);
-        await db.execute(sql`DELETE FROM job_applications WHERE id = ${testApplicationId}`);
-      }
-      await db.execute(sql`DELETE FROM recommended_jobs WHERE id = ${testJobId}`);
-    } catch (_error) {
-      // Ignore if tables don't exist or data doesn't exist
-    }
+    await testDatabaseHelper.cleanupTables([
+      "application_history",
+      "job_applications",
+      "recommended_jobs"
+    ]);
   });
 
   describe("Mentor Referral Application Submission", () => {

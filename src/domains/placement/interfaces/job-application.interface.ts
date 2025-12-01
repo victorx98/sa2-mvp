@@ -86,4 +86,16 @@ export interface IJobApplicationService {
    * @returns Status history [状态历史]
    */
   getStatusHistory(applicationId: string): Promise<Array<Record<string, any>>>;
+
+  /**
+   * Rollback application status to previous state [回撤申请状态到上一个状态]
+   *
+   * @param applicationId - Application ID [申请ID]
+   * @param changedBy - User ID who initiated the rollback [发起回撤的用户ID]
+   * @returns Service result with updated application and events [带更新申请和事件的服务结果]
+   */
+  rollbackApplicationStatus(
+    applicationId: string,
+    changedBy: string
+  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>>;
 }

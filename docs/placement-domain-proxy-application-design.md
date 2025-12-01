@@ -87,21 +87,20 @@ flowchart TD
 | interviewed | 已面试 | 学生已参加面试 |
 | got_offer | 已拿到Offer | 学生已获得Offer |
 | rejected | 已拒绝 | 申请被拒绝 |
-| withdrawn | 已撤回 | 学生撤回申请 |
+
 
 ### 4.2 状态转换规则
 
 | 当前状态 | 允许转换到的状态 |
 |----------|------------------|
 | recommended | interested, not_interested |
-| interested | mentor_assigned, withdrawn |
-| not_interested | interested, withdrawn |
+| interested | mentor_assigned |
+| not_interested | interested |
 | mentor_assigned | submitted, rejected |
 | submitted | interviewed, rejected |
 | interviewed | got_offer, rejected |
 | got_offer | 无（终态） |
 | rejected | 无（终态） |
-| withdrawn | 无（终态） |
 
 ### 4.3 状态转换验证
 
@@ -115,8 +114,8 @@ export const ALLOWED_APPLICATION_STATUS_TRANSITIONS: Partial<
   mentor_assigned: ["submitted", "rejected"],
   interviewed: ["got_offer", "rejected"],
   recommended: ["interested", "not_interested"],
-  interested: ["mentor_assigned", "withdrawn"],
-  not_interested: ["interested", "withdrawn"],
+  interested: ["mentor_assigned"],
+  not_interested: ["interested"],
 };
 ```
 

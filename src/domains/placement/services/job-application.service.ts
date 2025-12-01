@@ -211,7 +211,7 @@ export class JobApplicationService implements IJobApplicationService {
     }
 
     // Update application status [更新申请状态]
-    const resultStatuses: ApplicationStatus[] = ["rejected", "withdrawn"];
+    const resultStatuses: ApplicationStatus[] = ["rejected"];
     const [updatedApplication] = await this.db
       .update(jobApplications)
       .set({
@@ -403,8 +403,96 @@ export class JobApplicationService implements IJobApplicationService {
    * @param status - Application status [申请状态]
    * @returns Result or null [结果或null]
    */
-  private getResultFromStatus(status: ApplicationStatus): "rejected" | "withdrawn" | null {
-    const resultStatuses: ApplicationStatus[] = ["rejected", "withdrawn"];
+  private getResultFromStatus(status: ApplicationStatus): "rejected" | null {
+    const resultStatuses: ApplicationStatus[] = ["rejected"];
     return resultStatuses.includes(status) ? status as any : null;
+  }
+
+  /**
+   * Rollback application status to previous state [回撤申请状态到上一个状态]
+   *
+   * @param applicationId - Application ID [申请ID]
+   * @param changedBy - User ID who initiated the rollback [发起回撤的用户ID]
+   * @returns Updated application and events [更新后的申请和事件]
+   */
+  async rollbackApplicationStatus(
+    applicationId: string,
+    changedBy: string
+  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>> {
+    this.logger.log(`Rolling back status for application: ${applicationId}`);
+
+    // Get current application [获取当前申请]
+    const [application] = await this.db
+      .select()
+      .from(jobApplications)
+      .where(eq(jobApplications.id, applicationId));
+
+    if (!application) {
+      throw new NotFoundException(`Application not found: ${applicationId}`);
+    }
+
+    // Get status history [获取状态历史]
+    const statusHistory = await this.db
+      .select()
+      .from(applicationHistory)
+      .where(eq(applicationHistory.applicationId, applicationId))
+      .orderBy(applicationHistory.changedAt);
+
+    if (statusHistory.length < 2) {
+      throw new BadRequestException(`Cannot rollback: Application has insufficient status history`);
+    }
+
+    // Get previous status [获取上一个状态]
+    const currentStatus = application.status as ApplicationStatus;
+    const previousStatusRecord = statusHistory[statusHistory.length - 2];
+    const previousStatus = previousStatusRecord.newStatus as ApplicationStatus;
+
+    // Validate status transition [验证状态转换]
+    const allowedTransitions = ALLOWED_APPLICATION_STATUS_TRANSITIONS[previousStatus];
+    if (!allowedTransitions || !allowedTransitions.includes(currentStatus)) {
+      throw new BadRequestException(
+        `Invalid status transition: ${previousStatus} -> ${currentStatus}`
+      );
+    }
+
+    // Update application status [更新申请状态]
+    const resultStatuses: ApplicationStatus[] = ["rejected"];
+    const [updatedApplication] = await this.db
+      .update(jobApplications)
+      .set({
+        status: previousStatus,
+        result: this.getResultFromStatus(previousStatus) as any,
+        resultDate: resultStatuses.includes(previousStatus) ? new Date() : null,
+      } as any)
+      .where(eq(jobApplications.id, applicationId))
+      .returning();
+
+    // Record status change history [记录状态变更历史]
+    await (this.db.insert(applicationHistory).values as any)({
+      applicationId: applicationId,
+      previousStatus: currentStatus,
+      newStatus: previousStatus,
+      changedBy: changedBy,
+      changedByType: "student",
+      changeReason: "Status rolled back",
+    });
+
+    this.logger.log(`Application status rolled back: ${applicationId} from ${currentStatus} to ${previousStatus}`);
+
+    // Publish status changed event [发布状态变更事件]
+    const eventPayload = {
+      applicationId: updatedApplication.id,
+      previousStatus: currentStatus,
+      newStatus: previousStatus,
+      changedBy: changedBy,
+      changedAt: new Date().toISOString(),
+      changeMetadata: null,
+    };
+    this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
+
+    return {
+      data: updatedApplication,
+      event: { type: JOB_APPLICATION_STATUS_CHANGED_EVENT, payload: eventPayload },
+    };
   }
 }

@@ -191,12 +191,10 @@ flowchart TD
     C --> D{状态更新}
     D -->|面试| E[面试]
     D -->|拒绝| F[拒绝]
-    D -->|撤回| G[撤回]
     E -->|Offer| H[拿到Offer]
     E -->|拒绝| F
     H -->|入职| I[结束]
     F --> I
-    G --> I
 ```
 
 ### 4.2 状态流转规则
@@ -204,11 +202,10 @@ flowchart TD
 **海投允许的状态转换**：
 | 当前状态 | 允许转换的状态 |
 |----------|----------------|
-| submitted | interviewed, rejected, withdrawn |
-| interviewed | got_offer, rejected, withdrawn |
-| got_offer | withdrawn |
-| rejected | withdrawn |
-| withdrawn | - |
+| submitted | interviewed, rejected |
+| interviewed | got_offer, rejected |
+| got_offer | - |
+| rejected | - |
 
 ### 4.3 核心业务逻辑
 
@@ -302,8 +299,7 @@ export const SEA_APPLICATION_STATUSES = [
   "submitted",
   "interviewed",
   "got_offer",
-  "rejected",
-  "withdrawn"
+  "rejected"
 ] as const;
 
 export type SeaApplicationStatus = typeof SEA_APPLICATION_STATUSES[number];
@@ -317,8 +313,7 @@ export const SEA_APPLICATION_STATUS_LABELS: Record<SeaApplicationStatus, string>
   submitted: "已提交",
   interviewed: "已面试",
   got_offer: "已拿到Offer",
-  rejected: "已拒绝",
-  withdrawn: "已撤回"
+  rejected: "已拒绝"
 };
 ```
 
@@ -329,11 +324,8 @@ export const SEA_APPLICATION_STATUS_LABELS: Record<SeaApplicationStatus, string>
 export const ALLOWED_SEA_APPLICATION_STATUS_TRANSITIONS: Partial<
   Record<SeaApplicationStatus, SeaApplicationStatus[]>
 > = {
-  submitted: ["interviewed", "rejected", "withdrawn"],
-  interviewed: ["got_offer", "rejected", "withdrawn"],
-  got_offer: ["withdrawn"],
-  rejected: ["withdrawn"],
-  withdrawn: []
+  submitted: ["interviewed", "rejected"],
+  interviewed: ["got_offer", "rejected"]
 };
 ```
 

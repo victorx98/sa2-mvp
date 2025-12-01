@@ -5,6 +5,7 @@ import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider"
 import { JobPositionService } from "./job-position.service";
 import { ICreateJobPositionDto, IMarkJobExpiredDto } from "../dto";
 import { randomUUID } from "crypto";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
 /**
  * Unit Tests for JobPositionService
@@ -136,6 +137,12 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
           provide: DATABASE_CONNECTION,
           useValue: mockDb,
         },
+        {
+          provide: EventEmitter2,
+          useValue: {
+            emit: jest.fn(),
+          },
+        },
         JobPositionService,
       ],
     }).compile();
@@ -185,8 +192,6 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
 
       // Assert [断言]
       expect(result.data).toEqual(createdJob);
-      expect(result.event).toBeDefined();
-      expect(result.event?.type).toBe("placement.position.created");
       expect(mockDb.insert).toHaveBeenCalled();
     });
 
@@ -241,7 +246,6 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
 
       // Assert [断言]
       expect(result.data).toEqual(createdJob);
-      expect(result.event).toBeDefined();
       expect(mockDb.insert).toHaveBeenCalled();
     });
   });
@@ -535,8 +539,6 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
 
       // Assert [断言]
       expect(result.data).toEqual(updatedJob);
-      expect(result.events).toBeDefined();
-      expect(result.events?.length).toBe(2);
       expect(mockDb.update).toHaveBeenCalled();
     });
 
