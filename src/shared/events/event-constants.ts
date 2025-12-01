@@ -24,3 +24,7 @@ export const SETTLEMENT_CONFIRMED_EVENT = "financial.settlement.confirmed";
 export const MENTOR_APPEAL_CREATED_EVENT = "financial.appeal.created";
 export const MENTOR_APPEAL_APPROVED_EVENT = "financial.appeal.approved";
 export const MENTOR_APPEAL_REJECTED_EVENT = "financial.appeal.rejected";
+
+// Placement Application Events (投递申请事件)
+export const JOB_APPLICATION_STATUS_CHANGED_EVENT = "placement.application.status_changed";
+export const JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT = "placement.application.status_rolled_back";

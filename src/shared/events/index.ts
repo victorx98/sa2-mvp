@@ -34,10 +34,13 @@ export type {
 // Placement Application Events
 export {
   JOB_APPLICATION_STATUS_CHANGED_EVENT,
-  ApplicationType,
-} from "./placement-application.events";
+  JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
+} from "./event-constants";
 export type {
-  JobApplicationStatusChangedEvent,
+  IJobApplicationStatusChangedPayload,
+  IJobApplicationStatusChangedEvent,
+  IJobApplicationStatusRolledBackPayload,
+  IJobApplicationStatusRolledBackEvent,
 } from "./placement-application.events";
 
 
