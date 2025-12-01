@@ -130,7 +130,7 @@ describe("Mentor Referral Flow (e2e)", () => {
       expect(result.data.applicationType).toBe(ApplicationType.REFERRAL);
       expect(result.data.status).toBe("recommended");
       expect(result.event).toBeDefined();
-      expect(result.event?.type).toBe("placement.application.submitted");
+      expect(result.event?.type).toBe("placement.application.status_changed");
     }, 30000); // 30s timeout for database operations
 
     it("should submit mentor screening for referral application", async () => {
@@ -204,7 +204,7 @@ describe("Mentor Referral Flow (e2e)", () => {
       expect(mentorScreening?.overallRecommendation).toBe("strongly_recommend");
       expect(screeningResult.event).toBeDefined();
       expect(screeningResult.event?.type).toBe(
-        "placement.mentor_screening.completed",
+        "placement.application.status_changed",
       );
     }, 35000);
 
@@ -570,7 +570,7 @@ describe("Mentor Referral Flow (e2e)", () => {
 
       // Verify event was emitted
       expect(eventSpy).toHaveBeenCalledWith(
-        "placement.application.submitted",
+        "placement.application.status_changed",
         expect.any(Object),
       );
     }, 25000);
@@ -635,10 +635,15 @@ describe("Mentor Referral Flow (e2e)", () => {
 
       await jobApplicationService.submitMentorScreening(screeningDto);
 
-      // Verify event was emitted
+      // Verify status changed event was emitted
       expect(eventSpy).toHaveBeenCalledWith(
-        "placement.mentor_screening.completed",
-        expect.any(Object),
+        "placement.application.status_changed",
+        expect.objectContaining({
+          applicationId: testApplicationId,
+          previousStatus: "mentor_assigned",
+          newStatus: "submitted",
+          changedBy: testMentorId,
+        }),
       );
     }, 30000);
   });

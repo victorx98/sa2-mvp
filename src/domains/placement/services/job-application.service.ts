@@ -14,11 +14,8 @@ import {
   applicationHistory,
 } from "@infrastructure/database/schema";
 import {
-  JOB_APPLICATION_SUBMITTED_EVENT,
   JOB_APPLICATION_STATUS_CHANGED_EVENT,
   JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
-  MENTOR_SCREENING_COMPLETED_EVENT,
-  MentorScreeningCompletedEvent,
 } from "../events";
 import {
   ISubmitApplicationDto,
@@ -103,19 +100,19 @@ export class JobApplicationService implements IJobApplicationService {
 
     // No longer updating application counts in recommended_jobs table [不再更新recommended_jobs表中的申请次数]
 
-    // Publish application submitted event [发布投递申请事件]
+    // Publish application status changed event [发布投递状态变更事件]
     const eventPayload = {
       applicationId: application.id,
-      studentId: application.studentId,
-      positionId: application.jobId,
-      applicationType: application.applicationType,
-      submittedAt: application.submittedAt.toISOString(),
+      previousStatus: null,
+      newStatus: application.status,
+      changedBy: application.studentId,
+      changedAt: application.submittedAt.toISOString(),
     };
-    this.eventEmitter.emit(JOB_APPLICATION_SUBMITTED_EVENT, eventPayload);
+    this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
 
     return {
       data: application,
-      event: { type: JOB_APPLICATION_SUBMITTED_EVENT, payload: eventPayload },
+      event: { type: JOB_APPLICATION_STATUS_CHANGED_EVENT, payload: eventPayload },
     };
   }
 
@@ -193,20 +190,21 @@ export class JobApplicationService implements IJobApplicationService {
       `Mentor screening submitted: ${dto.applicationId}, new status: ${newStatus}`,
     );
 
-    // Build event [构建事件]
-    const event: MentorScreeningCompletedEvent = {
+    // Build job application status changed event [构建投递状态变更事件]
+    const event = {
       applicationId: dto.applicationId,
-      mentorId: dto.mentorId,
-      screeningResult,
-      evaluatedAt: new Date().toISOString(),
+      previousStatus: "mentor_assigned",
+      newStatus: newStatus,
+      changedBy: dto.mentorId,
+      changedAt: new Date().toISOString(),
     };
 
-    // Publish event [发布事件]
-    this.eventEmitter.emit(MENTOR_SCREENING_COMPLETED_EVENT, event);
+    // Publish job application status changed event [发布投递状态变更事件]
+    this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, event);
 
     return {
       data: updatedApplication,
-      event: { type: MENTOR_SCREENING_COMPLETED_EVENT, payload: event },
+      event: { type: JOB_APPLICATION_STATUS_CHANGED_EVENT, payload: event },
     };
   }
 

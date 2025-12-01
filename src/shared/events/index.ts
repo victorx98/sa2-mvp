@@ -33,15 +33,11 @@ export type {
 
 // Placement Application Events
 export {
-  JOB_APPLICATION_SUBMITTED_EVENT,
   JOB_APPLICATION_STATUS_CHANGED_EVENT,
-  MENTOR_SCREENING_COMPLETED_EVENT,
   ApplicationType,
 } from "./placement-application.events";
 export type {
-  JobApplicationSubmittedEvent,
   JobApplicationStatusChangedEvent,
-  MentorScreeningCompletedEvent,
 } from "./placement-application.events";
 
 

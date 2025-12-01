@@ -167,7 +167,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Assert [断言]
       expect(result.data).toEqual(createdApplication);
       expect(result.event).toBeDefined();
-      expect(result.event?.type).toBe("placement.application.submitted");
+      expect(result.event?.type).toBe("placement.application.status_changed");
       expect(mockDb.insert).toHaveBeenCalled();
     });
 
@@ -280,7 +280,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Assert [断言]
       expect(result.data).toEqual(updatedApplication);
       expect(result.event).toBeDefined();
-      expect(result.event?.type).toBe("placement.mentor_screening.completed");
+      expect(result.event?.type).toBe("placement.application.status_changed");
       expect(mockDb.update).toHaveBeenCalled();
     });
 

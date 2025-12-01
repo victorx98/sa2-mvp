@@ -1,30 +1,12 @@
 /**
- * Job application submitted event [投递申请事件]
- * Published when a job application is submitted [发布投递申请时]
+ * Import Application Type Enum from placement types [从placement类型导入投递类型枚举]
  */
-export const JOB_APPLICATION_SUBMITTED_EVENT =
-  "placement.application.submitted";
+import { ApplicationType } from "@domains/placement/types/application-type.enum";
 
 /**
- * Application Type Enum [投递类型枚举]
+ * Re-export ApplicationType for use in shared events [重新导出ApplicationType供共享事件使用]
  */
-export enum ApplicationType {
-  DIRECT = "direct",
-  PROXY = "proxy",
-  REFERRAL = "referral",
-  BD = "bd",
-}
-
-/**
- * Interface for job application submitted event payload [投递申请事件载荷接口]
- */
-export interface JobApplicationSubmittedEvent {
-  applicationId: string; // Application ID [申请ID]
-  studentId: string; // Student ID [学生ID]
-  positionId: string; // Position ID [岗位ID]
-  applicationType: ApplicationType; // Application type [申请类型]
-  submittedAt: string; // Submission time [提交时间]
-}
+export { ApplicationType };
 
 /**
  * Job application status changed event [投递状态变更事件]
@@ -94,29 +76,4 @@ export interface JobApplicationStatusRolledBackEvent {
   rollbackReason: string; // Rollback reason [回撤原因]
 }
 
-/**
- * Mentor screening completed event [内推导师评估完成事件]
- * Published when mentor screening is completed [发布内推导师评估完成时]
- */
-export const MENTOR_SCREENING_COMPLETED_EVENT =
-  "placement.mentor_screening.completed";
 
-/**
- * Interface for mentor screening completed event payload [内推导师评估完成事件载荷接口]
- */
-export interface MentorScreeningCompletedEvent {
-  applicationId: string; // Application ID [申请ID]
-  mentorId: string; // Mentor ID [导师ID]
-  screeningResult: {
-    technicalSkills: number; // Technical skills score (1-5) [技术技能评分]
-    experienceMatch: number; // Experience match score (1-5) [经验匹配度评分]
-    culturalFit: number; // Cultural fit score (1-5) [文化适应度评分]
-    overallRecommendation:
-      | "strongly_recommend"
-      | "recommend"
-      | "neutral"
-      | "not_recommend"; // Overall recommendation level [整体推荐度]
-    screeningNotes?: string; // Screening notes [评估备注]
-  };
-  evaluatedAt: string; // Evaluation time [评估时间]
-}
