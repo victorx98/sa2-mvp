@@ -40,6 +40,12 @@ export * from "./session-types.schema";
 export * from "./regular-mentoring-sessions.schema";
 export * from "./gap-analysis-sessions.schema";
 export * from "./ai-career-sessions.schema";
+export * from "./classes.schema";
+export * from "./class-mentors-prices.schema";
+export * from "./class-students.schema";
+export * from "./class-counselors.schema";
+export * from "./class-sessions.schema";
+export * from "./comm-sessions.schema";
 export * from "./service-references.schema";
 
 // Financial domain
