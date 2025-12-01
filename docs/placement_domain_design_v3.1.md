@@ -397,16 +397,6 @@ erDiagram
 ### 5.1 投递相关事件
 
 ```typescript
-// 投递申请事件
-export const JOB_APPLICATION_SUBMITTED_EVENT = "placement.application.submitted"
-export interface JobApplicationSubmittedEvent {
-  applicationId: string
-  studentId: string
-  positionId: string
-  applicationType: "direct" | "counselor_assisted" | "mentor_referral" | "bd_referral"
-  submittedAt: string
-}
-
 // 投递状态变更事件
 export const JOB_APPLICATION_STATUS_CHANGED_EVENT = "placement.application.status_changed"
 export interface JobApplicationStatusChangedEvent {
@@ -417,19 +407,15 @@ export interface JobApplicationStatusChangedEvent {
   changedAt: string
 }
 
-// 内推导师评估事件
-export const MENTOR_SCREENING_COMPLETED_EVENT = "placement.mentor_screening.completed"
-export interface MentorScreeningCompletedEvent {
+// 投递状态回撤事件
+export const JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT = "placement.application.status_rolled_back"
+export interface JobApplicationStatusRolledBackEvent {
   applicationId: string
-  mentorId: string
-  screeningResult: {
-    technicalSkills: number
-    experienceMatch: number
-    culturalFit: number
-    overallRecommendation: "strongly_recommend" | "recommend" | "neutral" | "not_recommend"
-    screeningNotes?: string
-  }
-  evaluatedAt: string
+  previousStatus: "recommended" | "interested" | "not_interested" | "mentor_assigned" | "submitted" | "interviewed" | "got_offer" | "rejected"
+  newStatus: "recommended" | "interested" | "not_interested" | "mentor_assigned" | "submitted" | "interviewed" | "got_offer" | "rejected"
+  changedBy: string
+  changedAt: string
+  rollbackReason: string
 }
 ```
 
