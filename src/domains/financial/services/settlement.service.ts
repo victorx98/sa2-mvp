@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, isNull, inArray } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import type { DrizzleDatabase } from "@shared/types/database.types";
@@ -20,6 +20,7 @@ import type {
 import { SettlementStatus } from "../dto/settlement/settlement.enums";
 import { SETTLEMENT_CONFIRMED_EVENT } from "@shared/events/event-constants";
 import type { ISettlementConfirmedPayload } from "@shared/events/settlement-confirmed.event";
+import { parseDateToUTC, isValidISODateString } from "../common/utils/date-time.utils";
 
 /**
  * Settlement Service Implementation (结算服务实现)
@@ -64,13 +65,13 @@ export class SettlementService implements ISettlementService {
     request: CreateSettlementRequest,
     createdBy: string,
   ): Promise<SettlementDetailResponse> {
-    try {
-      const { mentorId, settlementMonth, exchangeRate, deductionRate } = request;
+    const { mentorId, settlementMonth, exchangeRate, deductionRate } = request;
 
-      this.logger.log(
-        `Generating settlement for mentor: ${mentorId}, month: ${settlementMonth}`,
-      );
+    this.logger.log(
+      `Generating settlement for mentor: ${mentorId}, month: ${settlementMonth}`,
+    );
 
+    return await this.db.transaction(async (tx) => {
       // 1. Validate input parameters (验证输入参数)
       if (!mentorId || !settlementMonth) {
         throw new BadRequestException(
@@ -96,7 +97,7 @@ export class SettlementService implements ISettlementService {
       }
 
       // 2. Get mentor's active payment info (获取导师的有效支付信息)
-      const paymentInfo = await this.db.query.mentorPaymentInfos.findFirst({
+      const paymentInfo = await tx.query.mentorPaymentInfos.findFirst({
         where: and(
           eq(schema.mentorPaymentInfos.mentorId, mentorId),
           eq(schema.mentorPaymentInfos.status, "ACTIVE"),
@@ -110,18 +111,18 @@ export class SettlementService implements ISettlementService {
       }
 
       // 3. Get unpaid payable ledgers for the mentor (获取导师的未付应付账款)
-      // For now, we'll get all payable ledgers for the mentor
-      // TODO: Add date range filtering based on settlementMonth when session dates are available
-      const payableLedgers = await this.db.query.mentorPayableLedgers.findMany({
+      // [修复] 过滤未结算的原始账款记录
+      const payableLedgers = await tx.query.mentorPayableLedgers.findMany({
         where: and(
           eq(schema.mentorPayableLedgers.mentorId, mentorId),
-          // eq(schema.mentorPayableLedgers.originalId, null), // Only original records
+          eq(schema.mentorPayableLedgers.originalId, null), // 只查原始记录
+          isNull(schema.mentorPayableLedgers.settlementId), // [新增] 只查未结算记录
         ),
       });
 
       if (!payableLedgers || payableLedgers.length === 0) {
         throw new BadRequestException(
-          `No payable ledgers found for mentor: ${mentorId}`,
+          `No unpaid payable ledgers found for mentor: ${mentorId}`,
         );
       }
 
@@ -145,7 +146,7 @@ export class SettlementService implements ISettlementService {
 
       // 5. Create settlement record (创建结算记录)
       // Note: Using append-only mode, status is always CONFIRMED
-      const [settlement] = await this.db
+      const [settlement] = await tx
         .insert(schema.settlementLedgers)
         .values({
           mentorId,
@@ -170,12 +171,30 @@ export class SettlementService implements ISettlementService {
       const detailRecords = payableLedgers.map((ledger) => ({
         settlementId: settlement.id,
         mentorPayableId: ledger.id,
+        originalAmount: ledger.amount,
+        targetAmount: String(
+          Number(ledger.amount) *
+            (1 - Number(deductionRate)) *
+            Number(exchangeRate),
+        ),
+        exchangeRate: String(exchangeRate),
+        deductionRate: String(deductionRate),
         createdBy,
       }));
 
-      await this.db.insert(schema.settlementDetails).values(detailRecords);
+      await tx.insert(schema.settlementDetails).values(detailRecords);
 
-      // 7. Publish settlement confirmed event (发布结算确认事件)
+      // 7. [新增] 更新所有参与结算的账款记录（标记为已结算）
+      const ledgerIds = payableLedgers.map((ledger) => ledger.id);
+      await tx
+        .update(schema.mentorPayableLedgers)
+        .set({
+          settlementId: settlement.id,
+          settledAt: new Date(),
+        })
+        .where(inArray(schema.mentorPayableLedgers.id, ledgerIds));
+
+      // 8. Publish settlement confirmed event (发布结算确认事件)
       // Note: Event should be published after settlement record and details are created
       // to ensure data integrity and enable parameter updates for subsequent batches
       // (注意：应在创建结算记录和明细后发布事件，以确保数据完整性并启用后续批次的参数更新)
@@ -210,7 +229,7 @@ export class SettlementService implements ISettlementService {
         `Successfully created settlement: ${settlement.id} with ${detailRecords.length} detail records`,
       );
 
-      // 8. Return settlement details (返回结算详情)
+      // 9. Return settlement details (返回结算详情)
       return {
         id: settlement.id,
         mentorId: settlement.mentorId,
@@ -220,20 +239,14 @@ export class SettlementService implements ISettlementService {
         originalCurrency: settlement.originalCurrency,
         targetCurrency: settlement.targetCurrency,
         exchangeRate: Number(settlement.exchangeRate),
-        deductionRate: Number(settlement.deductionRate),
+        deductionRate: Number(deductionRate),
         status: SettlementStatus.CONFIRMED,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         settlementMethod: settlement.settlementMethod as any,
         createdAt: settlement.createdAt,
         createdBy: settlement.createdBy,
       };
-    } catch (error) {
-      this.logger.error(
-        `Error generating settlement for mentor: ${request.mentorId}, month: ${request.settlementMonth}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-      throw error;
-    }
+    });
   }
 
   /**
@@ -371,15 +384,28 @@ export class SettlementService implements ISettlementService {
         );
       }
 
+      // [修复] Validate and convert dates to UTC (验证并转换日期为UTC)
       if (startDate) {
+        if (!isValidISODateString(startDate)) {
+          throw new BadRequestException(
+            "Invalid startDate format. Expected ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss.sssZ)",
+          );
+        }
+        const startUTC = parseDateToUTC(startDate);
         conditions.push(
-          sql`${schema.settlementLedgers.createdAt} >= ${new Date(startDate)}`,
+          sql`${schema.settlementLedgers.createdAt} >= ${startUTC}`,
         );
       }
 
       if (endDate) {
+        if (!isValidISODateString(endDate)) {
+          throw new BadRequestException(
+            "Invalid endDate format. Expected ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss.sssZ)",
+          );
+        }
+        const endUTC = parseDateToUTC(endDate);
         conditions.push(
-          sql`${schema.settlementLedgers.createdAt} <= ${new Date(endDate)}`,
+          sql`${schema.settlementLedgers.createdAt} <= ${endUTC}`,
         );
       }
 

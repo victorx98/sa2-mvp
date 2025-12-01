@@ -19,15 +19,14 @@ import { v4 as uuidv4 } from "uuid";
  */
 describe("Settlement Flow (e2e)", () => {
   let app: INestApplication;
+  let eventEmitter: EventEmitter2;
   let settlementService: SettlementService;
   let paymentInfoService: MentorPaymentInfoService;
   let paymentParamService: MentorPaymentParamService;
-  let eventEmitter: EventEmitter2;
   let eventListener: SettlementConfirmedListener;
   let db: NodePgDatabase;
 
   const testMentorId = uuidv4();
-  const testStudentId = uuidv4();
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({

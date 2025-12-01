@@ -392,6 +392,11 @@ export class ProductService {
       conditions.push(eq(schema.products.code, where.code));
     }
 
+    // Exclude deleted status by default [默认排除删除状态]
+    if (!where.includeDeleted) {
+      conditions.push(ne(schema.products.status, ProductStatus.DELETED));
+    }
+
     const result = await this.db
       .select()
       .from(schema.products)
@@ -587,7 +592,7 @@ export class ProductService {
 
     // Check all service types exist and are ACTIVE [检查所有服务类型存在且为ACTIVE状态]
     if (serviceTypes.length !== serviceTypeIds.length) {
-      throw new CatalogNotFoundException("SERVICE_TYPE_NOT_FOUND");
+      throw new CatalogException("SERVICE_TYPE_NOT_FOUND");
     }
 
     for (const serviceType of serviceTypes) {

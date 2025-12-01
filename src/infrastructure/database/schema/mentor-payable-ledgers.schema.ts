@@ -119,6 +119,21 @@ export const mentorPayableLedgers = pgTable("mentor_payable_ledgers", {
    */
   adjustmentReason: varchar("adjustment_reason", { length: 500 }),
 
+  // ========== Settlement Linkage ==========
+  /**
+   * Settlement ID - Links to settlement record
+   * Marks this ledger as settled (paid)
+   * Null for unsettled ledgers
+   * (结算ID - 关联到结算记录，标记此账款已结算)
+   */
+  settlementId: uuid("settlement_id"),
+
+  /**
+   * Settled At - Timestamp when this ledger was included in settlement
+   * (结算时间 - 账款被纳入结算的时间戳)
+   */
+  settledAt: timestamp("settled_at", { withTimezone: true }),
+
   // ========== Timestamps ==========
   /**
    * Created At - Record creation timestamp (immutable)
@@ -157,4 +172,8 @@ export type InsertMentorPayableLedger =
  *    CREATE INDEX idx_mentor_payable_original
  *    ON mentor_payable_ledgers(original_id)
  *    WHERE original_id IS NOT NULL;
+ *
+ *    CREATE INDEX idx_mentor_payable_settlement
+ *    ON mentor_payable_ledgers(settlement_id)
+ *    WHERE settlement_id IS NOT NULL;  -- [新增] 结算索引
  */

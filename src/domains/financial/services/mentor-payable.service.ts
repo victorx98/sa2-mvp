@@ -265,4 +265,93 @@ export class MentorPayableService {
       throw error;
     }
   }
+
+  /**
+   * Create placement billing record
+   * (创建安置申请计费记录)
+   *
+   * @param payload - Placement application billing payload
+   * @returns Created payable ledger record
+   */
+  public async createPlacementBilling(payload: {
+    applicationId: string;
+    studentId: string;
+    mentorId: string;
+    sessionTypeCode: string;
+    allowBilling: boolean;
+  }): Promise<void> {
+    try {
+      const {
+        applicationId,
+        studentId,
+        mentorId,
+        sessionTypeCode,
+      } = payload;
+
+      this.logger.log(
+        `Creating placement billing for application: ${applicationId}`,
+      );
+
+      // Input validation
+      if (!applicationId || !studentId || !mentorId || !sessionTypeCode) {
+        throw new BadRequestException(
+          `Missing required fields for billing creation: applicationId=${applicationId}, studentId=${studentId}, mentorId=${mentorId}, sessionTypeCode=${sessionTypeCode}`,
+        );
+      }
+
+      if (!payload.allowBilling) {
+        this.logger.warn(
+          `Billing not allowed for application: ${applicationId}, skipping`,
+        );
+        return;
+      }
+
+      // Get mentor price using sessionTypeCode
+      const mentorPrice = await this.db.query.mentorPrices.findFirst({
+        where: and(
+          eq(schema.mentorPrices.mentorId, mentorId),
+          eq(schema.mentorPrices.sessionTypeCode, sessionTypeCode),
+          eq(schema.mentorPrices.status, "active"),
+        ),
+      });
+
+      if (!mentorPrice) {
+        throw new BadRequestException(
+          `No active price found for mentor: ${mentorId} and placement stage: ${sessionTypeCode}`,
+        );
+      }
+
+      // For placement billing, use the full price as amount
+      const totalAmount = Number(mentorPrice.price);
+
+      this.logger.log(
+        `Calculated placement billing: application=${applicationId}, stage=${sessionTypeCode}, price=${mentorPrice.price}, amount=${totalAmount}`,
+      );
+
+      // Insert ledger record
+      // Use applicationId as referenceId
+      const referenceId = applicationId;
+
+      await this.db.insert(schema.mentorPayableLedgers).values({
+        referenceId: referenceId,
+        mentorId,
+        studentId,
+        sessionTypeCode,
+        price: mentorPrice.price,
+        amount: String(totalAmount), // Convert to string to match numeric type
+        currency: mentorPrice.currency || "USD",
+        createdBy: mentorId,
+      });
+
+      this.logger.log(
+        `Successfully created placement billing for application: ${applicationId}, amount: ${totalAmount}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error creating placement billing for application: ${payload.applicationId}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    }
+  }
 }

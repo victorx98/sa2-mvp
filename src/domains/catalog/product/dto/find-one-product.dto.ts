@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUUID } from "class-validator";
+import { IsOptional, IsString, IsUUID, IsBoolean} from "class-validator";
 
 export class FindOneProductDto {
   @IsOptional()
@@ -8,4 +8,8 @@ export class FindOneProductDto {
   @IsOptional()
   @IsString()
   code?: string; // Product code (unique)
+
+  @IsOptional()
+  @IsBoolean()
+  includeDeleted?: boolean; // Whether to include soft-deleted products [是否包含软删除的产品]
 }
