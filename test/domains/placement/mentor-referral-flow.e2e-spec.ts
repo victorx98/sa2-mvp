@@ -36,9 +36,6 @@ describe("Mentor Referral Flow (e2e)", () => {
   let testApplicationId: string;
 
   beforeAll(async () => {
-    // Create a mock event emitter that we can spy on
-    const mockEventEmitter = new EventEmitter2();
-
     // Create testing module with all required dependencies
     const moduleRef = await Test.createTestingModule({
       imports: [
@@ -46,13 +43,12 @@ describe("Mentor Referral Flow (e2e)", () => {
           isGlobal: true,
           envFilePath: ".env",
         }),
+        EventEmitterModule.forRoot({
+          wildcard: true,
+          delimiter: ".",
+        }),
         DatabaseModule,
         PlacementModule, // Add PlacementModule to access its services
-        EventEmitterModule.forRoot(),
-      ],
-      providers: [
-        // Override the EventEmitter2 provider with our mock instance
-        { provide: EventEmitter2, useValue: mockEventEmitter },
       ],
     }).compile();
 
@@ -68,7 +64,7 @@ describe("Mentor Referral Flow (e2e)", () => {
       JobApplicationService,
     );
     jobPositionService = moduleRef.get<JobPositionService>(JobPositionService);
-    eventEmitter = mockEventEmitter; // Use our mock event emitter
+    eventEmitter = moduleRef.get<EventEmitter2>(EventEmitter2); // Get the actual event emitter from the module
 
     // Create nest application
     app = moduleRef.createNestApplication();

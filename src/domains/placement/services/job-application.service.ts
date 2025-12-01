@@ -16,6 +16,7 @@ import {
 import {
   JOB_APPLICATION_SUBMITTED_EVENT,
   JOB_APPLICATION_STATUS_CHANGED_EVENT,
+  JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
   MENTOR_SCREENING_COMPLETED_EVENT,
   MentorScreeningCompletedEvent,
 } from "../events";
@@ -549,21 +550,21 @@ export class JobApplicationService implements IJobApplicationService {
       `Application status rolled back: ${applicationId} from ${currentStatus} to ${previousStatus}`,
     );
 
-    // Publish status changed event [发布状态变更事件]
+    // Publish status rolled back event [发布状态回撤事件]
     const eventPayload = {
       applicationId: updatedApplication.id,
       previousStatus: currentStatus,
       newStatus: previousStatus,
       changedBy: changedBy,
       changedAt: new Date().toISOString(),
-      changeMetadata: null,
+      rollbackReason: "Status rolled back",
     };
-    this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
+    this.eventEmitter.emit(JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT, eventPayload);
 
     return {
       data: updatedApplication,
       event: {
-        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
+        type: JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
         payload: eventPayload,
       },
     };

@@ -7,6 +7,7 @@ import { ISubmitApplicationDto, IUpdateApplicationStatusDto } from "../dto";
 import { ApplicationType } from "../types/application-type.enum";
 import { randomUUID } from "crypto";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT } from "../events";
 
 /**
  * Unit Tests for JobApplicationService
@@ -950,7 +951,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Assert [断言]
       expect(result.data).toEqual(updatedApplication);
       expect(result.event).toBeDefined();
-      expect(result.event?.type).toBe("placement.application.status_changed");
+      expect(result.event?.type).toBe(JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT);
       expect(mockDb.update).toHaveBeenCalled();
       expect(mockDb.insert).toHaveBeenCalled();
     });
