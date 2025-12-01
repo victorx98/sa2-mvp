@@ -4,9 +4,10 @@ import { UserController } from "./controllers/user.controller";
 import { SessionController } from "./controllers/session.controller";
 import { CounselorSessionsController } from "./controllers/counselor/counselor-sessions.controller";
 import { CounselorStudentContractController } from "./controllers/counselor/counselor-student-contract.controller";
+import { CounselorsController } from "./controllers/counselor/counselors.controller";
 import { MentorsController } from "./controllers/mentor/mentors.controller";
 import { ReferenceDataController } from "./controllers/reference-data.controller";
-import { StudentController } from "./controllers/student/student.controller";
+import { StudentsController } from "./controllers/student/students.controller";
 import { StudentProfileController } from "./controllers/student/student-profile.controller";
 import { MentorProfileController } from "./controllers/mentor/mentor-profile.controller";
 import { CounselorProfileController } from "./controllers/counselor/counselor-profile.controller";
@@ -38,13 +39,14 @@ import { WebhookModule } from "@core/webhook/webhook.module";
     CounselorSessionsController,
     CounselorStudentContractController,
     CounselorProfileController,
+    CounselorsController,
 
     // Mentor Controllers
     MentorsController,
     MentorProfileController,
 
     // Student Controllers
-    StudentController,
+    StudentsController,
     StudentProfileController,
   ],
 })
