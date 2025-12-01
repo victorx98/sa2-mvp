@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { DatabaseModule } from "@infrastructure/database/database.module";
 import { StudentQueryService } from "./services/student-query.service";
 import { MentorQueryService } from "./services/mentor-query.service";
+import { CounselorQueryService } from "./services/counselor-query.service";
 import { SchoolQueryService } from "./services/school-query.service";
 import { MajorQueryService } from "./services/major-query.service";
 
@@ -17,12 +18,14 @@ import { MajorQueryService } from "./services/major-query.service";
   providers: [
     StudentQueryService,
     MentorQueryService,
+    CounselorQueryService,
     SchoolQueryService,
     MajorQueryService,
   ],
   exports: [
     StudentQueryService,
     MentorQueryService,
+    CounselorQueryService,
     SchoolQueryService,
     MajorQueryService,
   ],

@@ -17,12 +17,12 @@ export class MentorQueryService {
     private readonly db: NodePgDatabase<typeof schema>,
   ) {}
 
-  async findAll(search?: string): Promise<MentorListItem[]> {
+  async findAll(text?: string): Promise<MentorListItem[]> {
     this.logger.log(
-      `Querying mentors${search ? ` with search=${search}` : ""}`,
+      `Querying mentors${text ? ` with text=${text}` : ""}`,
     );
 
-    const searchFilter = this.buildSearchFilter(search);
+    const searchFilter = this.buildSearchFilter(text);
 
     const result = await this.db.execute(sql`
       SELECT
@@ -59,15 +59,15 @@ export class MentorQueryService {
    */
   async findByStudentId(
     studentId: string,
-    search?: string,
+    text?: string,
   ): Promise<MentorListItem[]> {
     this.logger.log(
       `Finding mentors for student: ${studentId}${
-        search ? ` with search=${search}` : ""
+        text ? ` with text=${text}` : ""
       }`,
     );
 
-    const searchFilter = this.buildSearchFilter(search);
+    const searchFilter = this.buildSearchFilter(text);
 
     const result = await this.db.execute(sql`
       SELECT DISTINCT

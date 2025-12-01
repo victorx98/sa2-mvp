@@ -28,15 +28,15 @@ export class StudentQueryService {
    */
   async findStudentsByMentorId(
     mentorId: string,
-    search?: string,
+    text?: string,
   ): Promise<StudentListItem[]> {
     this.logger.log(
       `Finding students for mentor: ${mentorId}${
-        search ? ` with search=${search}` : ""
+        text ? ` with text=${text}` : ""
       }`,
     );
 
-    const searchFilter = this.buildSearchFilter(search);
+    const searchFilter = this.buildSearchFilter(text);
 
     const result = await this.db.execute(sql`
       SELECT DISTINCT
@@ -77,15 +77,15 @@ export class StudentQueryService {
    */
   async findStudentsByCounselorId(
     counselorId: string,
-    search?: string,
+    text?: string,
   ): Promise<StudentListItem[]> {
     this.logger.log(
       `Finding students for counselor: ${counselorId}${
-        search ? ` with search=${search}` : ""
+        text ? ` with text=${text}` : ""
       }`,
     );
 
-    const searchFilter = this.buildSearchFilter(search);
+    const searchFilter = this.buildSearchFilter(text);
 
     const result = await this.db.execute(sql`
       SELECT DISTINCT

@@ -12,6 +12,7 @@ import { StudentListQuery } from "./queries/student/student-list.query";
 import { StudentProfileQuery } from "./queries/student/student-profile.query";
 import { MentorListQuery } from "./queries/mentor/mentor-list.query";
 import { MentorProfileQuery } from "./queries/mentor/mentor-profile.query";
+import { CounselorListQuery } from "./queries/counselor/counselor-list.query";
 import { SchoolListQuery } from "./queries/school/school-list.query";
 import { MajorListQuery } from "./queries/major/major-list.query";
 import { ServiceBalanceQuery } from "./queries/contract/service-balance.query";
@@ -64,6 +65,7 @@ import { QueryModule } from "@domains/query/query.module";
     StudentProfileQuery,
     MentorListQuery,
     MentorProfileQuery,
+    CounselorListQuery,
     SchoolListQuery,
     MajorListQuery,
     ServiceBalanceQuery,
@@ -95,6 +97,7 @@ import { QueryModule } from "@domains/query/query.module";
     StudentProfileQuery,
     MentorListQuery,
     MentorProfileQuery,
+    CounselorListQuery,
     SchoolListQuery,
     MajorListQuery,
     ServiceBalanceQuery,
