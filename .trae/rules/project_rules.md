@@ -22,6 +22,36 @@ trigger: always_on
 - **命名规范**: 事件名称必须遵循 `domain.entity.action` 格式（如：`contract.session.completed`）
 - **类型定义**: 每个事件必须明确定义其数据载荷(payload)的TypeScript类型
 
+### 事件文件结构
+
+- **核心文件**:
+  - `event.types.ts`: 定义通用事件接口 `IEvent<T>`
+  - `event-constants.ts`: 集中管理所有事件名称常量
+  - `index.ts`: 统一导出所有事件类型和常量
+  - `*.events.ts`: 定义特定领域事件的payload和事件接口
+
+- **文件命名**: 采用 `领域-实体.events.ts` 格式（如：`placement-application.events.ts`）
+
+### 事件常量规范
+
+- **集中定义**: 所有事件名称常量必须定义在 `event-constants.ts` 文件中
+- **命名格式**: 使用 `DOMAIN_ENTITY_ACTION_EVENT` 格式
+- **分类组织**: 按领域分组，添加领域注释
+
+### 事件接口规范
+
+- **通用接口**: 所有事件必须实现 `IEvent<T>` 接口
+- **接口分离**: 每个事件需定义两个接口：
+  - `I{EventName}Payload`: 事件数据载荷接口
+  - `I{EventName}Event`: 事件接口，继承 `IEvent<T>`
+- **命名规范**: 接口使用 `I` 前缀，PascalCase命名
+
+### 事件导出规范
+
+- **常量导出**: 从 `event-constants.ts` 导出事件常量
+- **类型导出**: 从 `*.events.ts` 导出事件接口和payload接口
+- **统一入口**: 通过 `index.ts` 统一导出所有事件类型和常量
+
 ## 事件订阅规范
 
 - **订阅位置**: 事件订阅需在各自业务域内的 `events/listeners` 目录中实现
@@ -262,26 +292,6 @@ trigger: always_on
 - **详细输出**: 使用 `--verbose` 参数获取详细测试输出：
   ```bash
   npm run test:unit -- --testPathPattern=<测试文件路径> --verbose
-  ```
-
-## IDE集成配置
-
-- **VSCode**: 推荐安装Jest扩展，配置以下设置：
-  ```json
-  {
-    "jest.jestCommandLine": "npm run test:unit --",
-    "jest.runConfig": {
-      "testPathPattern": "${file}"
-    }
-  }
-  ```
-- **快捷键**: 设置快捷键快速运行当前测试文件：
-  ```json
-  {
-    "key": "ctrl+shift+t",
-    "command": "jest.runTest",
-    "args": ["--testPathPattern=${file}"]
-  }
   ```
 
 # 禁止事项
