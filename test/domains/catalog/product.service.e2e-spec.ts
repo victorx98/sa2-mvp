@@ -25,33 +25,24 @@ describe("ProductService Integration Tests [ProductService集成测试]", () => 
   }, 30000);
 
   beforeEach(async () => {
-    // Query existing hard-coded service types (do not create new data) [查询已存在的硬编码服务类型（不创建新数据）]
-    console.log("🔍 Querying existing hard-coded service types...");
+    // Query existing service types (do not create new data) [查询已存在的服务类型（不创建新数据）]
+    console.log("🔍 Querying existing service types...");
 
-    // Query existing service types by hard-coded codes [通过硬编码的codes查询已存在的服务类型]
+    // Query existing service types [查询已存在的服务类型]
     const serviceTypes = await db
       .select()
       .from(schema.serviceTypes)
-      .where(eq(schema.serviceTypes.code, "TEST_SERVICE_1"));
+      .where(eq(schema.serviceTypes.status, "ACTIVE"))
+      .limit(2);
 
-    if (serviceTypes.length === 0) {
-      throw new Error("Hard-coded service type TEST_SERVICE_1 not found in database. Please ensure it exists.");
+    if (serviceTypes.length < 2) {
+      throw new Error("At least 2 active service types are required for testing. Please ensure they exist.");
     }
 
     testServiceTypeId1 = serviceTypes[0].id;
+    testServiceTypeId2 = serviceTypes[1].id;
 
-    const serviceTypes2 = await db
-      .select()
-      .from(schema.serviceTypes)
-      .where(eq(schema.serviceTypes.code, "TEST_SERVICE_2"));
-
-    if (serviceTypes2.length === 0) {
-      throw new Error("Hard-coded service type TEST_SERVICE_2 not found in database. Please ensure it exists.");
-    }
-
-    testServiceTypeId2 = serviceTypes2[0].id;
-
-    console.log("✅ Found hard-coded service types:", {
+    console.log("✅ Found service types:", {
       serviceType1: testServiceTypeId1,
       serviceType2: testServiceTypeId2,
     });
@@ -128,21 +119,21 @@ describe("ProductService Integration Tests [ProductService集成测试]", () => 
 
     it("should fail to create product when service type is INACTIVE [当服务类型为INACTIVE时应该无法创建产品]", async () => {
       // Arrange [准备]
-      // Use an existing hard-coded INACTIVE service type from database [使用数据库中已存在的硬编码INACTIVE服务类型]
-      console.log("🔍 Querying existing hard-coded INACTIVE service type...");
+      // Create an INACTIVE service type for testing [创建一个INACTIVE状态的服务类型用于测试]
+      console.log("🔍 Creating INACTIVE service type for testing...");
 
-      const inactiveServiceTypes = await db
-        .select()
-        .from(schema.serviceTypes)
-        .where(eq(schema.serviceTypes.status, "INACTIVE"))
-        .limit(1);
+      const inactiveServiceType = await db
+        .insert(schema.serviceTypes)
+        .values({
+          name: "Inactive Test Service",
+          code: `INACTIVE-TEST-SERVICE-${Date.now()}`,
+          description: "Test service type with INACTIVE status",
+          status: "INACTIVE",
+        })
+        .returning()
+        .then((result) => result[0]);
 
-      if (inactiveServiceTypes.length === 0) {
-        throw new Error("No INACTIVE service type found in database. Please ensure at least one exists.");
-      }
-
-      const inactiveServiceType = inactiveServiceTypes[0];
-      console.log("✅ Found hard-coded INACTIVE service type:", inactiveServiceType.id);
+      console.log("✅ Created INACTIVE service type:", inactiveServiceType.id);
 
       const userId = randomUUID();
       const createProductDto = {
@@ -163,6 +154,10 @@ describe("ProductService Integration Tests [ProductService集成测试]", () => 
       console.log("Attempting to create product with inactive service type...");
       await expect(productService.create(createProductDto, userId)).rejects.toThrow(CatalogException);
       console.log("✅ Correctly rejected creation due to inactive service type");
+
+      // Clean up: Delete the created service type [清理：删除创建的服务类型]
+      await db.delete(schema.serviceTypes).where(eq(schema.serviceTypes.id, inactiveServiceType.id));
+      console.log("✅ Cleaned up INACTIVE service type");
     }, 30000);
   });
 
@@ -234,7 +229,7 @@ describe("ProductService Integration Tests [ProductService集成测试]", () => 
       // Act & Assert [执行与断言]
       console.log("Attempting to add item with non-existent service type...");
       await expect(productService.addItem(createdProduct.id, addItemDto)).rejects.toThrow(
-        CatalogNotFoundException,
+        CatalogException,
       );
       console.log("✅ Correctly rejected add item due to non-existent service type");
     }, 30000);

@@ -514,6 +514,10 @@ describe("ProductService", () => {
   });
 
   describe("addItem", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
     it("should add item to product successfully [应该成功向产品添加项]", async () => {
       // Arrange [准备]
       const productId = randomUUID();
@@ -552,22 +556,22 @@ describe("ProductService", () => {
         }
 
         if (callCount === 2) {
-          // Second call: check item exists
+          // Second call: batch service type validation
+          // This query is .select().from().where(inArray)
           return {
             from: jest.fn().mockReturnValue({
-              where: jest.fn().mockReturnValue({
-                limit: jest.fn().mockResolvedValue([]),
-              }),
+              where: jest.fn().mockResolvedValue([mockServiceType]),
             }),
           };
         }
 
         if (callCount === 3) {
-          // Third call: batch service type validation
-          // This is the key - where should directly resolve to the array
+          // Third call: check item exists
           return {
             from: jest.fn().mockReturnValue({
-              where: jest.fn().mockResolvedValue([mockServiceType]),
+              where: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([]),
+              }),
             }),
           };
         }
@@ -675,79 +679,49 @@ describe("ProductService", () => {
         id: addItemDto.serviceTypeId,
       });
 
-      // Strategy: Create a flexible mock that works for all six select calls by tracking state
-      const selectMock = jest.fn();
-      let callCount = 0;
-
-      selectMock.mockImplementation(() => {
-        callCount++;
-
-        // First call: find product
-        if (callCount === 1) {
-          return {
-            from: jest.fn().mockReturnValue({
-              where: jest.fn().mockReturnValue({
-                limit: jest.fn().mockResolvedValue([existingProduct]),
-              }),
+      // Set up mock for product exists check (returns product with draft status)
+      mockDb.select
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([existingProduct]),
             }),
-          };
-        }
-
-        // Second call: check item exists - returns item
-        if (callCount === 2) {
-          return {
-            from: jest.fn().mockReturnValue({
-              where: jest.fn().mockReturnValue({
-                limit: jest.fn().mockResolvedValue([existingItem]),
-              }),
+          }),
+        })
+        // Set up mock for service type validation (returns service type)
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([mockServiceType]),
+          }),
+        })
+        // Set up mock for item exists check (returns existing item)
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([existingItem]),
             }),
-          };
-        }
-
-        // Third call: batch service type validation
-        if (callCount === 3) {
-          return {
-            from: jest.fn().mockReturnValue({
-              where: jest.fn().mockResolvedValue([mockServiceType]),
+          }),
+        })
+        // Set up mocks for the second call to addItem
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([existingProduct]),
             }),
-          };
-        }
-
-        // Fourth call: find product again
-        if (callCount === 4) {
-          return {
-            from: jest.fn().mockReturnValue({
-              where: jest.fn().mockReturnValue({
-                limit: jest.fn().mockResolvedValue([existingProduct]),
-              }),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([mockServiceType]),
+          }),
+        })
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([existingItem]),
             }),
-          };
-        }
-
-        // Fifth call: check item exists - returns item again
-        if (callCount === 5) {
-          return {
-            from: jest.fn().mockReturnValue({
-              where: jest.fn().mockReturnValue({
-                limit: jest.fn().mockResolvedValue([existingItem]),
-              }),
-            }),
-          };
-        }
-
-        // Sixth call: batch service type validation
-        if (callCount === 6) {
-          return {
-            from: jest.fn().mockReturnValue({
-              where: jest.fn().mockResolvedValue([mockServiceType]),
-            }),
-          };
-        }
-
-        return { from: jest.fn() };
-      });
-
-      mockDb.select = selectMock;
+          }),
+        });
 
       // Act & Assert
       await expect(service.addItem(productId, addItemDto)).rejects.toThrow(

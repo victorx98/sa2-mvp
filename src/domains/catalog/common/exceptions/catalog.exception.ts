@@ -57,6 +57,7 @@ export const CATALOG_ERROR_MESSAGES: Record<string, string> = {
   REFERENCE_NOT_FOUND: "Referenced resource not found",
   REFERENCE_NOT_ACTIVE: "Referenced resource is not active",
   REASON_REQUIRED: "Reason is required",
+  SERVICE_TYPE_NOT_FOUND: "Service type not found",
 };
 
 // Custom exception base class

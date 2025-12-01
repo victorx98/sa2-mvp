@@ -7,6 +7,8 @@ import { MentorPaymentParamService } from "./services/mentor-payment-param.servi
 import { MentorAppealService } from "./services/mentor-appeal.service";
 import { ServiceSessionCompletedListener } from "./events/listeners/service-session-completed-listener";
 import { SettlementConfirmedListener } from "./events/listeners/settlement-confirmed.listener";
+import { PlacementApplicationStatusChangedListener } from "./events/listeners/placement-application-status-changed.listener";
+import { PlacementApplicationStatusRolledBackListener } from "./events/listeners/placement-application-status-rolled-back.listener";
 
 /**
  * Financial Domain Module(财务领域模块)
@@ -52,6 +54,8 @@ import { SettlementConfirmedListener } from "./events/listeners/settlement-confi
     // Event listeners
     ServiceSessionCompletedListener,
     SettlementConfirmedListener,
+    PlacementApplicationStatusChangedListener,
+    PlacementApplicationStatusRolledBackListener,
   ],
   exports: [
     // Export services with custom token for dependency injection

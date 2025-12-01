@@ -392,7 +392,7 @@ describe("Agent Application Flow (e2e)", () => {
 
       // Verify event was emitted
       expect(eventSpy).toHaveBeenCalledWith(
-        "placement.application.submitted",
+        "placement.application.status_changed",
         expect.any(Object),
       );
     }, 25000);
