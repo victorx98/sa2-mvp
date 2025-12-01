@@ -11,6 +11,7 @@ import { ISubmitApplicationDto } from "@domains/placement/dto/job-application.dt
 import { sql } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { v4 as uuidv4 } from "uuid";
+import { ApplicationType } from "@domains/placement/types/application-type.enum";
 
 /**
  * Direct Application Flow E2E Tests
@@ -40,8 +41,11 @@ describe("Direct Application Flow (e2e)", () => {
       ],
     }).compile();
 
-    jobApplicationService = moduleFixture.get<JobApplicationService>(JobApplicationService);
-    jobPositionService = moduleFixture.get<JobPositionService>(JobPositionService);
+    jobApplicationService = moduleFixture.get<JobApplicationService>(
+      JobApplicationService,
+    );
+    jobPositionService =
+      moduleFixture.get<JobPositionService>(JobPositionService);
     db = moduleFixture.get<NodePgDatabase>(DATABASE_CONNECTION);
 
     app = moduleFixture.createNestApplication();
@@ -59,14 +63,20 @@ describe("Direct Application Flow (e2e)", () => {
     // Only clean up if testApplicationId is defined
     if (testApplicationId) {
       try {
-        await db.execute(sql`DELETE FROM application_history WHERE application_id = ${testApplicationId}`);
-        await db.execute(sql`DELETE FROM job_applications WHERE id = ${testApplicationId}`);
+        await db.execute(
+          sql`DELETE FROM application_history WHERE application_id = ${testApplicationId}`,
+        );
+        await db.execute(
+          sql`DELETE FROM job_applications WHERE id = ${testApplicationId}`,
+        );
       } catch (_error) {
         // Ignore if tables don't exist
       }
     }
     try {
-      await db.execute(sql`DELETE FROM recommended_jobs WHERE id = ${testJobId}`);
+      await db.execute(
+        sql`DELETE FROM recommended_jobs WHERE id = ${testJobId}`,
+      );
     } catch (_error) {
       // Ignore if table doesn't exist
     }
@@ -95,10 +105,9 @@ describe("Direct Application Flow (e2e)", () => {
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
         jobId: jobResult.data.id,
-        applicationType: "direct",
+        applicationType: ApplicationType.DIRECT,
         coverLetter: "Test cover letter for direct application",
         customAnswers: { question1: "answer1", question2: "answer2" },
-
       };
 
       const result = await jobApplicationService.submitApplication(dto);
@@ -134,16 +143,17 @@ describe("Direct Application Flow (e2e)", () => {
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
         jobId: jobResult.data.id,
-        applicationType: "direct",
+        applicationType: ApplicationType.DIRECT,
         coverLetter: "Test cover letter",
         customAnswers: { question1: "answer1" },
-
       };
 
       await jobApplicationService.submitApplication(dto);
 
       // Try to submit duplicate application
-      await expect(jobApplicationService.submitApplication(dto)).rejects.toThrow();
+      await expect(
+        jobApplicationService.submitApplication(dto),
+      ).rejects.toThrow();
     }, 20000);
 
     it("should update application status correctly", async () => {
@@ -168,10 +178,9 @@ describe("Direct Application Flow (e2e)", () => {
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
         jobId: jobResult.data.id,
-        applicationType: "direct",
+        applicationType: ApplicationType.DIRECT,
         coverLetter: "Test cover letter",
         customAnswers: { question1: "answer1" },
-
       };
 
       const submitResult = await jobApplicationService.submitApplication(dto);
@@ -210,17 +219,18 @@ describe("Direct Application Flow (e2e)", () => {
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
         jobId: jobResult.data.id,
-        applicationType: "direct",
+        applicationType: ApplicationType.DIRECT,
         coverLetter: "Test cover letter",
         customAnswers: { question1: "answer1" },
-
       };
 
       const submitResult = await jobApplicationService.submitApplication(dto);
       testApplicationId = submitResult.data.id;
 
       // Retrieve application by ID
-      const retrievedApplication = await jobApplicationService.findOne({ id: testApplicationId });
+      const retrievedApplication = await jobApplicationService.findOne({
+        id: testApplicationId,
+      });
 
       expect(retrievedApplication).toBeDefined();
       expect(retrievedApplication.id).toBe(testApplicationId);
@@ -229,7 +239,9 @@ describe("Direct Application Flow (e2e)", () => {
 
     it("should throw error if application not found", async () => {
       // Try to retrieve non-existent application
-      await expect(jobApplicationService.findOne({ id: uuidv4() })).rejects.toThrow();
+      await expect(
+        jobApplicationService.findOne({ id: uuidv4() }),
+      ).rejects.toThrow();
     }, 10000);
   });
 
@@ -256,10 +268,9 @@ describe("Direct Application Flow (e2e)", () => {
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
         jobId: jobResult.data.id,
-        applicationType: "direct",
+        applicationType: ApplicationType.DIRECT,
         coverLetter: "Test cover letter",
         customAnswers: { question1: "answer1" },
-
       };
 
       const submitResult = await jobApplicationService.submitApplication(dto);
@@ -281,12 +292,11 @@ describe("Direct Application Flow (e2e)", () => {
       });
 
       // Get status history
-      const history = await jobApplicationService.getStatusHistory(testApplicationId);
+      const history =
+        await jobApplicationService.getStatusHistory(testApplicationId);
 
       expect(history).toBeDefined();
       expect(history.length).toBeGreaterThanOrEqual(2); // Should have at least 2 status changes
     }, 30000);
   });
-
-
 });

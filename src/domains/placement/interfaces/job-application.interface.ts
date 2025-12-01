@@ -20,12 +20,7 @@ export interface IJobApplicationService {
    */
   submitApplication(
     dto: ISubmitApplicationDto,
-  ): Promise<
-    IServiceResult<
-      Record<string, any>,
-      Record<string, any>
-    >
-  >;
+  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>>;
 
   /**
    * Submit mentor screening [提交内推导师评估]
@@ -35,12 +30,7 @@ export interface IJobApplicationService {
    */
   submitMentorScreening(
     dto: ISubmitMentorScreeningDto,
-  ): Promise<
-    IServiceResult<
-      Record<string, any>,
-      Record<string, any>
-    >
-  >;
+  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>>;
 
   /**
    * Update application status [更新投递状态]
@@ -50,12 +40,7 @@ export interface IJobApplicationService {
    */
   updateApplicationStatus(
     dto: IUpdateApplicationStatusDto,
-  ): Promise<
-    IServiceResult<
-      Record<string, any>,
-      Record<string, any>
-    >
-  >;
+  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>>;
 
   /**
    * Search applications [搜索投递申请]
@@ -68,7 +53,7 @@ export interface IJobApplicationService {
   search(
     filter?: IJobApplicationSearchFilter,
     pagination?: IPaginationQuery,
-    sort?: ISortQuery
+    sort?: ISortQuery,
   ): Promise<IPaginatedResult<Record<string, any>>>;
 
   /**
@@ -77,7 +62,10 @@ export interface IJobApplicationService {
    * @param params - Search parameters [搜索参数]
    * @returns Application [投递申请]
    */
-  findOne(params: { id?: string; [key: string]: any }): Promise<Record<string, any>>;
+  findOne(params: {
+    id?: string;
+    [key: string]: any;
+  }): Promise<Record<string, any>>;
 
   /**
    * Get application status history [获取投递状态历史]
@@ -96,6 +84,6 @@ export interface IJobApplicationService {
    */
   rollbackApplicationStatus(
     applicationId: string,
-    changedBy: string
+    changedBy: string,
   ): Promise<IServiceResult<Record<string, any>, Record<string, any>>>;
 }

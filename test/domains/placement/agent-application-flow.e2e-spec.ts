@@ -12,6 +12,7 @@ import { ISubmitApplicationDto } from "@domains/placement/dto/job-application.dt
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { v4 as uuidv4 } from "uuid";
 import { sql } from "drizzle-orm";
+import { ApplicationType } from "@domains/placement/types/application-type.enum";
 
 /**
  * Agent Application Flow E2E Tests
@@ -46,8 +47,11 @@ describe("Agent Application Flow (e2e)", () => {
       ],
     }).compile();
 
-    jobApplicationService = moduleFixture.get<JobApplicationService>(JobApplicationService);
-    jobPositionService = moduleFixture.get<JobPositionService>(JobPositionService);
+    jobApplicationService = moduleFixture.get<JobApplicationService>(
+      JobApplicationService,
+    );
+    jobPositionService =
+      moduleFixture.get<JobPositionService>(JobPositionService);
     eventEmitter = moduleFixture.get<EventEmitter2>(EventEmitter2);
     db = moduleFixture.get<NodePgDatabase>(DATABASE_CONNECTION);
 
@@ -63,8 +67,12 @@ describe("Agent Application Flow (e2e)", () => {
     // Clean up test data before each test
     // Note: This requires careful execution order to avoid foreign key constraints
     if (testApplicationId) {
-      await db.execute(sql`DELETE FROM application_history WHERE application_id = ${testApplicationId}`);
-      await db.execute(sql`DELETE FROM job_applications WHERE id = ${testApplicationId}`);
+      await db.execute(
+        sql`DELETE FROM application_history WHERE application_id = ${testApplicationId}`,
+      );
+      await db.execute(
+        sql`DELETE FROM job_applications WHERE id = ${testApplicationId}`,
+      );
     }
     await db.execute(sql`DELETE FROM recommended_jobs WHERE id = ${testJobId}`);
   });
@@ -75,7 +83,8 @@ describe("Agent Application Flow (e2e)", () => {
       const jobResult = await jobPositionService.createJobPosition({
         title: "Software Engineer (Agent Test)",
         companyName: "Test Tech Company",
-        description: "Test job description with agent-assisted application process",
+        description:
+          "Test job description with agent-assisted application process",
         requirements: ["Strong coding skills", "Experience with TypeScript"],
         locations: [{ name: "Remote" }],
         salaryMin: 120000,
@@ -84,21 +93,19 @@ describe("Agent Application Flow (e2e)", () => {
         source: "test",
         jobSource: "bd",
         createdBy: uuidv4(),
-
       });
 
       // Submit agent-assisted application
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
         jobId: jobResult.data.id,
-        applicationType: "counselor_assisted", // Agent applications are counselor-assisted
+        applicationType: ApplicationType.PROXY, // Agent applications are proxy applications
         coverLetter: "Test cover letter for agent-assisted application",
-        customAnswers: { 
-          codingChallengeScore: 95, 
+        customAnswers: {
+          codingChallengeScore: 95,
           codeSampleUrl: "https://github.com/test/portfolio",
-          technicalSkills: ["TypeScript", "Node.js", "React"]
+          technicalSkills: ["TypeScript", "Node.js", "React"],
         },
-
       };
 
       const result = await jobApplicationService.submitApplication(dto);
@@ -108,7 +115,7 @@ describe("Agent Application Flow (e2e)", () => {
       expect(result.data).toBeDefined();
       expect(result.data.studentId).toBe(testStudentId);
       expect(result.data.jobId).toBe(jobResult.data.id);
-      expect(result.data.applicationType).toBe("counselor_assisted");
+      expect(result.data.applicationType).toBe(ApplicationType.PROXY);
       expect(result.data.status).toBe("submitted");
       expect(result.data.isUrgent).toBe(false);
     }, 30000); // 30s timeout for database operations
@@ -127,16 +134,14 @@ describe("Agent Application Flow (e2e)", () => {
         source: "test",
         jobSource: "bd",
         createdBy: uuidv4(),
-
       });
 
       // Submit agent application with minimal fields
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
         jobId: jobResult.data.id,
-        applicationType: "counselor_assisted",
+        applicationType: ApplicationType.PROXY,
         // No cover letter or custom answers provided
-
       };
 
       const result = await jobApplicationService.submitApplication(dto);
@@ -161,17 +166,15 @@ describe("Agent Application Flow (e2e)", () => {
         source: "test",
         jobSource: "bd",
         createdBy: uuidv4(),
-
       });
 
       // Submit application
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
         jobId: jobResult.data.id,
-        applicationType: "counselor_assisted",
+        applicationType: ApplicationType.PROXY,
         coverLetter: "Test cover letter",
         customAnswers: { codingChallengeScore: 90 },
-
       };
 
       const submitResult = await jobApplicationService.submitApplication(dto);
@@ -216,9 +219,12 @@ describe("Agent Application Flow (e2e)", () => {
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
         jobId: jobResult.data.id,
-        applicationType: "counselor_assisted",
+        applicationType: ApplicationType.PROXY,
         coverLetter: "Urgent application - available immediately",
-        customAnswers: { availability: "Immediate", codingExperience: "3 years" },
+        customAnswers: {
+          availability: "Immediate",
+          codingExperience: "3 years",
+        },
         isUrgent: true,
       };
 
@@ -226,7 +232,7 @@ describe("Agent Application Flow (e2e)", () => {
       testApplicationId = result.data.id;
 
       expect(result.data.isUrgent).toBe(true);
-      expect(result.data.applicationType).toBe("counselor_assisted");
+      expect(result.data.applicationType).toBe(ApplicationType.PROXY);
     }, 25000);
 
     it("should throw error if job position does not exist", async () => {
@@ -234,13 +240,14 @@ describe("Agent Application Flow (e2e)", () => {
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
         jobId: uuidv4(), // Non-existent job ID
-        applicationType: "counselor_assisted",
+        applicationType: ApplicationType.PROXY,
         coverLetter: "Test cover letter",
-        customAnswers: { codingChallengeScore: 85 },
-
+        customAnswers: { question1: "answer1" },
       };
 
-      await expect(jobApplicationService.submitApplication(dto)).rejects.toThrow();
+      await expect(
+        jobApplicationService.submitApplication(dto),
+      ).rejects.toThrow();
     }, 15000);
   });
 
@@ -259,33 +266,39 @@ describe("Agent Application Flow (e2e)", () => {
         source: "test",
         jobSource: "bd",
         createdBy: uuidv4(),
-
       });
 
       // Submit application with detailed custom answers
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
         jobId: jobResult.data.id,
-        applicationType: "counselor_assisted",
+        applicationType: ApplicationType.PROXY,
         coverLetter: "Test cover letter",
-        customAnswers: { 
-          codingChallengeScore: 92, 
+        customAnswers: {
+          codingChallengeScore: 92,
           codeSampleUrl: "https://github.com/test/portfolio",
           technicalSkills: ["TypeScript", "Node.js", "React", "PostgreSQL"],
-          projectExperience: ["Built e-commerce platform", "Developed REST APIs"]
+          projectExperience: [
+            "Built e-commerce platform",
+            "Developed REST APIs",
+          ],
         },
-
       };
 
       const submitResult = await jobApplicationService.submitApplication(dto);
       testApplicationId = submitResult.data.id;
 
       // Retrieve application by ID
-      const retrievedApplication = await jobApplicationService.findOne({ id: testApplicationId });
+      const retrievedApplication = await jobApplicationService.findOne({
+        id: testApplicationId,
+      });
 
       expect(retrievedApplication).toBeDefined();
       expect(retrievedApplication.customAnswers).toBeDefined();
-      const customAnswers = retrievedApplication.customAnswers as Record<string, any>;
+      const customAnswers = retrievedApplication.customAnswers as Record<
+        string,
+        any
+      >;
       expect(customAnswers?.codingChallengeScore).toBe(92);
       expect(customAnswers?.technicalSkills).toHaveLength(4);
     }, 25000);
@@ -304,17 +317,15 @@ describe("Agent Application Flow (e2e)", () => {
         source: "test",
         jobSource: "bd",
         createdBy: uuidv4(),
-
       });
 
       // Submit application
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
         jobId: jobResult.data.id,
-        applicationType: "counselor_assisted",
+        applicationType: ApplicationType.PROXY,
         coverLetter: "Test cover letter",
         customAnswers: { cloudExperience: "AWS, GCP" },
-
       };
 
       const submitResult = await jobApplicationService.submitApplication(dto);
@@ -336,13 +347,14 @@ describe("Agent Application Flow (e2e)", () => {
       });
 
       // Get status history
-      const history = await jobApplicationService.getStatusHistory(testApplicationId);
+      const history =
+        await jobApplicationService.getStatusHistory(testApplicationId);
 
       expect(history).toBeDefined();
       expect(history.length).toBeGreaterThanOrEqual(2); // Should have at least 2 status changes
-      
+
       // Verify specific status changes
-      const statuses = history.map(h => h.newStatus);
+      const statuses = history.map((h) => h.newStatus);
       expect(statuses).toContain("interviewed");
       expect(statuses).toContain("got_offer");
     }, 35000);
@@ -365,17 +377,15 @@ describe("Agent Application Flow (e2e)", () => {
         source: "test",
         jobSource: "bd",
         createdBy: uuidv4(),
-
       });
 
       // Submit agent application
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
         jobId: jobResult.data.id,
-        applicationType: "counselor_assisted",
+        applicationType: ApplicationType.PROXY,
         coverLetter: "Test cover letter",
         customAnswers: { codingSkills: "TypeScript, Python" },
-
       };
 
       await jobApplicationService.submitApplication(dto);
@@ -383,7 +393,7 @@ describe("Agent Application Flow (e2e)", () => {
       // Verify event was emitted
       expect(eventSpy).toHaveBeenCalledWith(
         "placement.application.submitted",
-        expect.any(Object)
+        expect.any(Object),
       );
     }, 25000);
 
@@ -402,18 +412,16 @@ describe("Agent Application Flow (e2e)", () => {
         salaryCurrency: "USD",
         source: "test",
         jobSource: "bd",
-        createdBy: uuidv4()
-
+        createdBy: uuidv4(),
       });
 
       // Submit application
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
         jobId: jobResult.data.id,
-        applicationType: "counselor_assisted",
+        applicationType: ApplicationType.PROXY,
         coverLetter: "Test cover letter",
         customAnswers: { automationTools: ["Selenium", "Cypress"] },
-
       };
 
       const submitResult = await jobApplicationService.submitApplication(dto);
@@ -430,7 +438,7 @@ describe("Agent Application Flow (e2e)", () => {
       // Verify event was emitted
       expect(eventSpy).toHaveBeenCalledWith(
         "placement.application.status_changed",
-        expect.any(Object)
+        expect.any(Object),
       );
     }, 25000);
   });

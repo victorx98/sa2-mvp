@@ -3,7 +3,11 @@ import { eq, and, sql } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { DrizzleDatabase } from "@shared/types/database.types";
 import { recommendedJobs } from "@infrastructure/database/schema";
-import { ICreateJobPositionDto, IMarkJobExpiredDto, IJobPositionSearchFilter } from "../dto";
+import {
+  ICreateJobPositionDto,
+  IMarkJobExpiredDto,
+  IJobPositionSearchFilter,
+} from "../dto";
 import { IServiceResult } from "../interfaces";
 import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
 
@@ -29,7 +33,9 @@ export class JobPositionService {
   async createJobPosition(
     dto: ICreateJobPositionDto,
   ): Promise<IServiceResult<Record<string, any>, Record<string, any>>> {
-    this.logger.log(`Creating job position: ${dto.title} at ${dto.companyName}`);
+    this.logger.log(
+      `Creating job position: ${dto.title} at ${dto.companyName}`,
+    );
 
     // Create job position record [创建岗位记录]
     const values: any = {
@@ -53,10 +59,17 @@ export class JobPositionService {
     if (dto.sourceJobId) values.externalId = dto.sourceJobId; // Map sourceJobId to externalId [将sourceJobId映射到externalId]
     // Map locations array to single location string [将地点数组映射为单个地点字符串]
     if (dto.locations && dto.locations.length > 0) {
-      values.location = dto.locations.map(loc => loc.name || loc.city || '').filter(Boolean).join(', ');
+      values.location = dto.locations
+        .map((loc) => loc.name || loc.city || "")
+        .filter(Boolean)
+        .join(", ");
     }
     // Map salaryMin, salaryMax, salaryCurrency to salaryRange string [将salaryMin, salaryMax, salaryCurrency映射为salaryRange字符串]
-    if (dto.salaryMin !== undefined && dto.salaryMax !== undefined && dto.salaryCurrency) {
+    if (
+      dto.salaryMin !== undefined &&
+      dto.salaryMax !== undefined &&
+      dto.salaryCurrency
+    ) {
       values.salaryRange = `${dto.salaryMin} - ${dto.salaryMax} ${dto.salaryCurrency}`;
     } else if (dto.salaryMin !== undefined && dto.salaryCurrency) {
       values.salaryRange = `${dto.salaryMin}+ ${dto.salaryCurrency}`;
@@ -66,14 +79,20 @@ export class JobPositionService {
     // Map requirements object to array [将requirements对象映射为数组]
     if (dto.requirements) {
       // Extract skills array if available, otherwise use empty array
-      values.requirements = Array.isArray(dto.requirements) ? dto.requirements : 
-                            (dto.requirements.skills ? dto.requirements.skills : []);
+      values.requirements = Array.isArray(dto.requirements)
+        ? dto.requirements
+        : dto.requirements.skills
+          ? dto.requirements.skills
+          : [];
     }
     // Initialize empty arrays for array fields to avoid null errors
     values.benefits = [];
     values.skillsRequired = [];
 
-    const [job] = await this.db.insert(recommendedJobs).values(values).returning();
+    const [job] = await this.db
+      .insert(recommendedJobs)
+      .values(values)
+      .returning();
 
     this.logger.log(`Job position created: ${job.id}`);
 
@@ -88,10 +107,16 @@ export class JobPositionService {
    * @param params - Search parameters [搜索参数]
    * @returns Job position [岗位]
    */
-  async findOne(params: { id?: string; title?: string; companyName?: string; status?: string; [key: string]: any }) {
+  async findOne(params: {
+    id?: string;
+    title?: string;
+    companyName?: string;
+    status?: string;
+    [key: string]: any;
+  }) {
     // Build conditions based on provided params
     const conditions = [];
-    
+
     // Handle known columns explicitly to avoid TypeScript errors
     if (params.id) {
       conditions.push(eq(recommendedJobs.id, params.id));
@@ -108,10 +133,15 @@ export class JobPositionService {
     }
     // Add more known columns as needed
 
-    const [job] = await this.db.select().from(recommendedJobs).where(and(...conditions));
+    const [job] = await this.db
+      .select()
+      .from(recommendedJobs)
+      .where(and(...conditions));
 
     if (!job) {
-      throw new NotFoundException(`Job position not found: ${JSON.stringify(params)}`);
+      throw new NotFoundException(
+        `Job position not found: ${JSON.stringify(params)}`,
+      );
     }
 
     return job;
@@ -128,9 +158,16 @@ export class JobPositionService {
   async search(
     filter?: IJobPositionSearchFilter,
     pagination?: IPaginationQuery,
-    sort?: ISortQuery
-  ): Promise<{ items: Record<string, any>[]; total: number; offset: number; limit: number }> {
-    this.logger.log(`Searching job positions with filter: ${JSON.stringify(filter)}, pagination: ${JSON.stringify(pagination)}, sort: ${JSON.stringify(sort)}`);
+    sort?: ISortQuery,
+  ): Promise<{
+    items: Record<string, any>[];
+    total: number;
+    offset: number;
+    limit: number;
+  }> {
+    this.logger.log(
+      `Searching job positions with filter: ${JSON.stringify(filter)}, pagination: ${JSON.stringify(pagination)}, sort: ${JSON.stringify(sort)}`,
+    );
 
     const conditions = [];
 
@@ -144,7 +181,9 @@ export class JobPositionService {
       }
 
       if (filter.companyName) {
-        conditions.push(sql`${recommendedJobs.companyName} ILIKE ${`%${filter.companyName}%`}`);
+        conditions.push(
+          sql`${recommendedJobs.companyName} ILIKE ${`%${filter.companyName}%`}`,
+        );
       }
 
       if (filter.jobType) {
@@ -152,7 +191,9 @@ export class JobPositionService {
       }
 
       if (filter.experienceLevel) {
-        conditions.push(eq(recommendedJobs.experienceLevel, filter.experienceLevel));
+        conditions.push(
+          eq(recommendedJobs.experienceLevel, filter.experienceLevel),
+        );
       }
 
       if (filter.industry) {
@@ -171,9 +212,15 @@ export class JobPositionService {
     }
 
     // Apply sorting if provided
-    if (sort && sort.field && recommendedJobs[sort.field as keyof typeof recommendedJobs]) {
-      const direction = sort.direction === 'desc' ? sql`desc` : sql`asc`;
-      query = query.orderBy(sql`${recommendedJobs[sort.field as keyof typeof recommendedJobs]} ${direction}`);
+    if (
+      sort &&
+      sort.field &&
+      recommendedJobs[sort.field as keyof typeof recommendedJobs]
+    ) {
+      const direction = sort.direction === "desc" ? sql`desc` : sql`asc`;
+      query = query.orderBy(
+        sql`${recommendedJobs[sort.field as keyof typeof recommendedJobs]} ${direction}`,
+      );
     }
 
     // Pagination [分页]
@@ -236,8 +283,4 @@ export class JobPositionService {
       data: updatedJob,
     };
   }
-
-
-
-
 }

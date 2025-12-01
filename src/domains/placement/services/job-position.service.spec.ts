@@ -50,7 +50,7 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
                 return {
                   offset: jest.fn(() => {
                     return Promise.resolve(selectReturnValue);
-                  })
+                  }),
                 };
               }),
               orderBy: jest.fn(() => {
@@ -58,9 +58,9 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
               }),
               returning: jest.fn(() => {
                 return Promise.resolve(selectReturnValue);
-              })
+              }),
             };
-          })
+          }),
         };
       }),
       insert: jest.fn(() => ({
@@ -98,13 +98,13 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
               }),
               limit: jest.fn(() => {
                 return {
-                  offset: jest.fn(() => Promise.resolve([]))
+                  offset: jest.fn(() => Promise.resolve([])),
                 };
               }),
               orderBy: jest.fn(() => Promise.resolve([])),
-              returning: jest.fn(() => Promise.resolve([]))
+              returning: jest.fn(() => Promise.resolve([])),
             };
-          })
+          }),
         };
       }),
       insert: jest.fn(() => ({
@@ -204,7 +204,10 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
         jobSource: "web",
         createdBy: testUserId,
         description: "Test description",
-        requirements: { technical: ["JavaScript", "TypeScript"], experience: "3+ years" },
+        requirements: {
+          technical: ["JavaScript", "TypeScript"],
+          experience: "3+ years",
+        },
         responsibilities: "Develop software and collaborate with team",
         jobType: "full_time",
         experienceLevel: "mid",
@@ -287,7 +290,9 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
       }));
 
       // Act & Assert [执行和断言]
-      await expect(jobPositionService.findOne({ id: testJobId })).rejects.toThrow(NotFoundException);
+      await expect(
+        jobPositionService.findOne({ id: testJobId }),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("should find job position by other parameters [应该通过其他参数查找岗位]", async () => {
@@ -308,7 +313,10 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
       }));
 
       // Act [执行]
-      const result = await jobPositionService.findOne({ title: "Software Engineer", companyName: "Test Company" });
+      const result = await jobPositionService.findOne({
+        title: "Software Engineer",
+        companyName: "Test Company",
+      });
 
       // Assert [断言]
       expect(result).toEqual(mockJob);
@@ -567,7 +575,9 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
       }));
 
       // Act & Assert [执行和断言]
-      await expect(jobPositionService.markJobExpired(dto)).rejects.toThrow(/already expired/);
+      await expect(jobPositionService.markJobExpired(dto)).rejects.toThrow(
+        /already expired/,
+      );
     });
 
     it("should throw NotFoundException if job not found [如果岗位未找到应该抛出NotFoundException]", async () => {
@@ -588,11 +598,9 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
       }));
 
       // Act & Assert [执行和断言]
-      await expect(jobPositionService.markJobExpired(dto)).rejects.toThrow(NotFoundException);
+      await expect(jobPositionService.markJobExpired(dto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
-
-
-
-
 });

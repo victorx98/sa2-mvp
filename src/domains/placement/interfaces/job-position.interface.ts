@@ -1,4 +1,8 @@
-import { ICreateJobPositionDto, IMarkJobExpiredDto, IJobPositionSearchFilter } from "../dto";
+import {
+  ICreateJobPositionDto,
+  IMarkJobExpiredDto,
+  IJobPositionSearchFilter,
+} from "../dto";
 import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
 
 /**
@@ -38,12 +42,7 @@ export interface IJobPositionService {
    */
   createJobPosition(
     dto: ICreateJobPositionDto,
-  ): Promise<
-    IServiceResult<
-      Record<string, any>,
-      Record<string, any>
-    >
-  >;
+  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>>;
 
   /**
    * Find a job position [查找岗位]
@@ -51,7 +50,10 @@ export interface IJobPositionService {
    * @param params - Search parameters [搜索参数]
    * @returns Job position [岗位]
    */
-  findOne(params: { id?: string; [key: string]: any }): Promise<Record<string, any>>;
+  findOne(params: {
+    id?: string;
+    [key: string]: any;
+  }): Promise<Record<string, any>>;
 
   /**
    * Search job positions [搜索岗位]
@@ -64,7 +66,7 @@ export interface IJobPositionService {
   search(
     filter?: IJobPositionSearchFilter,
     pagination?: IPaginationQuery,
-    sort?: ISortQuery
+    sort?: ISortQuery,
   ): Promise<IPaginatedResult<Record<string, any>>>;
 
   /**
@@ -75,14 +77,5 @@ export interface IJobPositionService {
    */
   markJobExpired(
     dto: IMarkJobExpiredDto,
-  ): Promise<
-    IServiceResult<
-      Record<string, any>,
-      Record<string, any>
-    >
-  >;
-
-
-
-
+  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>>;
 }

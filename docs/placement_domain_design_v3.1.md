@@ -415,17 +415,6 @@ export interface JobApplicationStatusChangedEvent {
   newStatus: "recommended" | "interested" | "not_interested" | "mentor_assigned" | "submitted" | "interviewed" | "got_offer" | "rejected"
   changedBy?: string
   changedAt: string
-  changeMetadata?: {
-    interviewDate?: string
-    interviewLocation?: string
-    offerDetails?: {
-      salary?: string
-      startDate?: string
-      offerExpiryDate?: string
-    }
-    rejectionReason?: string
-    withdrawalReason?: string
-  }
 }
 
 // 内推导师评估事件

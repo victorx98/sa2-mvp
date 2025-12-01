@@ -4,5 +4,5 @@
 
 export * from "./job-status.types";
 export * from "./application-status.types";
+export * from "./application-type.enum";
 export * from "./application-type.types";
-export * from "./changed-by.types";

@@ -10,7 +10,7 @@ export const APPLICATION_STATUSES = [
   "submitted",
   "interviewed",
   "got_offer",
-  "rejected"
+  "rejected",
 ] as const;
 
 /**
@@ -18,7 +18,7 @@ export const APPLICATION_STATUSES = [
  * Represents the lifecycle states of a job application [代表投递申请的生命周期状态]
  * Derived from APPLICATION_STATUSES array [从 APPLICATION_STATUSES 数组派生]
  */
-export type ApplicationStatus = typeof APPLICATION_STATUSES[number];
+export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 
 /**
  * Application status labels [投递状态标签]
@@ -32,7 +32,7 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   submitted: "已提交",
   interviewed: "已面试",
   got_offer: "已拿到Offer",
-  rejected: "已拒绝"
+  rejected: "已拒绝",
 };
 
 /**
@@ -41,7 +41,7 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
 export const ALLOWED_APPLICATION_STATUS_TRANSITIONS: Partial<
   Record<ApplicationStatus, ApplicationStatus[]>
 > = {
-  submitted: [ "interviewed", "rejected"],
+  submitted: ["interviewed", "rejected"],
   mentor_assigned: ["submitted", "rejected"],
   interviewed: ["got_offer", "rejected"],
   recommended: ["interested", "not_interested"],

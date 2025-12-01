@@ -1,8 +1,18 @@
-import { Injectable, Logger, Inject, NotFoundException, BadRequestException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  Inject,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
 import { eq, and, sql } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { DrizzleDatabase } from "@shared/types/database.types";
-import { recommendedJobs, jobApplications, applicationHistory } from "@infrastructure/database/schema";
+import {
+  recommendedJobs,
+  jobApplications,
+  applicationHistory,
+} from "@infrastructure/database/schema";
 import {
   JOB_APPLICATION_SUBMITTED_EVENT,
   JOB_APPLICATION_STATUS_CHANGED_EVENT,
@@ -16,9 +26,12 @@ import {
 } from "../dto";
 import { IJobApplicationService, IServiceResult } from "../interfaces";
 import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
-import { ApplicationStatus, ALLOWED_APPLICATION_STATUS_TRANSITIONS } from "../types/application-status.types";
+import {
+  ApplicationStatus,
+  ALLOWED_APPLICATION_STATUS_TRANSITIONS,
+  ApplicationType,
+} from "../types";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-
 
 /**
  * Job Application Service [投递服务]
@@ -43,13 +56,18 @@ export class JobApplicationService implements IJobApplicationService {
   async submitApplication(
     dto: ISubmitApplicationDto,
   ): Promise<IServiceResult<Record<string, any>, Record<string, any>>> {
-    this.logger.log(`Submitting job application: student=${dto.studentId}, job=${dto.jobId}`);
+    this.logger.log(
+      `Submitting job application: student=${dto.studentId}, job=${dto.jobId}`,
+    );
 
     // Check for duplicate application [检查重复申请]
     await this.checkDuplicateApplication(dto.studentId, dto.jobId);
 
     // Verify job exists [验证岗位存在]
-    const job = await this.db.select().from(recommendedJobs).where(eq(recommendedJobs.id, dto.jobId));
+    const job = await this.db
+      .select()
+      .from(recommendedJobs)
+      .where(eq(recommendedJobs.id, dto.jobId));
     if (job.length === 0) {
       throw new NotFoundException(`Job position not found: ${dto.jobId}`);
     }
@@ -63,7 +81,10 @@ export class JobApplicationService implements IJobApplicationService {
         applicationType: dto.applicationType,
         coverLetter: dto.coverLetter,
         customAnswers: dto.customAnswers,
-        status: dto.applicationType === "mentor_referral" ? "recommended" : "submitted",
+        status:
+          dto.applicationType === ApplicationType.REFERRAL
+            ? "recommended"
+            : "submitted",
         isUrgent: dto.isUrgent || false,
       })
       .returning();
@@ -76,7 +97,6 @@ export class JobApplicationService implements IJobApplicationService {
       previousStatus: null,
       newStatus: "submitted",
       changedBy: dto.studentId,
-      changedByType: "student",
       changeReason: "Initial submission",
     });
 
@@ -105,7 +125,9 @@ export class JobApplicationService implements IJobApplicationService {
    * @returns Updated application and events [更新的申请和事件]
    */
   async submitMentorScreening(dto: any) {
-    this.logger.log(`Submitting mentor screening: application=${dto.applicationId}, mentor=${dto.mentorId}`);
+    this.logger.log(
+      `Submitting mentor screening: application=${dto.applicationId}, mentor=${dto.mentorId}`,
+    );
 
     // Verify application exists and is mentor referral type [验证申请存在且为内推类型]
     const [application] = await this.db
@@ -114,15 +136,21 @@ export class JobApplicationService implements IJobApplicationService {
       .where(eq(jobApplications.id, dto.applicationId));
 
     if (!application) {
-      throw new NotFoundException(`Application not found: ${dto.applicationId}`);
+      throw new NotFoundException(
+        `Application not found: ${dto.applicationId}`,
+      );
     }
 
-    if (application.applicationType !== "mentor_referral") {
-      throw new Error("Mentor screening is only available for mentor referral applications");
+    if (application.applicationType !== ApplicationType.REFERRAL) {
+      throw new Error(
+        "Mentor screening is only available for mentor referral applications",
+      );
     }
 
     if (application.status !== "mentor_assigned") {
-      throw new Error("Mentor screening can only be submitted for applications in mentor_assigned status");
+      throw new Error(
+        "Mentor screening can only be submitted for applications in mentor_assigned status",
+      );
     }
 
     // Save mentor screening result [保存导师评估结果]
@@ -135,9 +163,10 @@ export class JobApplicationService implements IJobApplicationService {
     };
 
     // Determine new status based on recommendation [根据推荐结果确定新状态]
-    const newStatus = 
-      dto.overallRecommendation === "strongly_recommend" || dto.overallRecommendation === "recommend" 
-        ? "submitted" 
+    const newStatus =
+      dto.overallRecommendation === "strongly_recommend" ||
+      dto.overallRecommendation === "recommend"
+        ? "submitted"
         : "rejected";
 
     const [updatedApplication] = await this.db
@@ -155,12 +184,13 @@ export class JobApplicationService implements IJobApplicationService {
       previousStatus: "mentor_assigned",
       newStatus: newStatus,
       changedBy: dto.mentorId,
-      changedByType: "mentor",
       changeReason: `Mentor screening ${newStatus === "submitted" ? "passed" : "failed"}`,
       changeMetadata: screeningResult,
     });
 
-    this.logger.log(`Mentor screening submitted: ${dto.applicationId}, new status: ${newStatus}`);
+    this.logger.log(
+      `Mentor screening submitted: ${dto.applicationId}, new status: ${newStatus}`,
+    );
 
     // Build event [构建事件]
     const event: MentorScreeningCompletedEvent = {
@@ -188,7 +218,9 @@ export class JobApplicationService implements IJobApplicationService {
   async updateApplicationStatus(
     dto: IUpdateApplicationStatusDto,
   ): Promise<IServiceResult<Record<string, any>, Record<string, any>>> {
-    this.logger.log(`Updating application status: ${dto.applicationId} -> ${dto.newStatus}`);
+    this.logger.log(
+      `Updating application status: ${dto.applicationId} -> ${dto.newStatus}`,
+    );
 
     // Get current application status [获取当前申请状态]
     const [application] = await this.db
@@ -197,16 +229,19 @@ export class JobApplicationService implements IJobApplicationService {
       .where(eq(jobApplications.id, dto.applicationId));
 
     if (!application) {
-      throw new NotFoundException(`Application not found: ${dto.applicationId}`);
+      throw new NotFoundException(
+        `Application not found: ${dto.applicationId}`,
+      );
     }
 
     const previousStatus = application.status as ApplicationStatus;
 
     // Validate status transition [验证状态转换]
-    const allowedTransitions = ALLOWED_APPLICATION_STATUS_TRANSITIONS[previousStatus];
+    const allowedTransitions =
+      ALLOWED_APPLICATION_STATUS_TRANSITIONS[previousStatus];
     if (!allowedTransitions || !allowedTransitions.includes(dto.newStatus)) {
       throw new BadRequestException(
-        `Invalid status transition: ${previousStatus} -> ${dto.newStatus}`
+        `Invalid status transition: ${previousStatus} -> ${dto.newStatus}`,
       );
     }
 
@@ -228,7 +263,6 @@ export class JobApplicationService implements IJobApplicationService {
       previousStatus,
       newStatus: dto.newStatus as any,
       changedBy: dto.changedBy,
-      changedByType: dto.changedBy ? "student" : "system",
       changeReason: dto.changeReason,
       changeMetadata: dto.changeMetadata,
     });
@@ -248,7 +282,10 @@ export class JobApplicationService implements IJobApplicationService {
 
     return {
       data: updatedApplication,
-      event: { type: JOB_APPLICATION_STATUS_CHANGED_EVENT, payload: eventPayload },
+      event: {
+        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
+        payload: eventPayload,
+      },
     };
   }
 
@@ -263,9 +300,16 @@ export class JobApplicationService implements IJobApplicationService {
   async search(
     filter?: IJobApplicationSearchFilter,
     pagination?: IPaginationQuery,
-    sort?: ISortQuery
-  ): Promise<{ items: Record<string, any>[]; total: number; offset: number; limit: number }> {
-    this.logger.log(`Searching applications with filter: ${JSON.stringify(filter)}, pagination: ${JSON.stringify(pagination)}, sort: ${JSON.stringify(sort)}`);
+    sort?: ISortQuery,
+  ): Promise<{
+    items: Record<string, any>[];
+    total: number;
+    offset: number;
+    limit: number;
+  }> {
+    this.logger.log(
+      `Searching applications with filter: ${JSON.stringify(filter)}, pagination: ${JSON.stringify(pagination)}, sort: ${JSON.stringify(sort)}`,
+    );
 
     const conditions = [];
 
@@ -284,7 +328,9 @@ export class JobApplicationService implements IJobApplicationService {
       }
 
       if (filter.applicationType) {
-        conditions.push(eq(jobApplications.applicationType, filter.applicationType as any));
+        conditions.push(
+          eq(jobApplications.applicationType, filter.applicationType as any),
+        );
       }
     }
 
@@ -300,12 +346,11 @@ export class JobApplicationService implements IJobApplicationService {
       .from(jobApplications)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(
-        sort?.field ? 
-          (sort.direction === 'asc' ? 
-            (jobApplications as any)[sort.field] : 
-            sql`${(jobApplications as any)[sort.field]} DESC`
-          ) : 
-          sql`${jobApplications.submittedAt} DESC`
+        sort?.field
+          ? sort.direction === "asc"
+            ? (jobApplications as any)[sort.field]
+            : sql`${(jobApplications as any)[sort.field]} DESC`
+          : sql`${jobApplications.submittedAt} DESC`,
       )
       .limit(limit)
       .offset(offset);
@@ -332,10 +377,17 @@ export class JobApplicationService implements IJobApplicationService {
    * @param params - Search parameters [搜索参数]
    * @returns Application [投递申请]
    */
-  async findOne(params: { id?: string; studentId?: string; jobId?: string; status?: string; applicationType?: string; [key: string]: any }) {
+  async findOne(params: {
+    id?: string;
+    studentId?: string;
+    jobId?: string;
+    status?: string;
+    applicationType?: ApplicationType;
+    [key: string]: any;
+  }) {
     // Build conditions based on provided params
     const conditions = [];
-    
+
     // Handle known columns explicitly to avoid TypeScript errors
     if (params.id) {
       conditions.push(eq(jobApplications.id, params.id));
@@ -351,15 +403,22 @@ export class JobApplicationService implements IJobApplicationService {
       conditions.push(eq(jobApplications.status, params.status as any));
     }
     if (params.applicationType) {
-      // Use type assertion for enum column to avoid TypeScript error
-      conditions.push(eq(jobApplications.applicationType, params.applicationType as any));
+      // Use enum type directly without type assertion
+      conditions.push(
+        eq(jobApplications.applicationType, params.applicationType),
+      );
     }
     // Add more known columns as needed
 
-    const [application] = await this.db.select().from(jobApplications).where(and(...conditions));
+    const [application] = await this.db
+      .select()
+      .from(jobApplications)
+      .where(and(...conditions));
 
     if (!application) {
-      throw new NotFoundException(`Application not found: ${JSON.stringify(params)}`);
+      throw new NotFoundException(
+        `Application not found: ${JSON.stringify(params)}`,
+      );
     }
 
     return application;
@@ -390,10 +449,17 @@ export class JobApplicationService implements IJobApplicationService {
     const [existing] = await this.db
       .select()
       .from(jobApplications)
-      .where(and(eq(jobApplications.studentId, studentId), eq(jobApplications.jobId, jobId)));
+      .where(
+        and(
+          eq(jobApplications.studentId, studentId),
+          eq(jobApplications.jobId, jobId),
+        ),
+      );
 
     if (existing) {
-      throw new Error(`Student ${studentId} has already applied for job ${jobId}`);
+      throw new Error(
+        `Student ${studentId} has already applied for job ${jobId}`,
+      );
     }
   }
 
@@ -405,7 +471,7 @@ export class JobApplicationService implements IJobApplicationService {
    */
   private getResultFromStatus(status: ApplicationStatus): "rejected" | null {
     const resultStatuses: ApplicationStatus[] = ["rejected"];
-    return resultStatuses.includes(status) ? status as any : null;
+    return resultStatuses.includes(status) ? (status as any) : null;
   }
 
   /**
@@ -417,7 +483,7 @@ export class JobApplicationService implements IJobApplicationService {
    */
   async rollbackApplicationStatus(
     applicationId: string,
-    changedBy: string
+    changedBy: string,
   ): Promise<IServiceResult<Record<string, any>, Record<string, any>>> {
     this.logger.log(`Rolling back status for application: ${applicationId}`);
 
@@ -439,7 +505,9 @@ export class JobApplicationService implements IJobApplicationService {
       .orderBy(applicationHistory.changedAt);
 
     if (statusHistory.length < 2) {
-      throw new BadRequestException(`Cannot rollback: Application has insufficient status history`);
+      throw new BadRequestException(
+        `Cannot rollback: Application has insufficient status history`,
+      );
     }
 
     // Get previous status [获取上一个状态]
@@ -448,10 +516,11 @@ export class JobApplicationService implements IJobApplicationService {
     const previousStatus = previousStatusRecord.newStatus as ApplicationStatus;
 
     // Validate status transition [验证状态转换]
-    const allowedTransitions = ALLOWED_APPLICATION_STATUS_TRANSITIONS[previousStatus];
+    const allowedTransitions =
+      ALLOWED_APPLICATION_STATUS_TRANSITIONS[previousStatus];
     if (!allowedTransitions || !allowedTransitions.includes(currentStatus)) {
       throw new BadRequestException(
-        `Invalid status transition: ${previousStatus} -> ${currentStatus}`
+        `Invalid status transition: ${previousStatus} -> ${currentStatus}`,
       );
     }
 
@@ -473,11 +542,12 @@ export class JobApplicationService implements IJobApplicationService {
       previousStatus: currentStatus,
       newStatus: previousStatus,
       changedBy: changedBy,
-      changedByType: "student",
       changeReason: "Status rolled back",
     });
 
-    this.logger.log(`Application status rolled back: ${applicationId} from ${currentStatus} to ${previousStatus}`);
+    this.logger.log(
+      `Application status rolled back: ${applicationId} from ${currentStatus} to ${previousStatus}`,
+    );
 
     // Publish status changed event [发布状态变更事件]
     const eventPayload = {
@@ -492,7 +562,10 @@ export class JobApplicationService implements IJobApplicationService {
 
     return {
       data: updatedApplication,
-      event: { type: JOB_APPLICATION_STATUS_CHANGED_EVENT, payload: eventPayload },
+      event: {
+        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
+        payload: eventPayload,
+      },
     };
   }
 }

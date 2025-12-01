@@ -4,6 +4,7 @@ import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { JobApplicationService } from "./job-application.service";
 import { ISubmitApplicationDto, IUpdateApplicationStatusDto } from "../dto";
+import { ApplicationType } from "../types/application-type.enum";
 import { randomUUID } from "crypto";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 
@@ -40,18 +41,18 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
                   // Support chaining orderBy after where
                   orderBy: jest.fn(() => Promise.resolve([])),
                   // Support await on the result
-                  then: jest.fn((resolve) => resolve([]))
+                  then: jest.fn((resolve) => resolve([])),
                 };
               }),
               limit: jest.fn(() => {
                 return {
-                  offset: jest.fn(() => Promise.resolve([]))
+                  offset: jest.fn(() => Promise.resolve([])),
                 };
               }),
               orderBy: jest.fn(() => Promise.resolve([])),
-              returning: jest.fn(() => Promise.resolve([]))
+              returning: jest.fn(() => Promise.resolve([])),
             };
-          })
+          }),
         };
       }),
       insert: jest.fn(() => ({
@@ -94,7 +95,9 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       ],
     }).compile();
 
-    jobApplicationService = moduleRef.get<JobApplicationService>(JobApplicationService);
+    jobApplicationService = moduleRef.get<JobApplicationService>(
+      JobApplicationService,
+    );
   });
 
   afterEach(() => {
@@ -107,7 +110,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
         jobId: testJobId,
-        applicationType: "direct",
+        applicationType: ApplicationType.DIRECT,
         coverLetter: "Test cover letter",
         customAnswers: { question1: "answer1" },
         isUrgent: false,
@@ -136,7 +139,9 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
               selectCallCount++;
               // First call: duplicate check - return empty array
               // Second call: job existence check - return job
-              return Promise.resolve(selectCallCount === 1 ? [] : [{ id: testJobId }]);
+              return Promise.resolve(
+                selectCallCount === 1 ? [] : [{ id: testJobId }],
+              );
             }),
           })),
         };
@@ -170,7 +175,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
         jobId: testJobId,
-        applicationType: "direct",
+        applicationType: ApplicationType.DIRECT,
         coverLetter: "Test cover letter",
         customAnswers: { question1: "answer1" },
         isUrgent: false,
@@ -187,7 +192,9 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act & Assert [执行和断言]
-      await expect(jobApplicationService.submitApplication(dto)).rejects.toThrow(/already applied/);
+      await expect(
+        jobApplicationService.submitApplication(dto),
+      ).rejects.toThrow(/already applied/);
     });
 
     it("should throw NotFoundException if job not found [如果岗位未找到应该抛出NotFoundException]", async () => {
@@ -195,7 +202,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
         jobId: testJobId,
-        applicationType: "direct",
+        applicationType: ApplicationType.DIRECT,
         coverLetter: "Test cover letter",
         customAnswers: { question1: "answer1" },
         isUrgent: false,
@@ -212,7 +219,9 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act & Assert [执行和断言]
-      await expect(jobApplicationService.submitApplication(dto)).rejects.toThrow(NotFoundException);
+      await expect(
+        jobApplicationService.submitApplication(dto),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -233,7 +242,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         id: testApplicationId,
         studentId: testStudentId,
         jobId: testJobId,
-        applicationType: "mentor_referral",
+        applicationType: ApplicationType.REFERRAL,
         status: "mentor_assigned",
       };
 
@@ -296,7 +305,9 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act & Assert [执行和断言]
-      await expect(jobApplicationService.submitMentorScreening(dto)).rejects.toThrow(NotFoundException);
+      await expect(
+        jobApplicationService.submitMentorScreening(dto),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("should throw error if application is not mentor referral type [如果申请不是内推类型应该抛出错误]", async () => {
@@ -328,7 +339,9 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act & Assert [执行和断言]
-      await expect(jobApplicationService.submitMentorScreening(dto)).rejects.toThrow(/only available for mentor referral/);
+      await expect(
+        jobApplicationService.submitMentorScreening(dto),
+      ).rejects.toThrow(/only available for mentor referral/);
     });
 
     it("should throw error if application is not in submitted status [如果申请不是提交状态应该抛出错误]", async () => {
@@ -347,7 +360,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         id: testApplicationId,
         studentId: testStudentId,
         jobId: testJobId,
-        applicationType: "mentor_referral",
+        applicationType: ApplicationType.REFERRAL,
         status: "interviewed",
       };
 
@@ -360,7 +373,11 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act & Assert [执行和断言]
-      await expect(jobApplicationService.submitMentorScreening(dto)).rejects.toThrow(/only be submitted for applications in mentor_assigned status/);
+      await expect(
+        jobApplicationService.submitMentorScreening(dto),
+      ).rejects.toThrow(
+        /only be submitted for applications in mentor_assigned status/,
+      );
     });
   });
 
@@ -370,9 +387,9 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
         newStatus: "interviewed",
-          changedBy: testMentorId,
-          changeReason: "Moving to interview",
-          changeMetadata: { note: "Initial interview" },
+        changedBy: testMentorId,
+        changeReason: "Moving to interview",
+        changeMetadata: { note: "Initial interview" },
       };
 
       const mockApplication = {
@@ -497,7 +514,9 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act & Assert [执行和断言]
-      await expect(jobApplicationService.updateApplicationStatus(dto)).rejects.toThrow(NotFoundException);
+      await expect(
+        jobApplicationService.updateApplicationStatus(dto),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("should throw BadRequestException for invalid status transition [对于无效状态转换应该抛出BadRequestException]", async () => {
@@ -526,7 +545,9 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act & Assert [执行和断言]
-      await expect(jobApplicationService.updateApplicationStatus(dto)).rejects.toThrow(/Invalid status transition/);
+      await expect(
+        jobApplicationService.updateApplicationStatus(dto),
+      ).rejects.toThrow(/Invalid status transition/);
     });
   });
 
@@ -537,14 +558,14 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         studentId: testStudentId,
         jobId: testJobId,
         status: "submitted" as const,
-        applicationType: "direct" as const,
+        applicationType: ApplicationType.DIRECT,
       };
-      
+
       const pagination = {
         page: 1,
         pageSize: 10,
       };
-      
+
       const sort = {
         field: "createdAt",
         direction: "desc" as const,
@@ -587,7 +608,11 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       });
 
       // Act [执行]
-      const result = await jobApplicationService.search(filter, pagination, sort);
+      const result = await jobApplicationService.search(
+        filter,
+        pagination,
+        sort,
+      );
 
       // Assert [断言]
       expect(result.items).toEqual(mockApplications);
@@ -601,12 +626,12 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const filter = {
         studentId: testStudentId,
       };
-      
+
       const pagination = {
         page: 1,
         pageSize: 10,
       };
-      
+
       const sort = {
         field: "createdAt",
         direction: "desc" as const,
@@ -639,7 +664,11 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       });
 
       // Act [执行]
-      const result = await jobApplicationService.search(filter, pagination, sort);
+      const result = await jobApplicationService.search(
+        filter,
+        pagination,
+        sort,
+      );
 
       // Assert [断言]
       expect(result.items).toEqual(mockApplications);
@@ -651,12 +680,12 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const filter = {
         studentId: testStudentId,
       };
-      
+
       const pagination = {
         page: 1,
         pageSize: 10,
       };
-      
+
       const sort = {
         field: "status",
         direction: "asc" as const,
@@ -699,7 +728,11 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       });
 
       // Act [执行]
-      const result = await jobApplicationService.search(filter, pagination, sort);
+      const result = await jobApplicationService.search(
+        filter,
+        pagination,
+        sort,
+      );
 
       // Assert [断言]
       expect(result.items).toEqual(mockApplications);
@@ -726,7 +759,9 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act [执行]
-      const result = await jobApplicationService.findOne({ id: testApplicationId });
+      const result = await jobApplicationService.findOne({
+        id: testApplicationId,
+      });
 
       // Assert [断言]
       expect(result).toEqual(mockApplication);
@@ -744,7 +779,9 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act & Assert [执行和断言]
-      await expect(jobApplicationService.findOne({ id: testApplicationId })).rejects.toThrow(NotFoundException);
+      await expect(
+        jobApplicationService.findOne({ id: testApplicationId }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -762,7 +799,8 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
           changeReason: "Initial submission",
           changedAt: new Date(),
         },
-        {          id: randomUUID(),
+        {
+          id: randomUUID(),
           applicationId: testApplicationId,
           previousStatus: "submitted",
           newStatus: "mentor_assigned",
@@ -784,7 +822,8 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act [执行]
-      const result = await jobApplicationService.getStatusHistory(testApplicationId);
+      const result =
+        await jobApplicationService.getStatusHistory(testApplicationId);
 
       // Assert [断言]
       expect(result).toEqual(mockHistory);
@@ -806,7 +845,8 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act [执行]
-      const result = await jobApplicationService.getStatusHistory(testApplicationId);
+      const result =
+        await jobApplicationService.getStatusHistory(testApplicationId);
 
       // Assert [断言]
       expect(result).toEqual(mockHistory);
@@ -877,7 +917,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
                 // For direct await (application existence check)
                 then: jest.fn((resolve) => {
                   resolve([mockApplication]);
-                })
+                }),
               };
             }),
             orderBy: jest.fn(() => {
@@ -902,7 +942,10 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act [执行]
-      const result = await jobApplicationService.rollbackApplicationStatus(testApplicationId, testStudentId);
+      const result = await jobApplicationService.rollbackApplicationStatus(
+        testApplicationId,
+        testStudentId,
+      );
 
       // Assert [断言]
       expect(result.data).toEqual(updatedApplication);
@@ -926,7 +969,12 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act & Assert [执行和断言]
-      await expect(jobApplicationService.rollbackApplicationStatus(testApplicationId, testStudentId)).rejects.toThrow(NotFoundException);
+      await expect(
+        jobApplicationService.rollbackApplicationStatus(
+          testApplicationId,
+          testStudentId,
+        ),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it("should throw error if insufficient status history [如果状态历史不足应该抛出错误]", async () => {
@@ -962,7 +1010,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
               // For direct await (application existence check)
               then: jest.fn((resolve) => {
                 resolve([mockApplication]);
-              })
+              }),
             };
           }),
           orderBy: jest.fn(() => {
@@ -972,7 +1020,12 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act & Assert [执行和断言]
-      await expect(jobApplicationService.rollbackApplicationStatus(testApplicationId, testStudentId)).rejects.toThrow(BadRequestException);
+      await expect(
+        jobApplicationService.rollbackApplicationStatus(
+          testApplicationId,
+          testStudentId,
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

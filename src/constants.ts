@@ -6,5 +6,5 @@
  * Temporary Feishu host user ID for testing
  * Current value: jwb's open_id
  */
-export const FEISHU_DEFAULT_HOST_USER_ID = 'ou_977d022952b2f47efe0740d2d1b2a713';
-
+export const FEISHU_DEFAULT_HOST_USER_ID =
+  "ou_977d022952b2f47efe0740d2d1b2a713";

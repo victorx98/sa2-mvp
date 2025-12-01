@@ -1,4 +1,4 @@
-import { ApplicationStatus, ApplicationType } from '../types';
+import { ApplicationStatus, ApplicationType } from "../types";
 
 /**
  * DTO for submitting a job application [提交投递申请DTO]
@@ -21,7 +21,11 @@ export interface ISubmitMentorScreeningDto {
   technicalSkills: number; // Technical skills score (1-5) [技术技能评分]
   experienceMatch: number; // Experience match score (1-5) [经验匹配度评分]
   culturalFit: number; // Cultural fit score (1-5) [文化适应度评分]
-  overallRecommendation: "strongly_recommend" | "recommend" | "neutral" | "not_recommend"; // Overall recommendation level [整体推荐度]
+  overallRecommendation:
+    | "strongly_recommend"
+    | "recommend"
+    | "neutral"
+    | "not_recommend"; // Overall recommendation level [整体推荐度]
   screeningNotes?: string; // Screening notes [评估备注]
 }
 

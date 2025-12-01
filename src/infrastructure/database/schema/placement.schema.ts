@@ -25,26 +25,9 @@ export const applicationStatusEnum = pgEnum("application_status", APPLICATION_ST
 // Application type enum [投递类型枚举]
 export const applicationTypeEnum = pgEnum("application_type", [
   "direct",
-  "counselor_assisted",
-  "mentor_referral",
-  "bd_referral",
-]);
-
-// Changed by type enum [变更人类型枚举]
-export const changedByTypeEnum = pgEnum("changed_by_type", [
-  "system",
-  "student",
-  "mentor",
+  "proxy",
+  "referral",
   "bd",
-  "counselor",
-]);
-
-// Overall recommendation enum [整体推荐度枚举]
-export const overallRecommendationEnum = pgEnum("overall_recommendation_enum", [
-  "strongly_recommend",
-  "recommend",
-  "neutral",
-  "not_recommend",
 ]);
 
 // Result enum [结果枚举]
@@ -181,7 +164,6 @@ export const applicationHistory = pgTable(
 
     // Change information [变更信息]
     changedBy: varchar("changed_by", { length: 36 }), // Changer ID (system or user) [变更人ID]
-    changedByType: changedByTypeEnum("changed_by_type"), // Changer type [变更人类型]
     changeReason: text("change_reason"), // Change reason [变更原因]
     changeMetadata: jsonb("change_metadata"), // Change metadata [变更元数据]
 

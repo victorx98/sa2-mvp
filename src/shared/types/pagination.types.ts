@@ -13,7 +13,7 @@ export type PaginationQuery = IPaginationQuery;
 // 排序参数
 export interface ISortQuery {
   field: string; // Field to sort by [排序字段]
-  direction: 'asc' | 'desc'; // Sort direction [排序方向]
+  direction: "asc" | "desc"; // Sort direction [排序方向]
 }
 
 // Legacy alias for backward compatibility
