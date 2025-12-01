@@ -1,3 +1,6 @@
+// Shared enums
+export * from "./enums";
+
 // User and identity
 export * from "./user.schema";
 export * from "./student.schema";
@@ -29,7 +32,8 @@ export * from "./service-ledgers.schema";
 // Services domain
 export * from "./sessions.schema";
 export * from "./session-events.schema"; // Legacy, kept for backward compatibility
-export * from "./meeting-events.schema";
+export * from "./feishu-meeting-events.schema";
+export * from "./zoom-meeting-events.schema";
 export * from "./meetings.schema";
 export * from "./mentoring-sessions.schema"; // Legacy, kept for backward compatibility
 export * from "./session-types.schema";

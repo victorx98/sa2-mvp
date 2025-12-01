@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
+import { Country, Gender } from "@shared/types/identity-enums";
 
 /**
  * Student Query Service
@@ -40,7 +41,6 @@ export class StudentQueryService {
     const result = await this.db.execute(sql`
       SELECT DISTINCT
         s.id,
-        s.user_id,
         s.status,
         s.under_major,
         s.under_college,
@@ -48,7 +48,7 @@ export class StudentQueryService {
         s.graduate_college,
         s.ai_resume_summary,
         s.customer_importance,
-        s.fulltime_startdate,
+        s.graduation_date,
         s.background_info,
         s.grades,
         s.created_time,
@@ -59,11 +59,11 @@ export class StudentQueryService {
         u.country,
         u.gender
       FROM student s
-      LEFT JOIN "user" u ON s.user_id = u.id
+      LEFT JOIN "user" u ON s.id = u.id
       INNER JOIN student_mentor sm ON s.id = sm.student_id
       INNER JOIN mentor m ON sm.mentor_id = m.id
       WHERE m.id = ${mentorId}
-        AND s.user_id IS NOT NULL
+        AND s.id IS NOT NULL
         ${searchFilter}
       ORDER BY s.created_time DESC
     `);
@@ -90,7 +90,6 @@ export class StudentQueryService {
     const result = await this.db.execute(sql`
       SELECT DISTINCT
         s.id,
-        s.user_id,
         s.status,
         s.under_major,
         s.under_college,
@@ -98,7 +97,7 @@ export class StudentQueryService {
         s.graduate_college,
         s.ai_resume_summary,
         s.customer_importance,
-        s.fulltime_startdate,
+        s.graduation_date,
         s.background_info,
         s.grades,
         s.created_time,
@@ -111,11 +110,11 @@ export class StudentQueryService {
         sc.status as counselor_status,
         sc.type as counselor_type
       FROM student s
-      LEFT JOIN "user" u ON s.user_id = u.id
+      LEFT JOIN "user" u ON s.id = u.id
       INNER JOIN student_counselor sc ON s.id = sc.student_id
       INNER JOIN counselor c ON sc.counselor_id = c.id
       WHERE c.id = ${counselorId}
-        AND s.user_id IS NOT NULL
+        AND s.id IS NOT NULL
         ${searchFilter}
       ORDER BY s.created_time DESC
     `);
@@ -139,7 +138,6 @@ export class StudentQueryService {
     const result = await this.db.execute(sql`
       SELECT 
         s.id,
-        s.user_id,
         s.status,
         s.under_major,
         s.under_college,
@@ -147,7 +145,7 @@ export class StudentQueryService {
         s.graduate_college,
         s.ai_resume_summary,
         s.customer_importance,
-        s.fulltime_startdate,
+        s.graduation_date,
         s.background_info,
         s.grades,
         s.created_time,
@@ -158,8 +156,8 @@ export class StudentQueryService {
         u.country,
         u.gender
       FROM student s
-      LEFT JOIN "user" u ON s.user_id = u.id
-      WHERE s.user_id IS NOT NULL
+      LEFT JOIN "user" u ON s.id = u.id
+      WHERE s.id IS NOT NULL
       ORDER BY s.created_time DESC
     `);
 
@@ -184,7 +182,6 @@ export class StudentQueryService {
   private mapRowToStudentItem(row: Record<string, unknown>): StudentListItem {
     return {
       id: String(row.id || ""),
-      userId: String(row.user_id || ""),
       status: String(row.status || ""),
       underMajor: String(row.under_major || ""),
       underCollege: String(row.under_college || ""),
@@ -192,8 +189,8 @@ export class StudentQueryService {
       graduateCollege: String(row.graduate_college || ""),
       aiResumeSummary: String(row.ai_resume_summary || ""),
       customerImportance: String(row.customer_importance || ""),
-      fulltimeStartdate: row.fulltime_startdate
-        ? new Date(String(row.fulltime_startdate))
+      graduationDate: row.graduation_date
+        ? new Date(String(row.graduation_date))
         : null,
       backgroundInfo: String(row.background_info || ""),
       grades: String(row.grades || ""),
@@ -202,8 +199,8 @@ export class StudentQueryService {
       email: String(row.email || ""),
       nameEn: String(row.name_en || ""),
       nameZh: String(row.name_zh || ""),
-      country: String(row.country || ""),
-      gender: String(row.gender || ""),
+      country: row.country ? (row.country as Country) : undefined,
+      gender: row.gender ? (row.gender as Gender) : undefined,
     };
   }
 }
@@ -215,8 +212,7 @@ export class StudentQueryService {
  */
 export interface StudentListItem {
   // Student 表主要字段
-  id: string; // student.id (主键)
-  userId: string; // student.user_id (关联到 user.id)
+  id: string; // student.id (主键，直接外键到 user.id)
   status: string; // student.status
   underMajor: string; // student.under_major
   underCollege: string; // student.under_college
@@ -224,7 +220,7 @@ export interface StudentListItem {
   graduateCollege: string; // student.graduate_college
   aiResumeSummary: string; // student.ai_resume_summary
   customerImportance: string; // student.customer_importance
-  fulltimeStartdate: Date | null; // student.fulltime_startdate
+  graduationDate: Date | null; // student.graduation_date
   backgroundInfo: string; // student.background_info
   grades: string; // student.grades
   createdAt: Date; // student.created_time
@@ -234,8 +230,8 @@ export interface StudentListItem {
   email: string; // user.email
   nameEn: string; // user.name_en
   nameZh: string; // user.name_zh
-  country: string; // user.country
-  gender: string; // user.gender
+  country?: Country; // user.country
+  gender?: Gender; // user.gender
 
   // 关联信息
   counselorStatus?: string; // student_counselor.status (仅当通过顾问查询时)

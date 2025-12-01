@@ -1,5 +1,5 @@
 import { Controller, Get, Query, UseGuards } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiOkResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiOkResponse, ApiQuery, ApiBearerAuth } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
 import { Roles } from "@shared/decorators/roles.decorator";
@@ -11,9 +11,9 @@ import { StudentSummaryResponseDto } from "@api/dto/response/student-response.dt
 import { plainToInstance } from "class-transformer";
 
 /**
- * API Layer - Counselor Students Controller
+ * API Layer - Student Controller
  * 职责：
- * 1. 定义 HTTP 路由
+ * 1. 定义学生相关的 HTTP 路由
  * 2. 提取请求参数
  * 3. 调用 Application Layer 服务
  * 4. 返回 HTTP 响应
@@ -24,33 +24,41 @@ import { plainToInstance } from "class-transformer";
  * ❌ 不包含业务逻辑
  * ❌ 不进行数据转换（由 Application Layer 负责）
  */
-@ApiTags("Counselor Portal")
-@Controller(`${ApiPrefix}/counselor`)
+@ApiTags("Student")
+@Controller(`${ApiPrefix}/student`)
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('counselor')
-export class CounselorStudentsController {
+@Roles("mentor", "counselor", "student")
+@ApiBearerAuth()
+export class StudentController {
   constructor(
     // ✅ 直接注入 Application Layer 服务
     private readonly studentListQuery: StudentListQuery,
   ) {}
 
-  @Get("student/list")
-  @ApiOperation({ summary: "Get student list for counselor" })
+  @Get("find")
+  @Roles("mentor", "counselor")
+  @ApiOperation({ summary: "find students" })
+  @ApiQuery({
+    name: "text",
+    required: false,
+    description: "Search keyword (searches in both Chinese and English names)",
+    type: String,
+  })
   @ApiOkResponse({
-    description: "Student list retrieved successfully",
+    description: "Student results retrieved successfully",
     type: StudentSummaryResponseDto,
     isArray: true,
   })
-  async getStudentList(
+  async findStudents(
     @CurrentUser() user: User,
-    @Query("search") search?: string,
+    @Query("text") text?: string,
   ): Promise<StudentSummaryResponseDto[]> {
-    const items = await this.studentListQuery.findByCounselorId(
-      user.id,
-      search,
-    );
+    // ✅ 调用 Application Layer 服务，根据用户角色自动选择查询策略
+    const items = await this.studentListQuery.find(user, text);
     return plainToInstance(StudentSummaryResponseDto, items, {
       enableImplicitConversion: false,
     });
   }
+
 }
+

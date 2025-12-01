@@ -29,11 +29,11 @@ export interface IUpdateMeetingInput {
   autoRecord?: boolean; // Enable auto-recording (passed to provider, not saved in DB)
 }
 
-// Meeting info interface (v4.1)
+// Meeting info interface
 export interface IMeetingInfo {
   provider: MeetingProviderType; // Meeting platform
   meetingNo: string | null; // Meeting number (Feishu 9-digit, Zoom null)
-  reserveId: string; // Reserve ID - Feishu reserve_id or Zoom meeting_id (for update/cancel) - v4.1
+  meetingId: string; // Meeting ID from provider (Feishu reserve.id, Zoom id) - used for API calls and event mapping
   meetingUrl: string; // Meeting link
   meetingPassword: string | null; // Meeting password
   hostJoinUrl: string | null; // Host-only join URL (Zoom only)
@@ -51,28 +51,28 @@ export interface IMeetingProvider {
   createMeeting(input: ICreateMeetingInput): Promise<IMeetingInfo>;
 
   /**
-   * Update a meeting (v4.1)
-   * @param reserveId - Reserve ID (Feishu reserve_id or Zoom meeting_id)
+   * Update a meeting
+   * @param meetingId - Meeting ID from provider (Feishu reserve.id, Zoom id)
    * @param input - Meeting update parameters
    * @returns Success status
    */
   updateMeeting(
-    reserveId: string,
+    meetingId: string,
     input: IUpdateMeetingInput,
   ): Promise<boolean>;
 
   /**
-   * Cancel a meeting (v4.1)
-   * @param reserveId - Reserve ID (Feishu reserve_id or Zoom meeting_id)
+   * Cancel a meeting
+   * @param meetingId - Meeting ID from provider (Feishu reserve.id, Zoom id)
    * @returns Success status
    */
-  cancelMeeting(reserveId: string): Promise<boolean>;
+  cancelMeeting(meetingId: string): Promise<boolean>;
 
   /**
    * Get meeting information
-   * @param reserveId - Reserve ID (Feishu reserve_id or Zoom meeting_id)
+   * @param meetingId - Meeting ID from provider (Feishu reserve.id, Zoom id)
    * @returns Meeting information
    */
-  getMeetingInfo(reserveId: string): Promise<IMeetingInfo>;
+  getMeetingInfo(meetingId: string): Promise<IMeetingInfo>;
 }
 

@@ -38,7 +38,7 @@ export interface MeetingTimeSegment {
  * 1. This is the "Core Meeting Layer" that manages meeting resources
  * 2. Downstream domains (mentoring_sessions, etc.) reference this via meetings.id FK
  * 3. meeting_no can be reused over time (7+ days), so we use (meeting_no, schedule_start_time) for lookups
- * 4. reserve_id follows Feishu API naming (Feishu: reserve_id, Zoom: meeting_id)
+ * 4. meeting_id unifies both platforms (Feishu: reserve.id, Zoom: id)
  */
 export const meetings = pgTable(
   "meetings",
@@ -48,7 +48,7 @@ export const meetings = pgTable(
     // Meeting identification
     meetingNo: varchar("meeting_no", { length: 20 }).notNull(), // Feishu 9-digit number, Zoom meeting number
     meetingProvider: varchar("meeting_provider", { length: 20 }).notNull(), // 'feishu' | 'zoom'
-    reserveId: varchar("reserve_id", { length: 255 }).notNull(), // v4.1 - Reserve ID (Feishu reserve_id, Zoom meeting_id)
+    meetingId: varchar("meeting_id", { length: 255 }).notNull(), // Meeting ID from provider (Feishu reserve.id, Zoom id)
 
     // Meeting details
     topic: varchar("topic", { length: 255 }).notNull(), // Meeting topic/title
@@ -111,8 +111,8 @@ export const meetings = pgTable(
       table.scheduleStartTime,
     ),
 
-    // v4.1 - Index for reserve_id (for update/cancel operations)
-    idxReserveId: index("idx_meeting_reserve_id").on(table.reserveId),
+    // Index for meeting_id (for update/cancel operations and event lookups)
+    idxMeetingId: index("idx_meeting_meeting_id").on(table.meetingId),
 
     // v4.1 - Index for owner_id
     idxOwnerId: index("idx_meeting_owner").on(table.ownerId),

@@ -21,10 +21,10 @@ export interface MeetingEntity {
   id: string; // UUID primary key
   meetingNo: string; // Meeting number (Feishu 9-digit, Zoom number)
   meetingProvider: string; // 'feishu' | 'zoom'
-  reserveId: string; // Reserve ID (Feishu reserve_id, Zoom meeting_id) - v4.1
+  meetingId: string; // Meeting ID from provider (Feishu reserve.id, Zoom id)
   topic: string; // Meeting topic/title
   meetingUrl: string; // Meeting join URL
-  ownerId: string | null; // Meeting owner ID (usually mentor) - v4.1
+  ownerId: string | null; // Meeting owner ID (usually mentor)
   scheduleStartTime: Date; // Scheduled start time
   scheduleDuration: number; // Scheduled duration in minutes
   status: MeetingStatus; // Current lifecycle status
@@ -39,15 +39,15 @@ export interface MeetingEntity {
 }
 
 /**
- * Create Meeting Input (v4.1)
+ * Create Meeting Input
  */
 export interface CreateMeetingInput {
   meetingNo: string;
   meetingProvider: string;
-  reserveId: string; // v4.1 - Reserve ID (Feishu reserve_id, Zoom meeting_id)
+  meetingId: string; // Meeting ID from provider (Feishu reserve.id, Zoom id)
   topic: string;
   meetingUrl: string;
-  ownerId?: string; // v4.1 - Meeting owner ID
+  ownerId?: string; // Meeting owner ID
   scheduleStartTime: Date;
   scheduleDuration: number;
 }

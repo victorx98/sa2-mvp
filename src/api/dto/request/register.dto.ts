@@ -1,32 +1,51 @@
-import { IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, MinLength } from "class-validator";
+import { IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, MinLength, IsEnum } from "class-validator";
+import { ApiProperty } from "@nestjs/swagger";
 import { USER_ROLES } from "@domains/identity/user/user.constants";
+import { Gender, Country } from "@shared/types/identity-enums";
 
 export class RegisterDto {
+  @ApiProperty({ description: "User email address", example: "user@example.com" })
   @IsEmail()
   @IsNotEmpty()
   email: string;
 
+  @ApiProperty({ description: "User password (minimum 6 characters)", example: "password123", minLength: 6 })
   @IsNotEmpty()
   @IsString()
   @MinLength(6)
   password: string;
 
-  @IsOptional()
+  @ApiProperty({ description: "User English name", example: "John Doe" })
+  @IsNotEmpty()
   @IsString()
-  nameEn?: string;
+  nameEn: string;
 
-  @IsOptional()
+  @ApiProperty({ description: "User Chinese name", example: "张三" })
+  @IsNotEmpty()
   @IsString()
-  nameZh?: string;
+  nameZh: string;
 
+  @ApiProperty({ 
+    description: "User gender", 
+    required: false, 
+    enum: Gender,
+    example: Gender.MALE 
+  })
   @IsOptional()
-  @IsString()
-  gender?: string;
+  @IsEnum(Gender, { message: "Gender must be either 'male' or 'female'" })
+  gender?: Gender;
 
+  @ApiProperty({ 
+    description: "ISO 3166-1 alpha-2 country code (US, CN, GB, CA)", 
+    required: false, 
+    enum: Country,
+    example: Country.US 
+  })
   @IsOptional()
-  @IsString()
-  country?: string;
+  @IsEnum(Country, { message: "Country must be one of: US, CN, GB, CA" })
+  country?: Country;
 
+  @ApiProperty({ description: "User role", enum: USER_ROLES, example: "student" })
   @IsNotEmpty()
   @IsString()
   @IsIn(USER_ROLES)

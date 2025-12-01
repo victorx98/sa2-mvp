@@ -33,10 +33,13 @@
   - [6.2 Profile 聚合规则](#62-profile-聚合规则)
   - [6.3 角色管理规则](#63-角色管理规则)
   - [6.4 通用规则](#64-通用规则)
-- [7. 待确认点](#7-待确认点)
-  - [7.1 Student 和 Mentor 教育背景字段设计](#71-student-和-mentor-教育背景字段设计)
-  - [7.2 School 和 Major 多语言实现方式](#72-school-和-major-多语言实现方式)
-  - [7.3 Supabase 在中国大陆访问稳定性问题](#73-supabase-在中国大陆访问稳定性问题)
+- [7. 扩展设计（未来规划）](#7-扩展设计未来规划)
+  - [7.1 扩展 ER 图](#71-扩展-er-图)
+  - [7.2 新增表结构说明](#72-新增表结构说明)
+- [8. 待确认点](#8-待确认点)
+  - [8.1 Student 和 Mentor 教育背景字段设计](#81-student-和-mentor-教育背景字段设计)
+  - [8.2 School 和 Major 多语言实现方式](#82-school-和-major-多语言实现方式)
+  - [8.3 Supabase 在中国大陆访问稳定性问题](#83-supabase-在中国大陆访问稳定性问题)
 
 ---
 
@@ -1003,9 +1006,112 @@ src/application/queries/
 
 ---
 
-## 7. 待确认点
+## 7. 扩展设计（未来规划）
 
-### 7.1 Student 和 Mentor 教育背景字段设计
+随着业务发展，学生档案将演进为包含完整学业生命周期的复杂记录（Academic Record）。本章节规划了支持多段教育经历、详细成绩单、实习/活动记录以及标化考试成绩的扩展方案。
+
+**设计原则：**
+1.  **保持核心稳定**：现有的 `student` 表结构保持不变，继续作为聚合根和基本信息快照，ID 保持与 `user.id` 共享主键。
+2.  **扩展子表关联**：新增的复杂记录通过独立子表存储，使用外键 `student_id` 关联 `student.id`。
+3.  **混合存储策略**：对于结构高度差异化的数据（如不同学制的课程成绩、不同类型的标化考试小分），采用 **JSONB** 存储详情，兼顾灵活性与查询能力。
+
+### 7.1 扩展 ER 图
+
+```mermaid
+erDiagram
+    %% 核心聚合根（保持不变）
+    student ||--o{ student_educations : "拥有多段教育经历"
+    student ||--o{ student_experiences : "拥有多段实习/活动"
+    student ||--o{ student_exams : "拥有多项标化成绩"
+    
+    %% 教育经历与学期记录
+    student_educations ||--o{ student_academic_records : "包含多个学期记录"
+
+    %% 引用主数据
+    schools ||--o{ student_educations : "引用学校"
+    majors ||--o{ student_educations : "引用专业"
+
+    student {
+        uuid id PK "FK -> public_user.id"
+        varchar status
+        varchar customer_importance
+        date graduation_date
+        text grades "简单成绩文本(旧)"
+        uuid high_school "当前/最近高中(旧)"
+        uuid under_college "当前/最近本科(旧)"
+        uuid graduate_college "当前/最近研究生(旧)"
+    }
+
+    %% [新增] 教育经历表：支持高中、本科、研究生等多段经历
+    student_educations {
+        uuid id PK
+        uuid student_id FK "FK -> student.id"
+        uuid school_id FK "FK -> schools.id"
+        varchar stage "high_school/under_college/graduate"
+        varchar status "attending/graduated/transferred"
+        date start_date
+        date end_date
+        float gpa "该阶段累积GPA"
+    }
+
+    %% [新增] 学术记录表：学期与课程
+    student_academic_records {
+        uuid id PK
+        uuid education_id FK "FK -> student_educations.id"
+        varchar term_name "e.g. Grade 10 Fall"
+        float term_gpa
+        jsonb courses "课程详情列表: [{code, name, credits, grade}]"
+    }
+
+    %% [新增] 经历表：实习与课外活动
+    student_experiences {
+        uuid id PK
+        uuid student_id FK "FK -> student.id"
+        varchar type "internship/research/activity"
+        varchar organization
+        varchar role
+        text description
+        date start_date
+        date end_date
+    }
+
+    %% [新增] 标化考试表
+    student_exams {
+        uuid id PK
+        uuid student_id FK "FK -> student.id"
+        varchar test_type "SAT/ACT/TOEFL/GRE"
+        float total_score
+        date test_date
+        jsonb sub_scores "小分详情: {reading:700, math:800}"
+    }
+```
+
+### 7.2 新增表结构说明
+
+#### 7.2.1 public.student_educations (教育经历表)
+*   **用途**：解决原 `student` 表只能存储固定三个阶段（高中/本科/研）的限制，支持转学、多学位等复杂场景。
+*   **关联**：通过 `student_id` 关联 `student` 表，通过 `school_id` 关联学校主数据。
+
+#### 7.2.2 public.student_academic_records (学业记录表)
+*   **用途**：记录每个学期的详细成绩。
+*   **设计亮点**：
+    *   以**学期**为行记录单位，避免 `student_courses` 表数据量过大。
+    *   `courses` 字段使用 **JSONB** 存储该学期的课程列表。
+    *   理由：不同学校课程属性差异极大（AP/IB/普高/大学学分制），JSONB 能灵活适应各种成绩单格式。
+
+#### 7.2.3 public.student_experiences (经历表)
+*   **用途**：统一存储实习、科研、志愿者、社团等非学术经历。
+*   **区分**：通过 `type` 字段区分活动类型。
+
+#### 7.2.4 public.student_exams (标化考试表)
+*   **用途**：存储各类标准化考试成绩。
+*   **设计亮点**：`sub_scores` 使用 JSONB 存储各科目小分（如 SAT 的 Reading/Math，托福的听说读写），主表只存总分和考试类型，便于统计查询。
+
+---
+
+## 8. 待确认点
+  
+  ### 8.1 Student 和 Mentor 教育背景字段设计
 
 **设计决策**：`student` 和 `mentor` 表中的高中、本科、研究生学校都作为独立字段放到表中（`high_school`、`under_college`、`graduate_college`），而不是采用其他方式（如 JSONB 字段、关联表等）。
 
@@ -1020,7 +1126,7 @@ src/application/queries/
 - **JSONB 字段**：虽然灵活，但无法建立外键约束，查询性能较差，且类型安全性不足
 - **关联表（多对多）**：虽然可以支持多个教育阶段，但增加了查询复杂度，且对于固定三个阶段的场景来说过度设计
 
-### 7.2 School 和 Major 多语言实现方式
+### 8.2 School 和 Major 多语言实现方式
 
 **设计决策**：`schools` 和 `majors` 表采用 `name_zh` 和 `name_en` 多个字段的方式实现多语言，而不是使用前端多语言包或翻译表。
 
@@ -1035,7 +1141,7 @@ src/application/queries/
 - **前端多语言包**：适合 UI 文本，但不适合动态数据（学校、专业），且无法支持按语言筛选查询
 - **翻译表**：虽然灵活，但对于只有中英文两种语言的场景来说，增加了不必要的表关联和查询复杂度
 
-### 7.3 Supabase 在中国大陆访问稳定性问题
+### 8.3 Supabase 在中国大陆访问稳定性问题
 
 **问题描述**：Supabase 在中国大陆访问很不稳定，会非常影响用户体验，特别是在用户注册、登录等关键流程中。
 

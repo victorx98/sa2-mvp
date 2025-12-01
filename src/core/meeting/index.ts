@@ -18,9 +18,8 @@ export * from "./entities/meeting-event.entity";
 
 // Services
 export * from "./services/meeting-manager.service";
-export * from "./services/meeting-event.service";
+export * from "./services/unified-meeting-event.service";
 export * from "./services/meeting-lifecycle.service";
-export * from "./services/duration-calculator.service";
 
 // Events
 export * from "./events/meeting-lifecycle.events";
@@ -30,5 +29,6 @@ export * from "./exceptions/meeting.exception";
 
 // Repositories (if needed by Application layer)
 export * from "./repositories/meeting.repository";
-export * from "./repositories/meeting-event.repository";
+export * from "./repositories/feishu-meeting-event.repository";
+export * from "./repositories/zoom-meeting-event.repository";
 

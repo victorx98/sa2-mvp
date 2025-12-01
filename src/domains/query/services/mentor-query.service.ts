@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
+import { Country, Gender } from "@shared/types/identity-enums";
 
 /**
  * 提供导师列表相关的只读查询能力
@@ -52,6 +53,54 @@ export class MentorQueryService {
     return result.rows.map((row) => this.mapRowToMentor(row));
   }
 
+  /**
+   * 根据学生ID查询导师列表
+   * 通过 student_mentor 表关联，查找分配给该学生的导师
+   */
+  async findByStudentId(
+    studentId: string,
+    search?: string,
+  ): Promise<MentorListItem[]> {
+    this.logger.log(
+      `Finding mentors for student: ${studentId}${
+        search ? ` with search=${search}` : ""
+      }`,
+    );
+
+    const searchFilter = this.buildSearchFilter(search);
+
+    const result = await this.db.execute(sql`
+      SELECT DISTINCT
+        m.id,
+        m.status,
+        m.type,
+        m.company,
+        m.company_title,
+        m.brief_intro,
+        m.high_school,
+        m.location,
+        m.level,
+        m.rating,
+        m.created_time,
+        m.modified_time,
+        u.email,
+        u.name_en,
+        u.name_zh,
+        u.country,
+        u.gender
+      FROM mentor m
+      LEFT JOIN "user" u ON m.id = u.id
+      INNER JOIN student_mentor sm ON m.id = sm.mentor_id
+      INNER JOIN student s ON sm.student_id = s.id
+      WHERE s.id = ${studentId}
+        AND m.id IS NOT NULL
+        ${searchFilter}
+      ORDER BY m.created_time DESC
+    `);
+
+    return result.rows.map((row) => this.mapRowToMentor(row));
+  }
+
   private buildSearchFilter(search?: string) {
     if (!search || search.trim().length === 0) {
       return sql``;
@@ -87,8 +136,8 @@ export class MentorQueryService {
       email: String(row.email || ""),
       nameEn: row.name_en ? String(row.name_en) : undefined,
       nameZh: row.name_zh ? String(row.name_zh) : undefined,
-      country: row.country ? String(row.country) : undefined,
-      gender: row.gender ? String(row.gender) : undefined,
+      country: row.country ? (row.country as Country) : undefined,
+      gender: row.gender ? (row.gender as Gender) : undefined,
     };
   }
 }
@@ -110,7 +159,7 @@ export interface MentorListItem {
   email: string;
   nameEn?: string;
   nameZh?: string;
-  country?: string;
-  gender?: string;
+  country?: Country;
+  gender?: Gender;
 }
 

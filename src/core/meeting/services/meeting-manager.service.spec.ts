@@ -73,7 +73,7 @@ describe('MeetingManagerService', () => {
 
       mockProvider.createMeeting.mockResolvedValue({
         provider: MeetingProviderType.FEISHU,
-        reserveId: 'reserve_12345', // v4.1
+        meetingId: 'reserve_12345',
         meetingNo: '123456789',
         meetingUrl: 'https://feishu.cn/meeting/123',
         meetingPassword: null,
@@ -109,7 +109,7 @@ describe('MeetingManagerService', () => {
 
       mockProvider.createMeeting.mockResolvedValue({
         provider: MeetingProviderType.FEISHU,
-        reserveId: 'reserve_12345', // v4.1
+        meetingId: 'reserve_12345',
         meetingNo: '123456789',
         meetingUrl: 'https://feishu.cn/meeting/123',
         meetingPassword: null,
@@ -139,7 +139,7 @@ describe('MeetingManagerService', () => {
         id: meetingId,
         status: MeetingStatus.SCHEDULED,
         meetingProvider: MeetingProviderType.FEISHU,
-        reserveId: 'reserve_12345', // v4.1
+        meetingId: 'reserve_12345',
       };
 
       mockRepository.findById.mockResolvedValue(existingMeeting as any);
@@ -183,7 +183,7 @@ describe('MeetingManagerService', () => {
         id: meetingId,
         status: MeetingStatus.SCHEDULED,
         meetingProvider: MeetingProviderType.FEISHU,
-        reserveId: 'reserve_12345', // v4.1
+        meetingId: 'reserve_12345',
       };
 
       mockRepository.findById.mockResolvedValue(meeting as any);
@@ -229,7 +229,7 @@ describe('MeetingManagerService', () => {
       const meeting = {
         id: '550e8400-e29b-41d4-a716-446655440000',
         meetingProvider: MeetingProviderType.FEISHU,
-        reserveId: 'reserve_12345', // v4.1
+        meetingId: 'reserve_12345',
         meetingNo: '123456789',
         meetingUrl: 'https://feishu.cn/meeting/123',
         scheduleStartTime: new Date('2025-11-20T10:00:00Z'),
@@ -242,7 +242,7 @@ describe('MeetingManagerService', () => {
 
       expect(result).toEqual({
         provider: MeetingProviderType.FEISHU,
-        reserveId: 'reserve_12345', // v4.1
+        meetingId: 'reserve_12345',
         meetingNo: '123456789',
         meetingUrl: 'https://feishu.cn/meeting/123',
         startTime: meeting.scheduleStartTime,

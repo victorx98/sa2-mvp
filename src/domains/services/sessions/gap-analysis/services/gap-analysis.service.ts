@@ -161,8 +161,9 @@ export class GapAnalysisService {
     return session;
   }
 
-  private calculateUnits(durationSeconds: number): number {
-    return Math.round((durationSeconds / 3600) * 100) / 100;
+  private calculateUnits(durationMinutes: number): number {
+    // actualDuration is now in minutes, convert to hours for consumed_units
+    return Math.round((durationMinutes / 60) * 100) / 100;
   }
 }
 

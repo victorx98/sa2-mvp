@@ -42,7 +42,7 @@ export class WebhookGatewayController {
   /**
    * Handle Feishu (Lark) webhook
    *
-   * POST /webhooks/feishu
+   * POST /webhooks/feishuWebHookHandler
    *
    * Supports two verification modes:
    * 1. Verification Token mode: Verifies the token in the request body
@@ -52,7 +52,7 @@ export class WebhookGatewayController {
    * @param headers - Request headers
    * @param body - Webhook payload
    */
-  @Post("feishu")
+  @Post("feishuWebHookHandler")
   @HttpCode(HttpStatus.OK)
   async handleFeishuWebhook(
     @Req() request: RawBodyRequest<Request>,
@@ -87,26 +87,53 @@ export class WebhookGatewayController {
   /**
    * Handle Zoom webhook
    *
-   * POST /webhooks/zoom
+   * POST /webhooks/zoomWebHookHandler
+   *
+   * Handles:
+   * 1. URL validation (endpoint.url_validation event) - uses HMAC-SHA256
+   * 2. Event webhooks - uses simple Authorization header check
    *
    * @param request - Raw request with body
    * @param headers - Request headers
    * @param body - Webhook payload
    */
-  @Post("zoom")
+  @Post("zoomWebHookHandler")
   @HttpCode(HttpStatus.OK)
   async handleZoomWebhook(
     @Req() request: RawBodyRequest<Request>,
     @Headers() headers: Record<string, string>,
-    @Body() body: IZoomWebhookRequest,
-  ): Promise<void> {
-    this.logger.debug("Received Zoom webhook");
+    @Body() body: any,
+  ): Promise<any> {
+    this.logger.debug(`Received Zoom webhook: ${body.event}`);
 
-    // Verify webhook signature
-    const rawBody = request.rawBody?.toString("utf-8") || JSON.stringify(body);
-    this.verificationService.verifyZoomWebhook(headers, rawBody);
+    // Handle URL validation challenge (Zoom sends this when configuring webhook endpoint)
+    if (body.event === "endpoint.url_validation") {
+      this.logger.log("Handling Zoom URL validation challenge");
+
+      // Extract plainToken
+      const plainToken = body.payload?.plainToken;
+
+      if (!plainToken) {
+        this.logger.error("Missing plainToken in Zoom validation request");
+        throw new Error("Invalid Zoom validation request");
+      }
+
+      // Generate encrypted token using HMAC-SHA256
+      const encryptedToken = this.verificationService.generateZoomEncryptedToken(plainToken);
+
+      this.logger.log("Zoom URL validation successful");
+      return {
+        plainToken,
+        encryptedToken,
+      };
+    }
+
+    // Verify event webhook using Authorization header (simple check)
+    this.verificationService.verifyZoomWebhook(headers);
 
     // Forward to handler (no routing logic here)
-    await this.zoomHandler.handle(body);
+    await this.zoomHandler.handle(body as IZoomWebhookRequest);
+
+    return {};
   }
 }

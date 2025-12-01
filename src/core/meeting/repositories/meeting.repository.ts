@@ -64,8 +64,39 @@ export class MeetingRepository {
   }
 
   /**
-   * Find meeting by meeting_no within time window (for Webhook reverse lookup)
+   * Find meeting by meeting_id and provider (recommended for event lookups)
    *
+   * This is the preferred method for webhook event lookups because:
+   * - meeting_id is unique and permanent (no reuse issue)
+   * - No need for time window constraints
+   * - Better performance with direct index lookup
+   *
+   * @param provider - Meeting provider ('feishu' | 'zoom')
+   * @param meetingId - Meeting ID from provider (Feishu reserve.id, Zoom id)
+   * @returns Meeting if found, null otherwise
+   */
+  async findByMeetingId(
+    provider: string,
+    meetingId: string,
+  ): Promise<Meeting | null> {
+    const [meeting] = await this.db
+      .select()
+      .from(meetings)
+      .where(
+        and(
+          eq(meetings.meetingProvider, provider),
+          eq(meetings.meetingId, meetingId),
+        ),
+      )
+      .limit(1);
+
+    return meeting ?? null;
+  }
+
+  /**
+   * Find meeting by meeting_no within time window (legacy, for backward compatibility)
+   *
+   * @deprecated Use findByMeetingId instead for better performance and reliability
    * According to design doc, we must add time window constraint to handle meeting_no reuse
    * Query: WHERE meeting_no = ? AND created_at > (occurred_at - 7 DAYS) ORDER BY created_at DESC LIMIT 1
    *

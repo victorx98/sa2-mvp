@@ -3,10 +3,13 @@ import { AuthController } from "./controllers/auth.controller";
 import { UserController } from "./controllers/user.controller";
 import { SessionController } from "./controllers/session.controller";
 import { CounselorSessionsController } from "./controllers/counselor/counselor-sessions.controller";
-import { MentorStudentsController } from "./controllers/mentor/mentor-students.controller";
-import { CounselorStudentsController } from "./controllers/counselor/counselor-students.controller";
 import { CounselorStudentContractController } from "./controllers/counselor/counselor-student-contract.controller";
 import { MentorsController } from "./controllers/mentor/mentors.controller";
+import { ReferenceDataController } from "./controllers/reference-data.controller";
+import { StudentController } from "./controllers/student/student.controller";
+import { StudentProfileController } from "./controllers/student/student-profile.controller";
+import { MentorProfileController } from "./controllers/mentor/mentor-profile.controller";
+import { CounselorProfileController } from "./controllers/counselor/counselor-profile.controller";
 import { ApplicationModule } from "@application/application.module";
 import { WebhookModule } from "@core/webhook/webhook.module";
 
@@ -29,15 +32,20 @@ import { WebhookModule } from "@core/webhook/webhook.module";
     AuthController,
     UserController,
     SessionController,
+    ReferenceDataController,
 
     // Counselor Controllers
     CounselorSessionsController,
-    CounselorStudentsController,
     CounselorStudentContractController,
+    CounselorProfileController,
 
     // Mentor Controllers
-    MentorStudentsController,
     MentorsController,
+    MentorProfileController,
+
+    // Student Controllers
+    StudentController,
+    StudentProfileController,
   ],
 })
 export class ApiModule {}

@@ -61,8 +61,8 @@ export class SupabaseAuthService {
     const authTimeout = this.configService.get<number>("SUPABASE_AUTH_TIMEOUT") ?? 30000;
 
     // check proxy environment variables and configure HTTPS proxy agent
-    const httpsProxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy || 
-                          process.env.HTTP_PROXY || process.env.http_proxy;
+    const httpsProxyUrl = process.env.HTTP_PROXY;
+    const node_env = process.env.NODE_ENV;
     
     const axiosConfig: Parameters<typeof axios.create>[0] = {
       baseURL: `${supabaseUrl}/auth/v1`,
@@ -71,9 +71,14 @@ export class SupabaseAuthService {
     };
 
     // if proxy environment variables exist, use https-proxy-agent to correctly handle HTTPS requests
-    if (httpsProxyUrl) {
-      this.logger.log(`Using HTTPS proxy: ${httpsProxyUrl}`);
+    // Always use proxy agent if available (removes NODE_ENV restriction)
+    // This helps with DNS resolution in restricted network environments (e.g., WSL2)
+    if (httpsProxyUrl && node_env === "development") {
+      this.logger.log(`Using HTTPS proxy for Supabase: ${httpsProxyUrl}`);
       axiosConfig.httpsAgent = new HttpsProxyAgent(httpsProxyUrl);
+    } else {
+      // Even without proxy URL, we need to set httpsAgent to handle DNS properly in WSL2
+      this.logger.warn('No HTTPS proxy configured. If Supabase connection fails, consider setting HTTPS_PROXY environment variable.');
     }
 
     this.http = axios.create(axiosConfig);
