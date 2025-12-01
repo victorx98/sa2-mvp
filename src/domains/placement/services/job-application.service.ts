@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, Inject, NotFoundException, BadRequestException } from "@nestjs/common";
 import { eq, and, sql } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { DrizzleDatabase } from "@shared/types/database.types";
@@ -7,16 +7,17 @@ import {
   JOB_APPLICATION_SUBMITTED_EVENT,
   JOB_APPLICATION_STATUS_CHANGED_EVENT,
   MENTOR_SCREENING_COMPLETED_EVENT,
-  JobApplicationSubmittedEvent,
-  JobApplicationStatusChangedEvent,
   MentorScreeningCompletedEvent,
 } from "../events";
 import {
   ISubmitApplicationDto,
   IUpdateApplicationStatusDto,
-  IQueryApplicationsDto,
+  IJobApplicationSearchFilter,
 } from "../dto";
 import { IJobApplicationService, IServiceResult } from "../interfaces";
+import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
+import { ApplicationStatus, ALLOWED_APPLICATION_STATUS_TRANSITIONS } from "../types/application-status.types";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
 
 /**
@@ -30,6 +31,7 @@ export class JobApplicationService implements IJobApplicationService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -61,7 +63,7 @@ export class JobApplicationService implements IJobApplicationService {
         applicationType: dto.applicationType,
         coverLetter: dto.coverLetter,
         customAnswers: dto.customAnswers,
-        status: "submitted",
+        status: dto.applicationType === "mentor_referral" ? "recommended" : "submitted",
         isUrgent: dto.isUrgent || false,
       })
       .returning();
@@ -78,26 +80,21 @@ export class JobApplicationService implements IJobApplicationService {
       changeReason: "Initial submission",
     });
 
-    // Update job application count [更新岗位申请次数]
-    await this.db
-      .update(recommendedJobs)
-      .set({
-        applicationCount: sql`${recommendedJobs.applicationCount} + 1`,
-      })
-      .where(eq(recommendedJobs.id, dto.jobId));
+    // No longer updating application counts in recommended_jobs table [不再更新recommended_jobs表中的申请次数]
 
-    // Build event [构建事件]
-    const event: JobApplicationSubmittedEvent = {
+    // Publish application submitted event [发布投递申请事件]
+    const eventPayload = {
       applicationId: application.id,
-      studentId: dto.studentId,
-      positionId: dto.jobId,
-      applicationType: dto.applicationType,
+      studentId: application.studentId,
+      positionId: application.jobId,
+      applicationType: application.applicationType,
       submittedAt: application.submittedAt.toISOString(),
     };
+    this.eventEmitter.emit(JOB_APPLICATION_SUBMITTED_EVENT, eventPayload);
 
     return {
       data: application,
-      event: { type: JOB_APPLICATION_SUBMITTED_EVENT, payload: event },
+      event: { type: JOB_APPLICATION_SUBMITTED_EVENT, payload: eventPayload },
     };
   }
 
@@ -124,8 +121,8 @@ export class JobApplicationService implements IJobApplicationService {
       throw new Error("Mentor screening is only available for mentor referral applications");
     }
 
-    if (application.status !== "submitted") {
-      throw new Error("Mentor screening can only be submitted for applications in submitted status");
+    if (application.status !== "mentor_assigned") {
+      throw new Error("Mentor screening can only be submitted for applications in mentor_assigned status");
     }
 
     // Save mentor screening result [保存导师评估结果]
@@ -137,15 +134,33 @@ export class JobApplicationService implements IJobApplicationService {
       screeningNotes: dto.screeningNotes,
     };
 
+    // Determine new status based on recommendation [根据推荐结果确定新状态]
+    const newStatus = 
+      dto.overallRecommendation === "strongly_recommend" || dto.overallRecommendation === "recommend" 
+        ? "submitted" 
+        : "rejected";
+
     const [updatedApplication] = await this.db
       .update(jobApplications)
       .set({
         mentorScreening: screeningResult,
+        status: newStatus,
       })
       .where(eq(jobApplications.id, dto.applicationId))
       .returning();
 
-    this.logger.log(`Mentor screening submitted: ${dto.applicationId}`);
+    // Record status change history [记录状态变更历史]
+    await (this.db.insert(applicationHistory).values as any)({
+      applicationId: dto.applicationId,
+      previousStatus: "mentor_assigned",
+      newStatus: newStatus,
+      changedBy: dto.mentorId,
+      changedByType: "mentor",
+      changeReason: `Mentor screening ${newStatus === "submitted" ? "passed" : "failed"}`,
+      changeMetadata: screeningResult,
+    });
+
+    this.logger.log(`Mentor screening submitted: ${dto.applicationId}, new status: ${newStatus}`);
 
     // Build event [构建事件]
     const event: MentorScreeningCompletedEvent = {
@@ -154,6 +169,9 @@ export class JobApplicationService implements IJobApplicationService {
       screeningResult,
       evaluatedAt: new Date().toISOString(),
     };
+
+    // Publish event [发布事件]
+    this.eventEmitter.emit(MENTOR_SCREENING_COMPLETED_EVENT, event);
 
     return {
       data: updatedApplication,
@@ -182,15 +200,24 @@ export class JobApplicationService implements IJobApplicationService {
       throw new NotFoundException(`Application not found: ${dto.applicationId}`);
     }
 
-    const previousStatus = application.status as string;
+    const previousStatus = application.status as ApplicationStatus;
+
+    // Validate status transition [验证状态转换]
+    const allowedTransitions = ALLOWED_APPLICATION_STATUS_TRANSITIONS[previousStatus];
+    if (!allowedTransitions || !allowedTransitions.includes(dto.newStatus)) {
+      throw new BadRequestException(
+        `Invalid status transition: ${previousStatus} -> ${dto.newStatus}`
+      );
+    }
 
     // Update application status [更新申请状态]
+    const resultStatuses: ApplicationStatus[] = ["rejected", "withdrawn"];
     const [updatedApplication] = await this.db
       .update(jobApplications)
       .set({
         status: dto.newStatus as any,
         result: this.getResultFromStatus(dto.newStatus) as any,
-        resultDate: ["hired", "rejected", "withdrawn", "declined"].includes(dto.newStatus) ? new Date() : null,
+        resultDate: resultStatuses.includes(dto.newStatus) ? new Date() : null,
       } as any)
       .where(eq(jobApplications.id, dto.applicationId))
       .returning();
@@ -208,58 +235,78 @@ export class JobApplicationService implements IJobApplicationService {
 
     this.logger.log(`Application status updated: ${dto.applicationId}`);
 
-    // Build event [构建事件]
-    const event: JobApplicationStatusChangedEvent = {
-      applicationId: dto.applicationId,
-      previousStatus: previousStatus as any,
-      newStatus: dto.newStatus as any,
+    // Publish status changed event [发布状态变更事件]
+    const eventPayload = {
+      applicationId: updatedApplication.id,
+      previousStatus: previousStatus,
+      newStatus: dto.newStatus as ApplicationStatus,
       changedBy: dto.changedBy,
       changedAt: new Date().toISOString(),
       changeMetadata: dto.changeMetadata,
     };
+    this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
 
     return {
       data: updatedApplication,
-      event: { type: JOB_APPLICATION_STATUS_CHANGED_EVENT, payload: event },
+      event: { type: JOB_APPLICATION_STATUS_CHANGED_EVENT, payload: eventPayload },
     };
   }
 
   /**
    * Query applications [查询投递申请]
    *
-   * @param dto - Query criteria [查询条件]
+   * @param filter - Search filter criteria [搜索筛选条件]
+   * @param pagination - Pagination parameters [分页参数]
+   * @param sort - Sorting parameters [排序参数]
    * @returns Paginated applications [分页投递列表]
    */
-  async queryApplications(dto: IQueryApplicationsDto): Promise<{ items: Record<string, any>[]; total: number; offset: number; limit: number }> {
-    this.logger.log(`Querying applications: ${JSON.stringify(dto)}`);
+  async search(
+    filter?: IJobApplicationSearchFilter,
+    pagination?: IPaginationQuery,
+    sort?: ISortQuery
+  ): Promise<{ items: Record<string, any>[]; total: number; offset: number; limit: number }> {
+    this.logger.log(`Searching applications with filter: ${JSON.stringify(filter)}, pagination: ${JSON.stringify(pagination)}, sort: ${JSON.stringify(sort)}`);
 
     const conditions = [];
 
-    if (dto.studentId) {
-      conditions.push(eq(jobApplications.studentId, dto.studentId));
-    }
+    // Build conditions based on filter
+    if (filter) {
+      if (filter.studentId) {
+        conditions.push(eq(jobApplications.studentId, filter.studentId));
+      }
 
-    if (dto.jobId) {
-      conditions.push(eq(jobApplications.jobId, dto.jobId));
-    }
+      if (filter.jobId) {
+        conditions.push(eq(jobApplications.jobId, filter.jobId));
+      }
 
-    if (dto.status) {
-      conditions.push(eq(jobApplications.status, dto.status));
-    }
+      if (filter.status) {
+        conditions.push(eq(jobApplications.status, filter.status as any));
+      }
 
-    if (dto.applicationType) {
-      conditions.push(eq(jobApplications.applicationType, dto.applicationType));
+      if (filter.applicationType) {
+        conditions.push(eq(jobApplications.applicationType, filter.applicationType as any));
+      }
     }
 
     // Pagination [分页]
-    const offset = dto.offset || 0;
-    const limit = dto.limit || 20;
+    const page = pagination?.page || 1;
+    const pageSize = pagination?.pageSize || 20;
+    const offset = (page - 1) * pageSize;
+    const limit = pageSize;
 
     // Build and execute main query [构建并执行主查询]
     const applications = await this.db
       .select()
       .from(jobApplications)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(
+        sort?.field ? 
+          (sort.direction === 'asc' ? 
+            (jobApplications as any)[sort.field] : 
+            sql`${(jobApplications as any)[sort.field]} DESC`
+          ) : 
+          sql`${jobApplications.submittedAt} DESC`
+      )
       .limit(limit)
       .offset(offset);
 
@@ -280,16 +327,39 @@ export class JobApplicationService implements IJobApplicationService {
   }
 
   /**
-   * Get application by ID [根据ID获取投递申请]
+   * Get application [获取投递申请]
    *
-   * @param id - Application ID [申请ID]
+   * @param params - Search parameters [搜索参数]
    * @returns Application [投递申请]
    */
-  async findOneById(id: string) {
-    const [application] = await this.db.select().from(jobApplications).where(eq(jobApplications.id, id));
+  async findOne(params: { id?: string; studentId?: string; jobId?: string; status?: string; applicationType?: string; [key: string]: any }) {
+    // Build conditions based on provided params
+    const conditions = [];
+    
+    // Handle known columns explicitly to avoid TypeScript errors
+    if (params.id) {
+      conditions.push(eq(jobApplications.id, params.id));
+    }
+    if (params.studentId) {
+      conditions.push(eq(jobApplications.studentId, params.studentId));
+    }
+    if (params.jobId) {
+      conditions.push(eq(jobApplications.jobId, params.jobId));
+    }
+    if (params.status) {
+      // Use type assertion for enum column to avoid TypeScript error
+      conditions.push(eq(jobApplications.status, params.status as any));
+    }
+    if (params.applicationType) {
+      // Use type assertion for enum column to avoid TypeScript error
+      conditions.push(eq(jobApplications.applicationType, params.applicationType as any));
+    }
+    // Add more known columns as needed
+
+    const [application] = await this.db.select().from(jobApplications).where(and(...conditions));
 
     if (!application) {
-      throw new NotFoundException(`Application not found: ${id}`);
+      throw new NotFoundException(`Application not found: ${JSON.stringify(params)}`);
     }
 
     return application;
@@ -333,8 +403,8 @@ export class JobApplicationService implements IJobApplicationService {
    * @param status - Application status [申请状态]
    * @returns Result or null [结果或null]
    */
-  private getResultFromStatus(status: string): "hired" | "rejected" | "withdrawn" | "declined" | null {
-    const resultStatuses = ["hired", "rejected", "withdrawn", "declined"];
-    return resultStatuses.includes(status) ? (status as any) : null;
+  private getResultFromStatus(status: ApplicationStatus): "rejected" | "withdrawn" | null {
+    const resultStatuses: ApplicationStatus[] = ["rejected", "withdrawn"];
+    return resultStatuses.includes(status) ? status as any : null;
   }
 }

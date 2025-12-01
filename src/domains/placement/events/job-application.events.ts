@@ -27,23 +27,25 @@ export const JOB_APPLICATION_STATUS_CHANGED_EVENT = "placement.application.statu
 export interface JobApplicationStatusChangedEvent {
   applicationId: string; // Application ID [申请ID]
   previousStatus:
+    | "recommended"
+    | "interested"
+    | "not_interested"
+    | "mentor_assigned"
     | "submitted"
-    | "screening"
-    | "interview"
-    | "offer"
-    | "hired"
+    | "interviewed"
+    | "got_offer"
     | "rejected"
-    | "withdrawn"
-    | "declined"; // Previous status [之前状态]
+    | "withdrawn"; // Previous status [之前状态]
   newStatus:
+    | "recommended"
+    | "interested"
+    | "not_interested"
+    | "mentor_assigned"
     | "submitted"
-    | "screening"
-    | "interview"
-    | "offer"
-    | "hired"
+    | "interviewed"
+    | "got_offer"
     | "rejected"
-    | "withdrawn"
-    | "declined"; // New status [新状态]
+    | "withdrawn"; // New status [新状态]
   changedBy?: string; // Changer ID [变更人ID]
   changedAt: string; // Change time [变更时间]
   changeMetadata?: {

@@ -3,7 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { NotFoundException } from "@nestjs/common";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { JobPositionService } from "./job-position.service";
-import { ICreateJobPositionDto, ISearchJobPositionsDto, IMarkJobExpiredDto } from "../dto";
+import { ICreateJobPositionDto, IMarkJobExpiredDto } from "../dto";
 import { randomUUID } from "crypto";
 
 /**
@@ -166,7 +166,10 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
         jobSource: dto.jobSource,
         status: "active",
         viewCount: 0,
-        applicationCount: 0,
+        directApplicationCount: 0,
+        counselorApplicationCount: 0,
+        mentorApplicationCount: 0,
+        bdApplicationCount: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -219,7 +222,10 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
         ...dto,
         status: "active",
         viewCount: 0,
-        applicationCount: 0,
+        directApplicationCount: 0,
+        counselorApplicationCount: 0,
+        mentorApplicationCount: 0,
+        bdApplicationCount: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -240,7 +246,7 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
     });
   });
 
-  describe("findOneById() [根据ID查找岗位]", () => {
+  describe("findOne() [查找岗位]", () => {
     it("should find job position by ID successfully [应该成功根据ID查找岗位]", async () => {
       // Arrange [准备]
       const mockJob = {
@@ -259,7 +265,7 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
       }));
 
       // Act [执行]
-      const result = await jobPositionService.findOneById(testJobId);
+      const result = await jobPositionService.findOne({ id: testJobId });
 
       // Assert [断言]
       expect(result).toEqual(mockJob);
@@ -277,18 +283,40 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
       }));
 
       // Act & Assert [执行和断言]
-      await expect(jobPositionService.findOneById(testJobId)).rejects.toThrow(NotFoundException);
+      await expect(jobPositionService.findOne({ id: testJobId })).rejects.toThrow(NotFoundException);
+    });
+
+    it("should find job position by other parameters [应该通过其他参数查找岗位]", async () => {
+      // Arrange [准备]
+      const mockJob = {
+        id: testJobId,
+        title: "Software Engineer",
+        companyName: "Test Company",
+        status: "active",
+      };
+
+      mockDb.select = jest.fn(() => ({
+        from: jest.fn(() => ({
+          where: jest.fn(() => {
+            return Promise.resolve([mockJob]);
+          }),
+        })),
+      }));
+
+      // Act [执行]
+      const result = await jobPositionService.findOne({ title: "Software Engineer", companyName: "Test Company" });
+
+      // Assert [断言]
+      expect(result).toEqual(mockJob);
+      expect(mockDb.select).toHaveBeenCalled();
     });
   });
 
   describe("search() [搜索岗位]", () => {
     it("should search job positions with status filter [应该使用状态筛选搜索岗位]", async () => {
       // Arrange [准备]
-      const dto: ISearchJobPositionsDto = {
-        status: "active",
-        limit: 10,
-        offset: 0,
-      };
+      const filter = { status: "active" as const };
+      const pagination = { page: 1, pageSize: 10 };
 
       const mockJobs = [
         {
@@ -323,22 +351,19 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
       });
 
       // Act [执行]
-      const result = await jobPositionService.search(dto);
+      const result = await jobPositionService.search(filter, pagination);
 
       // Assert [断言]
       expect(result.items).toEqual(mockJobs);
       expect(result.total).toBe(1);
-      expect(result.offset).toBe(dto.offset);
-      expect(result.limit).toBe(dto.limit);
+      expect(result.offset).toBe(0);
+      expect(result.limit).toBe(10);
     });
 
     it("should search job positions with company name filter [应该使用公司名称筛选搜索岗位]", async () => {
       // Arrange [准备]
-      const dto: ISearchJobPositionsDto = {
-        companyName: "Test",
-        limit: 10,
-        offset: 0,
-      };
+      const filter = { companyName: "Test" };
+      const pagination = { page: 1, pageSize: 10 };
 
       const mockJobs = [
         {
@@ -373,7 +398,7 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
       });
 
       // Act [执行]
-      const result = await jobPositionService.search(dto);
+      const result = await jobPositionService.search(filter, pagination);
 
       // Assert [断言]
       expect(result.items).toEqual(mockJobs);
@@ -382,11 +407,8 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
 
     it("should return empty array if no jobs found [如果没有找到岗位应该返回空数组]", async () => {
       // Arrange [准备]
-      const dto: ISearchJobPositionsDto = {
-        status: "active",
-        limit: 10,
-        offset: 0,
-      };
+      const filter = { status: "active" as const };
+      const pagination = { page: 1, pageSize: 10 };
 
       const mockJobs: any[] = [];
       const mockCountResult = [{ count: 0 }];
@@ -413,11 +435,59 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
       });
 
       // Act [执行]
-      const result = await jobPositionService.search(dto);
+      const result = await jobPositionService.search(filter, pagination);
 
       // Assert [断言]
       expect(result.items).toEqual(mockJobs);
       expect(result.total).toBe(0);
+    });
+
+    it("should search job positions with sorting [应该使用排序搜索岗位]", async () => {
+      // Arrange [准备]
+      const filter = { status: "active" as const };
+      const pagination = { page: 1, pageSize: 10 };
+      const sort = { field: "title", direction: "asc" as const };
+
+      const mockJobs = [
+        {
+          id: testJobId,
+          title: "Software Engineer",
+          companyName: "Test Company",
+          status: "active",
+        },
+      ];
+
+      const mockCountResult = [{ count: 1 }];
+
+      mockDb.select = jest.fn((columns?: any) => {
+        if (columns && columns.count) {
+          return {
+            from: jest.fn(() => ({
+              where: jest.fn(() => {
+                return Promise.resolve(mockCountResult);
+              }),
+            })),
+          };
+        }
+        return {
+          from: jest.fn(() => ({
+            where: jest.fn(() => ({
+              orderBy: jest.fn(() => ({
+                limit: jest.fn(() => ({
+                  offset: jest.fn().mockResolvedValue(mockJobs),
+                })),
+              })),
+            })),
+          })),
+        };
+      });
+
+      // Act [执行]
+      const result = await jobPositionService.search(filter, pagination, sort);
+
+      // Assert [断言]
+      expect(result.items).toEqual(mockJobs);
+      expect(result.total).toBe(1);
     });
   });
 
@@ -520,37 +590,7 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
     });
   });
 
-  describe("incrementViewCount() [更新岗位查看次数]", () => {
-    it("should increment view count successfully [应该成功更新查看次数]", async () => {
-      // Arrange [准备]
-      mockDb.update = jest.fn(() => ({
-        set: jest.fn(() => ({
-          where: jest.fn().mockResolvedValue([{}]),
-        })),
-      }));
 
-      // Act [执行]
-      await jobPositionService.incrementViewCount(testJobId);
 
-      // Assert [断言]
-      expect(mockDb.update).toHaveBeenCalled();
-    });
-  });
 
-  describe("incrementApplicationCount() [更新岗位申请次数]", () => {
-    it("should increment application count successfully [应该成功更新申请次数]", async () => {
-      // Arrange [准备]
-      mockDb.update = jest.fn(() => ({
-        set: jest.fn(() => ({
-          where: jest.fn().mockResolvedValue([{}]),
-        })),
-      }));
-
-      // Act [执行]
-      await jobPositionService.incrementApplicationCount(testJobId);
-
-      // Assert [断言]
-      expect(mockDb.update).toHaveBeenCalled();
-    });
-  });
 });

@@ -26,9 +26,22 @@ flowchart LR
 #### 投递申请流程（子流程）
 ```mermaid
 flowchart LR
-    F[岗位投递] --> G[状态跟踪]
-    G --> H[结果统计]
-    G --> I[导师评估]
+    F[岗位推荐] --> G{学生决策}
+    G -->|感兴趣| H[导师分配]
+    G -->|不感兴趣| I[结束]
+    H --> J[导师评估]
+    J -->|通过| K[正式提交]
+    J -->|拒绝| L[结束]
+    K --> M[面试环节]
+    M -->|通过| N[获得Offer]
+    M -->|拒绝| O[结束]
+    N --> P[结束]
+    G -->|撤回| Q[结束]
+    H -->|撤回| Q
+    J -->|撤回| Q
+    K -->|撤回| Q
+    M -->|撤回| Q
+    N -->|撤回| Q
 ```
 
 ## 🏗️ 领域模型概览
@@ -69,68 +82,76 @@ stateDiagram-v2
 ### 投递申请状态机
 ```mermaid
 stateDiagram-v2
-    [*] --> Submitted: 提交申请
+    [*] --> recommended: 岗位推荐
+    recommended --> interested: 学生感兴趣
+    recommended --> not_interested: 学生不感兴趣
+    interested --> mentor_assigned: 导师分配
+    mentor_assigned --> submitted: 正式提交
+    mentor_assigned --> rejected: 导师拒绝
+    submitted --> interviewed: 进入面试
+    submitted --> rejected: 简历被拒
+    interviewed --> got_offer: 获得Offer
+    interviewed --> rejected: 面试未过
     
-    state Submitted {
-        [*] --> Direct: 海投
-        [*] --> Counselor: 代投
-        [*] --> Mentor: 内推
-        [*] --> BD: BD推荐
-    }
+    recommended --> withdrawn: 学生撤回
+    interested --> withdrawn: 学生撤回
+    mentor_assigned --> withdrawn: 学生撤回
+    submitted --> withdrawn: 学生撤回
+    interviewed --> withdrawn: 学生撤回
+    got_offer --> withdrawn: 学生撤回
     
-    Submitted --> Screening: 简历筛选
-    
-    note left of Submitted : 四种投递类型不同流程
-    note right of Screening : 内推需导师评估，其他类型忽略此步骤
-    
-    Screening --> Interview: 进入面试
-    Screening --> Rejected: 简历被拒
-    Interview --> Offer: 获得Offer
-    Interview --> Rejected: 面试未过
-    
-    Submitted --> Withdrawn: 主动撤回
-    
-    Rejected --> [*]
-    Offer --> [*]
-    Withdrawn --> [*]
+    not_interested --> [*]
+    rejected --> [*]
+    got_offer --> [*]
+    withdrawn --> [*]
 ```
 
 **状态说明**：
-- **Submitted**: 已提交，等待处理（四种投递类型不同处理流程）
-- **Screening**: 简历筛选中（内推需导师评估，其他类型系统处理）
-- **Interview**: 进入面试环节（包含技术面、HR面等）
-- **Offer**: 获得工作机会，等待学生确认
-- **Rejected**: 申请被拒，记录拒绝原因
-- **Withdrawn**: 学生主动撤回申请
+- **recommended**: 岗位已推荐给学生
+- **interested**: 学生对推荐岗位感兴趣
+- **not_interested**: 学生对推荐岗位不感兴趣
+- **mentor_assigned**: 已分配导师进行评估
+- **submitted**: 申请已正式提交给企业
+- **interviewed**: 学生已参加面试
+- **got_offer**: 学生获得工作Offer
+- **rejected**: 申请被拒绝
+- **withdrawn**: 学生主动撤回申请
 
 **状态转换约束**：
-- Submitted → Screening：
-  - 海投/代投/BD推荐：系统直接转换
-  - 内推：需导师评估通过后转换
-- Screening → Interview：需记录面试安排信息
-- Interview → Offer：需记录Offer详情（薪资、入职时间等）
-- 任何状态都可转换为Withdrawn（学生主动撤回）
+- **recommended → interested/not_interested**: 学生决策阶段，二选一
+- **interested → mentor_assigned**: 系统自动分配导师
+- **mentor_assigned → submitted/rejected**: 导师评估结果
+- **submitted → interviewed/rejected**: 企业简历筛选结果
+- **interviewed → got_offer/rejected**: 面试结果
+- 部分状态可转换为withdrawn（学生主动撤回）
 
 **关键状态转换规则**：
 | 转换路径 | 触发条件 | 权限要求 | 业务规则 |
 |----------|----------|----------|----------|
-| **Submitted → Screening（海投）** | 忽略 | 系统 | 无特殊要求，自动处理 |
-| **Submitted → Screening（代投）** | 忽略 | 系统 | 需验证Counselor权益余额 |
-| **Submitted → Screening（BD推荐）** | 忽略 | 系统 | 需验证BD权益余额 |
-| **Submitted → Screening（内推）** | 导师评估通过 | 内推导师 | 评估字段完整，评分≥3，整体推荐度为recommend或strongly_recommend |
-| **Screening → Interview** | 面试邀请确认 | 企业HR | 需记录面试安排信息 |
-| **Interview → Offer** | Offer确认 | 企业HR | 需记录Offer详情 |
-| **任意 → Withdrawn** | 主动撤回 | 学生（部分状态支持） | 仅允许特定状态撤回 |
-| **任意 → Rejected** | 申请被拒 | 企业HR | 需记录拒绝原因 |
+| **recommended → interested** | 学生选择感兴趣 | 学生 | 无特殊要求 |
+| **recommended → not_interested** | 学生选择不感兴趣 | 学生 | 无特殊要求 |
+| **interested → mentor_assigned** | 系统自动分配 | 系统 | 基于学生专业和导师领域匹配 |
+| **mentor_assigned → submitted** | 导师评估通过 | 导师 | 评估结果为推荐或强烈推荐 |
+| **mentor_assigned → rejected** | 导师评估不通过 | 导师 | 评估结果为不推荐 |
+| **submitted → interviewed** | 企业邀请面试 | 系统 | 需记录面试安排信息 |
+| **submitted → rejected** | 企业拒绝简历 | 系统 | 需记录拒绝原因 |
+| **interviewed → got_offer** | 企业发放Offer | 系统 | 需记录Offer详情 |
+| **interviewed → rejected** | 面试未通过 | 系统 | 需记录拒绝原因 |
+| **recommended → withdrawn** | 学生主动撤回 | 学生 | 推荐阶段可撤回 |
+| **interested → withdrawn** | 学生主动撤回 | 学生 | 感兴趣阶段可撤回 |
+| **mentor_assigned → withdrawn** | 学生主动撤回 | 学生 | 导师分配后可撤回 |
+| **submitted → withdrawn** | 学生主动撤回 | 学生 | 正式提交后可撤回 |
+| **interviewed → withdrawn** | 学生主动撤回 | 学生 | 面试阶段可撤回 |
+| **got_offer → withdrawn** | 学生主动撤回 | 学生 | 获得Offer后可撤回 |
 
 **四种投递类型差异化处理**：
 
 | 投递类型 | 提交角色 | 状态转换权限 | 特殊约束 |
 |----------|----------|--------------|----------|
-| **海投** | 学生 | 学生+系统 | 无特殊要求 |
-| **代投** | Counselor | 学生+Counselor+系统 | 需验证Counselor权益 |
-| **内推** | 顾问→学生→导师 | 导师主导 | 需导师评估，学生确认 |
-| **BD推荐** | BD导师 | BD导师+系统 | 需验证BD权益 |
+| **Direct** | 学生 | 学生+系统 | 直接进入submitted状态 |
+| **CounselorAssisted** | 顾问 | 顾问+系统 | 需验证顾问权益，直接进入submitted状态 |
+| **MentorReferral** | 顾问→学生→导师 | 导师主导 | 需完整的推荐→感兴趣→导师分配→评估流程 |
+| **BDReferral** | BD导师 | BD导师+系统 | 需验证BD权益，直接进入submitted状态 |
 
 **业务价值**：
 
@@ -323,8 +344,7 @@ CREATE TABLE job_applications (
     */
     
     -- 结果记录
-    result VARCHAR(50) COMMENT '申请结果（hired/rejected/withdrawn/declined）',
-    result_reason TEXT COMMENT '结果原因',
+    result VARCHAR(50) COMMENT '申请结果（rejected/withdrawn）',
     result_date DATE COMMENT '结果日期',
     
     -- 时间戳
@@ -333,12 +353,11 @@ CREATE TABLE job_applications (
     
     -- 业务字段
     is_urgent BOOLEAN DEFAULT FALSE COMMENT '是否加急申请',
-    notes TEXT COMMENT '内部备注',
     
     -- 约束
     CONSTRAINT idx_student_job UNIQUE(student_id, job_id),
-    CONSTRAINT idx_application_status CHECK (status IN ('submitted', 'screening', 'interview', 'offer', 'hired', 'rejected', 'withdrawn', 'declined')),
-    CONSTRAINT idx_application_result CHECK (result IN ('hired', 'rejected', 'withdrawn', 'declined'))
+    CONSTRAINT idx_application_status CHECK (status IN ('recommended', 'interested', 'not_interested', 'mentor_assigned', 'submitted', 'interviewed', 'got_offer', 'rejected', 'withdrawn')),
+    CONSTRAINT idx_application_result CHECK (result IN ('rejected', 'withdrawn'))
 );
 
 -- 核心查询索引
@@ -363,7 +382,7 @@ CREATE TABLE application_history (
     
     -- 变更信息
     changed_by UUID COMMENT '变更人ID（系统或用户）',
-    changed_by_type VARCHAR(50) COMMENT '变更人类型（system/student/mentor/bd）',
+    changed_by_type VARCHAR(50) COMMENT '变更人类型（system/student/mentor/bd/counselor）',
     change_reason TEXT COMMENT '变更原因',
     change_metadata JSONB COMMENT '变更元数据（面试安排、Offer详情等）',
     
@@ -371,7 +390,7 @@ CREATE TABLE application_history (
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '变更时间',
     
     -- 索引
-    CONSTRAINT idx_application_history_status CHECK (new_status IN ('submitted', 'screening', 'interview', 'offer', 'hired', 'rejected', 'withdrawn', 'declined'))
+    CONSTRAINT idx_application_history_status CHECK (new_status IN ('recommended', 'interested', 'not_interested', 'mentor_assigned', 'submitted', 'interviewed', 'got_offer', 'rejected', 'withdrawn'))
 );
 
 -- 查询索引
@@ -680,10 +699,16 @@ export const applicationHistory = pgTable("application_history", {
   - 明确外键策略：跨域字符串引用，域内使用外键约束
   - 添加性能优化指南和Drizzle ORM实现示例
   - 添加数据库迁移和实现步骤
+  - 更新投递申请状态机，与实际代码保持一致
+  - 更新投递申请表结构，调整状态约束和结果字段
+  - 更新申请历史记录表结构，扩展变更人类型
+  - 更新服务接口定义，与实际代码保持一致
 - **设计决策**:
   - 保持3个核心状态，聚焦岗位过期标记功能（避免过度设计）
   - 采用DDD防腐层原则，跨域引用使用字符串而非外键
   - 文档化实现路径，提供Drizzle ORM schema示例
+  - 状态机设计与实际代码保持一致，确保文档准确性
+  - 服务接口定义与实际实现保持同步，提高开发效率
 
 ### v3.0
 - **发布日期**: 2025-11-20
@@ -699,18 +724,20 @@ export const applicationHistory = pgTable("application_history", {
 ### 岗位服务接口（Job Service）
 | 服务接口 | 参数类型 | 返回值类型 | 核心逻辑 |
 |---------|---------|-----------|---------|
-| `findOne(params)` | `{id?, title?, companyName?}` | `RecommendedJob` | 查询单个岗位详情 |
-| `search(filter, pagination)` | `{status?, locations?, skills?}` | `Page<RecommendedJob>` | 分页搜索岗位 |
-| `createJob(params)` | `{title, companyName, locations}` | `RecommendedJob` | 创建新岗位 |
-| `markJobExpired(params)` | `{jobId, userId, reason?}` | `RecommendedJob` | 标记岗位过期 |
-| `applyForJob(params)` | `{studentId, jobId, type}` | `JobApplication` | 投递岗位 |
+| `findOne(params)` | `{id?, title?, companyName?, status?}` | `Record<string, any>` | 查询单个岗位详情 |
+| `search(filter, pagination, sort)` | `IJobPositionSearchFilter, IPaginationQuery, ISortQuery` | `{items: Record<string, any>[], total: number, offset: number, limit: number}` | 分页搜索岗位 |
+| `createJobPosition(dto)` | `ICreateJobPositionDto` | `IServiceResult<Record<string, any>, Record<string, any>>` | 创建新岗位 |
+| `markJobExpired(dto)` | `IMarkJobExpiredDto` | `IServiceResult<Record<string, any>, Record<string, any>>` | 标记岗位过期 |
 
 ### 投递服务接口（Application Service）
 | 服务接口 | 参数类型 | 返回值类型 | 核心逻辑 |
 |---------|---------|-----------|---------|
-| `getApplications(studentId)` | `{studentId}` | `Page<JobApplication>` | 获取投递记录 |
-| `updateStatus(params)` | `{applicationId, status}` | `JobApplication` | 更新投递状态 |
-| `submitMentorScreening(params)` | `{applicationId, mentorId, result}` | `JobApplication` | 提交导师评估 |
+| `submitApplication(dto)` | `ISubmitApplicationDto` | `IServiceResult<Record<string, any>, Record<string, any>>` | 提交投递申请 |
+| `submitMentorScreening(dto)` | `any` | `IServiceResult<Record<string, any>, Record<string, any>>` | 提交导师评估 |
+| `updateApplicationStatus(dto)` | `IUpdateApplicationStatusDto` | `IServiceResult<Record<string, any>, Record<string, any>>` | 更新投递状态 |
+| `search(filter, pagination, sort)` | `IJobApplicationSearchFilter, IPaginationQuery, ISortQuery` | `{items: Record<string, any>[], total: number, offset: number, limit: number}` | 搜索投递申请 |
+| `findOne(params)` | `{id?, studentId?, jobId?, status?, applicationType?}` | `Record<string, any>` | 根据条件获取投递申请 |
+| `getStatusHistory(applicationId)` | `string` | `Array<Record<string, any>>` | 获取投递状态历史 |
 
 **完整接口**: 参考 `src/domains/placement/services/`
 

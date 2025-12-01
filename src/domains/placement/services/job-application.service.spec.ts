@@ -3,7 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { NotFoundException } from "@nestjs/common";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { JobApplicationService } from "./job-application.service";
-import { ISubmitApplicationDto, IUpdateApplicationStatusDto, IQueryApplicationsDto } from "../dto";
+import { ISubmitApplicationDto, IUpdateApplicationStatusDto } from "../dto";
 import { randomUUID } from "crypto";
 
 /**
@@ -338,7 +338,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         studentId: testStudentId,
         jobId: testJobId,
         applicationType: "mentor_referral",
-        status: "screening",
+        status: "interviewed",
       };
 
       mockDb.select = jest.fn(() => ({
@@ -359,10 +359,10 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Arrange [准备]
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        newStatus: "screening",
-        changedBy: testMentorId,
-        changeReason: "Moving to screening",
-        changeMetadata: { note: "Initial screening" },
+        newStatus: "interviewed",
+          changedBy: testMentorId,
+          changeReason: "Moving to interview",
+          changeMetadata: { note: "Initial interview" },
       };
 
       const mockApplication = {
@@ -415,24 +415,24 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Arrange [准备]
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        newStatus: "hired",
+        newStatus: "got_offer",
         changedBy: testMentorId,
-        changeReason: "Candidate hired",
-        changeMetadata: { note: "Offer accepted" },
+        changeReason: "Candidate got offer",
+        changeMetadata: { note: "Offer received" },
       };
 
       const mockApplication = {
         id: testApplicationId,
         studentId: testStudentId,
         jobId: testJobId,
-        status: "interview",
+        status: "interviewed",
       };
 
       const updatedApplication = {
         ...mockApplication,
         status: dto.newStatus,
-        result: "hired",
-        resultDate: new Date(),
+        result: null,
+        resultDate: null,
       };
 
       mockDb.select = jest.fn(() => ({
@@ -471,10 +471,10 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Arrange [准备]
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        newStatus: "screening",
+        newStatus: "interviewed",
         changedBy: testMentorId,
-        changeReason: "Moving to screening",
-        changeMetadata: { note: "Initial screening" },
+        changeReason: "Moving to interviewed",
+        changeMetadata: { note: "Initial interviewed" },
       };
 
       // Mock no application found
@@ -489,18 +489,55 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Act & Assert [执行和断言]
       await expect(jobApplicationService.updateApplicationStatus(dto)).rejects.toThrow(NotFoundException);
     });
-  });
 
-  describe("queryApplications() [查询投递申请]", () => {
-    it("should query applications with filters [应该使用筛选条件查询投递申请]", async () => {
+    it("should throw BadRequestException for invalid status transition [对于无效状态转换应该抛出BadRequestException]", async () => {
       // Arrange [准备]
-      const dto: IQueryApplicationsDto = {
+      const dto: IUpdateApplicationStatusDto = {
+        applicationId: testApplicationId,
+        newStatus: "got_offer",
+        changedBy: testMentorId,
+        changeReason: "Invalid transition",
+        changeMetadata: { note: "Test invalid transition" },
+      };
+
+      const mockApplication = {
+        id: testApplicationId,
         studentId: testStudentId,
         jobId: testJobId,
-        status: "submitted",
-        applicationType: "direct",
-        limit: 10,
-        offset: 0,
+        status: "submitted", // submitted -> got_offer is not allowed according to new rules
+      };
+
+      mockDb.select = jest.fn(() => ({
+        from: jest.fn(() => ({
+          where: jest.fn(() => {
+            return Promise.resolve([mockApplication]);
+          }),
+        })),
+      }));
+
+      // Act & Assert [执行和断言]
+      await expect(jobApplicationService.updateApplicationStatus(dto)).rejects.toThrow(/Invalid status transition/);
+    });
+  });
+
+  describe("search() [搜索投递申请]", () => {
+    it("should search applications with filters [应该使用筛选条件搜索投递申请]", async () => {
+      // Arrange [准备]
+      const filter = {
+        studentId: testStudentId,
+        jobId: testJobId,
+        status: "submitted" as const,
+        applicationType: "direct" as const,
+      };
+      
+      const pagination = {
+        page: 1,
+        pageSize: 10,
+      };
+      
+      const sort = {
+        field: "createdAt",
+        direction: "desc" as const,
       };
 
       const mockApplications = [
@@ -510,6 +547,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
           jobId: testJobId,
           status: "submitted",
           applicationType: "direct",
+          createdAt: new Date(),
         },
       ];
 
@@ -528,8 +566,10 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         return {
           from: jest.fn(() => ({
             where: jest.fn(() => ({
-              limit: jest.fn(() => ({
-                offset: jest.fn().mockResolvedValue(mockApplications),
+              orderBy: jest.fn(() => ({
+                limit: jest.fn(() => ({
+                  offset: jest.fn().mockResolvedValue(mockApplications),
+                })),
               })),
             })),
           })),
@@ -537,21 +577,29 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       });
 
       // Act [执行]
-      const result = await jobApplicationService.queryApplications(dto);
+      const result = await jobApplicationService.search(filter, pagination, sort);
 
       // Assert [断言]
       expect(result.items).toEqual(mockApplications);
       expect(result.total).toBe(1);
-      expect(result.offset).toBe(dto.offset);
-      expect(result.limit).toBe(dto.limit);
+      expect(result.offset).toBe(0);
+      expect(result.limit).toBe(10);
     });
 
     it("should return empty array if no applications found [如果没有找到投递申请应该返回空数组]", async () => {
       // Arrange [准备]
-      const dto: IQueryApplicationsDto = {
+      const filter = {
         studentId: testStudentId,
-        limit: 10,
-        offset: 0,
+      };
+      
+      const pagination = {
+        page: 1,
+        pageSize: 10,
+      };
+      
+      const sort = {
+        field: "createdAt",
+        direction: "desc" as const,
       };
 
       const mockApplications: any[] = [];
@@ -570,8 +618,10 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         return {
           from: jest.fn(() => ({
             where: jest.fn(() => ({
-              limit: jest.fn(() => ({
-                offset: jest.fn().mockResolvedValue(mockApplications),
+              orderBy: jest.fn(() => ({
+                limit: jest.fn(() => ({
+                  offset: jest.fn().mockResolvedValue(mockApplications),
+                })),
               })),
             })),
           })),
@@ -579,15 +629,75 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       });
 
       // Act [执行]
-      const result = await jobApplicationService.queryApplications(dto);
+      const result = await jobApplicationService.search(filter, pagination, sort);
 
       // Assert [断言]
       expect(result.items).toEqual(mockApplications);
       expect(result.total).toBe(0);
     });
+
+    it("should search applications with different sort orders [应该使用不同排序顺序搜索投递申请]", async () => {
+      // Arrange [准备]
+      const filter = {
+        studentId: testStudentId,
+      };
+      
+      const pagination = {
+        page: 1,
+        pageSize: 10,
+      };
+      
+      const sort = {
+        field: "status",
+        direction: "asc" as const,
+      };
+
+      const mockApplications = [
+        {
+          id: testApplicationId,
+          studentId: testStudentId,
+          jobId: testJobId,
+          status: "submitted",
+          applicationType: "direct",
+          createdAt: new Date(),
+        },
+      ];
+
+      const mockCountResult = [{ count: 1 }];
+
+      mockDb.select = jest.fn((columns?: any) => {
+        if (columns && columns.count) {
+          return {
+            from: jest.fn(() => ({
+              where: jest.fn(() => {
+                return Promise.resolve(mockCountResult);
+              }),
+            })),
+          };
+        }
+        return {
+          from: jest.fn(() => ({
+            where: jest.fn(() => ({
+              orderBy: jest.fn(() => ({
+                limit: jest.fn(() => ({
+                  offset: jest.fn().mockResolvedValue(mockApplications),
+                })),
+              })),
+            })),
+          })),
+        };
+      });
+
+      // Act [执行]
+      const result = await jobApplicationService.search(filter, pagination, sort);
+
+      // Assert [断言]
+      expect(result.items).toEqual(mockApplications);
+      expect(result.total).toBe(1);
+    });
   });
 
-  describe("findOneById() [根据ID获取投递申请]", () => {
+  describe("findOne() [根据条件获取投递申请]", () => {
     it("should find application by ID successfully [应该成功根据ID获取投递申请]", async () => {
       // Arrange [准备]
       const mockApplication = {
@@ -606,7 +716,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act [执行]
-      const result = await jobApplicationService.findOneById(testApplicationId);
+      const result = await jobApplicationService.findOne({ id: testApplicationId });
 
       // Assert [断言]
       expect(result).toEqual(mockApplication);
@@ -624,7 +734,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act & Assert [执行和断言]
-      await expect(jobApplicationService.findOneById(testApplicationId)).rejects.toThrow(NotFoundException);
+      await expect(jobApplicationService.findOne({ id: testApplicationId })).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -642,14 +752,13 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
           changeReason: "Initial submission",
           changedAt: new Date(),
         },
-        {
-          id: randomUUID(),
+        {          id: randomUUID(),
           applicationId: testApplicationId,
           previousStatus: "submitted",
-          newStatus: "screening",
+          newStatus: "mentor_assigned",
           changedBy: testMentorId,
           changedByType: "mentor",
-          changeReason: "Moving to screening",
+          changeReason: "Moving to mentor assigned",
           changedAt: new Date(),
         },
       ];

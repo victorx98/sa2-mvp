@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 
 import { DatabaseModule } from "@infrastructure/database/database.module";
 import { JobPositionService } from "./services/job-position.service";
@@ -11,7 +12,7 @@ import { JobApplicationService } from "./services/job-application.service";
  * [提供投岗业务逻辑，包括岗位管理、投递跟踪和内推处理]
  */
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, EventEmitterModule.forRoot()],
   providers: [JobPositionService, JobApplicationService],
   exports: [JobPositionService, JobApplicationService],
 })

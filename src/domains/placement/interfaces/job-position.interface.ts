@@ -1,14 +1,5 @@
-import { ICreateJobPositionDto, ISearchJobPositionsDto, IMarkJobExpiredDto } from "../dto";
-
-/**
- * Paginated result interface [分页结果接口]
- */
-export interface IPaginatedResult<T> {
-  items: T[]; // Result items [结果项]
-  total: number; // Total count [总数量]
-  offset: number; // Current offset [当前偏移]
-  limit: number; // Page size [每页数量]
-}
+import { ICreateJobPositionDto, IMarkJobExpiredDto, IJobPositionSearchFilter } from "../dto";
+import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
 
 /**
  * Service result with event [带事件的服务结果]
@@ -24,6 +15,15 @@ export interface IServiceResult<T, E = unknown> {
     payload: E; // Event payload [事件载荷]
   }>; // Multiple events [多个事件]
 }
+
+// Re-export for convenience
+// 为方便使用重新导出
+export type IPaginatedResult<T> = {
+  items: T[]; // Result items [结果项]
+  total: number; // Total count [总数量]
+  offset: number; // Current offset [当前偏移]
+  limit: number; // Page size [每页数量]
+};
 
 /**
  * Job position service interface [岗位服务接口]
@@ -46,20 +46,26 @@ export interface IJobPositionService {
   >;
 
   /**
-   * Find a job position by ID [根据ID查找岗位]
+   * Find a job position [查找岗位]
    *
-   * @param id - Job position ID [岗位ID]
+   * @param params - Search parameters [搜索参数]
    * @returns Job position [岗位]
    */
-  findOneById(id: string): Promise<Record<string, any>>;
+  findOne(params: { id?: string; [key: string]: any }): Promise<Record<string, any>>;
 
   /**
    * Search job positions [搜索岗位]
    *
-   * @param dto - Search criteria [搜索条件]
+   * @param filter - Search filter criteria [搜索筛选条件]
+   * @param pagination - Pagination parameters [分页参数]
+   * @param sort - Sorting parameters [排序参数]
    * @returns Paginated job positions [分页岗位列表]
    */
-  search(dto: ISearchJobPositionsDto): Promise<IPaginatedResult<Record<string, any>>>;
+  search(
+    filter?: IJobPositionSearchFilter,
+    pagination?: IPaginationQuery,
+    sort?: ISortQuery
+  ): Promise<IPaginatedResult<Record<string, any>>>;
 
   /**
    * Mark a job position as expired [标记岗位过期]
@@ -76,19 +82,7 @@ export interface IJobPositionService {
     >
   >;
 
-  /**
-   * Update job view count [更新岗位查看次数]
-   *
-   * @param jobId - Job position ID [岗位ID]
-   * @returns Promise [Promise]
-   */
-  incrementViewCount(jobId: string): Promise<void>;
 
-  /**
-   * Update job application count [更新岗位申请次数]
-   *
-   * @param jobId - Job position ID [岗位ID]
-   * @returns Promise [Promise]
-   */
-  incrementApplicationCount(jobId: string): Promise<void>;
+
+
 }

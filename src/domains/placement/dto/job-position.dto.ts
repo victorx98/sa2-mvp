@@ -27,6 +27,18 @@ export interface ICreateJobPositionDto {
 }
 
 /**
+ * Filter interface for searching job positions [搜索岗位筛选接口]
+ */
+export interface IJobPositionSearchFilter {
+  status?: "active" | "inactive" | "expired"; // Filter by status [按状态筛选]
+  companyName?: string; // Filter by company [按公司筛选]
+  locations?: string[]; // Filter by location [按地点筛选]
+  jobType?: string; // Filter by job type [按岗位类型筛选]
+  experienceLevel?: string; // Filter by experience level [按经验等级筛选]
+  industry?: string; // Filter by industry [按行业筛选]
+}
+
+/**
  * DTO for searching job positions [搜索岗位DTO]
  */
 export interface ISearchJobPositionsDto {

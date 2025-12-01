@@ -3,16 +3,9 @@ import { eq, and, sql } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { DrizzleDatabase } from "@shared/types/database.types";
 import { recommendedJobs } from "@infrastructure/database/schema";
-import {
-  JOB_POSITION_CREATED_EVENT,
-  JOB_POSITION_STATUS_CHANGED_EVENT,
-  JOB_POSITION_EXPIRED_EVENT,
-  JobPositionCreatedEvent,
-  JobPositionStatusChangedEvent,
-  JobPositionExpiredEvent,
-} from "../events";
-import { ICreateJobPositionDto, ISearchJobPositionsDto, IMarkJobExpiredDto } from "../dto";
+import { ICreateJobPositionDto, IMarkJobExpiredDto, IJobPositionSearchFilter } from "../dto";
 import { IServiceResult } from "../interfaces";
+import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
 
 /**
  * Job Position Service [岗位服务]
@@ -42,65 +35,83 @@ export class JobPositionService {
     const values: any = {
       title: dto.title,
       companyName: dto.companyName,
+      companyNameNormalized: dto.companyName.toLowerCase(), // Normalize company name [标准化公司名称]
       source: dto.source,
-      jobSource: dto.jobSource,
       status: "active",
-      viewCount: 0,
-      applicationCount: 0,
+      createdBy: dto.createdBy,
+      updatedBy: dto.createdBy,
     };
 
     // Add optional fields [添加可选字段]
     if (dto.description) values.description = dto.description;
-    if (dto.requirements) values.requirements = dto.requirements;
     if (dto.responsibilities) values.responsibilities = dto.responsibilities;
     if (dto.jobType) values.jobType = dto.jobType;
     if (dto.experienceLevel) values.experienceLevel = dto.experienceLevel;
     if (dto.industry) values.industry = dto.industry;
-    if (dto.locations) values.locations = dto.locations;
     if (dto.remoteType) values.remoteType = dto.remoteType;
-    if (dto.salaryMin !== undefined) values.salaryMin = dto.salaryMin;
-    if (dto.salaryMax !== undefined) values.salaryMax = dto.salaryMax;
-    if (dto.salaryCurrency) values.salaryCurrency = dto.salaryCurrency;
-    if (dto.postedDate) values.postedDate = dto.postedDate;
-    if (dto.expiryDate) values.expiryDate = dto.expiryDate;
     if (dto.sourceUrl) values.sourceUrl = dto.sourceUrl;
-    if (dto.sourceJobId) values.sourceJobId = dto.sourceJobId;
-    if (dto.aiAnalysis) values.aiAnalysis = dto.aiAnalysis;
-    if (dto.qualityScore !== undefined) values.qualityScore = dto.qualityScore;
+    if (dto.sourceJobId) values.externalId = dto.sourceJobId; // Map sourceJobId to externalId [将sourceJobId映射到externalId]
+    // Map locations array to single location string [将地点数组映射为单个地点字符串]
+    if (dto.locations && dto.locations.length > 0) {
+      values.location = dto.locations.map(loc => loc.name || loc.city || '').filter(Boolean).join(', ');
+    }
+    // Map salaryMin, salaryMax, salaryCurrency to salaryRange string [将salaryMin, salaryMax, salaryCurrency映射为salaryRange字符串]
+    if (dto.salaryMin !== undefined && dto.salaryMax !== undefined && dto.salaryCurrency) {
+      values.salaryRange = `${dto.salaryMin} - ${dto.salaryMax} ${dto.salaryCurrency}`;
+    } else if (dto.salaryMin !== undefined && dto.salaryCurrency) {
+      values.salaryRange = `${dto.salaryMin}+ ${dto.salaryCurrency}`;
+    } else if (dto.salaryMax !== undefined && dto.salaryCurrency) {
+      values.salaryRange = `Up to ${dto.salaryMax} ${dto.salaryCurrency}`;
+    }
+    // Map requirements object to array [将requirements对象映射为数组]
+    if (dto.requirements) {
+      // Extract skills array if available, otherwise use empty array
+      values.requirements = Array.isArray(dto.requirements) ? dto.requirements : 
+                            (dto.requirements.skills ? dto.requirements.skills : []);
+    }
+    // Initialize empty arrays for array fields to avoid null errors
+    values.benefits = [];
+    values.skillsRequired = [];
 
     const [job] = await this.db.insert(recommendedJobs).values(values).returning();
 
     this.logger.log(`Job position created: ${job.id}`);
 
-    // Build and return event [构建并返回事件]
-    const event: JobPositionCreatedEvent = {
-      positionId: job.id,
-      title: job.title,
-      companyName: job.companyName,
-      jobSource: job.jobSource as "web" | "bd",
-      locations: job.locations ? (job.locations as any) : [],
-      aiAnalysis: job.aiAnalysis,
-      createdBy: dto.createdBy,
-      createdAt: job.createdAt.toISOString(),
-    };
-
     return {
       data: job,
-      event: { type: JOB_POSITION_CREATED_EVENT, payload: event },
     };
   }
 
   /**
-   * Find a job position by ID [根据ID查找岗位]
+   * Find a job position [查找岗位]
    *
-   * @param id - Job position ID [岗位ID]
+   * @param params - Search parameters [搜索参数]
    * @returns Job position [岗位]
    */
-  async findOneById(id: string) {
-    const [job] = await this.db.select().from(recommendedJobs).where(eq(recommendedJobs.id, id));
+  async findOne(params: { id?: string; title?: string; companyName?: string; status?: string; [key: string]: any }) {
+    // Build conditions based on provided params
+    const conditions = [];
+    
+    // Handle known columns explicitly to avoid TypeScript errors
+    if (params.id) {
+      conditions.push(eq(recommendedJobs.id, params.id));
+    }
+    if (params.title) {
+      conditions.push(eq(recommendedJobs.title, params.title));
+    }
+    if (params.companyName) {
+      conditions.push(eq(recommendedJobs.companyName, params.companyName));
+    }
+    if (params.status) {
+      // Use type assertion for enum column to avoid TypeScript error
+      conditions.push(eq(recommendedJobs.status, params.status as any));
+    }
+    // Add more known columns as needed
+
+    const [job] = await this.db.select().from(recommendedJobs).where(and(...conditions));
 
     if (!job) {
-      throw new NotFoundException(`Job position not found: ${id}`);
+      throw new NotFoundException(`Job position not found: ${JSON.stringify(params)}`);
     }
 
     return job;
@@ -109,35 +120,48 @@ export class JobPositionService {
   /**
    * Search job positions [搜索岗位]
    *
-   * @param dto - Search criteria [搜索条件]
+   * @param filter - Search filter criteria [搜索筛选条件]
+   * @param pagination - Pagination parameters [分页参数]
+   * @param sort - Sorting parameters [排序参数]
    * @returns Paginated job positions [分页岗位列表]
    */
-  async search(dto: ISearchJobPositionsDto): Promise<{ items: Record<string, any>[]; total: number; offset: number; limit: number }> {
-    this.logger.log(`Searching job positions with criteria: ${JSON.stringify(dto)}`);
+  async search(
+    filter?: IJobPositionSearchFilter,
+    pagination?: IPaginationQuery,
+    sort?: ISortQuery
+  ): Promise<{ items: Record<string, any>[]; total: number; offset: number; limit: number }> {
+    this.logger.log(`Searching job positions with filter: ${JSON.stringify(filter)}, pagination: ${JSON.stringify(pagination)}, sort: ${JSON.stringify(sort)}`);
 
     const conditions = [];
 
-    if (dto.status) {
-      conditions.push(eq(recommendedJobs.status, dto.status));
+    // Build conditions based on filter criteria
+    if (filter) {
+      if (filter.status) {
+        conditions.push(eq(recommendedJobs.status, filter.status));
+      } else {
+        // Default to active status [默认查询活跃状态]
+        conditions.push(eq(recommendedJobs.status, "active"));
+      }
+
+      if (filter.companyName) {
+        conditions.push(sql`${recommendedJobs.companyName} ILIKE ${`%${filter.companyName}%`}`);
+      }
+
+      if (filter.jobType) {
+        conditions.push(eq(recommendedJobs.jobType, filter.jobType));
+      }
+
+      if (filter.experienceLevel) {
+        conditions.push(eq(recommendedJobs.experienceLevel, filter.experienceLevel));
+      }
+
+      if (filter.industry) {
+        conditions.push(eq(recommendedJobs.industry, filter.industry));
+      }
+      // Add more filter conditions as needed
     } else {
-      // Default to active status [默认查询活跃状态]
+      // Default to active status if no filter provided
       conditions.push(eq(recommendedJobs.status, "active"));
-    }
-
-    if (dto.companyName) {
-      conditions.push(sql`${recommendedJobs.companyName} ILIKE ${`%${dto.companyName}%`}`);
-    }
-
-    if (dto.jobType) {
-      conditions.push(eq(recommendedJobs.jobType, dto.jobType));
-    }
-
-    if (dto.experienceLevel) {
-      conditions.push(eq(recommendedJobs.experienceLevel, dto.experienceLevel));
-    }
-
-    if (dto.industry) {
-      conditions.push(eq(recommendedJobs.industry, dto.industry));
     }
 
     // Build query with dynamic conditions [构建动态条件查询]
@@ -146,9 +170,17 @@ export class JobPositionService {
       query = query.where(and(...conditions));
     }
 
+    // Apply sorting if provided
+    if (sort && sort.field && recommendedJobs[sort.field as keyof typeof recommendedJobs]) {
+      const direction = sort.direction === 'desc' ? sql`desc` : sql`asc`;
+      query = query.orderBy(sql`${recommendedJobs[sort.field as keyof typeof recommendedJobs]} ${direction}`);
+    }
+
     // Pagination [分页]
-    const offset = dto.offset || 0;
-    const limit = dto.limit || 20;
+    const page = pagination?.page || 1;
+    const pageSize = pagination?.pageSize || 20;
+    const offset = (page - 1) * pageSize;
+    const limit = pageSize;
     query = query.limit(limit).offset(offset);
 
     const jobs = await query;
@@ -182,7 +214,7 @@ export class JobPositionService {
     this.logger.log(`Marking job position as expired: ${dto.jobId}`);
 
     // Check if job exists [检查岗位是否存在]
-    const job = await this.findOneById(dto.jobId);
+    const job = await this.findOne({ id: dto.jobId });
 
     if (job.status === "expired") {
       throw new Error(`Job position is already expired: ${dto.jobId}`);
@@ -200,58 +232,12 @@ export class JobPositionService {
 
     this.logger.log(`Job position marked as expired: ${dto.jobId}`);
 
-    // Build events [构建事件]
-    const statusChangedEvent: JobPositionStatusChangedEvent = {
-      positionId: dto.jobId,
-      previousStatus: job.status as "active" | "inactive" | "expired",
-      newStatus: "expired",
-      changedBy: dto.expiredBy,
-      changedAt: new Date().toISOString(),
-      changeReason: dto.reason,
-    };
-
-    const expiredEvent: JobPositionExpiredEvent = {
-      positionId: dto.jobId,
-      expiredBy: dto.expiredBy,
-      expiredByType: dto.expiredByType,
-      expiredAt: new Date().toISOString(),
-      reason: dto.reason,
-    };
-
     return {
       data: updatedJob,
-      events: [
-        { type: JOB_POSITION_STATUS_CHANGED_EVENT, payload: statusChangedEvent },
-        { type: JOB_POSITION_EXPIRED_EVENT, payload: expiredEvent },
-      ],
     };
   }
 
-  /**
-   * Update job view count [更新岗位查看次数]
-   *
-   * @param jobId - Job position ID [岗位ID]
-   */
-  async incrementViewCount(jobId: string) {
-    await this.db
-      .update(recommendedJobs)
-      .set({
-        viewCount: sql`${recommendedJobs.viewCount} + 1`,
-      })
-      .where(eq(recommendedJobs.id, jobId));
-  }
 
-  /**
-   * Update job application count [更新岗位申请次数]
-   *
-   * @param jobId - Job position ID [岗位ID]
-   */
-  async incrementApplicationCount(jobId: string) {
-    await this.db
-      .update(recommendedJobs)
-      .set({
-        applicationCount: sql`${recommendedJobs.applicationCount} + 1`,
-      })
-      .where(eq(recommendedJobs.id, jobId));
-  }
+
+
 }

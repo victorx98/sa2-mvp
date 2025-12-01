@@ -2,9 +2,10 @@ import {
   ISubmitApplicationDto,
   ISubmitMentorScreeningDto,
   IUpdateApplicationStatusDto,
-  IQueryApplicationsDto,
+  IJobApplicationSearchFilter,
 } from "../dto";
-import { IPaginatedResult } from "./job-position.interface";
+import { IPaginatedResult, IServiceResult } from "./job-position.interface";
+import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
 
 /**
  * Job application service interface [投递服务接口]
@@ -57,20 +58,26 @@ export interface IJobApplicationService {
   >;
 
   /**
-   * Query applications [查询投递申请]
+   * Search applications [搜索投递申请]
    *
-   * @param dto - Query criteria [查询条件]
+   * @param filter - Search filter criteria [搜索筛选条件]
+   * @param pagination - Pagination parameters [分页参数]
+   * @param sort - Sorting parameters [排序参数]
    * @returns Paginated applications [分页投递列表]
    */
-  queryApplications(dto: IQueryApplicationsDto): Promise<IPaginatedResult<Record<string, any>>>;
+  search(
+    filter?: IJobApplicationSearchFilter,
+    pagination?: IPaginationQuery,
+    sort?: ISortQuery
+  ): Promise<IPaginatedResult<Record<string, any>>>;
 
   /**
-   * Get application by ID [根据ID获取投递申请]
+   * Get application [获取投递申请]
    *
-   * @param id - Application ID [申请ID]
+   * @param params - Search parameters [搜索参数]
    * @returns Application [投递申请]
    */
-  findOneById(id: string): Promise<Record<string, any>>;
+  findOne(params: { id?: string; [key: string]: any }): Promise<Record<string, any>>;
 
   /**
    * Get application status history [获取投递状态历史]

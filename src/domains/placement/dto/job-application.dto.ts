@@ -37,6 +37,16 @@ export interface IUpdateApplicationStatusDto {
 }
 
 /**
+ * Filter interface for searching job applications [搜索投递申请筛选接口]
+ */
+export interface IJobApplicationSearchFilter {
+  studentId?: string; // Filter by student [按学生筛选]
+  jobId?: string; // Filter by job [按岗位筛选]
+  status?: ApplicationStatus; // Filter by status [按状态筛选]
+  applicationType?: ApplicationType; // Filter by application type [按申请类型筛选]
+}
+
+/**
  * DTO for application query [投递查询DTO]
  */
 export interface IQueryApplicationsDto {
