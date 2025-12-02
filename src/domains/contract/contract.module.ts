@@ -24,18 +24,15 @@ import { SessionCompletedListener } from "./events/listeners/session-completed-l
  * - Transactional Event Processing(事务性事件处理)
  *
  * Implemented Services(已实现的服务):
- * ✅ ContractService - Contract lifecycle and entitlement management (12 methods)(合约生命周期和权益管理，12个方法)
- * ✅ ServiceLedgerService - Ledger tracking (append-only, 5 methods)(账本追踪，仅追加，5个方法)
- * ✅ ServiceHoldService - Hold management (manual release, 5 methods)(预占管理，手动释放，5个方法)
- * ✅ ServiceLedgerArchiveService - Archive management (cold-hot separation)(归档管理，冷热分离)
- * ✅ SessionCompletedListener - Auto-consumes services on session completion(会话完成时自动消费服务)
+ * ✅ ContractService - Real implementation with 14 methods (合约服务 - 14个方法的完整实现)
+ * ✅ ServiceLedgerService - Ledger tracking (账本追踪)
+ * ✅ ServiceHoldService - Hold management (预占管理)
+ * ✅ SessionCompletedListener - Auto-consumes services on session completion (会话完成自动消费)
  *
- * Implementation Status(实现状态): ✅ Phase 1-7 Complete (D1-D7)(阶段1-7完成)
- * - Infrastructure Layer: 14 files (schemas, SQL scripts, types)(基础设施层：14个文件)
- * - Common Layer: 7 files (exceptions, constants, types, utils)(公共层：7个文件)
- * - Core Services: 4 services with 25+ methods(核心服务：4个服务，25+方法)
- * - Event Listeners: 1 listener for cross-domain integration(事件监听器：1个跨域监听器)
- * - DTOs: 6 validation DTOs(DTO：6个验证DTO)
+ * Implementation Status(实现状态): ✅ Phase 1 Complete (阶段1完成)
+ * - ContractService rewritten from mock to real implementation (ContractService从Mock重写为真实实现)
+ * - All lifecycle methods implemented (所有生命周期方法已实现)
+ * - Service balance and consumption integrated (服务余额和消费已集成)
  */
 @Module({
   imports: [DatabaseModule],

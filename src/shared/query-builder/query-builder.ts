@@ -1304,7 +1304,7 @@ export class QueryExecutor<TSchema extends Record<string, unknown>> {
       }
 
       // 构建选择的字段
-      let selectedColumns: Record<string, PgColumn> = {};
+      const selectedColumns: Record<string, PgColumn> = {};
       if (config.nested && config.nested.fields.size > 0) {
         for (const fieldName of config.nested.fields) {
           if (fieldName in targetColumns) {

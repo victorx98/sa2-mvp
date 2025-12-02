@@ -1,0 +1,228 @@
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { v4 as uuidv4 } from 'uuid';
+import { ClassSessionRepository } from '../repositories/class-session.repository';
+import { ClassRepository } from '../../classes/repositories/class.repository';
+import { ClassSessionEntity, ClassSessionStatus, SessionType } from '../entities/class-session.entity';
+import { CreateClassSessionDto } from '../dto/create-class-session.dto';
+import { UpdateClassSessionDto } from '../dto/update-class-session.dto';
+import { MeetingLifecycleCompletedPayload } from '@shared/events';
+import { ServiceRegistryService } from '../../../service-registry/services/service-registry.service';
+import { RegisterServiceDto } from '../../../service-registry/dto/register-service.dto';
+
+@Injectable()
+export class ClassSessionService {
+  private readonly logger = new Logger(ClassSessionService.name);
+
+  constructor(
+    private readonly classSessionRepository: ClassSessionRepository,
+    private readonly classRepository: ClassRepository,
+    private readonly serviceRegistryService: ServiceRegistryService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
+
+  /**
+   * Create session (only create class_sessions record)
+   * 1. Receive meetingId from App layer
+   * 2. Validate classId validity
+   * 3. Create class_sessions record
+   */
+  async createSession(dto: CreateClassSessionDto): Promise<ClassSessionEntity> {
+    dto.validate();
+
+    this.logger.log(`Creating class session: classId=${dto.classId}, meetingId=${dto.meetingId}`);
+
+    // Verify class exists
+    const classEntity = await this.classRepository.findByIdOrThrow(dto.classId);
+
+    // Verify mentor is registered in this class
+    const hasMentor = await this.classRepository.hasMentor(dto.classId, dto.mentorUserId);
+    if (!hasMentor) {
+      throw new BadRequestException(`Mentor ${dto.mentorUserId} is not registered in class ${dto.classId}`);
+    }
+
+    const entity = new ClassSessionEntity({
+      id: uuidv4(),
+      classId: dto.classId,
+      meetingId: dto.meetingId,
+      sessionType: SessionType.CLASS_SESSION,
+      mentorUserId: dto.mentorUserId,
+      title: dto.title,
+      description: dto.description,
+      status: ClassSessionStatus.SCHEDULED,
+      scheduledAt: dto.scheduledAt,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await this.classSessionRepository.create(entity);
+    this.logger.log(`Class session created successfully: ${result.id}`);
+
+    return result;
+  }
+
+  /**
+   * Update session information
+   */
+  async updateSession(id: string, dto: UpdateClassSessionDto): Promise<ClassSessionEntity> {
+    dto.validate();
+
+    this.logger.log(`Updating class session: ${id}`);
+
+    const session = await this.classSessionRepository.findByIdOrThrow(id);
+
+    // If changing mentor, need to verify new mentor is registered in class
+    if (dto.mentorUserId && dto.mentorUserId !== session.mentorUserId) {
+      const hasMentor = await this.classRepository.hasMentor(session.classId, dto.mentorUserId);
+      if (!hasMentor) {
+        throw new BadRequestException(
+          `Mentor ${dto.mentorUserId} is not registered in class ${session.classId}`,
+        );
+      }
+    }
+
+    const updates: Partial<ClassSessionEntity> = {};
+    if (dto.title) updates.title = dto.title;
+    if (dto.description !== undefined) updates.description = dto.description;
+    if (dto.scheduledAt) updates.scheduledAt = dto.scheduledAt;
+    if (dto.mentorUserId) updates.mentorUserId = dto.mentorUserId;
+
+    const result = await this.classSessionRepository.update(id, updates);
+    this.logger.log(`Class session updated successfully: ${id}`);
+
+    return result;
+  }
+
+  /**
+   * Cancel session (only update status)
+   * Calendar update and Meeting cancellation orchestrated by Application layer
+   */
+  async cancelSession(id: string, reason?: string): Promise<void> {
+    this.logger.log(`Cancelling class session: ${id}, reason: ${reason}`);
+
+    const session = await this.classSessionRepository.findByIdOrThrow(id);
+
+    if (!session.isScheduled()) {
+      throw new BadRequestException(`Session must be in scheduled status to cancel`);
+    }
+
+    session.cancel();
+    await this.classSessionRepository.update(id, {
+      status: session.status,
+      cancelledAt: session.cancelledAt,
+    });
+
+    this.logger.log(`Class session cancelled successfully: ${id}`);
+  }
+
+  /**
+   * Soft delete session
+   */
+  async deleteSession(id: string): Promise<void> {
+    this.logger.log(`Soft deleting class session: ${id}`);
+
+    const session = await this.classSessionRepository.findByIdOrThrow(id);
+    session.softDelete();
+
+    await this.classSessionRepository.update(id, {
+      status: session.status,
+      deletedAt: session.deletedAt,
+    });
+
+    this.logger.log(`Class session soft deleted successfully: ${id}`);
+  }
+
+  /**
+   * Complete session (event-driven, called by listener)
+   * 1. Update status = completed
+   * 2. Set completed_at
+   * 3. Register service to service_references (shared primary key)
+   * 4. Emit SessionCompletedEvent
+   */
+  async completeSession(sessionId: string, payload: MeetingLifecycleCompletedPayload): Promise<void> {
+    this.logger.log(`Completing class session: ${sessionId}`);
+
+    const session = await this.classSessionRepository.findByIdOrThrow(sessionId);
+
+    if (!session.isScheduled()) {
+      this.logger.warn(`Session ${sessionId} is not in scheduled status, skipping completion`);
+      return;
+    }
+
+    // Update session status
+    session.complete();
+    await this.classSessionRepository.update(sessionId, {
+      status: session.status,
+      completedAt: session.completedAt,
+    });
+
+    // Get class information to determine billing type
+    const classEntity = await this.classRepository.findByIdOrThrow(session.classId);
+
+    // Register service to Service Registry
+    const actualDurationHours = Math.round((payload.actualDuration / 3600) * 100) / 100;
+    const registerServiceDto: RegisterServiceDto = {
+      id: sessionId,
+      service_type: 'class_session',
+      student_user_id: null, // Class session scenario: student list managed by class_students table
+      provider_user_id: session.mentorUserId,
+      consumed_units: actualDurationHours,
+      unit_type: 'hour',
+      completed_time: payload.endedAt,
+    };
+    await this.serviceRegistryService.registerService(registerServiceDto);
+
+    // Emit services.session.completed event
+    const durationHours = Math.round((payload.scheduleDuration / 60) * 100) / 100;
+    this.eventEmitter.emit('services.session.completed', {
+      sessionId: sessionId,
+      sessionType: 'class_session',
+      classId: session.classId,
+      classType: classEntity.type,
+      mentorId: session.mentorUserId,
+      refrenceId: sessionId,
+      actualDurationHours,
+      durationHours,
+      allowBilling: true, // All class sessions require mentor billing
+    });
+
+    this.logger.log(`Class session completed successfully: ${sessionId}`);
+  }
+
+  /**
+   * Find session by meeting_id
+   */
+  async findByMeetingId(meetingId: string): Promise<ClassSessionEntity | null> {
+    this.logger.log(`Finding class session by meeting ID: ${meetingId}`);
+    return this.classSessionRepository.findByMeetingId(meetingId);
+  }
+
+  /**
+   * Get session details
+   */
+  async getSessionById(id: string): Promise<ClassSessionEntity> {
+    this.logger.log(`Getting class session by ID: ${id}`);
+    return this.classSessionRepository.findByIdOrThrow(id);
+  }
+
+  /**
+   * Get all sessions for class
+   */
+  async getSessionsByClass(
+    classId: string,
+    limit: number = 10,
+    offset: number = 0,
+    filters?: { status?: ClassSessionStatus },
+  ): Promise<ClassSessionEntity[]> {
+    this.logger.log(`Getting class sessions for class: ${classId}`);
+
+    // Verify class exists
+    await this.classRepository.findByIdOrThrow(classId);
+
+    return this.classSessionRepository.findByClass(classId, limit, offset, {
+      ...filters,
+      excludeDeleted: true,
+    });
+  }
+}
+

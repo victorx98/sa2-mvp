@@ -71,9 +71,23 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         onConflictDoUpdate: jest.fn(),
       })),
       delete: jest.fn(),
+      query: {
+        contracts: {
+          findFirst: jest.fn(),
+          findMany: jest.fn(),
+        },
+        products: {
+          findFirst: jest.fn(),
+        },
+        contractServiceEntitlements: {
+          findFirst: jest.fn(),
+          findMany: jest.fn(),
+        },
+      },
       transaction: jest.fn(async (callback) => {
         const mockTx = {
           ...mockDb,
+          query: mockDb.query,
         };
         return await callback(mockTx);
       }),
@@ -83,6 +97,13 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
     (mockDb.execute as jest.Mock).mockResolvedValue({
       rows: [{ contract_number: "TEST-2025-0001" }],
     });
+
+    // Setup query mocks for Drizzle ORM query interface
+    mockDb.query.contracts.findFirst = jest.fn().mockResolvedValue(null);
+    mockDb.query.contracts.findMany = jest.fn().mockResolvedValue([]);
+    mockDb.query.products.findFirst = jest.fn().mockResolvedValue(null);
+    mockDb.query.contractServiceEntitlements.findFirst = jest.fn().mockResolvedValue(null);
+    mockDb.query.contractServiceEntitlements.findMany = jest.fn().mockResolvedValue([]);
 
     moduleRef = await Test.createTestingModule({
       imports: [ConfigModule.forRoot({
@@ -112,14 +133,28 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
 
   describe("create() [创建合约]", () => {
     it("should create contract successfully [应该成功创建合约]", async () => {
-      // Arrange
+      // Arrange - Mock product lookup to return valid product
+      (mockDb.query.products.findFirst as jest.Mock).mockResolvedValue({
+        id: testProductId,
+        name: "Test Product",
+        code: "TEST-PRODUCT",
+        status: "ACTIVE",
+      });
+
       const productSnapshot: IProductSnapshot = {
         productId: testProductId,
         productName: "Test Product",
         productCode: "TEST-PRODUCT",
         price: "1000.00",
         currency: Currency.USD,
-        items: [],
+        items: [
+          {
+            productItemId: randomUUID(),
+            serviceTypeId: testServiceTypeId1,
+            quantity: 5,
+            sortOrder: 1,
+          },
+        ],
         snapshotAt: new Date(),
       };
       const createDto: CreateContractDto = {
@@ -172,7 +207,14 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
     });
 
     it("should reject negative price [应该拒绝负价格]", async () => {
-      // Arrange
+      // Arrange - Mock product lookup to return valid product
+      (mockDb.query.products.findFirst as jest.Mock).mockResolvedValue({
+        id: testProductId,
+        name: "Test Product",
+        code: "TEST-PRODUCT",
+        status: "ACTIVE",
+      });
+
       const createDto: CreateContractDto = {
         productSnapshot: {
           productId: testProductId,
@@ -180,7 +222,14 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
           productCode: "TEST-PRODUCT",
           price: "-100",
           currency: Currency.USD,
-          items: [],
+          items: [
+            {
+              productItemId: randomUUID(),
+              serviceTypeId: testServiceTypeId1,
+              quantity: 3,
+              sortOrder: 1,
+            },
+          ],
           snapshotAt: new Date(),
         } as IProductSnapshot,
         studentId: testStudentId,
@@ -919,6 +968,9 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         availableQuantity: 15,
         createdBy: testCreatedBy,
       };
+
+      // Arrange - Mock the query to return the entitlement
+      (mockDb.query.contractServiceEntitlements.findFirst as jest.Mock).mockResolvedValue(mockEntitlement);
 
       const mockValues = jest.fn().mockReturnValue({
         onConflictDoUpdate: jest.fn().mockReturnThis(),

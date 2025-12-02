@@ -1,6 +1,6 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { eq, and, sql, SQL, gte, lte } from "drizzle-orm";
+import { eq, and, sql, SQL, gte, lte, ne } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import { DrizzleDatabase } from "@shared/types/database.types";
@@ -14,7 +14,7 @@ import { FindOneContractDto } from "../dto/find-one-contract.dto";
 import { ConsumeServiceDto } from "../dto/consume-service.dto";
 import { AddAmendmentLedgerDto } from "../dto/add-amendment-ledger.dto";
 import { calculateExpirationDate } from "../common/utils/date.utils";
-import { validatePrice } from "../common/utils/validation.utils";
+import { validatePrice, validateProductSnapshot } from "../common/utils/validation.utils";
 import type { Contract } from "@infrastructure/database/schema";
 import type {
   IProductSnapshot,
@@ -25,6 +25,8 @@ import { ContractStatus, HoldStatus } from "@shared/types/contract-enums";
 
 @Injectable()
 export class ContractService {
+  private readonly logger = new Logger(ContractService.name);
+
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
@@ -39,11 +41,26 @@ export class ContractService {
    * - Publish contract.signed event(发布合约签署事件)
    */
   async create(dto: CreateContractDto): Promise<Contract> {
-    const { productSnapshot, studentId, createdBy, title } = dto;
+    const { productSnapshot, studentId, createdBy, title, productId } = dto;
+
+    // 0. Validate product snapshot structure (0. 验证产品快照结构)
+    validateProductSnapshot(productSnapshot);
+
+    // [修复] Verify product is valid (查询产品并验证状态)
+    const product = await this.db.query.products.findFirst({
+      where: and(
+        eq(schema.products.id, productId),
+        ne(schema.products.status, "DELETED")
+      ),
+    });
+
+    if (!product) {
+      throw new ContractException("Product not found or has been deleted");
+    }
 
     // 1. Validate price(1. 验证价格)
     const originalPrice = parseFloat(productSnapshot.price);
-    validatePrice(originalPrice * 100); // Convert to cents(转换为分)
+    validatePrice(originalPrice); // Use dollars directly(直接使用美元)
 
     // 2. Calculate validity period(2. 计算有效期)
     const signedAt = dto.signedAt ? new Date(dto.signedAt) : new Date();
@@ -196,6 +213,19 @@ export class ContractService {
         })
         .where(eq(schema.contracts.id, id))
         .returning();
+
+      // [修复] Check if entitlements already exist (检查权益是否已存在)
+      const existingEntitlements = await tx.query.contractServiceEntitlements.findFirst({
+        where: eq(schema.contractServiceEntitlements.studentId, contract.studentId),
+      });
+
+      if (existingEntitlements) {
+        // Entitlements already exist, skip creation (权益已存在，跳过创建)
+        this.logger.log(
+          `Contract ${id} activation: entitlements already exist for student ${contract.studentId}, skipping creation`,
+        );
+        return updatedContract;
+      }
 
       // Create service entitlements from product snapshot(从产品快照创建服务权益)
       const productSnapshot = contract.productSnapshot as IProductSnapshot;
@@ -863,49 +893,16 @@ export class ContractService {
     // const lastRevision = (lastRevisionResult[0]?.maxRevision as number) || 0;
     // const nextRevisionNumber = lastRevision + 1; // Reserved for future use
 
-    // 3. Create entitlement and revision in transaction(3. 在事务中创建权利和修订)
+    // 3. Create ledger records and rely on trigger to update entitlements
     return await this.db.transaction(async (tx) => {
-      // Create entitlement record (immediately available)(创建权益记录(立即可用))
-      // v2.16.12: Use UPSERT to handle existing entitlements (cumulative system)
-      const [entitlement] = await tx
-        .insert(schema.contractServiceEntitlements)
-        .values({
-          studentId,
-          serviceType:
-            typeof serviceType === "string" ? serviceType : serviceType.code,
-          totalQuantity: quantityChanged,
-          consumedQuantity: 0,
-          heldQuantity: 0,
-          availableQuantity: quantityChanged, // Immediately available(立即可用)
-          createdBy,
-        })
-        .onConflictDoUpdate({
-          target: [
-            schema.contractServiceEntitlements.studentId,
-            schema.contractServiceEntitlements.serviceType,
-          ],
-          set: {
-            totalQuantity: sql`${schema.contractServiceEntitlements.totalQuantity} + ${quantityChanged}`,
-            availableQuantity: sql`${schema.contractServiceEntitlements.availableQuantity} + ${quantityChanged}`,
-            updatedAt: new Date(),
-          },
-        })
-        .returning();
-
-      if (!entitlement) {
-        throw new ContractException("ENTITLEMENT_CREATION_FAILED");
-      }
-
-      // Create amendment ledger record (audit trail)(创建权益变更台账记录(审计跟踪))
+      // [修复] Insert amendment ledger record (trigger will update entitlement)
       await tx.insert(schema.contractAmendmentLedgers).values({
         studentId,
-        serviceType:
-          typeof serviceType === "string" ? serviceType : serviceType.code,
+        serviceType: typeof serviceType === "string" ? serviceType : serviceType.code,
         ledgerType,
         quantityChanged,
         reason,
-        description:
-          description ||
+        description: description ||
           `Add ${serviceType} entitlement for contract ${contractId}`,
         attachments,
         createdBy,
@@ -913,34 +910,40 @@ export class ContractService {
           contractId,
           contractNumber: contract.contractNumber,
         },
-      });
+      }).returning();
 
-      // Create service ledger entry for audit trail(创建服务流水记录用于审计跟踪)
+      // Create service ledger entry for audit trail
       await tx.insert(schema.serviceLedgers).values({
         studentId,
-        serviceType:
-          typeof serviceType === "string" ? serviceType : serviceType.code,
+        serviceType: typeof serviceType === "string" ? serviceType : serviceType.code,
         type: "adjustment",
         source: "manual_adjustment",
         quantity: quantityChanged,
-        balanceAfter: entitlement.availableQuantity,
+        balanceAfter: 0, // Will be calculated by trigger
         reason: `Added ${serviceType} entitlement: ${reason || "No reason provided"}`,
         createdBy,
       });
 
-      // Publish entitlement.added event(发布权益添加事件) - Using EventEmitter2 directly
-      // Event is published after transaction completion to ensure data consistency
+      // Query updated entitlement (trigger has updated it)
+      const entitlement = await tx.query.contractServiceEntitlements.findFirst({
+        where: and(
+          eq(schema.contractServiceEntitlements.studentId, studentId),
+          eq(schema.contractServiceEntitlements.serviceType, typeof serviceType === "string" ? serviceType : serviceType.code),
+        ),
+      });
+
+      // Publish entitlement.added event
       this.eventEmitter.emit("entitlement.added", {
         contractId,
-        entitlementId: `${studentId}-${serviceType}`, // Composite key representation
+        entitlementId: `${studentId}-${typeof serviceType === "string" ? serviceType : serviceType.code}`,
         serviceType,
         quantity: quantityChanged,
         source: ledgerType,
         reason,
-        status: "active", // v2.16.10: 直接生效
+        status: "active",
       });
 
-      return entitlement;
+      return entitlement!;
     });
   }
 
