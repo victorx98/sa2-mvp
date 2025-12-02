@@ -79,7 +79,7 @@ The architecture is composed of four primary layers. This document focuses on th
     - 包含核心业务规则和模型（聚合根、实体、值对象）。
     - 确保领域不变性（Domain Invariants）得到维护。
     - 领域被划分为独立的业务域（例如：`identity`, `contract`, `catalog` 等）。
-    - 引入 **Query Domain**：一个特殊的领域，专注于提供跨业务域的统一查询能力，可以直接 join 各域表进行高效查询，构建 Read Model。
+    - 引入 **Query Domain**：一个特殊的领域，专注于提供跨domain业务域的统一查询能力，可以直接 join 各域表进行高效查询，构建 Read Model。
 
 
 ---
