@@ -11,6 +11,8 @@ import { StudentsController } from "./controllers/student/students.controller";
 import { StudentProfileController } from "./controllers/student/student-profile.controller";
 import { MentorProfileController } from "./controllers/mentor/mentor-profile.controller";
 import { CounselorProfileController } from "./controllers/counselor/counselor-profile.controller";
+import { AdminProductsController } from "./controllers/admin/products.controller";
+import { AdminContractsController } from "./controllers/admin/contracts.controller";
 import { ApplicationModule } from "@application/application.module";
 import { WebhookModule } from "@core/webhook/webhook.module";
 
@@ -34,6 +36,10 @@ import { WebhookModule } from "@core/webhook/webhook.module";
     UserController,
     SessionController,
     ReferenceDataController,
+
+    // Admin Controllers
+    AdminProductsController,
+    AdminContractsController,
 
     // Counselor Controllers
     CounselorSessionsController,

@@ -5,6 +5,7 @@ import { DatabaseModule } from "@infrastructure/database/database.module";
 
 // Domain Layer
 import { UserModule } from "@domains/identity/user/user.module";
+import { CatalogModule } from "@domains/catalog/catalog.module";
 
 // Application Layer - Queries
 import { UserQueryService } from "./queries/user-query.service";
@@ -16,6 +17,9 @@ import { CounselorListQuery } from "./queries/counselor/counselor-list.query";
 import { SchoolListQuery } from "./queries/school/school-list.query";
 import { MajorListQuery } from "./queries/major/major-list.query";
 import { ServiceBalanceQuery } from "./queries/contract/service-balance.query";
+import { GetContractQuery } from "./queries/contract/get-contract.query";
+import { GetProductQuery } from "./queries/product/get-product.query";
+import { GetProductsQuery } from "./queries/product/get-products.query";
 
 // Application Layer - Commands
 import { RegisterCommand } from "./commands/auth/register.command";
@@ -24,6 +28,10 @@ import { BookSessionCommand } from "./commands/booking/book-session.command";
 import { UpdateStudentProfileCommand } from "./commands/profile/update-student-profile.command";
 import { UpdateMentorProfileCommand } from "./commands/profile/update-mentor-profile.command";
 import { UpdateCounselorProfileCommand } from "./commands/profile/update-counselor-profile.command";
+import { CreateProductCommand } from "./commands/product/create-product.command";
+import { UpdateProductCommand } from "./commands/product/update-product.command";
+import { PublishProductCommand } from "./commands/product/publish-product.command";
+import { CreateContractCommand } from "./commands/contract/create-contract.command";
 
 // Application Layer - Commands (兼容层)
 import { AuthCommandService } from "./commands/auth-command/auth-command.service";
@@ -51,8 +59,9 @@ import { QueryModule } from "@domains/query/query.module";
     DatabaseModule, // 导入数据库模块，提供事务支持
     CalendarModule, // 导入日历模块（包含事件监听器）
     MeetingModule, // 导入会议提供者模块
-    TelemetryModule, // 提供 MetricsService 等遥测服务
+    TelemetryModule, // Domain Services
     UserModule, // Domain层：User (Identity)
+    CatalogModule, // Domain层：Catalog
     ServicesModule, // Domain层：Services
     ContractModule, // Domain层：Contract
     QueryModule, // Domain层：Query (跨域查询)
@@ -69,6 +78,9 @@ import { QueryModule } from "@domains/query/query.module";
     SchoolListQuery,
     MajorListQuery,
     ServiceBalanceQuery,
+    GetContractQuery,
+    GetProductQuery,
+    GetProductsQuery,
 
     // Commands
     RegisterCommand,
@@ -77,6 +89,10 @@ import { QueryModule } from "@domains/query/query.module";
     UpdateStudentProfileCommand,
     UpdateMentorProfileCommand,
     UpdateCounselorProfileCommand,
+    CreateProductCommand,
+    UpdateProductCommand,
+    PublishProductCommand,
+    CreateContractCommand,
 
     // Commands (兼容层)
     AuthCommandService,
@@ -101,6 +117,9 @@ import { QueryModule } from "@domains/query/query.module";
     SchoolListQuery,
     MajorListQuery,
     ServiceBalanceQuery,
+    GetContractQuery,
+    GetProductQuery,
+    GetProductsQuery,
 
     // Commands
     RegisterCommand,
@@ -109,6 +128,10 @@ import { QueryModule } from "@domains/query/query.module";
     UpdateStudentProfileCommand,
     UpdateMentorProfileCommand,
     UpdateCounselorProfileCommand,
+    CreateProductCommand,
+    UpdateProductCommand,
+    PublishProductCommand,
+    CreateContractCommand,
 
     // Commands (兼容层 - 保持向后兼容)
     AuthCommandService,
