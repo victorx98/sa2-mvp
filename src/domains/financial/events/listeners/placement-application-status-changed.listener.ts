@@ -58,6 +58,7 @@ export class PlacementApplicationStatusChangedListener {
         applicationId,
         previousStatus,
         newStatus,
+        changedAt,
       } = payload || {};
 
       // Validate payload
@@ -84,7 +85,7 @@ export class PlacementApplicationStatusChangedListener {
         return;
       }
 
-      const { studentId } = jobApplication;
+      const { studentId, jobId } = jobApplication;
 
       // 2. Determine billing eligibility based on status change
       // Only bill for specific status changes (e.g., recommended, interviewed, hired)

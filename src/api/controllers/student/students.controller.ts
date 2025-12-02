@@ -11,7 +11,7 @@ import { StudentSummaryResponseDto } from "@api/dto/response/student-response.dt
 import { plainToInstance } from "class-transformer";
 
 /**
- * API Layer - Student Controller
+ * API Layer - Students Controller
  * 职责：
  * 1. 定义学生相关的 HTTP 路由
  * 2. 提取请求参数
@@ -24,12 +24,12 @@ import { plainToInstance } from "class-transformer";
  * ❌ 不包含业务逻辑
  * ❌ 不进行数据转换（由 Application Layer 负责）
  */
-@ApiTags("Student")
-@Controller(`${ApiPrefix}/student`)
+@ApiTags("Students")
+@Controller(`${ApiPrefix}/students`)
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles("mentor", "counselor", "student")
 @ApiBearerAuth()
-export class StudentController {
+export class StudentsController {
   constructor(
     // ✅ 直接注入 Application Layer 服务
     private readonly studentListQuery: StudentListQuery,

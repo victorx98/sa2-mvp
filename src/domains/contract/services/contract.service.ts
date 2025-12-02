@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { eq, and, sql, SQL, gte, lte, ne, inArray } from "drizzle-orm";
+import { eq, and, sql, SQL, gte, lte, ne } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import { DrizzleDatabase } from "@shared/types/database.types";
@@ -213,6 +214,19 @@ export class ContractService {
         })
         .where(eq(schema.contracts.id, id))
         .returning();
+
+      // [修复] Check if entitlements already exist (检查权益是否已存在)
+      const existingEntitlements = await tx.query.contractServiceEntitlements.findFirst({
+        where: eq(schema.contractServiceEntitlements.studentId, contract.studentId),
+      });
+
+      if (existingEntitlements) {
+        // Entitlements already exist, skip creation (权益已存在，跳过创建)
+        this.logger.log(
+          `Contract ${id} activation: entitlements already exist for student ${contract.studentId}, skipping creation`,
+        );
+        return updatedContract;
+      }
 
       // Create service entitlements from product snapshot(从产品快照创建服务权益)
       const productSnapshot = contract.productSnapshot as IProductSnapshot;
