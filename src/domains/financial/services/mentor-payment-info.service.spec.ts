@@ -1,7 +1,7 @@
 import { Test } from "@nestjs/testing";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { MentorPaymentInfoService } from "./mentor-payment-info.service";
-import type { CreateOrUpdateMentorPaymentInfoRequest } from "../dto/settlement";
+import type { ICreateOrUpdateMentorPaymentInfoRequest } from "../dto/settlement";
 import { SettlementMethod } from "../dto/settlement/settlement.enums";
 
 /**
@@ -55,7 +55,7 @@ describe("MentorPaymentInfoService", () => {
   });
 
   describe("createOrUpdateMentorPaymentInfo", () => {
-    const mockRequest: CreateOrUpdateMentorPaymentInfoRequest = {
+    const mockRequest: ICreateOrUpdateMentorPaymentInfoRequest = {
       mentorId: testMentorId,
       paymentCurrency: "USD",
       paymentMethod: SettlementMethod.DOMESTIC_TRANSFER,

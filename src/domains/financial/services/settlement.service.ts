@@ -5,17 +5,17 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { eq, and, sql, isNull, inArray, gte, lte, or, isNotNull } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import type { DrizzleDatabase } from "@shared/types/database.types";
 import type { ISettlementService } from "../interfaces/settlement.interface";
 import type {
-  CreateSettlementRequest,
-  SettlementQuery,
-  SettlementDetailResponse,
-  SettlementResponse,
-  SettlementDetailItem,
+  ICreateSettlementRequest,
+  ISettlementQuery,
+  ISettlementDetailResponse,
+  ISettlementResponse,
+  ISettlementDetailItem,
 } from "../dto/settlement";
 import { SettlementStatus } from "../dto/settlement/settlement.enums";
 import { SETTLEMENT_CONFIRMED_EVENT } from "@shared/events/event-constants";
@@ -62,9 +62,9 @@ export class SettlementService implements ISettlementService {
    * @returns Settlement record details (结算记录详情)
    */
   public async generateSettlement(
-    request: CreateSettlementRequest,
+    request: ICreateSettlementRequest,
     createdBy: string,
-  ): Promise<SettlementDetailResponse> {
+  ): Promise<ISettlementDetailResponse> {
     const { mentorId, settlementMonth, exchangeRate, deductionRate } = request;
 
     this.logger.log(
@@ -110,26 +110,40 @@ export class SettlementService implements ISettlementService {
         );
       }
 
-      // 3. Get unpaid payable ledgers for the mentor (获取导师的未付应付账款)
-      // [修复] 过滤未结算的原始账款记录
-      // [新增] 根据 settlementMonth 过滤指定月份
-      // [新增] 包含未结算的调整记录 (originalId IS NOT NULL)
+      // 3. [修复] Check for existing settlement for this mentor/month (查询是否已存在该导师/月份的结算)
+      // Prevents duplicate settlements before attempting to claim ledgers [在尝试抢占账本前防止重复结算]
+      const existingSettlement = await tx.query.settlementLedgers.findFirst({
+        where: and(
+          eq(schema.settlementLedgers.mentorId, mentorId),
+          eq(schema.settlementLedgers.settlementMonth, settlementMonth),
+        ),
+      });
+
+      if (existingSettlement) {
+        throw new BadRequestException(
+          `Settlement already exists for mentor ${mentorId} in month ${settlementMonth}. Settlement ID: ${existingSettlement.id}`,
+        );
+      }
+
+      // 4. [修复] Atomically claim unpaid payable ledgers with SELECT FOR UPDATE SKIP LOCKED
+      // 使用SELECT FOR UPDATE SKIP LOCKED防止并发结算问题
       const [year, month] = settlementMonth.split('-').map(Number);
       const startOfMonth = new Date(year, month - 1, 1);
       const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
 
-      const payableLedgers = await tx.query.mentorPayableLedgers.findMany({
-        where: and(
-          eq(schema.mentorPayableLedgers.mentorId, mentorId),
-          isNull(schema.mentorPayableLedgers.settlementId), // 只查未结算记录
-          gte(schema.mentorPayableLedgers.createdAt, startOfMonth),
-          lte(schema.mentorPayableLedgers.createdAt, endOfMonth),
-          or(
-            eq(schema.mentorPayableLedgers.originalId, null), // 原始记录
-            isNotNull(schema.mentorPayableLedgers.originalId), // 调整记录
-          ),
-        ),
-      });
+      // Use raw SQL with FOR UPDATE SKIP LOCKED to prevent concurrent settlement
+      // 使用原生SQL和FOR UPDATE SKIP LOCKED锁定记录，防止并发结算
+      const payableLedgersResult = await tx.execute(sql`
+        SELECT * FROM mentor_payable_ledgers
+        WHERE mentor_id = ${mentorId}
+          AND settlement_id IS NULL
+          AND created_at >= ${startOfMonth}
+          AND created_at <= ${endOfMonth}
+          AND (original_id IS NULL OR original_id IS NOT NULL)
+        FOR UPDATE SKIP LOCKED
+      `);
+
+      const payableLedgers = payableLedgersResult.rows as typeof schema.mentorPayableLedgers.$inferSelect[];
 
       if (!payableLedgers || payableLedgers.length === 0) {
         throw new BadRequestException(
@@ -137,17 +151,32 @@ export class SettlementService implements ISettlementService {
         );
       }
 
-      // 4. Calculate amounts (计算金额)
-      // Sum up all original amounts
-      const originalAmount = payableLedgers.reduce(
-        (sum, ledger) => sum + Number(ledger.amount),
+      // 4. [修复] Calculate amounts with consistent rounding (使用一致的四舍五入计算金额)
+      // First calculate rounded detail amounts, then sum for header (先计算四舍五入的明细金额，再求和得到头金额)
+      // This ensures header total matches sum of detail totals (这确保头总额与明细总额之和匹配)
+
+      // Calculate each detail's target amount with rounding [计算每个明细的目标金额并四舍五入]
+      const detailCalculations = payableLedgers.map((ledger) => {
+        const originalAmt = Number(ledger.amount);
+        const targetAmt =
+          originalAmt * (1 - Number(deductionRate)) * Number(exchangeRate);
+
+        return {
+          ...ledger,
+          originalAmount: originalAmt,
+          targetAmount: Number(targetAmt.toFixed(2)), // Round to 2 decimals [四舍五入到2位小数]
+        };
+      });
+
+      // Sum original and target amounts from rounded details [从四舍五入的明细中求和原始和目标金额]
+      const originalAmount = detailCalculations.reduce(
+        (sum, item) => sum + item.originalAmount,
         0,
       );
-
-      // Calculate target amount with exchange rate and deduction
-      const amountAfterDeduction =
-        originalAmount * (1 - Number(deductionRate));
-      const targetAmount = amountAfterDeduction * Number(exchangeRate);
+      const targetAmount = detailCalculations.reduce(
+        (sum, item) => sum + item.targetAmount,
+        0,
+      );
 
       this.logger.log(
         `Calculated settlement: originalAmount=${originalAmount.toFixed(2)}, ` +
@@ -179,15 +208,12 @@ export class SettlementService implements ISettlementService {
       }
 
       // 6. Create settlement details (创建结算明细记录)
-      const detailRecords = payableLedgers.map((ledger) => ({
+      // [修复] Use pre-calculated rounded amounts to ensure consistency with header [使用预计算的四舍五入金额确保与头一致性]
+      const detailRecords = detailCalculations.map((item) => ({
         settlementId: settlement.id,
-        mentorPayableId: ledger.id,
-        originalAmount: ledger.amount,
-        targetAmount: String(
-          Number(ledger.amount) *
-            (1 - Number(deductionRate)) *
-            Number(exchangeRate),
-        ),
+        mentorPayableId: item.id,
+        originalAmount: String(item.originalAmount),
+        targetAmount: String(item.targetAmount),
         exchangeRate: String(exchangeRate),
         deductionRate: String(deductionRate),
         createdBy,
@@ -273,7 +299,7 @@ export class SettlementService implements ISettlementService {
    */
   public async getSettlementById(
     id: string,
-  ): Promise<SettlementDetailResponse | null> {
+  ): Promise<ISettlementDetailResponse | null> {
     try {
       const settlement = await this.db.query.settlementLedgers.findFirst({
         where: eq(schema.settlementLedgers.id, id),
@@ -323,7 +349,7 @@ export class SettlementService implements ISettlementService {
   public async getSettlementByMentorAndMonth(
     mentorId: string,
     settlementMonth: string,
-  ): Promise<SettlementDetailResponse | null> {
+  ): Promise<ISettlementDetailResponse | null> {
     try {
       const settlement = await this.db.query.settlementLedgers.findFirst({
         where: and(
@@ -374,8 +400,8 @@ export class SettlementService implements ISettlementService {
    * @param query - Query parameters including filters and pagination [查询参数，包括筛选器和分页]
    * @returns Paginated settlement records [分页的结算记录]
    */
-  public async findSettlements(query: SettlementQuery): Promise<{
-    data: SettlementResponse[];
+  public async findSettlements(query: ISettlementQuery): Promise<{
+    data: ISettlementResponse[];
     total: number;
   }> {
     try {
@@ -438,7 +464,7 @@ export class SettlementService implements ISettlementService {
         offset: (page - 1) * pageSize,
       });
 
-      const data: SettlementResponse[] = settlements.map((settlement) => ({
+      const data: ISettlementResponse[] = settlements.map((settlement) => ({
         id: settlement.id,
         mentorId: settlement.mentorId,
         settlementMonth: settlement.settlementMonth,
@@ -480,7 +506,7 @@ export class SettlementService implements ISettlementService {
    */
   public async getSettlementDetails(
     settlementId: string,
-  ): Promise<SettlementDetailItem[]> {
+  ): Promise<ISettlementDetailItem[]> {
     try {
       const details = await this.db.query.settlementDetails.findMany({
         where: eq(schema.settlementDetails.settlementId, settlementId),

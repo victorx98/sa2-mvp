@@ -11,7 +11,7 @@ import { serviceTypes } from "./service-types.schema";
 import { AmendmentLedgerType } from "../../../shared/types/contract-enums";
 
 // 服务快照接口 (Service snapshot interface)
-interface ServiceSnapshot {
+interface IServiceSnapshot {
   serviceId?: string;
   serviceName?: string;
   serviceType?: string;
@@ -19,7 +19,7 @@ interface ServiceSnapshot {
 }
 
 // 产品快照接口 (Product snapshot interface)
-interface ProductSnapshot {
+interface IProductSnapshot {
   productId?: string;
   productName?: string;
   productVersion?: string;
@@ -80,8 +80,8 @@ export const contractAmendmentLedgers = pgTable("contract_amendment_ledgers", {
   snapshot: json("snapshot").$type<{
     contractId?: string;
     contractNumber?: string;
-    serviceSnapshot?: ServiceSnapshot;
-    productSnapshot?: ProductSnapshot;
+    serviceSnapshot?: IServiceSnapshot;
+    productSnapshot?: IProductSnapshot;
   }>(),
 });
 

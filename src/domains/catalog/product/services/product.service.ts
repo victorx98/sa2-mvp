@@ -160,117 +160,131 @@ export class ProductService {
   }
 
   /**
-   * Add service or service package to product
+   * Add service or service package to product (添加服务或服务项目到产品) [向产品添加服务或服务包]
    */
   async addItem(productId: string, dto: AddProductItemDto): Promise<void> {
-    // 1. Check if product exists and is draft
-    const existing = await this.db
-      .select()
-      .from(schema.products)
-      .where(eq(schema.products.id, productId))
-      .limit(1);
+    // Wrap operations in transaction to ensure atomicity [将操作包裹在事务中以确保原子性]
+    await this.db.transaction(async (tx) => {
+      // 1. Check if product exists and is draft with row lock [检查产品是否存在且为草稿状态，并加行锁]
+      const [existing] = await tx
+        .select()
+        .from(schema.products)
+        .where(eq(schema.products.id, productId))
+        .for("update") // Row-level lock to prevent concurrent modifications [行级锁防止并发修改]
+        .limit(1);
 
-    if (existing.length === 0) {
-      throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
-    }
+      if (!existing) {
+        throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
+      }
 
-    if (existing[0].status !== ProductStatus.DRAFT) {
-      throw new CatalogException("PRODUCT_NOT_DRAFT");
-    }
+      if (existing.status !== ProductStatus.DRAFT) {
+        throw new CatalogException("PRODUCT_NOT_DRAFT");
+      }
 
-    // 2. Validate reference exists and is active
-    await this.validateProductItemReferences([
-      { serviceTypeId: dto.serviceTypeId },
-    ]);
-    await this.validateProductItemQuantities([
-      { serviceTypeId: dto.serviceTypeId, quantity: dto.quantity },
-    ]);
+      // 2. Validate reference exists and is active [验证引用存在且处于激活状态]
+      await this.validateProductItemReferences([
+        { serviceTypeId: dto.serviceTypeId },
+      ], tx); // Pass transaction context [传递事务上下文]
+      await this.validateProductItemQuantities([
+        { serviceTypeId: dto.serviceTypeId, quantity: dto.quantity },
+      ]);
 
-    // 3. Check if item already exists in product
-    const existingItem = await this.db
-      .select()
-      .from(schema.productItems)
-      .where(
-        and(
-          eq(schema.productItems.productId, productId),
-          eq(schema.productItems.serviceTypeId, dto.serviceTypeId),
-        ),
-      )
-      .limit(1);
+      // 3. Check if item already exists in product [检查产品项是否已存在于产品中]
+      const existingItem = await tx
+        .select()
+        .from(schema.productItems)
+        .where(
+          and(
+            eq(schema.productItems.productId, productId),
+            eq(schema.productItems.serviceTypeId, dto.serviceTypeId),
+          ),
+        )
+        .limit(1);
 
-    if (existingItem.length > 0) {
-      throw new CatalogException("ITEM_ALREADY_IN_PRODUCT");
-    }
+      if (existingItem.length > 0) {
+        throw new CatalogException("ITEM_ALREADY_IN_PRODUCT");
+      }
 
-    // 4. Add product item
-    await this.db.insert(schema.productItems).values({
-      productId,
-      serviceTypeId: dto.serviceTypeId,
-      quantity: dto.quantity,
-      sortOrder: dto.sortOrder ?? 0, // Use provided sortOrder or default to 0 [使用提供的sortOrder或默认为0]
+      // 4. Add product item [添加产品项]
+      await tx.insert(schema.productItems).values({
+        productId,
+        serviceTypeId: dto.serviceTypeId,
+        quantity: dto.quantity,
+        sortOrder: dto.sortOrder ?? 0, // Use provided sortOrder or default to 0 [使用提供的sortOrder或默认为0]
+      });
     });
   }
 
   /**
-   * Remove service or service package from product
+   * Remove service or service package from product (从产品中删除服务或服务项目) [从产品移除服务或服务包]
    */
   async removeItem(productId: string, itemId: string): Promise<void> {
-    // 1. Check if product exists and is draft
-    const product = await this.db
-      .select()
-      .from(schema.products)
-      .where(eq(schema.products.id, productId))
-      .limit(1);
+    // Wrap operations in transaction to ensure atomicity [将操作包裹在事务中以确保原子性]
+    await this.db.transaction(async (tx) => {
+      // 1. Check if product exists and is draft with row lock [检查产品是否存在且为草稿状态，并加行锁]
+      const [product] = await tx
+        .select()
+        .from(schema.products)
+        .where(eq(schema.products.id, productId))
+        .for("update") // Row-level lock to prevent concurrent modifications [行级锁防止并发修改]
+        .limit(1);
 
-    if (product.length === 0) {
-      throw new CatalogException("PRODUCT_NOT_FOUND");
-    }
+      if (!product) {
+        throw new CatalogException("PRODUCT_NOT_FOUND");
+      }
 
-    if (product[0].status !== ProductStatus.DRAFT) {
-      throw new CatalogException("PRODUCT_NOT_DRAFT");
-    }
+      if (product.status !== ProductStatus.DRAFT) {
+        throw new CatalogException("PRODUCT_NOT_DRAFT");
+      }
 
-    // 2. Product must contain at least 1 item
-    const items = await this.db
-      .select()
-      .from(schema.productItems)
-      .where(eq(schema.productItems.productId, productId));
+      // 2. Product must contain at least 1 item [产品必须至少包含一个项目]
+      const items = await tx
+        .select()
+        .from(schema.productItems)
+        .where(eq(schema.productItems.productId, productId));
 
-    if (items.length <= 1) {
-      throw new CatalogException("PRODUCT_MIN_ITEMS");
-    }
+      if (items.length <= 1) {
+        throw new CatalogException("PRODUCT_MIN_ITEMS");
+      }
 
-    // 3. Delete product item
-    await this.db
-      .delete(schema.productItems)
-      .where(
-        and(
-          eq(schema.productItems.id, itemId),
-          eq(schema.productItems.productId, productId),
-        ),
-      );
+      // 3. Delete product item [删除产品项]
+      await tx
+        .delete(schema.productItems)
+        .where(
+          and(
+            eq(schema.productItems.id, itemId),
+            eq(schema.productItems.productId, productId),
+          ),
+        );
+    });
   }
 
   /**
-   * Update product item sort order [更新产品项排序]
+   * Update product item sort order (更新产品项排序顺序) [更新产品项排序]
    */
   async updateItemSortOrder(
     productId: string,
     items: Array<{ itemId: string; sortOrder: number }>,
   ): Promise<void> {
-    // 1. Check if product exists
-    const product = await this.db
-      .select()
-      .from(schema.products)
-      .where(eq(schema.products.id, productId))
-      .limit(1);
-
-    if (product.length === 0) {
-      throw new CatalogException("PRODUCT_NOT_FOUND");
-    }
-
-    // 2. Update sortOrder for each item in a transaction
+    // Wrap operations in transaction to ensure atomicity [将操作包裹在事务中以确保原子性]
     await this.db.transaction(async (tx) => {
+      // 1. Check if product exists and is draft with row lock [检查产品是否存在且为草稿状态，并加行锁]
+      const [product] = await tx
+        .select()
+        .from(schema.products)
+        .where(eq(schema.products.id, productId))
+        .for("update") // Row-level lock to prevent concurrent modifications [行级锁防止并发修改]
+        .limit(1);
+
+      if (!product) {
+        throw new CatalogException("PRODUCT_NOT_FOUND");
+      }
+
+      if (product.status !== ProductStatus.DRAFT) {
+        throw new CatalogException("PRODUCT_NOT_DRAFT");
+      }
+
+      // 2. Update sortOrder for each item [为每个项目更新排序]
       for (const item of items) {
         await tx
           .update(schema.productItems)
@@ -435,33 +449,68 @@ export class ProductService {
 
   /**
    * Publish product [发布产品]
+   * - [修复] Enforces at least one product item before publishing [发布前强制要求至少一个产品项]
+   * - Uses FOR UPDATE lock to prevent concurrent modifications [使用FOR UPDATE锁防止并发修改]
+   *
+   * @param id - Product ID [产品ID]
+   * @returns Published product [发布的产品]
    */
   async publish(id: string): Promise<IProduct> {
-    const product = await this.findOne({ id });
+    // Wrap in transaction with row lock to ensure atomicity [使用事务和行锁确保原子性]
+    const updatedProduct = await this.db.transaction(async (tx) => {
+      // Retrieve product with row lock [检索产品并加行锁]
+      const [product] = await tx
+        .select()
+        .from(schema.products)
+        .where(eq(schema.products.id, id))
+        .for("update")
+        .limit(1);
 
-    if (!product) {
-      throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
-    }
+      if (!product) {
+        throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
+      }
 
-    if (product.status !== ProductStatus.DRAFT) {
-      throw new CatalogException("INVALID_STATUS_TRANSITION");
-    }
+      if (product.status !== ProductStatus.DRAFT) {
+        throw new CatalogException("INVALID_STATUS_TRANSITION");
+      }
 
-    // Validate product item references [验证产品项引用]
-    await this.validateProductItemReferences(product.items || []);
+      // [修复] Verify product has at least one item [验证产品至少有一个项目]
+      const items = await tx
+        .select({ id: schema.productItems.id })
+        .from(schema.productItems)
+        .where(eq(schema.productItems.productId, id))
+        .limit(1);
 
-    // Update product status [更新产品状态]
-    const updatedProduct = await this.db
-      .update(schema.products)
-      .set({
-        status: ProductStatus.ACTIVE,
-        publishedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.products.id, id))
-      .returning();
+      if (items.length === 0) {
+        throw new CatalogException(
+          "PRODUCT_MIN_ITEMS",
+          "Product must have at least one item to be published",
+        );
+      }
 
-    return this.mapToProductInterface(updatedProduct[0]);
+      // Validate product item references within transaction [在事务中验证产品项引用]
+      const allItems = await tx
+        .select()
+        .from(schema.productItems)
+        .where(eq(schema.productItems.productId, id));
+
+      await this.validateProductItemReferences(allItems, tx);
+
+      // Update product status [更新产品状态]
+      const [updated] = await tx
+        .update(schema.products)
+        .set({
+          status: ProductStatus.ACTIVE,
+          publishedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.products.id, id))
+        .returning();
+
+      return updated;
+    });
+
+    return this.mapToProductInterface(updatedProduct);
   }
 
   /**
@@ -561,10 +610,16 @@ export class ProductService {
    * Validate product item references [验证产品项引用]
    * - Validates UUID format
    * - Checks service types exist and are ACTIVE (batch query for performance)
+   * @param items - Product items to validate [要验证的产品项]
+   * @param tx - Optional transaction context [可选的事务上下文]
    */
   private async validateProductItemReferences(
     items: Array<{ serviceTypeId: string } | IProductItem>,
+    tx?: typeof this.db,
   ): Promise<void> {
+    // Use transaction context if provided, otherwise use default db [如果提供了事务上下文则使用它，否则使用默认数据库]
+    const dbContext = tx || this.db;
+
     // Validate UUID format first [首先验证UUID格式]
     const serviceTypeIds = items.map((item) => item.serviceTypeId);
 
@@ -582,7 +637,7 @@ export class ProductService {
     }
 
     // Batch query service types [批量查询服务类型]
-    const serviceTypes = await this.db
+    const serviceTypes = await dbContext
       .select({
         id: schema.serviceTypes.id,
         status: schema.serviceTypes.status,

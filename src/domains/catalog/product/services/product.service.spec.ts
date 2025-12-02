@@ -120,6 +120,9 @@ describe("ProductService", () => {
           where: jest.fn().mockReturnValue({
             limit: jest.fn().mockResolvedValue([]),
             orderBy: jest.fn().mockResolvedValue([]),
+            for: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([]),
+            }),
           }),
         }),
       }),
@@ -140,7 +143,10 @@ describe("ProductService", () => {
           returning: jest.fn().mockResolvedValue([]),
         }),
       }),
-      transaction: jest.fn(),
+      transaction: jest.fn().mockImplementation(async (callback) => {
+        // Execute the callback with the mockDb itself as the transaction context
+        return callback(mockDb);
+      }),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -167,6 +173,9 @@ describe("ProductService", () => {
         where: jest.fn().mockImplementation(() => ({
           limit: jest.fn().mockResolvedValue([]),
           orderBy: jest.fn().mockResolvedValue([]),
+          for: jest.fn().mockImplementation(() => ({
+            limit: jest.fn().mockResolvedValue([]),
+          })),
         })),
       })),
     }));
@@ -190,6 +199,11 @@ describe("ProductService", () => {
         returning: jest.fn().mockResolvedValue([]),
       }),
     });
+
+    mockDb.transaction = jest.fn().mockImplementation(async (callback) => {
+      // Execute the callback with the mockDb itself as the transaction context
+      return callback(mockDb);
+    });
   });
 
   describe("updateItemSortOrder", () => {
@@ -207,6 +221,9 @@ describe("ProductService", () => {
         from: jest.fn().mockReturnValue({
           where: jest.fn().mockReturnValue({
             limit: jest.fn().mockResolvedValue([mockProduct]),
+            for: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockProduct]),
+            }),
           }),
         }),
       });
@@ -233,6 +250,9 @@ describe("ProductService", () => {
         from: jest.fn().mockReturnValue({
           where: jest.fn().mockReturnValue({
             limit: jest.fn().mockResolvedValue([]),
+            for: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([]),
+            }),
           }),
         }),
       });
@@ -295,6 +315,9 @@ describe("ProductService", () => {
             from: jest.fn(() => ({
               where: jest.fn(() => ({
                 limit: jest.fn().mockResolvedValue([]),
+                for: jest.fn().mockReturnValue({
+                  limit: jest.fn().mockResolvedValue([]),
+                }),
               })),
             })),
           };
@@ -305,6 +328,9 @@ describe("ProductService", () => {
           return {
             from: jest.fn(() => ({
               where: jest.fn().mockResolvedValue(mockServiceTypes),
+              for: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue(mockServiceTypes),
+              }),
             })),
           };
         }
@@ -514,6 +540,9 @@ describe("ProductService", () => {
             from: jest.fn().mockReturnValue({
               where: jest.fn().mockReturnValue({
                 limit: jest.fn().mockResolvedValue([existingProduct]),
+                for: jest.fn().mockReturnValue({
+                  limit: jest.fn().mockResolvedValue([existingProduct]),
+                }),
               }),
             }),
           };
@@ -525,6 +554,9 @@ describe("ProductService", () => {
           return {
             from: jest.fn().mockReturnValue({
               where: jest.fn().mockResolvedValue([mockServiceType]),
+              for: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([mockServiceType]),
+              }),
             }),
           };
         }
@@ -535,6 +567,9 @@ describe("ProductService", () => {
             from: jest.fn().mockReturnValue({
               where: jest.fn().mockReturnValue({
                 limit: jest.fn().mockResolvedValue([]),
+                for: jest.fn().mockReturnValue({
+                  limit: jest.fn().mockResolvedValue([]),
+                }),
               }),
             }),
           };
@@ -571,6 +606,9 @@ describe("ProductService", () => {
       const mockFrom = jest.fn().mockReturnValue({
         where: jest.fn().mockReturnValue({
           limit: jest.fn().mockResolvedValue([]),
+          for: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue([]),
+          }),
         }),
       });
       mockDb.select.mockReturnValue({ from: mockFrom });
@@ -598,6 +636,9 @@ describe("ProductService", () => {
       const productMockFrom = jest.fn().mockReturnValue({
         where: jest.fn().mockReturnValue({
           limit: jest.fn().mockResolvedValue([existingProduct]),
+          for: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue([existingProduct]),
+          }),
         }),
       });
       mockDb.select.mockReturnValueOnce({ from: productMockFrom });
@@ -606,6 +647,9 @@ describe("ProductService", () => {
       const itemMockFrom = jest.fn().mockReturnValue({
         where: jest.fn().mockReturnValue({
           limit: jest.fn().mockResolvedValue([]),
+          for: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue([]),
+          }),
         }),
       });
       mockDb.select.mockReturnValueOnce({ from: itemMockFrom });
@@ -649,6 +693,9 @@ describe("ProductService", () => {
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockReturnValue({
               limit: jest.fn().mockResolvedValue([existingProduct]),
+              for: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([existingProduct]),
+              }),
             }),
           }),
         })
@@ -656,6 +703,9 @@ describe("ProductService", () => {
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockResolvedValue([mockServiceType]),
+            for: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockServiceType]),
+            }),
           }),
         })
         // Set up mock for item exists check (returns existing item)
@@ -663,6 +713,9 @@ describe("ProductService", () => {
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockReturnValue({
               limit: jest.fn().mockResolvedValue([existingItem]),
+              for: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([existingItem]),
+              }),
             }),
           }),
         })
@@ -671,18 +724,27 @@ describe("ProductService", () => {
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockReturnValue({
               limit: jest.fn().mockResolvedValue([existingProduct]),
+              for: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([existingProduct]),
+              }),
             }),
           }),
         })
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockResolvedValue([mockServiceType]),
+            for: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockServiceType]),
+            }),
           }),
         })
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockReturnValue({
               limit: jest.fn().mockResolvedValue([existingItem]),
+              for: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([existingItem]),
+              }),
             }),
           }),
         });
@@ -716,6 +778,9 @@ describe("ProductService", () => {
         from: jest.fn().mockReturnValue({
           where: jest.fn().mockReturnValue({
             limit: jest.fn().mockResolvedValue([mockProduct]),
+            for: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockProduct]),
+            }),
           }),
         }),
       });
@@ -724,6 +789,9 @@ describe("ProductService", () => {
       mockDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnValue({
           where: jest.fn().mockResolvedValue(mockItems),
+          for: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue(mockItems),
+          }),
         }),
       });
 
@@ -748,6 +816,9 @@ describe("ProductService", () => {
         from: jest.fn().mockReturnValue({
           where: jest.fn().mockReturnValue({
             limit: jest.fn().mockResolvedValue([]),
+            for: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([]),
+            }),
           }),
         }),
       });
@@ -780,24 +851,36 @@ describe("ProductService", () => {
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockReturnValue({
               limit: jest.fn().mockResolvedValue([mockProduct]), // First query uses limit [第一次查询使用limit]
+              for: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([mockProduct]),
+              }),
             }),
           }),
         })
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockResolvedValue(mockItems), // Second query has no limit [第二次查询没有limit]
+            for: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue(mockItems),
+            }),
           }),
         })
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockReturnValue({
               limit: jest.fn().mockResolvedValue([mockProduct]),
+              for: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([mockProduct]),
+              }),
             }),
           }),
         })
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockResolvedValue(mockItems),
+            for: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue(mockItems),
+            }),
           }),
         });
 
@@ -969,29 +1052,68 @@ describe("ProductService", () => {
 
       const publishedProduct = { ...mockProduct, status: ProductStatus.ACTIVE };
 
-      // Mock database to find product [模拟数据库查找产品]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue([mockProduct]),
+      // Create a consistent service type ID to use across all mocks
+      const serviceTypeId = randomUUID();
+      const itemId = randomUUID();
+      
+      // Reset all mocks
+      jest.clearAllMocks();
+      
+      // Mock the transaction
+      mockDb.transaction.mockImplementation(async (callback) => {
+        // Create a promise that resolves to product items array
+        const productItemsPromise = Promise.resolve([{ id: itemId, serviceTypeId }]);
+        
+        // Mock database context with specific return values for each select call
+        const mockTx = {
+          select: jest.fn()
+            // First call: get product with FOR UPDATE lock
+            .mockReturnValueOnce({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue({
+                  for: jest.fn().mockReturnValue({
+                    limit: jest.fn().mockResolvedValue([mockProduct]),
+                  }),
+                }),
+              }),
+            })
+            // Second call: check product has at least one item
+            .mockReturnValueOnce({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue({
+                  limit: jest.fn().mockResolvedValue([{ id: itemId }]),
+                }),
+              }),
+            })
+            // Third call: get all product items - return a promise that resolves to array
+            .mockReturnValueOnce({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue(productItemsPromise),
+              }),
+            })
+            // Fourth call: validate service types - return service type data
+            .mockReturnValueOnce({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue({
+                  // Return array directly when awaited, no need for limit
+                  then: jest.fn().mockImplementation((resolve) => {
+                    resolve([{ id: serviceTypeId, status: 'ACTIVE' }]);
+                    return Promise.resolve();
+                  }),
+                }),
+              }),
+            }),
+          update: jest.fn().mockReturnValue({
+            set: jest.fn().mockReturnValue({
+              where: jest.fn().mockReturnValue({
+                returning: jest.fn().mockResolvedValue([publishedProduct]),
+              }),
+            }),
           }),
-        }),
-      });
-
-      // Mock database to find product items for findOne method [模拟数据库查找产品项findOne方法]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            orderBy: jest.fn().mockResolvedValue([]),
-          }),
-        }),
-      });
-
-      // Mock batch service type validation (third select in publish) [模拟批量服务类型验证（publish中的第三次select）]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockResolvedValue([]),
-        }),
+        };
+        
+        // Execute the callback with our mock transaction
+        return callback(mockTx);
       });
 
       // Mock database update [模拟数据库更新]
@@ -1022,6 +1144,9 @@ describe("ProductService", () => {
         from: jest.fn().mockReturnValue({
           where: jest.fn().mockReturnValue({
             limit: jest.fn().mockResolvedValue([]),
+            for: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([]),
+            }),
           }),
         }),
       });
@@ -1044,6 +1169,9 @@ describe("ProductService", () => {
         from: jest.fn().mockReturnValue({
           where: jest.fn().mockReturnValue({
             limit: jest.fn().mockResolvedValue([mockProduct]),
+            for: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockProduct]),
+            }),
           }),
         }),
       });
@@ -1053,6 +1181,9 @@ describe("ProductService", () => {
         from: jest.fn().mockReturnValue({
           where: jest.fn().mockReturnValue({
             orderBy: jest.fn().mockResolvedValue([]),
+            for: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([]),
+            }),
           }),
         }),
       });

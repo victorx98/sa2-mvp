@@ -42,31 +42,38 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       execute: jest.fn(),
       select: jest.fn(() => ({
         from: jest.fn(() => ({
-          where: jest.fn(() => ({
-            limit: jest.fn(),
-            for: jest.fn(() => []),
+          leftJoin: jest.fn(() => ({
+            where: jest.fn(() => ({
+              orderBy: jest.fn().mockResolvedValue([]),
+            })),
           })),
-          limit: jest.fn(() => []),
-          offset: jest.fn(() => []),
-          orderBy: jest.fn(() => []),
-          forUpdate: jest.fn(() => []),
+          where: jest.fn(() => ({
+            limit: jest.fn().mockResolvedValue([]),
+            for: jest.fn(() => ({
+              limit: jest.fn().mockResolvedValue([]),
+            })),
+          })),
+          limit: jest.fn().mockResolvedValue([]),
+          offset: jest.fn().mockResolvedValue([]),
+          orderBy: jest.fn().mockResolvedValue([]),
+          forUpdate: jest.fn().mockResolvedValue([]),
         })),
-        limit: jest.fn(() => []),
+        limit: jest.fn().mockResolvedValue([]),
         where: jest.fn(() => ({
-          forUpdate: jest.fn(() => []),
+          forUpdate: jest.fn().mockResolvedValue([]),
         })),
       })),
       update: jest.fn(() => ({
         set: jest.fn(() => ({
           where: jest.fn(() => ({
-            returning: jest.fn(),
+            returning: jest.fn().mockResolvedValue([]),
           })),
         })),
       })),
       insert: jest.fn(() => ({
         values: jest.fn(() => ({
-          returning: jest.fn(),
-          onConflictDoUpdate: jest.fn(),
+          returning: jest.fn().mockResolvedValue([]),
+          onConflictDoUpdate: jest.fn().mockResolvedValue([]),
         })),
         onConflictDoUpdate: jest.fn(),
       })),
@@ -150,7 +157,7 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         items: [
           {
             productItemId: randomUUID(),
-            serviceTypeId: testServiceTypeId1,
+            serviceTypeCode: "CONSULTATION",
             quantity: 5,
             sortOrder: 1,
           },
@@ -182,6 +189,57 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         createdBy: testCreatedBy,
       };
 
+      // Mock the product query to return a valid product
+      const mockProduct = {
+        id: testProductId,
+        name: "Test Product",
+        code: "TEST-PRODUCT",
+        status: "ACTIVE",
+        price: "1000.00",
+        currency: Currency.USD,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      // Mock the select query for product details
+      const mockProductSelect = jest.fn().mockResolvedValue([mockProduct]);
+      mockDb.select = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: mockProductSelect,
+          }),
+        }),
+      });
+
+      // Mock product items to pass validation
+      const mockProductItems = [
+        {
+          id: randomUUID(),
+          productId: testProductId,
+          serviceTypeId: randomUUID(),
+          quantity: 5,
+          sortOrder: 1,
+          serviceTypeCode: "CONSULTATION",
+        },
+      ];
+
+      // Mock the product items query
+      mockDb.select = jest.fn().mockImplementationOnce(() => ({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue([mockProduct]),
+          }),
+        }),
+      })).mockImplementationOnce(() => ({
+        from: jest.fn().mockReturnValue({
+          leftJoin: jest.fn(() => ({
+            where: jest.fn(() => ({
+              orderBy: jest.fn().mockResolvedValue(mockProductItems),
+            })),
+          })),
+        }),
+      }));
+      
       const mockValues = jest.fn().mockReturnThis();
       const mockReturning = jest.fn().mockResolvedValue([mockContract]);
 
@@ -190,20 +248,13 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         returning: mockReturning,
       });
 
-      const emitSpy = jest.spyOn(eventEmitter, "emit");
-
       // Act
       const result = await contractService.create(createDto);
 
       // Assert
       expect(result).toEqual(mockContract);
       expect(mockDb.transaction).toHaveBeenCalled();
-      expect(emitSpy).toHaveBeenCalledWith("contract.signed", expect.objectContaining({
-        contractId: mockContract.id,
-        contractNumber: "TEST-2025-0001",
-        studentId: testStudentId,
-        productId: testProductId,
-      }));
+      // ✅ Contract domain no longer publishes events [合同域不再发布事件]
     });
 
     it("should reject negative price [应该拒绝负价格]", async () => {
@@ -225,7 +276,7 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
           items: [
             {
               productItemId: randomUUID(),
-              serviceTypeId: testServiceTypeId1,
+              serviceTypeCode: "CONSULTATION",
               quantity: 3,
               sortOrder: 1,
             },
@@ -343,10 +394,16 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         studentId: testStudentId,
         status: ContractStatus.SIGNED,
         productSnapshot: {
+          productId: testProductId,
+          productName: "Test Product",
+          productCode: "TEST-PRODUCT",
+          price: "1000.00",
+          currency: Currency.USD,
           items: [
-            { productItemId: randomUUID(), serviceTypeId: testServiceTypeId1, quantity: 5, sortOrder: 1 },
-            { productItemId: randomUUID(), serviceTypeId: testServiceTypeId2, quantity: 10, sortOrder: 2 },
+            { productItemId: randomUUID(), serviceTypeCode: "CONSULTATION", quantity: 5, sortOrder: 1 },
+            { productItemId: randomUUID(), serviceTypeCode: "MENTORING", quantity: 10, sortOrder: 2 },
           ],
+          snapshotAt: new Date(),
         } as IProductSnapshot,
         createdBy: testCreatedBy,
       };
@@ -465,8 +522,6 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         }),
       });
 
-      const emitSpy = jest.spyOn(eventEmitter, "emit");
-
       mockDb.transaction = jest.fn(async (callback) => {
         const mockTx = {
           ...mockDb,
@@ -493,11 +548,7 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
 
       // Assert
       expect(mockDb.transaction).toHaveBeenCalled();
-      expect(emitSpy).toHaveBeenCalledWith("service.consumed", expect.objectContaining({
-        studentId: testStudentId,
-        serviceType: "CONSULTATION",
-        quantity: 1,
-      }));
+      // ✅ Contract domain no longer publishes events [合同域不再发布事件]
     });
 
     it("should throw error if insufficient balance [如果余额不足应该抛出错误]", async () => {
@@ -588,20 +639,13 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         }),
       });
 
-      const emitSpy = jest.spyOn(eventEmitter, "emit");
-
       // Act
-      const result = await contractService.terminate(testContractId, "User requested termination", testCreatedBy);
+      const result = await contractService.terminate(testContractId, "User requested termination");
 
       // Assert
       expect(result.status).toBe(ContractStatus.TERMINATED);
       expect(result.terminatedAt).toBeDefined();
-      expect(emitSpy).toHaveBeenCalledWith("contract.terminated", expect.objectContaining({
-        contractId: testContractId,
-        contractNumber: "TEST-2025-0001",
-        reason: "User requested termination",
-        terminatedBy: testCreatedBy,
-      }));
+      // ✅ Contract domain no longer publishes events [合同域不再发布事件]
     });
 
     it("should throw error if contract not active or suspended [如果合约不是激活或暂停状态应该抛出错误]", async () => {
@@ -615,7 +659,7 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
 
       // Act & Assert
       await expect(
-        contractService.terminate(testContractId, "Test reason", testCreatedBy),
+        contractService.terminate(testContractId, "Test reason"),
       ).rejects.toThrow(ContractException);
     });
 
@@ -630,7 +674,7 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
 
       // Act & Assert
       await expect(
-        contractService.terminate(testContractId, "", testCreatedBy),
+        contractService.terminate(testContractId, ""),
       ).rejects.toThrow(ContractException);
     });
   });
@@ -662,20 +706,14 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         }),
       });
 
-      const emitSpy = jest.spyOn(eventEmitter, "emit");
 
       // Act
-      const result = await contractService.suspend(testContractId, "Payment overdue", testCreatedBy);
+      const result = await contractService.suspend(testContractId, "Payment overdue");
 
       // Assert
       expect(result.status).toBe(ContractStatus.SUSPENDED);
       expect(result.suspendedAt).toBeDefined();
-      expect(emitSpy).toHaveBeenCalledWith("contract.suspended", expect.objectContaining({
-        contractId: testContractId,
-        contractNumber: "TEST-2025-0001",
-        reason: "Payment overdue",
-        suspendedBy: testCreatedBy,
-      }));
+      // ✅ Contract domain no longer publishes events [合同域不再发布事件]
     });
 
     it("should throw error if contract not active [如果合约不是激活状态应该抛出错误]", async () => {
@@ -689,7 +727,7 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
 
       // Act & Assert
       await expect(
-        contractService.suspend(testContractId, "Test reason", testCreatedBy),
+        contractService.suspend(testContractId, "Test reason"),
       ).rejects.toThrow(ContractException);
     });
   });
@@ -722,19 +760,14 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         }),
       });
 
-      const emitSpy = jest.spyOn(eventEmitter, "emit");
 
       // Act
-      const result = await contractService.resume(testContractId, testCreatedBy);
+      const result = await contractService.resume(testContractId);
 
       // Assert
       expect(result.status).toBe(ContractStatus.ACTIVE);
       expect(result.suspendedAt).toBeNull();
-      expect(emitSpy).toHaveBeenCalledWith("contract.resumed", expect.objectContaining({
-        contractId: testContractId,
-        contractNumber: "TEST-2025-0001",
-        resumedBy: testCreatedBy,
-      }));
+      // ✅ Contract domain no longer publishes events [合同域不再发布事件]
     });
 
     it("should throw error if contract not suspended [如果合约不是暂停状态应该抛出错误]", async () => {
@@ -747,7 +780,7 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       jest.spyOn(contractService, "findOne").mockResolvedValue(mockContract as any);
 
       // Act & Assert
-      await expect(contractService.resume(testContractId, testCreatedBy)).rejects.toThrow(ContractException);
+      await expect(contractService.resume(testContractId)).rejects.toThrow(ContractException);
     });
   });
 
@@ -778,20 +811,14 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         }),
       });
 
-      const emitSpy = jest.spyOn(eventEmitter, "emit");
 
       // Act
-      const result = await contractService.complete(testContractId, testCreatedBy);
+      const result = await contractService.complete(testContractId);
 
       // Assert
       expect(result.status).toBe(ContractStatus.COMPLETED);
       expect(result.completedAt).toBeDefined();
-      expect(emitSpy).toHaveBeenCalledWith("contract.completed", expect.objectContaining({
-        contractId: testContractId,
-        contractNumber: "TEST-2025-0001",
-        completedBy: testCreatedBy,
-        isAutoCompleted: false,
-      }));
+      // ✅ Contract domain no longer publishes events [合同域不再发布事件]
     });
   });
 
@@ -822,19 +849,13 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         }),
       });
 
-      const emitSpy = jest.spyOn(eventEmitter, "emit");
-
       // Act
       const result = await contractService.sign(testContractId, testCreatedBy);
 
       // Assert
       expect(result.status).toBe(ContractStatus.SIGNED);
       expect(result.signedAt).toBeDefined();
-      expect(emitSpy).toHaveBeenCalledWith("contract.signed", expect.objectContaining({
-        contractId: testContractId,
-        contractNumber: "TEST-2025-0001",
-        signedBy: testCreatedBy,
-      }));
+      // ✅ Contract domain no longer publishes events [合同域不再发布事件]
     });
 
     it("should throw error if contract not draft [如果合约不是草稿状态应该抛出错误]", async () => {
@@ -981,20 +1002,13 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         values: mockValues,
       });
 
-      const emitSpy = jest.spyOn(eventEmitter, "emit");
-
       // Act
       const result = await contractService.addAmendmentLedger(addAmendmentDto);
 
       // Assert
       expect(result.serviceType).toBe("CONSULTATION");
       expect(mockDb.transaction).toHaveBeenCalled();
-      expect(emitSpy).toHaveBeenCalledWith("entitlement.added", expect.objectContaining({
-        contractId: testContractId,
-        serviceType: mockServiceType,
-        quantity: 5,
-        status: "active",
-      }));
+      // ✅ Contract domain no longer publishes events [合同域不再发布事件]
     });
   });
 
@@ -1012,8 +1026,8 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         status: ContractStatus.SIGNED,
         productSnapshot: {
           items: [
-            { serviceTypeId: testServiceTypeId2, quantity: 3 },
-            { serviceTypeId: newServiceTypeId, quantity: 2 },
+            { serviceTypeCode: "MENTORING", quantity: 3 },
+            { serviceTypeCode: "RESUME_REVIEW", quantity: 2 },
           ],
         },
         createdBy: testCreatedBy,
@@ -1039,14 +1053,14 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
 
       mockDb.query.contractServiceEntitlements.findFirst = jest.fn().mockResolvedValue(mockExistingEntitlement);
 
-      // Mock batch query for service types
+      // Mock batch query for service types - return all required service types
       const mockTx = {
         ...mockDb,
         select: jest.fn().mockReturnValue({
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockResolvedValue([
+              { id: testServiceTypeId1, code: "MENTORING" },
               { id: testServiceTypeId2, code: newServiceType },
-              { id: newServiceTypeId, code: "INTERVIEW_PREP" },
             ]),
           }),
         }),
@@ -1082,7 +1096,7 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         studentId: testStudentId,
         status: ContractStatus.SIGNED,
         productSnapshot: {
-          items: serviceTypeIds.map(id => ({ serviceTypeId: id, quantity: 5 })),
+          items: serviceTypeIds.map(() => ({ serviceTypeCode: "CONSULTATION", quantity: 5 })),
         },
         createdBy: testCreatedBy,
       };

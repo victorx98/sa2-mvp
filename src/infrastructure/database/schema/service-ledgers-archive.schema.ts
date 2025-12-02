@@ -80,7 +80,7 @@ export const serviceLedgersArchive = pgTable(
       originalBalance?: number;
       operatorIp?: string;
       approvedBy?: string;
-      [key: string]: any;
+      [key: string]: unknown;
     }>(),
 
     // Archive information

@@ -1,7 +1,6 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { eq, and, sql, SQL, gte, lte, ne, inArray } from "drizzle-orm";
-import { eq, and, sql, SQL, gte, lte, ne } from "drizzle-orm";
+import { eq, and, sql, SQL, gte, lte, inArray } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import { DrizzleDatabase } from "@shared/types/database.types";
@@ -14,7 +13,6 @@ import { UpdateContractDto } from "../dto/update-contract.dto";
 import { FindOneContractDto } from "../dto/find-one-contract.dto";
 import { ConsumeServiceDto } from "../dto/consume-service.dto";
 import { AddAmendmentLedgerDto } from "../dto/add-amendment-ledger.dto";
-import { calculateExpirationDate } from "../common/utils/date.utils";
 import { validatePrice, validateProductSnapshot } from "../common/utils/validation.utils";
 import type { Contract } from "@infrastructure/database/schema";
 import type {
@@ -32,43 +30,96 @@ export class ContractService {
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   /**
    * Create contract(创建合约)
    * - Generate unique contract number(生成唯一合约编号)
    * - Create contract record (status = signed)(创建合约记录，状态=已签署)
    * - Derive service entitlements from product snapshot(从产品快照派生服务权益)
-   * - Publish contract.signed event(发布合约签署事件)
+   * - [修复] Server-side authoritative snapshot: load product data from database and reject mismatches [服务器端权威快照：从数据库加载产品数据并拒绝不匹配]
    */
   async create(dto: CreateContractDto): Promise<Contract> {
     const { productSnapshot, studentId, createdBy, title, productId } = dto;
 
-    // 0. Validate product snapshot structure (0. 验证产品快照结构)
+    // 0. [修复] Load authoritatively from database and reject mismatches (从数据库权威加载并拒绝不匹配) [修复] 验证并提供基本快照结构验证
     validateProductSnapshot(productSnapshot);
 
-    // [修复] Verify product is valid (查询产品并验证状态)
-    const product = await this.db.query.products.findFirst({
-      where: and(
-        eq(schema.products.id, productId),
-        ne(schema.products.status, "DELETED")
-      ),
-    });
-
-    if (!product) {
-      throw new ContractException("Product not found or has been deleted");
+    // [修复] Load product details authoritatively from database (从数据库权威加载产品详情) [从数据库权威加载产品信息]
+    const [productDetails] = await this.db
+      .select()
+      .from(schema.products)
+      .where(eq(schema.products.id, productId))
+      .limit(1);
+    
+    if (!productDetails) {
+      throw new ContractException("PRODUCT_NOT_FOUND", "Product not found");
     }
 
-    // 1. Validate price(1. 验证价格)
-    const originalPrice = parseFloat(productSnapshot.price);
-    validatePrice(originalPrice); // Use dollars directly(直接使用美元)
+    // [修复] Verify product is ACTIVE (must be published) [验证产品处于ACTIVE状态（必须已发布）]
+    // Security fix: prevent contracts from being created from draft or inactive products [安全修复：防止从未发布或非活跃产品创建合同]
+    if (productDetails.status !== "ACTIVE") {
+      throw new ContractException(
+        "PRODUCT_NOT_ACTIVE",
+        `Product must be ACTIVE to create contract. Current status: ${productDetails.status}`,
+      );
+    }
 
-    // 2. Calculate validity period(2. 计算有效期)
-    const signedAt = dto.signedAt ? new Date(dto.signedAt) : new Date();
-    const expiresAt = calculateExpirationDate(
-      signedAt,
-      productSnapshot.validityDays || null,
-    );
+    // Load product items with service types [加载产品项目及其服务类型]
+    const productItems = await this.db
+      .select({
+        id: schema.productItems.id,
+        productId: schema.productItems.productId,
+        serviceTypeId: schema.productItems.serviceTypeId,
+        quantity: schema.productItems.quantity,
+        sortOrder: schema.productItems.sortOrder,
+        serviceTypeCode: schema.serviceTypes.code,
+      })
+      .from(schema.productItems)
+      .leftJoin(
+        schema.serviceTypes,
+        eq(schema.productItems.serviceTypeId, schema.serviceTypes.id)
+      )
+      .where(eq(schema.productItems.productId, productId))
+      .orderBy(schema.productItems.sortOrder);
+
+    // [修复] Verify product has at least one item (enforced for new contracts) [验证产品至少有一个项目（对新合同强制要求）]
+    if (productItems.length === 0) {
+      throw new ContractException(
+        "PRODUCT_MIN_ITEMS",
+        "Product must have at least one item to create contract",
+      );
+    }
+
+    // [修复] Verify snapshot matches authoritative product data (验证快照与权威产品数据匹配) [验证快照是否与权威产品数据一致]
+    // This prevents contract creation with manipulated price, currency, or entitlement data [这可防止使用被操纵的价格、货币或权益数据创建合同]
+    if (productSnapshot.productId !== productId) {
+      throw new ContractException(
+        "SNAPSHOT_MISMATCH",
+        "Product snapshot productId does not match",
+      );
+    }
+
+    if (productSnapshot.price !== productDetails.price.toString()) {
+      throw new ContractException(
+        "SNAPSHOT_MISMATCH",
+        `Product price mismatch. Provided: ${productSnapshot.price}, Actual: ${productDetails.price}`,
+      );
+    }
+
+    if (productSnapshot.currency !== productDetails.currency) {
+      throw new ContractException(
+        "SNAPSHOT_MISMATCH",
+        `Product currency mismatch. Provided: ${productSnapshot.currency}, Actual: ${productDetails.currency}`,
+      );
+    }
+
+    // 1. Validate price using authoritative data (使用权威数据验证价格) [使用权威数据验证价格]
+    const originalPrice = parseFloat(productDetails.price.toString());
+    validatePrice(originalPrice);
+
+    // 2. Products and contracts never expire (产品和合同永不过期) - v2.16.13
+      const signedAt = dto.signedAt ? new Date(dto.signedAt) : new Date();
 
     // 3. Generate contract number using database function(3. 使用数据库函数生成合约编号)
     const contractNumberResult = await this.db.execute(
@@ -78,36 +129,38 @@ export class ContractService {
       contractNumberResult.rows[0] as unknown as IGenerateContractNumberResult
     ).contract_number;
 
-    // 4. Create contract in transaction(4. 在事务中创建合约)
+    // 4. Create contract in transaction using authoritative data (使用权威数据创建合同) [使用权威数据创建合同记录]
     return await this.db.transaction(async (tx) => {
-      // Insert contract(插入合约)
+      // Insert contract using SERVER-SIDE verified data (使用服务器端验证的数据插入合同) [使用服务器端验证的数据插入合同]
       const [newContract] = await tx
         .insert(schema.contracts)
         .values({
           contractNumber,
-          title: title || productSnapshot.productName,
+          title: title || productDetails.name, // Use server-side product name (使用服务器端产品名称) [使用服务器端产品名称]
           studentId,
-          productId: dto.productId,
-          productSnapshot: productSnapshot as never,
+          productId: productId,
+          productSnapshot: {
+            // Use SERVER-SIDE authoritative data (使用服务器端权威数据) [构建权威产品快照]
+            productId: productDetails.id,
+            productName: productDetails.name,
+            productCode: productDetails.code,
+            price: productDetails.price.toString(),
+            currency: productDetails.currency,
+            items: productItems.map(item => ({
+              productItemId: item.id,
+              serviceTypeCode: item.serviceTypeCode,
+              quantity: item.quantity,
+              sortOrder: item.sortOrder,
+            })),
+            snapshotAt: new Date(),
+          } as never,
           status: ContractStatus.SIGNED,
-          totalAmount: productSnapshot.price,
-          currency: productSnapshot.currency,
-          validityDays: productSnapshot.validityDays,
+          totalAmount: productDetails.price.toString(),
+          currency: productDetails.currency as never,
           signedAt,
-          expiresAt,
           createdBy,
         })
         .returning();
-
-      // 5. Publish domain event using EventEmitter2 (entitlements will be created on activation)(5. 使用EventEmitter2发布领域事件(激活时创建权利))
-      this.eventEmitter.emit("contract.signed", {
-        contractId: newContract.id,
-        contractNumber: newContract.contractNumber,
-        studentId: newContract.studentId,
-        productId: newContract.productId,
-        totalAmount: newContract.totalAmount,
-        signedAt: newContract.signedAt,
-      });
 
       return newContract;
     });
@@ -215,18 +268,7 @@ export class ContractService {
         .where(eq(schema.contracts.id, id))
         .returning();
 
-      // [修复] Check if entitlements already exist (检查权益是否已存在)
-      const existingEntitlements = await tx.query.contractServiceEntitlements.findFirst({
-        where: eq(schema.contractServiceEntitlements.studentId, contract.studentId),
-      });
 
-      if (existingEntitlements) {
-        // Entitlements already exist, skip creation (权益已存在，跳过创建)
-        this.logger.log(
-          `Contract ${id} activation: entitlements already exist for student ${contract.studentId}, skipping creation`,
-        );
-        return updatedContract;
-      }
 
       // Create service entitlements from product snapshot(从产品快照创建服务权益)
       const productSnapshot = contract.productSnapshot as IProductSnapshot;
@@ -235,34 +277,33 @@ export class ContractService {
       const items = productSnapshot.items || [];
 
       if (items.length > 0) {
-        // Pre-fetch phase: Get all serviceTypeIds and query in batch
-        const serviceTypeIds = items
-          .map((item) => item.serviceTypeId)
+        // Pre-fetch phase: Get all serviceTypeCodes from items
+        const serviceTypeCodes = items
+          .map((item) => item.serviceTypeCode)
           .filter(Boolean);
 
-        // Batch query: Get service types for all IDs at once
+        // Batch query: Get service types for all codes at once
         const serviceTypesResult = await tx
           .select({
-            id: schema.serviceTypes.id,
             code: schema.serviceTypes.code,
           })
           .from(schema.serviceTypes)
           .where(
-            serviceTypeIds.length > 0
-              ? inArray(schema.serviceTypes.id, serviceTypeIds)
+            serviceTypeCodes.length > 0
+              ? inArray(schema.serviceTypes.code, serviceTypeCodes)
               : undefined,
           );
 
-        // Create map for quick lookup
-        const serviceTypeMap = new Map(
-          serviceTypesResult.map((st) => [st.id, st.code]),
+        // Create set for quick lookup
+        const validServiceTypeCodes = new Set(
+          serviceTypesResult.map((st) => st.code),
         );
 
         // Calculate quantities per service type (in-memory merge)
         const quantitiesByServiceType = new Map<string, number>();
         for (const item of items) {
-          const serviceTypeCode = serviceTypeMap.get(item.serviceTypeId);
-          if (!serviceTypeCode) {
+          const serviceTypeCode = item.serviceTypeCode;
+          if (!validServiceTypeCodes.has(serviceTypeCode)) {
             throw new ContractException("SERVICE_TYPE_NOT_FOUND");
           }
           const currentQty = quantitiesByServiceType.get(serviceTypeCode) || 0;
@@ -359,7 +400,7 @@ export class ContractService {
         .limit(1);
 
       if (!student) {
-        throw new ContractNotFoundException("STUDENT_NOT_FOUND");
+        throw new ContractException("STUDENT_NOT_FOUND");
       }
 
       // 2. Find ALL entitlements for this student and service type across all contracts
@@ -434,14 +475,7 @@ export class ContractService {
           .where(eq(schema.serviceHolds.id, relatedHoldId));
       }
 
-      // 6. Publish event(6. 发布事件) - Using EventEmitter2 directly
-      // Event is published after transaction completion to ensure data consistency
-      this.eventEmitter.emit("service.consumed", {
-        studentId,
-        serviceType,
-        quantity,
-        relatedBookingId,
-      });
+      // ✅ Contract domain no longer publishes events [合同域不再发布事件]
     });
   }
 
@@ -455,7 +489,6 @@ export class ContractService {
   async terminate(
     id: string,
     reason: string,
-    terminatedBy: string,
   ): Promise<Contract> {
     // 1. Find contract(1. 查找合约)
     const contract = await this.findOne({ contractId: id });
@@ -484,15 +517,7 @@ export class ContractService {
         .where(eq(schema.contracts.id, id))
         .returning();
 
-      // 5. Publish event(5. 发布事件) - Using EventEmitter2 directly
-      // Event is published after transaction completion to ensure data consistency
-      this.eventEmitter.emit("contract.terminated", {
-        contractId: updatedContract.id,
-        contractNumber: updatedContract.contractNumber,
-        reason,
-        terminatedBy,
-        terminatedAt: updatedContract.terminatedAt,
-      });
+      // ✅ Contract domain no longer publishes events [合同域不再发布事件]
 
       return updatedContract;
     });
@@ -509,7 +534,6 @@ export class ContractService {
   async suspend(
     id: string,
     reason: string,
-    suspendedBy: string,
   ): Promise<Contract> {
     // 1. Find contract(1. 查找合约)
     const contract = await this.findOne({ contractId: id });
@@ -538,15 +562,7 @@ export class ContractService {
         .where(eq(schema.contracts.id, id))
         .returning();
 
-      // 5. Publish event(5. 发布事件) - Using EventEmitter2 directly
-      // Event is published after transaction completion to ensure data consistency
-      this.eventEmitter.emit("contract.suspended", {
-        contractId: updatedContract.id,
-        contractNumber: updatedContract.contractNumber,
-        reason,
-        suspendedBy,
-        suspendedAt: updatedContract.suspendedAt,
-      });
+      // ✅ Contract domain no longer publishes events [合同域不再发布事件]
 
       return updatedContract;
     });
@@ -560,7 +576,7 @@ export class ContractService {
    * - Admin operation only(- 仅限管理员操作)
    * - Allowed from: suspended(- 允许从: 暂停状态)
    */
-  async resume(id: string, resumedBy: string): Promise<Contract> {
+  async resume(id: string): Promise<Contract> {
     // 1. Find contract(1. 查找合约)
     const contract = await this.findOne({ contractId: id });
     if (!contract) {
@@ -585,12 +601,7 @@ export class ContractService {
 
       // 4. Publish event(4. 发布事件) - Using EventEmitter2 directly
       // Event is published after transaction completion to ensure data consistency
-      this.eventEmitter.emit("contract.resumed", {
-        contractId: updatedContract.id,
-        contractNumber: updatedContract.contractNumber,
-        resumedBy,
-        resumedAt: new Date(),
-      });
+      // ✅ Contract domain no longer publishes events [合同域不再发布事件]
 
       return updatedContract;
     });
@@ -604,7 +615,7 @@ export class ContractService {
    * - Triggered by: expiration (auto) or admin action (manual)(- 触发方式: 过期(自动)或管理员操作(手动))
    * - Allowed from: active(- 允许从: 激活状态)
    */
-  async complete(id: string, completedBy?: string): Promise<Contract> {
+  async complete(id: string): Promise<Contract> {
     // 1. Find contract(1. 查找合约)
     const contract = await this.findOne({ contractId: id });
     if (!contract) {
@@ -627,15 +638,7 @@ export class ContractService {
         .where(eq(schema.contracts.id, id))
         .returning();
 
-      // 4. Publish event(4. 发布事件) - Using EventEmitter2 directly
-      // Event is published after transaction completion to ensure data consistency
-      this.eventEmitter.emit("contract.completed", {
-        contractId: updatedContract.id,
-        contractNumber: updatedContract.contractNumber,
-        completedBy: completedBy || "system",
-        completedAt: updatedContract.completedAt,
-        isAutoCompleted: !completedBy,
-      });
+      // ✅ Contract domain no longer publishes events [合同域不再发布事件]
 
       return updatedContract;
     });
@@ -647,7 +650,7 @@ export class ContractService {
    * - Set signedAt timestamp(- 设置签署时间戳)
    * - Allowed from: draft(- 允许从: 草稿状态)
    */
-  async sign(id: string, signedBy: string): Promise<Contract> {
+  async sign(id: string, _signedBy: string): Promise<Contract> {
     // 1. Find contract(1. 查找合约)
     const contract = await this.findOne({ contractId: id });
     if (!contract) {
@@ -669,16 +672,6 @@ export class ContractService {
         })
         .where(eq(schema.contracts.id, id))
         .returning();
-
-      // 4. Publish event(4. 发布事件) - Using EventEmitter2 directly
-      // Event is published after transaction completion to ensure data consistency
-      this.eventEmitter.emit("contract.signed", {
-        contractId: updatedContract.id,
-        contractNumber: updatedContract.contractNumber,
-        studentId: updatedContract.studentId,
-        signedAt: updatedContract.signedAt,
-        signedBy,
-      });
 
       return updatedContract;
     });
@@ -707,7 +700,6 @@ export class ContractService {
       title: dto.title,
       totalAmount: dto.totalAmount,
       currency: dto.currency,
-      validityDays: dto.validityDays,
     };
 
     const lifecycleFields = {
@@ -742,15 +734,6 @@ export class ContractService {
     // Add core fields only if contract is in draft status(仅在草稿状态下添加核心字段)
     if (contract.status === "draft") {
       Object.assign(updateData, coreFields);
-
-      // Recalculate expiration date if validityDays is updated(如果更新了有效期，重新计算到期日期)
-      if (dto.validityDays !== undefined) {
-        const signedAt = contract.signedAt || new Date();
-        updateData.expiresAt = calculateExpirationDate(
-          signedAt,
-          dto.validityDays,
-        );
-      }
     }
 
     // 6. Update contract(6. 更新合同)
@@ -761,19 +744,7 @@ export class ContractService {
         .where(eq(schema.contracts.id, id))
         .returning();
 
-      // 7. Publish event(7. 发布事件) - Using EventEmitter2 directly
-      // Event is published after transaction completion to ensure data consistency
-      this.eventEmitter.emit("contract.updated", {
-        contractId: updatedContract.id,
-        contractNumber: updatedContract.contractNumber,
-        updatedBy: dto.updatedBy || "system",
-        updateReason: dto.updateReason || "Contract updated",
-        updatedAt: new Date(),
-        updatedFields: {
-          ...coreFields,
-          ...lifecycleFields,
-        },
-      });
+      // ✅ Contract domain no longer publishes events [合同域不再发布事件]
 
       return updatedContract;
     });
@@ -897,14 +868,15 @@ export class ContractService {
     // 3. Create ledger records and rely on trigger to update entitlements
     return await this.db.transaction(async (tx) => {
       // [修复] Insert amendment ledger record (trigger will update entitlement)
+      const serviceTypeCode = typeof serviceType === "string" ? serviceType : serviceType.code;
       await tx.insert(schema.contractAmendmentLedgers).values({
         studentId,
-        serviceType: typeof serviceType === "string" ? serviceType : serviceType.code,
+        serviceType: serviceTypeCode,
         ledgerType,
         quantityChanged,
         reason,
         description: description ||
-          `Add ${serviceType} entitlement for contract ${contractId}`,
+          `Add ${serviceTypeCode} entitlement for contract ${contractId}`,
         attachments,
         createdBy,
         snapshot: {
@@ -916,12 +888,12 @@ export class ContractService {
       // Create service ledger entry for audit trail
       await tx.insert(schema.serviceLedgers).values({
         studentId,
-        serviceType: typeof serviceType === "string" ? serviceType : serviceType.code,
+        serviceType: serviceTypeCode,
         type: "adjustment",
         source: "manual_adjustment",
         quantity: quantityChanged,
         balanceAfter: 0, // Will be calculated by trigger
-        reason: `Added ${serviceType} entitlement: ${reason || "No reason provided"}`,
+        reason: `Added ${serviceTypeCode} entitlement: ${reason || "No reason provided"}`,
         createdBy,
       });
 
@@ -929,20 +901,11 @@ export class ContractService {
       const entitlement = await tx.query.contractServiceEntitlements.findFirst({
         where: and(
           eq(schema.contractServiceEntitlements.studentId, studentId),
-          eq(schema.contractServiceEntitlements.serviceType, typeof serviceType === "string" ? serviceType : serviceType.code),
+          eq(schema.contractServiceEntitlements.serviceType, serviceTypeCode),
         ),
       });
 
-      // Publish entitlement.added event
-      this.eventEmitter.emit("entitlement.added", {
-        contractId,
-        entitlementId: `${studentId}-${typeof serviceType === "string" ? serviceType : serviceType.code}`,
-        serviceType,
-        quantity: quantityChanged,
-        source: ledgerType,
-        reason,
-        status: "active",
-      });
+      // ✅ Contract domain no longer publishes events [合同域不再发布事件]
 
       return entitlement!;
     });
@@ -961,8 +924,6 @@ export class ContractService {
       productId?: string;
       signedAfter?: Date;
       signedBefore?: Date;
-      expiresAfter?: Date;
-      expiresBefore?: Date;
     },
     pagination?: { page: number; pageSize: number },
     sort?: { field: string; order: "asc" | "desc" },
@@ -979,8 +940,6 @@ export class ContractService {
       productId,
       signedAfter,
       signedBefore,
-      expiresAfter,
-      expiresBefore,
     } = filter;
     const page = pagination?.page || 1;
     const pageSize = pagination?.pageSize || 20;
@@ -1005,18 +964,16 @@ export class ContractService {
     if (signedBefore) {
       conditions.push(lte(schema.contracts.signedAt, signedBefore));
     }
-    if (expiresAfter) {
-      conditions.push(gte(schema.contracts.expiresAt, expiresAfter));
-    }
-    if (expiresBefore) {
-      conditions.push(lte(schema.contracts.expiresAt, expiresBefore));
-    }
+
+    // [修复] Build WHERE clause conditionally to handle empty conditions [根据条件构建WHERE子句以处理空条件]
+    // This prevents Drizzle runtime error when conditions array is empty [这防止条件数组为空时Drizzle运行时错误]
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     // Get total count(获取总数)
     const [countResult] = await this.db
       .select({ count: sql`COUNT(*)` })
       .from(schema.contracts)
-      .where(and(...conditions));
+      .where(whereClause);
 
     const total = Number(countResult?.count || 0);
 
@@ -1046,7 +1003,7 @@ export class ContractService {
     const query = this.db
       .select()
       .from(schema.contracts)
-      .where(and(...conditions))
+      .where(whereClause)
       .orderBy(orderByClause)
       .limit(pageSize)
       .offset((page - 1) * pageSize);

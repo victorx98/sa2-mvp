@@ -13,23 +13,6 @@ export interface ISubmitApplicationDto {
 }
 
 /**
- * DTO for mentor screening [内推导师评估DTO]
- */
-export interface ISubmitMentorScreeningDto {
-  applicationId: string; // Application ID [申请ID]
-  mentorId: string; // Mentor ID [导师ID]
-  technicalSkills: number; // Technical skills score (1-5) [技术技能评分]
-  experienceMatch: number; // Experience match score (1-5) [经验匹配度评分]
-  culturalFit: number; // Cultural fit score (1-5) [文化适应度评分]
-  overallRecommendation:
-    | "strongly_recommend"
-    | "recommend"
-    | "neutral"
-    | "not_recommend"; // Overall recommendation level [整体推荐度]
-  screeningNotes?: string; // Screening notes [评估备注]
-}
-
-/**
  * DTO for updating application status [更新投递状态DTO]
  */
 export interface IUpdateApplicationStatusDto {
@@ -38,6 +21,7 @@ export interface IUpdateApplicationStatusDto {
   changedBy?: string; // Changer ID [变更人ID]
   changeReason?: string; // Change reason [变更原因]
   changeMetadata?: Record<string, unknown>; // Change metadata [变更元数据]
+  mentorId?: string; // Mentor assigned to this referral application (optional) [推荐申请的导师ID（可选）]
 }
 
 /**
@@ -48,6 +32,7 @@ export interface IJobApplicationSearchFilter {
   jobId?: string; // Filter by job [按岗位筛选]
   status?: ApplicationStatus; // Filter by status [按状态筛选]
   applicationType?: ApplicationType; // Filter by application type [按申请类型筛选]
+  assignedMentorId?: string; // Filter by assigned mentor [按分配的导师筛选]
 }
 
 /**
@@ -60,4 +45,13 @@ export interface IQueryApplicationsDto {
   applicationType?: ApplicationType; // Filter by application type [按申请类型筛选]
   offset?: number; // Pagination offset [分页偏移]
   limit?: number; // Page size [每页数量]
+}
+
+/**
+ * DTO for rolling back application status [回撤投递状态DTO]
+ */
+export interface IRollbackApplicationStatusDto {
+  applicationId: string; // Application ID [申请ID]
+  changedBy: string; // User ID who initiated the rollback [发起回撤的用户ID]
+  mentorId?: string; // Mentor assigned to this referral application (optional) [推荐申请的导师ID（可选）]
 }

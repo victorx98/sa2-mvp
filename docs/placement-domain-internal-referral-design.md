@@ -83,9 +83,10 @@ flowchart TD
 #### 3.2.4 导师审查流程
 1. 导师收到审查请求
 2. 导师对学生进行审查
-3. 导师提交审查结果：
-   - 审查通过（状态变为 `submitted`）
-   - 审查不通过（状态变为 `rejected`）
+3. 导师通过 `updateApplicationStatus` 提交审查结果：
+   - 状态从 `mentor_assigned` 变为 `submitted` 或 `rejected`
+   - 通过 `changeMetadata` 参数传递评估详情
+   - 通过 `mentorId` 参数记录导师身份（由调用方验证）
 
 #### 3.2.5 后续状态跟进流程
 1. 导师跟进已提交的申请
@@ -181,33 +182,41 @@ export const ALLOWED_APPLICATION_STATUS_TRANSITIONS: Partial<
 5. 发布申请提交事件
 6. 返回创建结果
 
-#### 5.1.2 submitMentorScreening
+#### 5.1.2 submitMentorScreening (已废弃)
 
-**功能**：提交导师评估结果
+**状态：** ⚠️ 已废弃 - 改用 `updateApplicationStatus` 方法
 
-**参数**：
-- `dto: ISubmitMentorScreeningDto`：导师评估的数据传输对象
-  - `applicationId: string`：申请ID
-  - `mentorId: string`：导师ID
-  - `technicalSkills: number`：技术技能评分（1-5）
-  - `experienceMatch: number`：经验匹配度评分（1-5）
-  - `culturalFit: number`：文化适应度评分（1-5）
-  - `overallRecommendation: "strongly_recommend" | "recommend" | "neutral" | "not_recommend"`：整体推荐度
-  - `screeningNotes?: string`：评估备注
+**原因：**
+- 简化接口设计，统一状态更新逻辑
+- 评估数据通过 `changeMetadata` 参数传递，更灵活
+- 符合 DDD 原则，避免过度特化方法
 
-**返回值**：
-- `Promise<IServiceResult<Record<string, any>, Record<string, any>>>`：服务结果，包含更新后的申请数据
+**替代方案：**
+使用 `updateApplicationStatus` 方法实现导师评估：
 
-**业务逻辑**：
-1. 验证申请存在且为内推类型
-2. 验证申请状态为 `mentor_assigned`
-3. 保存导师评估结果
-4. 根据评估结果更新申请状态：
-   - 推荐度为 "strongly_recommend" 或 "recommend"：状态变为 `submitted`
-   - 推荐度为 "neutral" 或 "not_recommend"：状态变为 `rejected`
-5. 记录状态变更历史
-6. 发布导师评估完成事件
-7. 返回更新结果
+```typescript
+await jobApplicationService.updateApplicationStatus({
+  applicationId: 'app-id',
+  newStatus: 'submitted', // 或 'rejected'
+  changedBy: user.id,
+  changeReason: 'Mentor screening completed',
+  mentorId: 'mentor-id', // ✅ 记录导师分配
+  changeMetadata: {
+    screeningResult: {
+      technicalSkills: 5,
+      experienceMatch: 4,
+      culturalFit: 5,
+      overallRecommendation: 'strongly_recommend',
+      screeningNotes: 'Excellent candidate',
+    },
+  },
+});
+```
+
+**验证要求：**
+- 调用方需验证导师身份和权限
+- 验证申请状态为 `mentor_assigned`
+- 验证 `mentorId` 的合法性
 
 #### 5.1.3 updateApplicationStatus
 
@@ -220,6 +229,7 @@ export const ALLOWED_APPLICATION_STATUS_TRANSITIONS: Partial<
   - `changedBy?: string`：变更人ID
   - `changeReason?: string`：变更原因
   - `changeMetadata?: Record<string, any>`：变更元数据
+  - `mentorId?: string`：导师ID（内推申请中用于记录导师分配）
 
 **返回值**：
 - `Promise<IServiceResult<Record<string, any>, Record<string, any>>>`：服务结果，包含更新后的申请数据
@@ -228,9 +238,10 @@ export const ALLOWED_APPLICATION_STATUS_TRANSITIONS: Partial<
 1. 验证申请是否存在
 2. 验证状态转换是否合法
 3. 更新申请状态和结果信息
-4. 记录状态变更历史
-5. 发布状态变更事件
-6. 返回更新结果
+4. **如果提供 `mentorId`，更新 `assignedMentorId` 字段**（用于记录内推申请的导师分配）
+5. 记录状态变更历史
+6. 发布状态变更事件（如果提供了 `mentorId`，事件会包含该信息）
+7. 返回更新结果
 
 ## 6. 数据模型
 
@@ -246,24 +257,30 @@ export const ALLOWED_APPLICATION_STATUS_TRANSITIONS: Partial<
 | applicationType | string | 申请类型（mentor_referral） |
 | coverLetter | string | 求职信 |
 | customAnswers | jsonb | 自定义问题回答，包括推荐导师信息 |
-| mentorScreening | jsonb | 导师评估结果 |
+| assignedMentorId | string | 分配的导师ID（用于记录导师分配） |
 | status | string | 申请状态 |
 | isUrgent | boolean | 加急申请标记 |
 | submittedAt | timestamp | 提交时间 |
 | createdAt | timestamp | 创建时间 |
 | updatedAt | timestamp | 更新时间 |
 
-#### 6.1.2 导师评估
+#### 6.1.2 导师评估（存储在 changeMetadata 中）
+
+**存储位置**：`application_history.change_metadata.screeningResult`
+
+**结构**：
 
 | 字段名 | 类型 | 描述 |
 |--------|------|------|
 | technicalSkills | number | 技术技能评分（1-5） |
 | experienceMatch | number | 经验匹配度评分（1-5） |
 | culturalFit | number | 文化适应度评分（1-5） |
-| overallRecommendation | string | 整体推荐度 |
+| overallRecommendation | string | 整体推荐度（strongly_recommend / recommend / neutral / not_recommend） |
 | screeningNotes | string | 评估备注 |
-| evaluatedBy | string | 评估人ID |
+| evaluatedBy | string | 评估人ID（导师ID） |
 | evaluatedAt | timestamp | 评估时间 |
+
+**注意**：从 v2.0 开始，导师评估数据不再存储在 `job_applications.mentor_screening` 字段，而是存储在状态变更历史的 `change_metadata` 中。这样可以更好地追踪评估历史，并与状态变更关联。
 
 #### 6.1.3 状态变更历史
 
@@ -276,7 +293,7 @@ export const ALLOWED_APPLICATION_STATUS_TRANSITIONS: Partial<
 | changedBy | string | 变更人ID |
 | changedByType | string | 变更人类型 |
 | changeReason | string | 变更原因 |
-| changeMetadata | jsonb | 变更元数据 |
+| changeMetadata | jsonb | 变更元数据（包括导师评估结果、面试安排等） |
 | createdAt | timestamp | 创建时间 |
 
 ### 6.2 数据库Schema
@@ -411,8 +428,12 @@ Content-Type: application/json
 
 ### 7.2 导师评估规则
 1. 只有内推类型的申请才能进行导师评估
-2. 导师评估只能在申请状态为 `submitted` 时进行
-3. 导师评估必须包含完整的评分和推荐意见
+2. 导师评估只能在申请状态为 `mentor_assigned` 时进行（转换为 `submitted` 或 `rejected`）
+3. 评估数据必须包含完整的评分和推荐意见，并存储在 `changeMetadata.screeningResult` 中
+4. 导师身份由调用方验证（API/Application Layer），验证逻辑：
+   - 验证 `mentorId` 是有效的导师
+   - 验证 `application.assignedMentorId === mentorId`
+   - 验证导师有权限操作此申请
 
 ### 7.3 状态转换规则
 1. 状态转换必须符合预定义的转换规则
@@ -423,6 +444,8 @@ Content-Type: application/json
 1. 学生ID、岗位ID和导师ID必须存在且有效
 2. 状态值和推荐类型必须是预定义的有效值之一
 3. 时间字段必须符合ISO 8601格式
+4. 内推申请必须指定分配的导师（`assignedMentorId`）
+5. 导师评估数据必须存储在状态历史的 `changeMetadata.screeningResult` 中
 
 ## 8. 测试策略
 
@@ -509,3 +532,54 @@ Content-Type: application/json
 ## 13. 结论
 
 内推功能是Placement Domain的重要组成部分，为学生和导师提供了高效的求职推荐和评估能力。通过严格的业务规则和状态管理，确保了数据的一致性和业务流程的正确性。该设计文档详细描述了内推功能的业务流程、系统架构、核心服务接口和数据模型，为开发和维护提供了清晰的指导。
+
+## 14. 决策清单
+
+| 编号 | 描述 | 状态 | 备注 |
+|------|------|------|------|
+| P-2025-12-02-REF-01 | 域层仅负责记录 `mentorId`、评估结果等业务数据，导师身份验证继续由 API/Application Layer 验证（符合 DDD 防腐层） | ✅ 已确认 | 依赖 `updateApplicationStatus` 中 `mentorId` 和 `changeMetadata` 的字段 | 
+| P-2025-12-02-REF-02 | 所有终态（`rejected`、`got_offer` 等）都需要记录 `resultDate`，防止评估结果在历史中缺失 | 🟡 进行中 | 建议在 `updateApplicationStatus` 中同步 `resultDate` 逻辑 |
+
+---
+
+## 附录：版本历史
+
+### v2.0 (2025-12-02)
+**主要变更：**
+- ⚠️ **废弃 `submitMentorScreening` 方法**：改用 `updateApplicationStatus` 实现导师评估
+- ✅ **移除 `mentorScreening` 字段**：评估数据存储在 `changeMetadata.screeningResult` 中，更好地追踪评估历史
+- ✅ **添加 `assignedMentorId` 字段**：用于记录内推申请的导师分配
+- ✅ **明确权限验证职责**：导师身份验证由调用方（API/Application Layer）实现，符合 DDD 原则
+- ✅ **简化接口设计**：统一状态更新逻辑，减少代码冗余
+
+**迁移指南：**
+```typescript
+// ❌ 旧方式（已废弃）
+await jobApplicationService.submitMentorScreening({
+  applicationId: 'app-id',
+  mentorId: 'mentor-id',
+  technicalSkills: 5,
+  // ...
+});
+
+// ✅ 新方式
+await jobApplicationService.updateApplicationStatus({
+  applicationId: 'app-id',
+  newStatus: 'submitted',
+  mentorId: 'mentor-id', // 记录导师分配
+  changeMetadata: {
+    screeningResult: {
+      technicalSkills: 5,
+      // ...
+    },
+  },
+});
+```
+
+**优势：**
+- 统一的状态更新接口，代码更简洁
+- 评估数据与状态变更关联，便于追踪历史
+- 职责分离，domain 层专注业务逻辑
+- 权限验证在调用方，灵活性更高
+
+---

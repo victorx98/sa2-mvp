@@ -283,31 +283,46 @@ export function validateProductSnapshot(snapshot: unknown): boolean {
   }
 
   // Validate each item
-  for (const item of snap.items) {
-    if (!item || typeof item !== "object") {
-      throw new ContractException("Product snapshot item must be an object");
-    }
+    for (const item of snap.items) {
+      if (!item || typeof item !== "object") {
+        throw new ContractException("Product snapshot item must be an object");
+      }
 
-    const itemObj = item as Record<string, unknown>;
+      const itemObj = item as Record<string, unknown>;
 
-    // Validate required item fields
-    if (
-      !itemObj.serviceTypeId ||
-      typeof itemObj.serviceTypeId !== "string" ||
-      !isValidUUID(itemObj.serviceTypeId as string)
-    ) {
-      throw new ContractException("Product snapshot item serviceTypeId must be a valid UUID");
-    }
+      // Validate required item fields
+      if (
+        !itemObj.productItemId ||
+        typeof itemObj.productItemId !== "string" ||
+        !isValidUUID(itemObj.productItemId as string)
+      ) {
+        throw new ContractException("Product snapshot item productItemId must be a valid UUID");
+      }
 
-    if (
-      !itemObj.quantity ||
-      typeof itemObj.quantity !== "number" ||
-      itemObj.quantity <= 0 ||
-      !Number.isInteger(itemObj.quantity)
-    ) {
-      throw new ContractException("Product snapshot item quantity must be a positive integer");
+      if (
+        !itemObj.serviceTypeCode ||
+        typeof itemObj.serviceTypeCode !== "string"
+      ) {
+        throw new ContractException("Product snapshot item serviceTypeCode must be a valid string");
+      }
+
+      if (
+        !itemObj.quantity ||
+        typeof itemObj.quantity !== "number" ||
+        itemObj.quantity <= 0 ||
+        !Number.isInteger(itemObj.quantity)
+      ) {
+        throw new ContractException("Product snapshot item quantity must be a positive integer");
+      }
+
+      if (
+        itemObj.sortOrder === undefined ||
+        typeof itemObj.sortOrder !== "number" ||
+        !Number.isInteger(itemObj.sortOrder)
+      ) {
+        throw new ContractException("Product snapshot item sortOrder must be an integer");
+      }
     }
-  }
 
   // Validate snapshotAt is a valid date
   const snapshotAt = new Date(snap.snapshotAt as string | number | Date);
@@ -315,12 +330,8 @@ export function validateProductSnapshot(snapshot: unknown): boolean {
     throw new ContractException("Product snapshot snapshotAt must be a valid date");
   }
 
-  // Validate optional validityDays
-  if (snap.validityDays !== undefined && snap.validityDays !== null) {
-    if (typeof snap.validityDays !== "number" || snap.validityDays <= 0 || !Number.isInteger(snap.validityDays)) {
-      throw new ContractException("Product snapshot validityDays must be a positive integer or null");
-    }
-  }
+  // Products and contracts never expire - v2.16.13
+  // Removed validityDays validation
 
   return true;
 }

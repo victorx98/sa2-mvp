@@ -11,8 +11,8 @@ import * as schema from "@infrastructure/database/schema";
 import type { DrizzleDatabase } from "@shared/types/database.types";
 import type { IMentorPaymentInfoService } from "../interfaces/mentor-payment-info.interface";
 import type {
-  CreateOrUpdateMentorPaymentInfoRequest,
-  MentorPaymentInfoResponse,
+  ICreateOrUpdateMentorPaymentInfoRequest,
+  IMentorPaymentInfoResponse,
 } from "../dto/settlement/mentor-payment-info.dtos";
 import { SettlementMethod } from "../dto/settlement/settlement.enums";
 
@@ -48,8 +48,8 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
    * @returns Payment info response (支付信息响应)
    */
   public async createOrUpdateMentorPaymentInfo(
-    request: CreateOrUpdateMentorPaymentInfoRequest,
-  ): Promise<MentorPaymentInfoResponse> {
+    request: ICreateOrUpdateMentorPaymentInfoRequest,
+  ): Promise<IMentorPaymentInfoResponse> {
     try {
       const { mentorId, paymentCurrency, paymentMethod, paymentDetails } =
         request;
@@ -161,7 +161,7 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
    */
   public async getMentorPaymentInfo(
     mentorId: string,
-  ): Promise<MentorPaymentInfoResponse | null> {
+  ): Promise<IMentorPaymentInfoResponse | null> {
     try {
       if (!mentorId) {
         throw new BadRequestException("Mentor ID is required");
@@ -214,7 +214,7 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
     id: string,
     status: "ACTIVE" | "INACTIVE",
     updatedBy: string,
-  ): Promise<MentorPaymentInfoResponse> {
+  ): Promise<IMentorPaymentInfoResponse> {
     try {
       if (!id) {
         throw new BadRequestException("Payment info ID is required");

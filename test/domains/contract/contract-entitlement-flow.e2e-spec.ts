@@ -26,7 +26,6 @@ describe("Contract Entitlement Flow Integration Tests [合约权益流集成测�
 
   // Test data - Fixed student ID as required
   const FIXED_STUDENT_ID = "f2c3737c-1b37-4736-8633-251731ddcdec";
-  let testServiceTypeId: string;
   const createdContractIds: string[] = [];
   let adminUserId: string;
   let testStudentId: string; // Will be set to FIXED_STUDENT_ID
@@ -113,8 +112,6 @@ describe("Contract Entitlement Flow Integration Tests [合约权益流集成测�
       if (existingServiceTypes.length === 0) {
         throw new Error("No service types found in database. Please ensure hard-coded service types exist.");
       }
-
-      testServiceTypeId = existingServiceTypes[0].id;
     }, 30000);
 
     it("should successfully create and activate a contract [应该成功创建并激活合约]", async () => {
@@ -125,11 +122,10 @@ describe("Contract Entitlement Flow Integration Tests [合约权益流集成测�
         productCode: "TEST-PRODUCT",
         price: "100.00",
         currency: Currency.USD,
-        validityDays: 365,
         items: [
           {
             productItemId: randomUUID(),
-            serviceTypeId: testServiceTypeId,
+            serviceTypeCode: "CONSULTATION",
             quantity: 10,
             sortOrder: 0,
           },
@@ -174,11 +170,10 @@ describe("Contract Entitlement Flow Integration Tests [合约权益流集成测�
         productCode: "STATUS-TEST",
         price: "150.00",
         currency: Currency.USD,
-        validityDays: 180,
         items: [
           {
             productItemId: randomUUID(),
-            serviceTypeId: testServiceTypeId,
+            serviceTypeCode: "CONSULTATION",
             quantity: 5,
             sortOrder: 0,
           },
@@ -211,7 +206,6 @@ describe("Contract Entitlement Flow Integration Tests [合约权益流集成测�
       const suspended = await contractService.suspend(
         contractId,
         "Test suspension",
-        adminUserId,
       );
       expect(suspended.status).toBe(ContractStatus.SUSPENDED);
       expect(eventSpy).toHaveBeenCalledWith(
@@ -220,7 +214,7 @@ describe("Contract Entitlement Flow Integration Tests [合约权益流集成测�
       );
 
       // Resume contract [恢复合约]
-      const resumed = await contractService.resume(contractId, adminUserId);
+      const resumed = await contractService.resume(contractId);
       expect(resumed.status).toBe(ContractStatus.ACTIVE);
       expect(eventSpy).toHaveBeenCalledWith(
         "contract.resumed",
@@ -236,7 +230,6 @@ describe("Contract Entitlement Flow Integration Tests [合约权益流集成测�
         productCode: "COMPLETE-TEST",
         price: "200.00",
         currency: Currency.USD,
-        validityDays: 365,
         items: [], // Empty items to avoid system user issue [空项以避免系统用户问题]
         snapshotAt: new Date(),
       };
@@ -260,7 +253,7 @@ describe("Contract Entitlement Flow Integration Tests [合约权益流集成测�
       expect(checkContract?.status).toBe(ContractStatus.ACTIVE);
 
       // Act [执行]
-      const completed = await contractService.complete(contractId, adminUserId);
+      const completed = await contractService.complete(contractId);
 
       // Assert [断言]
       expect(completed.status).toBe(ContractStatus.COMPLETED);
@@ -279,8 +272,6 @@ describe("Contract Entitlement Flow Integration Tests [合约权益流集成测�
       if (existingServiceTypes.length === 0) {
         throw new Error("No service types found in database. Please ensure hard-coded service types exist.");
       }
-
-      testServiceTypeId = existingServiceTypes[0].id;
     }, 30000);
 
     it("should create service entitlements on activation [应该在激活时创建服务权益]", async () => {
@@ -295,7 +286,6 @@ describe("Contract Entitlement Flow Integration Tests [合约权益流集成测�
         productCode: "ENTITLEMENT-TEST",
         price: "200.00",
         currency: Currency.USD,
-        validityDays: 180,
         items: [], // Empty items to avoid detailed entitlement creation [空项以避免详细的权益创建]
         snapshotAt: new Date(),
       };
