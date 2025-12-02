@@ -106,42 +106,6 @@ const generateMockServiceType = (
   };
 };
 
-const generateMockProductSnapshot = (overrides: Partial<any> = {}) => {
-  const timestamp = Date.now();
-  const id = randomUUID();
-
-  return {
-    id,
-    productId: randomUUID(),
-    name: `Test Product Snapshot ${timestamp}`, // Use timestamp for uniqueness [使用时间戳确保唯一性]
-    code: `CODE-${timestamp.toString().slice(-6)}`, // Use timestamp slice for code [使用时间戳片段作为代码]
-    description: `Test product snapshot description created at ${new Date().toISOString()}`,
-    coverImage: `https://example.com/images/${id}.jpg`,
-    price: (Math.floor(Math.random() * 990) + 10).toFixed(2), // Random price between 10-1000 [10-1000之间的随机价格]
-    currency: Currency.USD, // Use enum value directly [直接使用枚举值]
-    targetUserPersona: [UserPersona.UNDERGRADUATE], // Use enum value directly [直接使用枚举值]
-    marketingLabels: ["hot", "new", "recommended"], // Use fixed array [使用固定数组]
-    status: ProductStatus.ACTIVE,
-    publishedAt: new Date(),
-    unpublishedAt: null,
-    metadata: {
-      features: [`Feature ${timestamp}`],
-      faqs: [
-        {
-          question: `Question ${timestamp}?`,
-          answer: `Answer created at ${new Date().toISOString()}`,
-        },
-      ],
-      deliverables: [`Deliverable ${timestamp}`],
-      duration: `${Math.floor(Math.random() * 10) + 1} hours`,
-      prerequisites: [`Prerequisite ${timestamp}`],
-    },
-    createdBy: randomUUID(),
-    createdAt: new Date(),
-    ...overrides,
-  };
-};
-
 // Helper functions for test data [测试数据辅助函数]
 
 describe("ProductService", () => {
@@ -1523,7 +1487,7 @@ describe("ProductService", () => {
         },
       ];
 
-      const mockServiceTypes = [
+      const _mockServiceTypes = [
         {
           id: mockItems[0].serviceTypeId,
           name: `Service-${timestamp}`,
@@ -1592,7 +1556,7 @@ describe("ProductService", () => {
         },
       ];
 
-      const mockServiceTypes = [
+      const _mockServiceTypes = [
         {
           id: mockItems[0].serviceTypeId,
           name: `Service-${timestamp}`,

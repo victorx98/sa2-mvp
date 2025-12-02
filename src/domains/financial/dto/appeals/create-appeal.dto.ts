@@ -8,10 +8,8 @@
 import {
   IsString,
   IsNotEmpty,
-  IsNumber,
   IsUUID,
   IsOptional,
-  Min,
   MaxLength,
 } from "class-validator";
 

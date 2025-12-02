@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { eq, and, sql, isNull, inArray } from "drizzle-orm";
+import { eq, and, sql, isNull, inArray, gte, lte, or, isNotNull } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import type { DrizzleDatabase } from "@shared/types/database.types";
@@ -112,11 +112,22 @@ export class SettlementService implements ISettlementService {
 
       // 3. Get unpaid payable ledgers for the mentor (获取导师的未付应付账款)
       // [修复] 过滤未结算的原始账款记录
+      // [新增] 根据 settlementMonth 过滤指定月份
+      // [新增] 包含未结算的调整记录 (originalId IS NOT NULL)
+      const [year, month] = settlementMonth.split('-').map(Number);
+      const startOfMonth = new Date(year, month - 1, 1);
+      const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+
       const payableLedgers = await tx.query.mentorPayableLedgers.findMany({
         where: and(
           eq(schema.mentorPayableLedgers.mentorId, mentorId),
-          eq(schema.mentorPayableLedgers.originalId, null), // 只查原始记录
-          isNull(schema.mentorPayableLedgers.settlementId), // [新增] 只查未结算记录
+          isNull(schema.mentorPayableLedgers.settlementId), // 只查未结算记录
+          gte(schema.mentorPayableLedgers.createdAt, startOfMonth),
+          lte(schema.mentorPayableLedgers.createdAt, endOfMonth),
+          or(
+            eq(schema.mentorPayableLedgers.originalId, null), // 原始记录
+            isNotNull(schema.mentorPayableLedgers.originalId), // 调整记录
+          ),
         ),
       });
 

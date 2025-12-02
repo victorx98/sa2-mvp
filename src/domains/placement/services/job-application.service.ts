@@ -19,6 +19,7 @@ import {
 } from "../events";
 import {
   ISubmitApplicationDto,
+  ISubmitMentorScreeningDto,
   IUpdateApplicationStatusDto,
   IJobApplicationSearchFilter,
 } from "../dto";
@@ -53,7 +54,7 @@ export class JobApplicationService implements IJobApplicationService {
    */
   async submitApplication(
     dto: ISubmitApplicationDto,
-  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>> {
+  ): Promise<IServiceResult<typeof jobApplications.$inferSelect, Record<string, unknown>>> {
     this.logger.log(
       `Submitting job application: student=${dto.studentId}, job=${dto.jobId}`,
     );
@@ -93,7 +94,7 @@ export class JobApplicationService implements IJobApplicationService {
     await this.db.insert(applicationHistory).values({
       applicationId: application.id,
       previousStatus: null,
-      newStatus: "submitted",
+      newStatus: application.status,
       changedBy: dto.studentId,
       changeReason: "Initial submission",
     });
@@ -122,7 +123,9 @@ export class JobApplicationService implements IJobApplicationService {
    * @param dto - Mentor screening DTO [导师评估DTO]
    * @returns Updated application and events [更新的申请和事件]
    */
-  async submitMentorScreening(dto: any) {
+  async submitMentorScreening(
+    dto: ISubmitMentorScreeningDto,
+  ): Promise<IServiceResult<Record<string, unknown>, Record<string, unknown>>> {
     this.logger.log(
       `Submitting mentor screening: application=${dto.applicationId}, mentor=${dto.mentorId}`,
     );
@@ -167,17 +170,21 @@ export class JobApplicationService implements IJobApplicationService {
         ? "submitted"
         : "rejected";
 
+    const resultStatuses: ApplicationStatus[] = ["rejected"];
+
     const [updatedApplication] = await this.db
       .update(jobApplications)
       .set({
         mentorScreening: screeningResult,
         status: newStatus,
+        result: resultStatuses.includes(newStatus as ApplicationStatus) ? this.getResultFromStatus(newStatus as ApplicationStatus) : null,
+        resultDate: resultStatuses.includes(newStatus as ApplicationStatus) ? new Date().toISOString().split('T')[0] : null,
       })
       .where(eq(jobApplications.id, dto.applicationId))
       .returning();
 
     // Record status change history [记录状态变更历史]
-    await (this.db.insert(applicationHistory).values as any)({
+    await this.db.insert(applicationHistory).values({
       applicationId: dto.applicationId,
       previousStatus: "mentor_assigned",
       newStatus: newStatus,
@@ -216,7 +223,7 @@ export class JobApplicationService implements IJobApplicationService {
    */
   async updateApplicationStatus(
     dto: IUpdateApplicationStatusDto,
-  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>> {
+  ): Promise<IServiceResult<Record<string, unknown>, Record<string, unknown>>> {
     this.logger.log(
       `Updating application status: ${dto.applicationId} -> ${dto.newStatus}`,
     );
@@ -249,18 +256,18 @@ export class JobApplicationService implements IJobApplicationService {
     const [updatedApplication] = await this.db
       .update(jobApplications)
       .set({
-        status: dto.newStatus as any,
-        result: this.getResultFromStatus(dto.newStatus) as any,
-        resultDate: resultStatuses.includes(dto.newStatus) ? new Date() : null,
-      } as any)
+        status: dto.newStatus,
+        result: this.getResultFromStatus(dto.newStatus),
+        resultDate: resultStatuses.includes(dto.newStatus) ? new Date().toISOString().split('T')[0] : null,
+      })
       .where(eq(jobApplications.id, dto.applicationId))
       .returning();
 
     // Record status change history [记录状态变更历史]
-    await (this.db.insert(applicationHistory).values as any)({
+    await this.db.insert(applicationHistory).values({
       applicationId: dto.applicationId,
       previousStatus,
-      newStatus: dto.newStatus as any,
+      newStatus: dto.newStatus,
       changedBy: dto.changedBy,
       changeReason: dto.changeReason,
       changeMetadata: dto.changeMetadata,
@@ -301,7 +308,7 @@ export class JobApplicationService implements IJobApplicationService {
     pagination?: IPaginationQuery,
     sort?: ISortQuery,
   ): Promise<{
-    items: Record<string, any>[];
+    items: Record<string, unknown>[];
     total: number;
     offset: number;
     limit: number;
@@ -323,12 +330,12 @@ export class JobApplicationService implements IJobApplicationService {
       }
 
       if (filter.status) {
-        conditions.push(eq(jobApplications.status, filter.status as any));
+        conditions.push(eq(jobApplications.status, filter.status));
       }
 
       if (filter.applicationType) {
         conditions.push(
-          eq(jobApplications.applicationType, filter.applicationType as any),
+          eq(jobApplications.applicationType, filter.applicationType),
         );
       }
     }
@@ -347,9 +354,9 @@ export class JobApplicationService implements IJobApplicationService {
       .orderBy(
         sort?.field
           ? sort.direction === "asc"
-            ? (jobApplications as any)[sort.field]
-            : sql`${(jobApplications as any)[sort.field]} DESC`
-          : sql`${jobApplications.submittedAt} DESC`,
+            ? sql`${jobApplications[sort.field as keyof typeof jobApplications]} ASC`
+            : sql`${jobApplications[sort.field as keyof typeof jobApplications]} DESC`
+          : sql`${jobApplications.submittedAt} DESC`
       )
       .limit(limit)
       .offset(offset);
@@ -382,8 +389,8 @@ export class JobApplicationService implements IJobApplicationService {
     jobId?: string;
     status?: string;
     applicationType?: ApplicationType;
-    [key: string]: any;
-  }) {
+    [key: string]: unknown;
+  }): Promise<Record<string, unknown>> {
     // Build conditions based on provided params
     const conditions = [];
 
@@ -399,7 +406,7 @@ export class JobApplicationService implements IJobApplicationService {
     }
     if (params.status) {
       // Use type assertion for enum column to avoid TypeScript error
-      conditions.push(eq(jobApplications.status, params.status as any));
+      conditions.push(eq(jobApplications.status, params.status as ApplicationStatus));
     }
     if (params.applicationType) {
       // Use enum type directly without type assertion
@@ -429,7 +436,9 @@ export class JobApplicationService implements IJobApplicationService {
    * @param applicationId - Application ID [申请ID]
    * @returns Status history [状态历史]
    */
-  async getStatusHistory(applicationId: string) {
+  async getStatusHistory(
+    applicationId: string,
+  ): Promise<Array<Record<string, unknown>>> {
     return this.db
       .select()
       .from(applicationHistory)
@@ -470,7 +479,7 @@ export class JobApplicationService implements IJobApplicationService {
    */
   private getResultFromStatus(status: ApplicationStatus): "rejected" | null {
     const resultStatuses: ApplicationStatus[] = ["rejected"];
-    return resultStatuses.includes(status) ? (status as any) : null;
+    return resultStatuses.includes(status) ? (status as "rejected") : null;
   }
 
   /**
@@ -483,7 +492,7 @@ export class JobApplicationService implements IJobApplicationService {
   async rollbackApplicationStatus(
     applicationId: string,
     changedBy: string,
-  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>> {
+  ): Promise<IServiceResult<Record<string, unknown>, Record<string, unknown>>> {
     this.logger.log(`Rolling back status for application: ${applicationId}`);
 
     // Get current application [获取当前申请]
@@ -529,20 +538,20 @@ export class JobApplicationService implements IJobApplicationService {
       .update(jobApplications)
       .set({
         status: previousStatus,
-        result: this.getResultFromStatus(previousStatus) as any,
-        resultDate: resultStatuses.includes(previousStatus) ? new Date() : null,
-      } as any)
+        result: this.getResultFromStatus(previousStatus),
+        resultDate: resultStatuses.includes(previousStatus) ? new Date().toISOString().split('T')[0] : null,
+      })
       .where(eq(jobApplications.id, applicationId))
       .returning();
 
     // Record status change history [记录状态变更历史]
-    await (this.db.insert(applicationHistory).values as any)({
+    await this.db.insert(applicationHistory).values({
       applicationId: applicationId,
       previousStatus: currentStatus,
       newStatus: previousStatus,
       changedBy: changedBy,
       changeReason: "Status rolled back",
-    });
+    } as typeof applicationHistory.$inferInsert);
 
     this.logger.log(
       `Application status rolled back: ${applicationId} from ${currentStatus} to ${previousStatus}`,

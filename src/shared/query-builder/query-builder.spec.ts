@@ -5,7 +5,7 @@ import {
   oneToOne,
   oneToMany,
 } from './schema-registry';
-import type { PgTable, PgColumn } from 'drizzle-orm/pg-core';
+import type { PgColumn } from 'drizzle-orm/pg-core';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { SQL } from 'drizzle-orm';
 import { TableMetadata } from './types';

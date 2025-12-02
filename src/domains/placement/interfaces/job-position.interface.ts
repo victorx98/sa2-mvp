@@ -42,7 +42,7 @@ export interface IJobPositionService {
    */
   createJobPosition(
     dto: ICreateJobPositionDto,
-  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>>;
+  ): Promise<IServiceResult<ICreateJobPositionDto, Record<string, unknown>>>;
 
   /**
    * Find a job position [查找岗位]
@@ -52,8 +52,8 @@ export interface IJobPositionService {
    */
   findOne(params: {
     id?: string;
-    [key: string]: any;
-  }): Promise<Record<string, any>>;
+    [key: string]: unknown;
+  }): Promise<IJobPositionSearchFilter>;
 
   /**
    * Search job positions [搜索岗位]
@@ -67,7 +67,7 @@ export interface IJobPositionService {
     filter?: IJobPositionSearchFilter,
     pagination?: IPaginationQuery,
     sort?: ISortQuery,
-  ): Promise<IPaginatedResult<Record<string, any>>>;
+  ): Promise<IPaginatedResult<IJobPositionSearchFilter>>;
 
   /**
    * Mark a job position as expired [标记岗位过期]
@@ -77,5 +77,5 @@ export interface IJobPositionService {
    */
   markJobExpired(
     dto: IMarkJobExpiredDto,
-  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>>;
+  ): Promise<IServiceResult<IJobPositionSearchFilter, Record<string, unknown>>>;
 }

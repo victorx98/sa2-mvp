@@ -2,8 +2,6 @@ import { Test } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import { MentorPaymentParamService } from "./mentor-payment-param.service";
 import type { PaymentParamUpdate } from "../dto/settlement";
-import type { DrizzleDatabase } from "@shared/types/database.types";
-import { eq, and } from "drizzle-orm";
 
 /**
  * MentorPaymentParamService Unit Tests (导师支付参数服务单元测试)

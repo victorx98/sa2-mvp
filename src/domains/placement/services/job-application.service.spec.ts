@@ -3,7 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { JobApplicationService } from "./job-application.service";
-import { ISubmitApplicationDto, IUpdateApplicationStatusDto } from "../dto";
+import { ISubmitApplicationDto, IUpdateApplicationStatusDto, ISubmitMentorScreeningDto } from "../dto";
 import { ApplicationType } from "../types/application-type.enum";
 import { randomUUID } from "crypto";
 import { EventEmitter2 } from "@nestjs/event-emitter";
@@ -229,7 +229,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
   describe("submitMentorScreening() [提交内推导师评估]", () => {
     it("should submit mentor screening successfully [应该成功提交内推导师评估]", async () => {
       // Arrange [准备]
-      const dto = {
+      const dto: ISubmitMentorScreeningDto = {
         applicationId: testApplicationId,
         mentorId: testMentorId,
         technicalSkills: 4,
@@ -286,7 +286,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
     it("should throw NotFoundException if application not found [如果申请未找到应该抛出NotFoundException]", async () => {
       // Arrange [准备]
-      const dto = {
+      const dto: ISubmitMentorScreeningDto = {
         applicationId: testApplicationId,
         mentorId: testMentorId,
         technicalSkills: 4,
@@ -313,7 +313,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
     it("should throw error if application is not mentor referral type [如果申请不是内推类型应该抛出错误]", async () => {
       // Arrange [准备]
-      const dto = {
+      const dto: ISubmitMentorScreeningDto = {
         applicationId: testApplicationId,
         mentorId: testMentorId,
         technicalSkills: 4,
@@ -347,7 +347,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
     it("should throw error if application is not in submitted status [如果申请不是提交状态应该抛出错误]", async () => {
       // Arrange [准备]
-      const dto = {
+      const dto: ISubmitMentorScreeningDto = {
         applicationId: testApplicationId,
         mentorId: testMentorId,
         technicalSkills: 4,

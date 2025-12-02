@@ -20,8 +20,6 @@ describe("SettlementService", () => {
   const testMentorId = "4903b94b-67cc-42a1-9b3e-91ebc51bcefc";
   // 真实的 student ID (from student table)
   const testStudentId = "9729ec8c-ce51-43f0-85de-3b1bc410952d";
-  // 真实的 service type ID (from service_types table)
-  const testServiceTypeId = "c55caac0-04e6-4497-a530-01bb1b4fd12e";
   const testSessionTypeCode = "Internal";
   const testSettlementMonth = "2024-01";
 

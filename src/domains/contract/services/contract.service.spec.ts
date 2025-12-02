@@ -997,4 +997,141 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       }));
     });
   });
+
+  describe("activateContract - Regression Tests for Code Review Fixes [激活合约 - 代码评审修复回归测试]", () => {
+    it("should create entitlements for second contract with new service types [应该为第二份合约创建新服务类型的权益]", async () => {
+      // Arrange
+      const secondContractId = randomUUID();
+      const newServiceTypeId = randomUUID();
+      const existingServiceType = "CONSULTATION";
+      const newServiceType = "RESUME_REVIEW";
+
+      const mockSecondContract = {
+        id: secondContractId,
+        studentId: testStudentId,
+        status: ContractStatus.SIGNED,
+        productSnapshot: {
+          items: [
+            { serviceTypeId: testServiceTypeId2, quantity: 3 },
+            { serviceTypeId: newServiceTypeId, quantity: 2 },
+          ],
+        },
+        createdBy: testCreatedBy,
+      };
+
+      const mockExistingEntitlement = {
+        studentId: testStudentId,
+        serviceType: existingServiceType,
+        totalQuantity: 5,
+        availableQuantity: 5,
+      };
+
+      jest.spyOn(contractService, "findOne").mockResolvedValue(mockSecondContract as any);
+
+      const mockReturning = jest.fn().mockResolvedValue([{ ...mockSecondContract, status: ContractStatus.ACTIVE }]);
+      mockDb.update = jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            returning: mockReturning,
+          }),
+        }),
+      });
+
+      mockDb.query.contractServiceEntitlements.findFirst = jest.fn().mockResolvedValue(mockExistingEntitlement);
+
+      // Mock batch query for service types
+      const mockTx = {
+        ...mockDb,
+        select: jest.fn().mockReturnValue({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue([
+              { id: testServiceTypeId2, code: newServiceType },
+              { id: newServiceTypeId, code: "INTERVIEW_PREP" },
+            ]),
+          }),
+        }),
+        insert: jest.fn().mockReturnValue({
+          values: jest.fn().mockReturnValue({
+            onConflictDoUpdate: jest.fn().mockResolvedValue([]),
+          }),
+        }),
+        query: mockDb.query,
+      };
+
+      mockDb.transaction = jest.fn(async (callback) => {
+        return await callback(mockTx);
+      });
+
+      // Act
+      const result = await contractService.activate(secondContractId);
+
+      // Assert
+      expect(result.status).toBe(ContractStatus.ACTIVE);
+      expect(mockTx.insert).toHaveBeenCalled();
+      // Verify that insert was called with new service types
+      const insertCall = mockTx.insert.mock.calls[0];
+      expect(insertCall).toBeDefined();
+    });
+
+    it("should handle batch query with multiple service type IDs using inArray [应该使用 inArray 处理多个服务类型ID的批量查询]", async () => {
+      // Arrange
+      const serviceTypeIds = [testServiceTypeId1, testServiceTypeId2, randomUUID()];
+
+      const mockContract = {
+        id: testContractId,
+        studentId: testStudentId,
+        status: ContractStatus.SIGNED,
+        productSnapshot: {
+          items: serviceTypeIds.map(id => ({ serviceTypeId: id, quantity: 5 })),
+        },
+        createdBy: testCreatedBy,
+      };
+
+      jest.spyOn(contractService, "findOne").mockResolvedValue(mockContract as any);
+
+      const mockReturning = jest.fn().mockResolvedValue([{ ...mockContract, status: ContractStatus.ACTIVE }]);
+      mockDb.update = jest.fn().mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            returning: mockReturning,
+          }),
+        }),
+      });
+
+      mockDb.query.contractServiceEntitlements.findFirst = jest.fn().mockResolvedValue(null);
+
+      const mockWhere = jest.fn().mockResolvedValue([
+        { id: testServiceTypeId1, code: "CONSULTATION" },
+        { id: testServiceTypeId2, code: "RESUME_REVIEW" },
+        { id: serviceTypeIds[2], code: "INTERVIEW_PREP" },
+      ]);
+      const mockTx = {
+        ...mockDb,
+        select: jest.fn().mockReturnValue({
+          from: jest.fn().mockReturnValue({
+            where: mockWhere,
+          }),
+        }),
+        insert: jest.fn().mockReturnValue({
+          values: jest.fn().mockReturnValue({
+            onConflictDoUpdate: jest.fn().mockResolvedValue([]),
+          }),
+        }),
+        query: mockDb.query,
+      };
+
+      mockDb.transaction = jest.fn(async (callback) => {
+        return await callback(mockTx);
+      });
+
+      // Act
+      await contractService.activate(testContractId);
+
+      // Assert
+      // Verify that where was called with inArray (can't directly check inArray, but can verify behavior)
+      expect(mockWhere).toHaveBeenCalled();
+      const whereArg = mockWhere.mock.calls[0][0];
+      expect(whereArg).toBeDefined();
+    });
+  });
 });

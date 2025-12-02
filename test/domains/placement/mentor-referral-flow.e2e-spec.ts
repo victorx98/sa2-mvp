@@ -110,7 +110,7 @@ describe("Mentor Referral Flow (e2e)", () => {
       // Submit mentor referral application
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
-        jobId: jobResult.data.id,
+        jobId: jobResult.data.id as string,
         applicationType: ApplicationType.REFERRAL,
         coverLetter: "Test cover letter for mentor referral",
         customAnswers: {
@@ -152,7 +152,7 @@ describe("Mentor Referral Flow (e2e)", () => {
       // Submit mentor referral application
       const submitDto: ISubmitApplicationDto = {
         studentId: testStudentId,
-        jobId: jobResult.data.id,
+        jobId: jobResult.data.id as string,
         applicationType: ApplicationType.REFERRAL,
         coverLetter: "Test cover letter",
         customAnswers: { referralMentor: testMentorId },
@@ -160,7 +160,7 @@ describe("Mentor Referral Flow (e2e)", () => {
 
       const submitResult =
         await jobApplicationService.submitApplication(submitDto);
-      testApplicationId = submitResult.data.id;
+      testApplicationId = submitResult.data.id as string;
 
       // Update status to interested first
       await jobApplicationService.updateApplicationStatus({
@@ -214,7 +214,7 @@ describe("Mentor Referral Flow (e2e)", () => {
         title: "Software Engineer",
         companyName: "Test Company",
         description: "Test job description",
-        requirements: ["Technical skills"],
+        requirements: { skills: ["Technical skills"] },
         locations: [{ name: "Remote" }],
         salaryMin: 100000,
         salaryMax: 130000,
@@ -227,7 +227,7 @@ describe("Mentor Referral Flow (e2e)", () => {
       // Submit direct application (not mentor referral)
       const submitDto: ISubmitApplicationDto = {
         studentId: testStudentId,
-        jobId: jobResult.data.id,
+        jobId: jobResult.data.id as string,
         applicationType: ApplicationType.DIRECT,
         coverLetter: "Test cover letter",
         customAnswers: {},
@@ -235,7 +235,7 @@ describe("Mentor Referral Flow (e2e)", () => {
 
       const submitResult =
         await jobApplicationService.submitApplication(submitDto);
-      testApplicationId = submitResult.data.id;
+      testApplicationId = submitResult.data.id as string;
 
       // Try to submit mentor screening for non-referral application
       const screeningDto: ISubmitMentorScreeningDto = {
@@ -259,7 +259,7 @@ describe("Mentor Referral Flow (e2e)", () => {
         title: "Software Engineer",
         companyName: "Test Company",
         description: "Test job description",
-        requirements: ["Technical skills"],
+        requirements: { skills: ["Technical skills"] },
         locations: [{ name: "Remote" }],
         salaryMin: 100000,
         salaryMax: 130000,
@@ -547,7 +547,7 @@ describe("Mentor Referral Flow (e2e)", () => {
         title: "Software Developer",
         companyName: "Tech Startup",
         description: "Software developer position",
-        requirements: ["Coding skills", "Teamwork"],
+        requirements: { skills: ["Coding skills", "Teamwork"] },
         locations: [{ name: "On-site" }],
         salaryMin: 110000,
         salaryMax: 140000,

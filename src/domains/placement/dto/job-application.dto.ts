@@ -8,7 +8,7 @@ export interface ISubmitApplicationDto {
   jobId: string; // Job position ID [岗位ID]
   applicationType: ApplicationType; // Application type [申请类型]
   coverLetter?: string; // Cover letter [求职信]
-  customAnswers?: Record<string, any>; // Custom question answers [自定义问题回答]
+  customAnswers?: Record<string, unknown>; // Custom question answers [自定义问题回答]
   isUrgent?: boolean; // Urgent application flag [加急申请标记]
 }
 
@@ -37,7 +37,7 @@ export interface IUpdateApplicationStatusDto {
   newStatus: ApplicationStatus; // New status [新状态]
   changedBy?: string; // Changer ID [变更人ID]
   changeReason?: string; // Change reason [变更原因]
-  changeMetadata?: Record<string, any>; // Change metadata [变更元数据]
+  changeMetadata?: Record<string, unknown>; // Change metadata [变更元数据]
 }
 
 /**

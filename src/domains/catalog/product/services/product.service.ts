@@ -414,7 +414,7 @@ export class ProductService {
       .select()
       .from(schema.productItems)
       .where(eq(schema.productItems.productId, product.id))
-      .orderBy(schema.productItems.createdAt); // Use createdAt for ordering since sortOrder doesn't exist [使用 createdAt 进行排序，因为 sortOrder 不存在]
+      .orderBy(schema.productItems.sortOrder, schema.productItems.createdAt); // Order by sortOrder, then createdAt as fallback [按 sortOrder 排序，createdAt 作为兜底]
 
     // Since services and service_packages tables are not needed in the project,
     // we only return product items with basic information

@@ -3,7 +3,7 @@
  * 自动从 Drizzle schema 推断表结构和关系
  */
 
-import { TableMetadata, RelationDefinition, RelationType } from './types';
+import { TableMetadata, RelationDefinition } from './types';
 import { getTableName, getTableColumns } from 'drizzle-orm';
 import { PgTable, getTableConfig } from 'drizzle-orm/pg-core';
 
@@ -175,7 +175,7 @@ export class SchemaRegistry {
           }
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // 某些表可能没有外键配置，忽略错误
     }
   }
@@ -343,7 +343,7 @@ export class SchemaRegistry {
           return propName;
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // 忽略错误
     }
     
