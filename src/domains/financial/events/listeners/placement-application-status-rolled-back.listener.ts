@@ -59,7 +59,6 @@ export class PlacementApplicationStatusRolledBackListener {
         previousStatus,
         newStatus,
         changedBy,
-        changedAt,
         rollbackReason,
       } = payload || {};
 

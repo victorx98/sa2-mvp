@@ -4,6 +4,7 @@ import {
   varchar,
   numeric,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -144,7 +145,11 @@ export const settlementLedgers = pgTable("settlement_ledgers", {
    * (操作者用户ID，用于审计追踪)
    */
   createdBy: uuid("created_by").notNull(),
-});
+}, (table) => [
+  // [修复] Unique constraint to prevent duplicate settlements for same mentor/month [唯一约束防止同一导师/月份重复结算]
+  // This ensures data integrity and prevents duplicate payments [这确保数据完整性并防止重复付款]
+  uniqueIndex("idx_settlement_mentor_month").on(table.mentorId, table.settlementMonth),
+]);
 
 export type SettlementLedger = typeof settlementLedgers.$inferSelect;
 export type InsertSettlementLedger = typeof settlementLedgers.$inferInsert;

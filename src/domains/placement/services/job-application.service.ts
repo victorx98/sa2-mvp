@@ -21,6 +21,7 @@ import {
   ISubmitApplicationDto,
   IUpdateApplicationStatusDto,
   IJobApplicationSearchFilter,
+  IRollbackApplicationStatusDto,
 } from "../dto";
 import { IJobApplicationService, IServiceResult } from "../interfaces";
 import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
@@ -47,13 +48,15 @@ export class JobApplicationService implements IJobApplicationService {
 
   /**
    * Submit a job application [提交投递申请]
+   * - Wraps all operations in a transaction to ensure atomicity [将所有操作包裹在事务中以确保原子性]
+   * - Creates application record, history record, and publishes event [创建申请记录、历史记录并发布事件]
    *
    * @param dto - Submit application DTO [提交申请DTO]
    * @returns Created application and events [创建的申请和事件]
    */
   async submitApplication(
     dto: ISubmitApplicationDto,
-  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>> {
+  ): Promise<IServiceResult<typeof jobApplications.$inferSelect, Record<string, unknown>>> {
     this.logger.log(
       `Submitting job application: student=${dto.studentId}, job=${dto.jobId}`,
     );
@@ -70,37 +73,43 @@ export class JobApplicationService implements IJobApplicationService {
       throw new NotFoundException(`Job position not found: ${dto.jobId}`);
     }
 
-    // Create application record [创建申请记录]
-    const [application] = await this.db
-      .insert(jobApplications)
-      .values({
-        studentId: dto.studentId,
-        jobId: dto.jobId,
-        applicationType: dto.applicationType,
-        coverLetter: dto.coverLetter,
-        customAnswers: dto.customAnswers,
-        status:
-          dto.applicationType === ApplicationType.REFERRAL
-            ? "recommended"
-            : "submitted",
-        isUrgent: dto.isUrgent || false,
-      })
-      .returning();
+    // Wrap all operations in a transaction to ensure atomicity [将所有操作包裹在事务中以确保原子性]
+    const application = await this.db.transaction(async (tx) => {
+      // Create application record [创建申请记录]
+      const [newApplication] = await tx
+        .insert(jobApplications)
+        .values({
+          studentId: dto.studentId,
+          jobId: dto.jobId,
+          applicationType: dto.applicationType,
+          coverLetter: dto.coverLetter,
+          customAnswers: dto.customAnswers,
+          status:
+            dto.applicationType === ApplicationType.REFERRAL
+              ? "recommended"
+              : "submitted",
+          isUrgent: dto.isUrgent || false,
+        })
+        .returning();
 
-    this.logger.log(`Job application submitted: ${application.id}`);
+      this.logger.log(`Job application submitted: ${newApplication.id}`);
 
-    // Record status change history [记录状态变更历史]
-    await this.db.insert(applicationHistory).values({
-      applicationId: application.id,
-      previousStatus: null,
-      newStatus: "submitted",
-      changedBy: dto.studentId,
-      changeReason: "Initial submission",
+      // Record status change history [记录状态变更历史]
+      await tx.insert(applicationHistory).values({
+        applicationId: newApplication.id,
+        previousStatus: null,
+        newStatus: newApplication.status,
+        changedBy: dto.studentId,
+        changeReason: "Initial submission",
+      });
+
+      return newApplication;
     });
 
     // No longer updating application counts in recommended_jobs table [不再更新recommended_jobs表中的申请次数]
 
-    // Publish application status changed event [发布投递状态变更事件]
+    // Publish application status changed event AFTER transaction (在事务后发布投递状态变更事件) [在事务成功后发布事件]
+    // Event is published after transaction commits to ensure data consistency [事件在事务提交后发布以确保数据一致性]
     const eventPayload = {
       applicationId: application.id,
       previousStatus: null,
@@ -117,106 +126,16 @@ export class JobApplicationService implements IJobApplicationService {
   }
 
   /**
-   * Submit mentor screening [提交内推导师评估]
-   *
-   * @param dto - Mentor screening DTO [导师评估DTO]
-   * @returns Updated application and events [更新的申请和事件]
-   */
-  async submitMentorScreening(dto: any) {
-    this.logger.log(
-      `Submitting mentor screening: application=${dto.applicationId}, mentor=${dto.mentorId}`,
-    );
-
-    // Verify application exists and is mentor referral type [验证申请存在且为内推类型]
-    const [application] = await this.db
-      .select()
-      .from(jobApplications)
-      .where(eq(jobApplications.id, dto.applicationId));
-
-    if (!application) {
-      throw new NotFoundException(
-        `Application not found: ${dto.applicationId}`,
-      );
-    }
-
-    if (application.applicationType !== ApplicationType.REFERRAL) {
-      throw new Error(
-        "Mentor screening is only available for mentor referral applications",
-      );
-    }
-
-    if (application.status !== "mentor_assigned") {
-      throw new Error(
-        "Mentor screening can only be submitted for applications in mentor_assigned status",
-      );
-    }
-
-    // Save mentor screening result [保存导师评估结果]
-    const screeningResult = {
-      technicalSkills: dto.technicalSkills,
-      experienceMatch: dto.experienceMatch,
-      culturalFit: dto.culturalFit,
-      overallRecommendation: dto.overallRecommendation,
-      screeningNotes: dto.screeningNotes,
-    };
-
-    // Determine new status based on recommendation [根据推荐结果确定新状态]
-    const newStatus =
-      dto.overallRecommendation === "strongly_recommend" ||
-      dto.overallRecommendation === "recommend"
-        ? "submitted"
-        : "rejected";
-
-    const [updatedApplication] = await this.db
-      .update(jobApplications)
-      .set({
-        mentorScreening: screeningResult,
-        status: newStatus,
-      })
-      .where(eq(jobApplications.id, dto.applicationId))
-      .returning();
-
-    // Record status change history [记录状态变更历史]
-    await (this.db.insert(applicationHistory).values as any)({
-      applicationId: dto.applicationId,
-      previousStatus: "mentor_assigned",
-      newStatus: newStatus,
-      changedBy: dto.mentorId,
-      changeReason: `Mentor screening ${newStatus === "submitted" ? "passed" : "failed"}`,
-      changeMetadata: screeningResult,
-    });
-
-    this.logger.log(
-      `Mentor screening submitted: ${dto.applicationId}, new status: ${newStatus}`,
-    );
-
-    // Build job application status changed event [构建投递状态变更事件]
-    const event = {
-      applicationId: dto.applicationId,
-      previousStatus: "mentor_assigned",
-      newStatus: newStatus,
-      changedBy: dto.mentorId,
-      changedAt: new Date().toISOString(),
-    };
-
-    // Publish job application status changed event [发布投递状态变更事件]
-    this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, event);
-
-    return {
-      data: updatedApplication,
-      event: { type: JOB_APPLICATION_STATUS_CHANGED_EVENT, payload: event },
-    };
-  }
-
-  /**
    * Update application status [更新投递状态]
+   * - Wraps all operations in a transaction to ensure atomicity [将所有操作包裹在事务中以确保原子性]
+   * - Updates status, records history, and publishes event [更新状态、记录历史并发布事件]
    *
    * @param dto - Update status DTO [更新状态DTO]
    * @returns Updated application and events [更新的申请和事件]
    */
   async updateApplicationStatus(
     dto: IUpdateApplicationStatusDto,
-  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>> {
+  ): Promise<IServiceResult<Record<string, unknown>, Record<string, unknown>>> {
     this.logger.log(
       `Updating application status: ${dto.applicationId} -> ${dto.newStatus}`,
     );
@@ -244,31 +163,39 @@ export class JobApplicationService implements IJobApplicationService {
       );
     }
 
-    // Update application status [更新申请状态]
-    const resultStatuses: ApplicationStatus[] = ["rejected"];
-    const [updatedApplication] = await this.db
-      .update(jobApplications)
-      .set({
-        status: dto.newStatus as any,
-        result: this.getResultFromStatus(dto.newStatus) as any,
-        resultDate: resultStatuses.includes(dto.newStatus) ? new Date() : null,
-      } as any)
-      .where(eq(jobApplications.id, dto.applicationId))
-      .returning();
+    // Wrap all operations in a transaction to ensure atomicity [将所有操作包裹在事务中以确保原子性]
+    const updatedApplication = await this.db.transaction(async (tx) => {
+      // Update application status [更新申请状态]
+      const [app] = await tx
+        .update(jobApplications)
+        .set({
+          status: dto.newStatus,
+          result: this.getResultFromStatus(dto.newStatus),
+          // [新增] Record mentor assignment for referral applications [记录推荐申请的导师分配]
+          assignedMentorId: dto.mentorId || null,
+          // [新增] Update update timestamp [更新时间戳]
+          updatedAt: new Date(),
+        })
+        .where(eq(jobApplications.id, dto.applicationId))
+        .returning();
 
-    // Record status change history [记录状态变更历史]
-    await (this.db.insert(applicationHistory).values as any)({
-      applicationId: dto.applicationId,
-      previousStatus,
-      newStatus: dto.newStatus as any,
-      changedBy: dto.changedBy,
-      changeReason: dto.changeReason,
-      changeMetadata: dto.changeMetadata,
+      // Record status change history [记录状态变更历史]
+      await tx.insert(applicationHistory).values({
+        applicationId: dto.applicationId,
+        previousStatus,
+        newStatus: dto.newStatus,
+        changedBy: dto.changedBy,
+        changeReason: dto.changeReason,
+        changeMetadata: dto.changeMetadata,
+      });
+
+      return app;
     });
 
     this.logger.log(`Application status updated: ${dto.applicationId}`);
 
-    // Publish status changed event [发布状态变更事件]
+    // Publish status changed event AFTER transaction (在事务后发布状态变更事件) [在事务成功后发布事件]
+    // Event is published after transaction commits to ensure data consistency [事件在事务提交后发布以确保数据一致性]
     const eventPayload = {
       applicationId: updatedApplication.id,
       previousStatus: previousStatus,
@@ -276,6 +203,8 @@ export class JobApplicationService implements IJobApplicationService {
       changedBy: dto.changedBy,
       changedAt: new Date().toISOString(),
       changeMetadata: dto.changeMetadata,
+      // [新增] Include mentor assignment in event payload [在事件payload中包含导师分配]
+      ...(dto.mentorId && { assignedMentorId: dto.mentorId }),
     };
     this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
 
@@ -301,7 +230,7 @@ export class JobApplicationService implements IJobApplicationService {
     pagination?: IPaginationQuery,
     sort?: ISortQuery,
   ): Promise<{
-    items: Record<string, any>[];
+    items: Record<string, unknown>[];
     total: number;
     offset: number;
     limit: number;
@@ -323,12 +252,19 @@ export class JobApplicationService implements IJobApplicationService {
       }
 
       if (filter.status) {
-        conditions.push(eq(jobApplications.status, filter.status as any));
+        conditions.push(eq(jobApplications.status, filter.status));
       }
 
       if (filter.applicationType) {
         conditions.push(
-          eq(jobApplications.applicationType, filter.applicationType as any),
+          eq(jobApplications.applicationType, filter.applicationType),
+        );
+      }
+
+      // [新增] Filter by assigned mentor [按分配的导师筛选]
+      if (filter.assignedMentorId) {
+        conditions.push(
+          eq(jobApplications.assignedMentorId, filter.assignedMentorId),
         );
       }
     }
@@ -347,9 +283,9 @@ export class JobApplicationService implements IJobApplicationService {
       .orderBy(
         sort?.field
           ? sort.direction === "asc"
-            ? (jobApplications as any)[sort.field]
-            : sql`${(jobApplications as any)[sort.field]} DESC`
-          : sql`${jobApplications.submittedAt} DESC`,
+            ? sql`${jobApplications[sort.field as keyof typeof jobApplications]} ASC`
+            : sql`${jobApplications[sort.field as keyof typeof jobApplications]} DESC`
+          : sql`${jobApplications.submittedAt} DESC`
       )
       .limit(limit)
       .offset(offset);
@@ -382,8 +318,8 @@ export class JobApplicationService implements IJobApplicationService {
     jobId?: string;
     status?: string;
     applicationType?: ApplicationType;
-    [key: string]: any;
-  }) {
+    [key: string]: unknown;
+  }): Promise<Record<string, unknown>> {
     // Build conditions based on provided params
     const conditions = [];
 
@@ -399,7 +335,7 @@ export class JobApplicationService implements IJobApplicationService {
     }
     if (params.status) {
       // Use type assertion for enum column to avoid TypeScript error
-      conditions.push(eq(jobApplications.status, params.status as any));
+      conditions.push(eq(jobApplications.status, params.status as ApplicationStatus));
     }
     if (params.applicationType) {
       // Use enum type directly without type assertion
@@ -429,7 +365,9 @@ export class JobApplicationService implements IJobApplicationService {
    * @param applicationId - Application ID [申请ID]
    * @returns Status history [状态历史]
    */
-  async getStatusHistory(applicationId: string) {
+  async getStatusHistory(
+    applicationId: string,
+  ): Promise<Array<Record<string, unknown>>> {
     return this.db
       .select()
       .from(applicationHistory)
@@ -470,37 +408,37 @@ export class JobApplicationService implements IJobApplicationService {
    */
   private getResultFromStatus(status: ApplicationStatus): "rejected" | null {
     const resultStatuses: ApplicationStatus[] = ["rejected"];
-    return resultStatuses.includes(status) ? (status as any) : null;
+    return resultStatuses.includes(status) ? (status as "rejected") : null;
   }
 
   /**
    * Rollback application status to previous state [回撤申请状态到上一个状态]
+   * - Wraps all operations in a transaction to ensure atomicity [将所有操作包裹在事务中以确保原子性]
+   * - Rolls back status, records history, and publishes event [回滚状态、记录历史并发布事件]
    *
-   * @param applicationId - Application ID [申请ID]
-   * @param changedBy - User ID who initiated the rollback [发起回撤的用户ID]
+   * @param dto - Rollback application status DTO [回撤状态DTO]
    * @returns Updated application and events [更新后的申请和事件]
    */
   async rollbackApplicationStatus(
-    applicationId: string,
-    changedBy: string,
-  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>> {
-    this.logger.log(`Rolling back status for application: ${applicationId}`);
+    dto: IRollbackApplicationStatusDto,
+  ): Promise<IServiceResult<Record<string, unknown>, Record<string, unknown>>> {
+    this.logger.log(`Rolling back status for application: ${dto.applicationId}`);
 
     // Get current application [获取当前申请]
     const [application] = await this.db
       .select()
       .from(jobApplications)
-      .where(eq(jobApplications.id, applicationId));
+      .where(eq(jobApplications.id, dto.applicationId));
 
     if (!application) {
-      throw new NotFoundException(`Application not found: ${applicationId}`);
+      throw new NotFoundException(`Application not found: ${dto.applicationId}`);
     }
 
     // Get status history [获取状态历史]
     const statusHistory = await this.db
       .select()
       .from(applicationHistory)
-      .where(eq(applicationHistory.applicationId, applicationId))
+      .where(eq(applicationHistory.applicationId, dto.applicationId))
       .orderBy(applicationHistory.changedAt);
 
     if (statusHistory.length < 2) {
@@ -523,39 +461,49 @@ export class JobApplicationService implements IJobApplicationService {
       );
     }
 
-    // Update application status [更新申请状态]
-    const resultStatuses: ApplicationStatus[] = ["rejected"];
-    const [updatedApplication] = await this.db
-      .update(jobApplications)
-      .set({
-        status: previousStatus,
-        result: this.getResultFromStatus(previousStatus) as any,
-        resultDate: resultStatuses.includes(previousStatus) ? new Date() : null,
-      } as any)
-      .where(eq(jobApplications.id, applicationId))
-      .returning();
+    // Wrap all operations in a transaction to ensure atomicity [将所有操作包裹在事务中以确保原子性]
+    const updatedApplication = await this.db.transaction(async (tx) => {
+      // Update application status [更新申请状态]
+      const [app] = await tx
+        .update(jobApplications)
+        .set({
+          status: previousStatus,
+          result: this.getResultFromStatus(previousStatus),
+          // [新增] Record mentor assignment for referral applications [记录推荐申请的导师分配]
+          assignedMentorId: dto.mentorId || null,
+          // [新增] Update update timestamp [更新时间戳]
+          updatedAt: new Date(),
+        })
+        .where(eq(jobApplications.id, dto.applicationId))
+        .returning();
 
-    // Record status change history [记录状态变更历史]
-    await (this.db.insert(applicationHistory).values as any)({
-      applicationId: applicationId,
-      previousStatus: currentStatus,
-      newStatus: previousStatus,
-      changedBy: changedBy,
-      changeReason: "Status rolled back",
+      // Record status change history [记录状态变更历史]
+      await tx.insert(applicationHistory).values({
+        applicationId: dto.applicationId,
+        previousStatus: currentStatus,
+        newStatus: previousStatus,
+        changedBy: dto.changedBy,
+        changeReason: "Status rolled back",
+      } as typeof applicationHistory.$inferInsert);
+
+      return app;
     });
 
     this.logger.log(
-      `Application status rolled back: ${applicationId} from ${currentStatus} to ${previousStatus}`,
+      `Application status rolled back: ${dto.applicationId} from ${currentStatus} to ${previousStatus}`,
     );
 
-    // Publish status rolled back event [发布状态回撤事件]
+    // Publish status rolled back event AFTER transaction (在事务后发布状态回撤事件) [在事务成功后发布事件]
+    // Event is published after transaction commits to ensure data consistency [事件在事务提交后发布以确保数据一致性]
     const eventPayload = {
       applicationId: updatedApplication.id,
       previousStatus: currentStatus,
       newStatus: previousStatus,
-      changedBy: changedBy,
+      changedBy: dto.changedBy,
       changedAt: new Date().toISOString(),
       rollbackReason: "Status rolled back",
+      // [新增] Include mentor assignment in event payload [在事件payload中包含导师分配]
+      ...(dto.mentorId && { assignedMentorId: dto.mentorId }),
     };
     this.eventEmitter.emit(JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT, eventPayload);
 

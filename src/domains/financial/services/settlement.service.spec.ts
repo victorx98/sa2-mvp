@@ -2,7 +2,7 @@ import { Test } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { SettlementService } from "./settlement.service";
-import type { CreateSettlementRequest } from "../dto/settlement";
+import type { ICreateSettlementRequest } from "../dto/settlement";
 
 /**
  * SettlementService Unit Tests (结算服务单元测试)
@@ -20,8 +20,6 @@ describe("SettlementService", () => {
   const testMentorId = "4903b94b-67cc-42a1-9b3e-91ebc51bcefc";
   // 真实的 student ID (from student table)
   const testStudentId = "9729ec8c-ce51-43f0-85de-3b1bc410952d";
-  // 真实的 service type ID (from service_types table)
-  const testServiceTypeId = "c55caac0-04e6-4497-a530-01bb1b4fd12e";
   const testSessionTypeCode = "Internal";
   const testSettlementMonth = "2024-01";
 
@@ -57,12 +55,17 @@ describe("SettlementService", () => {
         where: jest.fn().mockReturnThis(),
         returning: jest.fn().mockResolvedValue([]),
       }),
+      // Add execute method mock for raw SQL queries
+      execute: jest.fn().mockResolvedValue({
+        rows: [],
+      }),
       // [修复] Add transaction mock method [添加 transaction mock 方法]
       transaction: jest.fn(async (callback) => {
         // Create a mock transaction object that includes all query methods
         const mockTx = {
           ...mockDb,
           query: mockDb.query,
+          execute: mockDb.execute,
         };
         return await callback(mockTx);
       }),
@@ -95,7 +98,7 @@ describe("SettlementService", () => {
   });
 
   describe("generateSettlement", () => {
-    const mockRequest: CreateSettlementRequest = {
+    const mockRequest: ICreateSettlementRequest = {
       mentorId: testMentorId,
       settlementMonth: testSettlementMonth,
       exchangeRate: 7.2,
@@ -162,7 +165,7 @@ describe("SettlementService", () => {
 
     beforeEach(() => {
       mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(mockPaymentInfo);
-      mockDb.query.mentorPayableLedgers.findMany.mockResolvedValue(mockPayableLedgers);
+      mockDb.execute.mockResolvedValue({ rows: mockPayableLedgers });
       mockDb.insert().returning.mockResolvedValue([mockSettlement]);
     });
 
@@ -172,9 +175,7 @@ describe("SettlementService", () => {
       expect(mockDb.query.mentorPaymentInfos.findFirst).toHaveBeenCalledWith({
         where: expect.any(Object),
       });
-      expect(mockDb.query.mentorPayableLedgers.findMany).toHaveBeenCalledWith({
-        where: expect.any(Object),
-      });
+      expect(mockDb.execute).toHaveBeenCalled();
       expect(mockDb.insert).toHaveBeenCalled();
       expect(mockEventEmitter.emit).toHaveBeenCalledWith(
         "financial.settlement.confirmed",
@@ -258,7 +259,7 @@ describe("SettlementService", () => {
     });
 
     it("should fail if no payable ledgers exist", async () => {
-      mockDb.query.mentorPayableLedgers.findMany.mockResolvedValue([]);
+      mockDb.execute.mockResolvedValue({ rows: [] });
 
       await expect(
         settlementService.generateSettlement(mockRequest, testMentorId),

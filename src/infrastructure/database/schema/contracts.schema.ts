@@ -42,7 +42,12 @@ export const contracts = pgTable("contracts", {
     price: string;
     currency: string;
     validityDays?: number;
-    items: any[]; // Product items with expanded services
+    items: Array<{
+      productItemId: string;
+      serviceTypeCode: string;
+      quantity: number;
+      sortOrder: number;
+    }>; // Product items with expanded services
     snapshotAt: Date;
   }>(),
 
@@ -61,10 +66,8 @@ export const contracts = pgTable("contracts", {
     .$type<Currency>(),
 
   // Validity period
-  validityDays: integer("validity_days"), // Validity period in days (null = permanent)
   signedAt: timestamp("signed_at", { withTimezone: true }).notNull(), // Contract signing time
   activatedAt: timestamp("activated_at", { withTimezone: true }), // Contract activation time
-  expiresAt: timestamp("expires_at", { withTimezone: true }), // Expiration time (null = permanent)
 
   // Contract lifecycle timestamps
   suspendedAt: timestamp("suspended_at", { withTimezone: true }), // Last suspension time

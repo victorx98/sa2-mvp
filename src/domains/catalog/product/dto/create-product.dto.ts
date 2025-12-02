@@ -77,7 +77,7 @@ export class CreateProductDto {
   // Target users
   @IsOptional()
   @IsArray()
-  @IsEnum(UserPersona)
+  @IsEnum(UserPersona, { each: true })
   targetUserPersonas?: UserPersona[];
 
   // Pricing information

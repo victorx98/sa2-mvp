@@ -25,7 +25,8 @@ export const products = pgTable("products", {
   coverImage: varchar("cover_image", { length: 500 }),
 
   // Sales Attributes [销售属性]
-  price: numeric("price", { precision: 12, scale: 1 }).notNull(),
+  // [修复] Changed scale from 1 to 2 to support cent-level precision [将scale从1改为2以支持分位精度]
+  price: numeric("price", { precision: 12, scale: 2 }).notNull(),
   currency: varchar("currency", { length: 3 }).notNull().default("CNY"),
   targetUserPersona: json("target_user_persona").$type<string[]>(), // Target user personas [目标用户画像]
   marketingLabels: json("marketing_labels").$type<string[]>(), // Marketing labels [营销标签]
