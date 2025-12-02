@@ -26,7 +26,7 @@ import { plainToInstance } from "class-transformer";
 export class CounselorsController {
   constructor(private readonly counselorListQuery: CounselorListQuery) {}
 
-  @Get("/find")
+  @Get()
   @ApiOperation({ summary: "find counselor" })
   @ApiQuery({
     name: "text",

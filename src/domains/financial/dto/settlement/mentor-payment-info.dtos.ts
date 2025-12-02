@@ -5,7 +5,7 @@ import { SettlementMethod } from "./settlement.enums";
  * Request payload for creating or updating mentor payment information
  * (创建或更新导师支付信息的请求载荷)
  */
-export interface CreateOrUpdateMentorPaymentInfoRequest {
+export interface ICreateOrUpdateMentorPaymentInfoRequest {
   /**
    * Mentor ID (导师ID)
    */
@@ -34,7 +34,7 @@ export interface CreateOrUpdateMentorPaymentInfoRequest {
    * - Check: { payee, address }
    * (JSON对象，根据支付方式存储不同的详情)
    */
-  paymentDetails: Record<string, any>;
+  paymentDetails: Record<string, unknown>;
 }
 
 /**
@@ -42,7 +42,7 @@ export interface CreateOrUpdateMentorPaymentInfoRequest {
  * Response payload for mentor payment information queries
  * (导师支付信息查询的响应载荷)
  */
-export interface MentorPaymentInfoResponse {
+export interface IMentorPaymentInfoResponse {
   /**
    * Payment Info ID (支付信息ID)
    */
@@ -70,7 +70,7 @@ export interface MentorPaymentInfoResponse {
    * JSON object containing payment-specific details
    * (JSON对象，包含特定于支付方式的详情)
    */
-  paymentDetails: Record<string, any>;
+  paymentDetails: Record<string, unknown>;
 
   /**
    * Status (状态)

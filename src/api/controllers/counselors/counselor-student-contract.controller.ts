@@ -1,5 +1,5 @@
-import { Controller, Get, Query, UseGuards } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiOkResponse, ApiBearerAuth, ApiQuery } from "@nestjs/swagger";
+import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
+import { ApiTags, ApiOperation, ApiOkResponse, ApiBearerAuth, ApiQuery, ApiParam } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
 import { Roles } from "@shared/decorators/roles.decorator";
@@ -24,7 +24,7 @@ import { plainToInstance } from "class-transformer";
  * ❌ 不进行数据转换（由 Application Layer 负责）
  */
 @ApiTags("Counselor Portal")
-@Controller(`${ApiPrefix}/student/contract`)
+@Controller(`${ApiPrefix}/students/:studentId/contracts`)
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles("counselor")
 @ApiBearerAuth()
@@ -34,9 +34,9 @@ export class CounselorStudentContractController {
     private readonly serviceBalanceQuery: ServiceBalanceQuery,
   ) {}
 
-  @Get("getServiceBalance")
+  @Get()
   @ApiOperation({ summary: "Get service balance for a student" })
-  @ApiQuery({
+  @ApiParam({
     name: "studentId",
     required: true,
     description: "Student ID",
@@ -54,11 +54,12 @@ export class CounselorStudentContractController {
     isArray: true,
   })
   async getServiceBalance(
-    @Query() query: GetServiceBalanceDto,
+    @Param("studentId") studentId: string,
+    @Query("serviceType") serviceType?: string,
   ): Promise<ServiceBalanceResponseDto[]> {
     const items = await this.serviceBalanceQuery.getServiceBalance(
-      query.studentId,
-      query.serviceType,
+      studentId,
+      serviceType,
     );
     return plainToInstance(ServiceBalanceResponseDto, items, {
       enableImplicitConversion: false,

@@ -226,162 +226,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
     });
   });
 
-  describe("submitMentorScreening() [提交内推导师评估]", () => {
-    it("should submit mentor screening successfully [应该成功提交内推导师评估]", async () => {
-      // Arrange [准备]
-      const dto = {
-        applicationId: testApplicationId,
-        mentorId: testMentorId,
-        technicalSkills: 4,
-        experienceMatch: 3,
-        culturalFit: 5,
-        overallRecommendation: "recommend",
-        screeningNotes: "Good candidate",
-      };
-
-      const mockApplication = {
-        id: testApplicationId,
-        studentId: testStudentId,
-        jobId: testJobId,
-        applicationType: ApplicationType.REFERRAL,
-        status: "mentor_assigned",
-      };
-
-      const updatedApplication = {
-        ...mockApplication,
-        mentorScreening: {
-          technicalSkills: dto.technicalSkills,
-          experienceMatch: dto.experienceMatch,
-          culturalFit: dto.culturalFit,
-          overallRecommendation: dto.overallRecommendation,
-          screeningNotes: dto.screeningNotes,
-        },
-      };
-
-      mockDb.select = jest.fn(() => ({
-        from: jest.fn(() => ({
-          where: jest.fn(() => {
-            return Promise.resolve([mockApplication]);
-          }),
-        })),
-      }));
-
-      mockDb.update = jest.fn(() => ({
-        set: jest.fn(() => ({
-          where: jest.fn(() => ({
-            returning: jest.fn().mockResolvedValue([updatedApplication]),
-          })),
-        })),
-      }));
-
-      // Act [执行]
-      const result = await jobApplicationService.submitMentorScreening(dto);
-
-      // Assert [断言]
-      expect(result.data).toEqual(updatedApplication);
-      expect(result.event).toBeDefined();
-      expect(result.event?.type).toBe("placement.application.status_changed");
-      expect(mockDb.update).toHaveBeenCalled();
-    });
-
-    it("should throw NotFoundException if application not found [如果申请未找到应该抛出NotFoundException]", async () => {
-      // Arrange [准备]
-      const dto = {
-        applicationId: testApplicationId,
-        mentorId: testMentorId,
-        technicalSkills: 4,
-        experienceMatch: 3,
-        culturalFit: 5,
-        overallRecommendation: "recommend",
-        screeningNotes: "Good candidate",
-      };
-
-      // Mock no application found
-      mockDb.select = jest.fn(() => ({
-        from: jest.fn(() => ({
-          where: jest.fn(() => {
-            return Promise.resolve([]);
-          }),
-        })),
-      }));
-
-      // Act & Assert [执行和断言]
-      await expect(
-        jobApplicationService.submitMentorScreening(dto),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it("should throw error if application is not mentor referral type [如果申请不是内推类型应该抛出错误]", async () => {
-      // Arrange [准备]
-      const dto = {
-        applicationId: testApplicationId,
-        mentorId: testMentorId,
-        technicalSkills: 4,
-        experienceMatch: 3,
-        culturalFit: 5,
-        overallRecommendation: "recommend",
-        screeningNotes: "Good candidate",
-      };
-
-      const mockApplication = {
-        id: testApplicationId,
-        studentId: testStudentId,
-        jobId: testJobId,
-        applicationType: "direct",
-        status: "submitted",
-      };
-
-      mockDb.select = jest.fn(() => ({
-        from: jest.fn(() => ({
-          where: jest.fn(() => {
-            return Promise.resolve([mockApplication]);
-          }),
-        })),
-      }));
-
-      // Act & Assert [执行和断言]
-      await expect(
-        jobApplicationService.submitMentorScreening(dto),
-      ).rejects.toThrow(/only available for mentor referral/);
-    });
-
-    it("should throw error if application is not in submitted status [如果申请不是提交状态应该抛出错误]", async () => {
-      // Arrange [准备]
-      const dto = {
-        applicationId: testApplicationId,
-        mentorId: testMentorId,
-        technicalSkills: 4,
-        experienceMatch: 3,
-        culturalFit: 5,
-        overallRecommendation: "recommend",
-        screeningNotes: "Good candidate",
-      };
-
-      const mockApplication = {
-        id: testApplicationId,
-        studentId: testStudentId,
-        jobId: testJobId,
-        applicationType: ApplicationType.REFERRAL,
-        status: "interviewed",
-      };
-
-      mockDb.select = jest.fn(() => ({
-        from: jest.fn(() => ({
-          where: jest.fn(() => {
-            return Promise.resolve([mockApplication]);
-          }),
-        })),
-      }));
-
-      // Act & Assert [执行和断言]
-      await expect(
-        jobApplicationService.submitMentorScreening(dto),
-      ).rejects.toThrow(
-        /only be submitted for applications in mentor_assigned status/,
-      );
-    });
-  });
-
   describe("updateApplicationStatus() [更新投递状态]", () => {
     it("should update application status successfully [应该成功更新投递状态]", async () => {
       // Arrange [准备]
@@ -943,10 +787,10 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }));
 
       // Act [执行]
-      const result = await jobApplicationService.rollbackApplicationStatus(
-        testApplicationId,
-        testStudentId,
-      );
+      const result = await jobApplicationService.rollbackApplicationStatus({
+        applicationId: testApplicationId,
+        changedBy: testStudentId,
+      });
 
       // Assert [断言]
       expect(result.data).toEqual(updatedApplication);
@@ -971,10 +815,10 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
       // Act & Assert [执行和断言]
       await expect(
-        jobApplicationService.rollbackApplicationStatus(
-          testApplicationId,
-          testStudentId,
-        ),
+        jobApplicationService.rollbackApplicationStatus({
+          applicationId: testApplicationId,
+          changedBy: testStudentId,
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -1022,10 +866,10 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
       // Act & Assert [执行和断言]
       await expect(
-        jobApplicationService.rollbackApplicationStatus(
-          testApplicationId,
-          testStudentId,
-        ),
+        jobApplicationService.rollbackApplicationStatus({
+          applicationId: testApplicationId,
+          changedBy: testStudentId,
+        }),
       ).rejects.toThrow(BadRequestException);
     });
   });

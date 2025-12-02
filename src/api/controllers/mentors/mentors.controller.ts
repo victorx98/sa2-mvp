@@ -13,7 +13,7 @@ import { plainToInstance } from "class-transformer";
 export class MentorsController {
   constructor(private readonly mentorListQuery: MentorListQuery) {}
 
-  @Get("/find")
+  @Get()
   @ApiOperation({ summary: "find mentor" })
   @ApiQuery({
     name: "text",

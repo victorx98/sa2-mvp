@@ -36,6 +36,20 @@ The architecture is composed of four primary layers. This document focuses on th
     src/api/controllers/{role}/{resource}.controller.ts
     // e.g., src/api/controllers/student/sessions.controller.ts
     ```
+- **URL Rules**:
+    - **资源使用名词复数**：使用复数形式命名资源，例如 `/sessions`, `/students`。
+    - **子资源嵌套**：使用路径参数表示资源关系，例如 `/students/{id}/session`。
+    - **使用 HTTP 方法决定动作**：
+        - `GET`：查询资源
+        - `POST`：创建资源
+        - `PUT`：更新资源
+        - `DELETE`：删除资源
+    - **查询使用 Query Params**：
+        - 使用查询参数进行过滤和分页，例如 `/mentors?studentId=111`
+        - 支持分页、排序等参数，例如 `/counselors?page=1&limit=20&sort=createdAt&order=desc`
+    - **特殊动作用 POST + action**：
+        - 示例：`/{resource}/{action}`, 如 `/sessions/book`
+    - **统一错误格式与状态码**：所有 API 响应使用统一的错误格式和 HTTP 状态码。
 
 ### 2.2. Application Layer
 
@@ -79,7 +93,7 @@ The architecture is composed of four primary layers. This document focuses on th
     - 包含核心业务规则和模型（聚合根、实体、值对象）。
     - 确保领域不变性（Domain Invariants）得到维护。
     - 领域被划分为独立的业务域（例如：`identity`, `contract`, `catalog` 等）。
-    - 引入 **Query Domain**：一个特殊的领域，专注于提供跨业务域的统一查询能力，可以直接 join 各域表进行高效查询，构建 Read Model。
+    - 引入 **Query Domain**：一个特殊的领域，专注于提供跨domain业务域的统一查询能力，可以直接 join 各域表进行高效查询，构建 Read Model。
 
 
 ---

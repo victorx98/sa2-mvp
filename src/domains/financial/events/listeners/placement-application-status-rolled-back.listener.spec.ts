@@ -1,5 +1,4 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { Logger } from "@nestjs/common";
 import { PlacementApplicationStatusRolledBackListener } from "./placement-application-status-rolled-back.listener";
 import { MentorPayableService } from "@domains/financial/services/mentor-payable.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";

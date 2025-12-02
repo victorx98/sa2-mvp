@@ -30,7 +30,7 @@ import { StudentProfileQuery } from "@application/queries/student/student-profil
  * ❌ 不包含业务逻辑
  */
 @ApiTags("Student Profile")
-@Controller(`${ApiPrefix}/student/profile`)
+@Controller(`${ApiPrefix}/students/profile`)
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles("student")
 @ApiBearerAuth()

@@ -14,7 +14,6 @@ export interface IProductSnapshot {
   productCode: string;
   price: string; // Stored as string to maintain precision
   currency: Currency; // e.g., 'USD', 'CNY'
-  validityDays?: number; // null = permanent validity
   items: IProductItemSnapshot[]; // Expanded product items with services
   snapshotAt: Date; // When snapshot was taken
 }
@@ -24,7 +23,7 @@ export interface IProductSnapshot {
  */
 export interface IProductItemSnapshot {
   productItemId: string;
-  serviceTypeId: string; // service type id
+  serviceTypeCode: string; // service type code
   quantity: number; // Quantity in product
   sortOrder: number;
 }

@@ -9,7 +9,6 @@ import {
   jsonb,
   integer,
   boolean,
-  date,
   pgEnum,
   uniqueIndex,
   index,
@@ -114,13 +113,12 @@ export const jobApplications = pgTable(
     // Status management [状态管理]
     status: applicationStatusEnum("status").notNull().default("submitted"), // Application status [申请状态]
 
-    // Mentor screening information (only for mentor referral type) [内推导师评估信息]
-    mentorScreening: jsonb("mentor_screening"), // Mentor screening information [导师评估信息]
+    // Assigned mentor for referral applications [推荐申请分配的导师ID]
+    assignedMentorId: varchar("assigned_mentor_id", { length: 36 }), // Assigned mentor ID for referral applications [内推申请分配的导师ID]
 
     // Result records [结果记录]
     result: resultEnum("result"), // Application result [申请结果]
     resultReason: text("result_reason"), // Result reason [结果原因]
-    resultDate: date("result_date"), // Result date [结果日期]
 
     // Timestamps [时间戳]
     submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(), // Submission time [提交时间]
@@ -140,6 +138,7 @@ export const jobApplications = pgTable(
     index("idx_job_applications_status").on(table.status),
     index("idx_job_applications_type").on(table.applicationType),
     index("idx_job_applications_submitted").on(table.submittedAt),
+    index("idx_job_applications_assigned_mentor").on(table.assignedMentorId), // Index for mentor queries [导师查询索引]
   ],
 );
 
@@ -182,6 +181,6 @@ export const applicationHistory = pgTable(
  * Creates a partial index for the specified table and column with a WHERE clause
  * [为指定表和列创建带WHERE条件的部分索引]
  */
-function _partialIndex(indexName: string, column: any, value: string) {
+function _partialIndex<T extends { name: string }>(indexName: string, column: T, value: string) {
   return index(indexName).on(column).where(sql`${column} = ${value}`);
 }

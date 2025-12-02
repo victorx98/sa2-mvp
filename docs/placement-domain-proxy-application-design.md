@@ -67,6 +67,8 @@ flowchart TD
 4. 面试后，状态可能变为 `got_offer` 或 `rejected`
 5. 最终状态 `got_offer` 或 `rejected` 表示申请流程结束
 
+**注意**：从 v2.0 开始，代投申请的初始状态为 `submitted`，与内推申请（`recommended`）区分开来，更符合业务语义（代投是已提交状态，内推是已推荐状态）。
+
 #### 3.2.3 状态变更流程
 1. 状态变更需要通过 `updateApplicationStatus` 方法
 2. 系统验证状态转换是否符合规则
@@ -299,7 +301,7 @@ Content-Type: application/json
     "studentId": "student-123",
     "jobId": "job-456",
     "applicationType": "counselor",
-    "status": "recommended",
+    "status": "submitted",
     "createdAt": "2023-01-01T00:00:00Z"
   }
 }
@@ -450,3 +452,24 @@ Content-Type: application/json
 ## 14. 结论
 
 代投功能是Placement Domain的重要组成部分，为学生和顾问提供了高效的求职申请管理能力。通过严格的业务规则和状态管理，确保了数据的一致性和业务流程的正确性。该设计文档详细描述了代投功能的业务流程、系统架构、核心服务接口和数据模型，为开发和维护提供了清晰的指导。
+
+---
+
+## 附录：版本历史
+
+### v2.0 (2025-12-02)
+**主要变更：**
+- ✅ **修正初始状态**：代投申请的初始状态从 `recommended` 修正为 `submitted`
+  - 更符合业务语义：代投是直接提交，内推是推荐
+  - 与代码实现保持一致（`ApplicationType.PROXY` 初始状态为 `submitted`）
+- ✅ **文档同步**：更新设计文档以反映实际代码实现
+
+**影响范围：**
+- 代投申请提交后的初始状态
+- API 响应中的 `status` 字段值
+
+**验证：**
+- 代码实现：`submitApplication` 方法中，非 `REFERRAL` 类型初始状态为 `submitted`
+- 测试验证：代投申请创建后状态为 `submitted`，而非 `recommended`
+
+---

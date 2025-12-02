@@ -1,9 +1,7 @@
 import { Test } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import { MentorPaymentParamService } from "./mentor-payment-param.service";
-import type { PaymentParamUpdate } from "../dto/settlement";
-import type { DrizzleDatabase } from "@shared/types/database.types";
-import { eq, and } from "drizzle-orm";
+import type { IPaymentParamUpdate } from "../dto/settlement";
 
 /**
  * MentorPaymentParamService Unit Tests (导师支付参数服务单元测试)
@@ -54,7 +52,7 @@ describe("MentorPaymentParamService", () => {
   });
 
   describe("updateOrCreateDefaultParams", () => {
-    const mockParams: PaymentParamUpdate = {
+    const mockParams: IPaymentParamUpdate = {
       defaultExchangeRate: 7.2,
       defaultDeductionRate: 0.05,
     };
@@ -400,7 +398,7 @@ describe("MentorPaymentParamService", () => {
 
   describe("validateParams", () => {
     it("should return true for valid parameters", () => {
-      const params: PaymentParamUpdate = {
+      const params: IPaymentParamUpdate = {
         defaultExchangeRate: 7.2,
         defaultDeductionRate: 0.05,
       };
@@ -413,7 +411,7 @@ describe("MentorPaymentParamService", () => {
     it("should return false if exchange rate is missing", () => {
       const params = {
         defaultDeductionRate: 0.05,
-      } as PaymentParamUpdate;
+      } as IPaymentParamUpdate;
 
       const result = paymentParamService.validateParams(params);
 
@@ -432,7 +430,7 @@ describe("MentorPaymentParamService", () => {
     });
 
     it("should return false if exchange rate is 0", () => {
-      const params: PaymentParamUpdate = {
+      const params: IPaymentParamUpdate = {
         defaultExchangeRate: 0,
         defaultDeductionRate: 0.05,
       };
@@ -443,7 +441,7 @@ describe("MentorPaymentParamService", () => {
     });
 
     it("should return false if exchange rate is negative", () => {
-      const params: PaymentParamUpdate = {
+      const params: IPaymentParamUpdate = {
         defaultExchangeRate: -1,
         defaultDeductionRate: 0.05,
       };
@@ -456,7 +454,7 @@ describe("MentorPaymentParamService", () => {
     it("should return false if deduction rate is missing", () => {
       const params = {
         defaultExchangeRate: 7.2,
-      } as PaymentParamUpdate;
+      } as IPaymentParamUpdate;
 
       const result = paymentParamService.validateParams(params);
 
@@ -475,7 +473,7 @@ describe("MentorPaymentParamService", () => {
     });
 
     it("should return false if deduction rate is negative", () => {
-      const params: PaymentParamUpdate = {
+      const params: IPaymentParamUpdate = {
         defaultExchangeRate: 7.2,
         defaultDeductionRate: -0.1,
       };
@@ -486,7 +484,7 @@ describe("MentorPaymentParamService", () => {
     });
 
     it("should return false if deduction rate is greater than 1", () => {
-      const params: PaymentParamUpdate = {
+      const params: IPaymentParamUpdate = {
         defaultExchangeRate: 7.2,
         defaultDeductionRate: 1.5,
       };
@@ -497,7 +495,7 @@ describe("MentorPaymentParamService", () => {
     });
 
     it("should return true for valid minimum values", () => {
-      const params: PaymentParamUpdate = {
+      const params: IPaymentParamUpdate = {
         defaultExchangeRate: 0.01,
         defaultDeductionRate: 0.0,
       };
@@ -508,7 +506,7 @@ describe("MentorPaymentParamService", () => {
     });
 
     it("should return true for valid maximum deduction rate", () => {
-      const params: PaymentParamUpdate = {
+      const params: IPaymentParamUpdate = {
         defaultExchangeRate: 1.0,
         defaultDeductionRate: 1.0,
       };

@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.0",
   "paths": {
-    "/webhooks/feishu": {
+    "/webhooks/feishuWebHookHandler": {
       "post": {
         "operationId": "WebhookGatewayController_handleFeishuWebhook",
         "parameters": [],
@@ -15,7 +15,7 @@
         ]
       }
     },
-    "/webhooks/zoom": {
+    "/webhooks/zoomWebHookHandler": {
       "post": {
         "operationId": "WebhookGatewayController_handleZoomWebhook",
         "parameters": [],
@@ -408,6 +408,46 @@
         ]
       }
     },
+    "/api/counselors/find": {
+      "get": {
+        "operationId": "CounselorsController_findCounselors",
+        "parameters": [
+          {
+            "name": "text",
+            "required": false,
+            "in": "query",
+            "description": "Search keyword to filter counselors (searches in email, English name, and Chinese name)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Counselor results retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CounselorSummaryResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "find counselor",
+        "tags": [
+          "Counselors"
+        ]
+      }
+    },
     "/api/mentors/find": {
       "get": {
         "operationId": "MentorsController_findMentors",
@@ -535,9 +575,9 @@
         ]
       }
     },
-    "/api/student/find": {
+    "/api/students/find": {
       "get": {
-        "operationId": "StudentController_findStudents",
+        "operationId": "StudentsController_findStudents",
         "parameters": [
           {
             "name": "text",
@@ -571,7 +611,7 @@
         ],
         "summary": "find students",
         "tags": [
-          "Student"
+          "Students"
         ]
       }
     },
@@ -1163,6 +1203,70 @@
             "description": "Counselor status"
           }
         }
+      },
+      "CounselorSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Counselor ID"
+          },
+          "userId": {
+            "type": "string",
+            "description": "Associated user ID"
+          },
+          "status": {
+            "type": "string",
+            "description": "Counselor status"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Record created time",
+            "format": "date-time"
+          },
+          "modifiedAt": {
+            "type": "string",
+            "description": "Record last modified time",
+            "format": "date-time"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address"
+          },
+          "nameEn": {
+            "type": "string",
+            "description": "English name"
+          },
+          "nameZh": {
+            "type": "string",
+            "description": "Chinese name"
+          },
+          "country": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2 country code (US, CN, GB, CA)",
+            "enum": [
+              "US",
+              "CN",
+              "GB",
+              "CA"
+            ]
+          },
+          "gender": {
+            "type": "string",
+            "description": "Gender",
+            "enum": [
+              "male",
+              "female"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "createdAt",
+          "modifiedAt",
+          "email"
+        ]
       },
       "MentorSummaryResponseDto": {
         "type": "object",

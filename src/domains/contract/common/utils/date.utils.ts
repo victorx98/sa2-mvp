@@ -6,21 +6,14 @@ import { ARCHIVE_MAX_DATE_RANGE_DAYS } from "../constants/contract.constants";
 
 /**
  * Calculate contract expiration date
- * @param signedAt Contract signing date
- * @param validityDays Validity period in days (null = permanent)
- * @returns Expiration date or null for permanent contracts
+ * @returns Always null (products and contracts never expire)
+ * @updated v2.16.13: Products and contracts never expire
  */
 export function calculateExpirationDate(
-  signedAt: Date,
-  validityDays: number | null,
+  _signedAt: Date,
+  _validityDays: number | null,
 ): Date | null {
-  if (validityDays === null || validityDays === undefined) {
-    return null; // Permanent contract
-  }
-
-  const expiresAt = new Date(signedAt);
-  expiresAt.setDate(expiresAt.getDate() + validityDays);
-  return expiresAt;
+  return null; // Products and contracts never expire - v2.16.13
 }
 
 /**
@@ -41,14 +34,12 @@ export function calculateHoldExpirationDate(
 
 /**
  * Check if contract has expired
- * @param expiresAt Expiration date
- * @returns True if expired, false otherwise
+ * @param _expiresAt Expiration date (ignored for v2.16.13)
+ * @returns Always false (products and contracts never expire)
+ * @updated v2.16.13: Products and contracts never expire
  */
-export function isContractExpired(expiresAt: Date | null): boolean {
-  if (expiresAt === null) {
-    return false; // Permanent contracts never expire
-  }
-  return new Date() > expiresAt;
+export function isContractExpired(_expiresAt: Date | null): boolean {
+  return false; // Products and contracts never expire - v2.16.13
 }
 
 /**

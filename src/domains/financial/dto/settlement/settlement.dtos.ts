@@ -5,7 +5,7 @@ import { SettlementStatus, SettlementMethod } from "./settlement.enums";
  * Request payload for generating a settlement
  * (生成结算的请求载荷)
  */
-export interface CreateSettlementRequest {
+export interface ICreateSettlementRequest {
   /**
    * Mentor ID (导师ID)
    */
@@ -44,7 +44,7 @@ export interface CreateSettlementRequest {
  * Used for searching and filtering settlement records
  * (用于搜索和筛选结算记录)
  */
-export interface SettlementQuery {
+export interface ISettlementQuery {
   /**
    * Mentor ID (导师ID)
    * Optional filter by mentor
@@ -93,7 +93,7 @@ export interface SettlementQuery {
  * Response payload for settlement queries
  * (结算查询的响应载荷)
  */
-export interface SettlementResponse {
+export interface ISettlementResponse {
   /**
    * Settlement ID (结算ID)
    */
@@ -180,7 +180,7 @@ export interface SettlementResponse {
  * Detailed response including creator information
  * (包含创建人信息的详细响应)
  */
-export interface SettlementDetailResponse {
+export interface ISettlementDetailResponse {
   /**
    * Settlement ID (结算ID)
    */
@@ -257,7 +257,7 @@ export interface SettlementDetailResponse {
  * Represents a link between settlement and payable ledger
  * (表示结算记录与应付账款之间的关联)
  */
-export interface SettlementDetailItem {
+export interface ISettlementDetailItem {
   /**
    * Detail ID (明细ID)
    */
@@ -293,7 +293,7 @@ export interface SettlementDetailItem {
  * Request payload for updating payment parameters
  * (更新支付参数的请求载荷)
  */
-export interface PaymentParamUpdate {
+export interface IPaymentParamUpdate {
   /**
    * Default Exchange Rate (默认汇率)
    */
@@ -310,7 +310,7 @@ export interface PaymentParamUpdate {
  * Response payload for payment parameter queries
  * (支付参数查询的响应载荷)
  */
-export interface PaymentParamResponse {
+export interface IPaymentParamResponse {
   /**
    * Mentor ID (导师ID)
    */

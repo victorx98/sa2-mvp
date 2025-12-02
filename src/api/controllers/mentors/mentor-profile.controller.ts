@@ -24,7 +24,7 @@ import { MentorProfileQuery } from "@application/queries/mentor/mentor-profile.q
  * ❌ 不包含业务逻辑
  */
 @ApiTags("Mentor Profile")
-@Controller(`${ApiPrefix}/mentor/profile`)
+@Controller(`${ApiPrefix}/mentors/profile`)
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles("mentor")
 @ApiBearerAuth()

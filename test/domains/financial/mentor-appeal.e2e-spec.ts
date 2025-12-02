@@ -23,7 +23,7 @@ describe("Mentor Appeal (e2e)", () => {
   let app: INestApplication;
   let appealService: IMentorAppealService;
   let eventEmitter: EventEmitter2;
-  let db: NodePgDatabase;
+  let _db: NodePgDatabase;
 
   const testMentorId = uuidv4();
   const testCounselorId = uuidv4();
@@ -49,7 +49,7 @@ describe("Mentor Appeal (e2e)", () => {
 
     appealService = moduleFixture.get<IMentorAppealService>("IMentorAppealService");
     eventEmitter = moduleFixture.get<EventEmitter2>(EventEmitter2);
-    db = moduleFixture.get<NodePgDatabase>(DATABASE_CONNECTION);
+    _db = moduleFixture.get<NodePgDatabase>(DATABASE_CONNECTION);
   });
 
   afterAll(async () => {
