@@ -28,16 +28,7 @@ export class AddProductItemCommand extends CommandBase {
    * [Execute add product item use case]
    * 
    * @param productId - 产品ID
-   * @param item - 项目数据
-   * @returns 执行结果
-   */
-  async execute(productId: string, item: AddProductItemDto) {
-    return this.productService.addItem(productId, item);
-  }
-}
- 
-   * @param productId 产品ID
-   * @param dto 添加产品项目DTO
+   * @param dto - 添加产品项目DTO
    * @returns 执行结果
    */
   async execute(productId: string, dto: AddProductItemDto): Promise<void> {
