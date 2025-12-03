@@ -293,15 +293,12 @@ trigger: always_on
   npm run test -- --testPathPatterns=$(git diff --name-only HEAD~1 | grep 'src/.*\.spec\.ts$' | head -1)
   
   # 运行最近修改的测试文件（集成测试）
-  npm run test -- --testPathPatterns=$(git diff --name-only HEAD~1 | grep 'test/.*\.e2e-spec\.ts$' | head -1)
+  npm run test -- --testPathPattern=$(git diff --name-only HEAD~1 | grep 'test/.*\.e2e-spec\.ts$' | head -1)
   
-  # 使用便捷脚本运行最近修改的测试文件（默认单元测试）
-  npm run test:recent
-  
-  # 使用便捷脚本运行最近修改的集成测试
-  npm run test:recent e2e
+  # 运行最近修改的单元测试文件
+  npm run test -- --testPathPattern=$(git diff --name-only HEAD~1 | grep 'src/.*\.spec\.ts$' | head -1)
   ```
-- **脚本说明**: 项目提供了 `scripts/run-recent-test.sh` 脚本，用于自动识别并运行最近修改的测试文件
+- **说明**: 使用 `git diff` 和 `--testPathPattern` 参数来运行最近修改的测试文件
 - **验证步骤**:
   1. 修改测试文件后，使用 `git status` 确认文件已修改
   2. 使用 `git diff --name-only HEAD~1 | grep '\.spec\.ts$'` 确认修改的测试文件
@@ -335,3 +332,6 @@ trigger: always_on
 - **文档创建**: 禁止创建任何形式的总结文档
 - **代码备份**: 禁止创建代码备份文件
 - **提交语言**: 生成提交内容时，必须使用英文，禁止使用中文
+
+# 最高优先级的规则
+- **编辑范围** 仅允许在目录 src/api 和 src/domains 内进行编辑

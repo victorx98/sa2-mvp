@@ -1,4 +1,5 @@
 import { IsOptional, IsString, IsUUID, IsEnum } from "class-validator";
+import { Transform } from "class-transformer";
 
 /**
  * DTO for filtering contracts (筛选合约的DTO)
@@ -10,6 +11,7 @@ export class ContractFilterDto {
   studentId?: string; // Student ID (学生ID)
 
   @IsOptional()
+  @Transform(({ value }) => value === "" ? undefined : value)
   @IsEnum(["signed", "active", "suspended", "completed", "terminated"])
   status?: string; // Contract status (合约状态)
 

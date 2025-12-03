@@ -4,6 +4,7 @@ import { JwtAuthGuard as AuthGuard } from '@shared/guards/jwt-auth.guard';
 import { RolesGuard } from '@shared/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
 import { CurrentUser } from '@shared/decorators/current-user.decorator';
+import type { IJwtUser } from '@shared/types/jwt-user.interface';
 import { CreateContractCommand } from '@application/commands/contract/create-contract.command';
 import { ActivateContractCommand } from '@application/commands/contract/activate-contract.command';
 import { SignContractCommand } from '@application/commands/contract/sign-contract.command';
@@ -57,12 +58,13 @@ export class AdminContractsController {
   @ApiResponse({ status: 201, description: 'Contract created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   async create(
-    @CurrentUser() user: any,
+    @CurrentUser() user: IJwtUser,
     @Body() createContractDto: CreateContractDto,
   ) {
+    // Guard ensures user is authenticated and has valid structure [守卫确保用户已认证且结构有效]
     return this.createContractCommand.execute({
       ...createContractDto,
-      createdBy: String(user.id),
+      createdBy: String((user as unknown as { id: string }).id),
     });
   }
 
@@ -77,19 +79,23 @@ export class AdminContractsController {
   @Get()
   @ApiOperation({ summary: 'Get all contracts' })
   @ApiResponse({ status: 200, description: 'Contracts retrieved successfully' })
-  async findAll(
-    @Query('studentId') studentId?: string,
-    @Query('status') status?: string,
-    @Query('productId') productId?: string,
-    @Query('signedAfter') signedAfter?: Date,
-    @Query('signedBefore') signedBefore?: Date,
-    @Query() pagination?: IPaginationQuery,
-    @Query() sort?: ISortQuery
-  ) {
+  async findAll(@Query() query: any) {
     return this.getContractsQuery.execute(
-      { studentId, status, productId, signedAfter, signedBefore },
-      pagination,
-      sort
+      {
+        studentId: query.studentId,
+        status: query.status,
+        productId: query.productId,
+        signedAfter: query.signedAfter,
+        signedBefore: query.signedBefore
+      },
+      {
+        page: query.page,
+        pageSize: query.pageSize
+      } as IPaginationQuery,
+      {
+        field: query.field,
+        direction: query.order
+      } as ISortQuery
     );
   }
 
@@ -105,8 +111,9 @@ export class AdminContractsController {
   @ApiOperation({ summary: 'Sign contract' })
   @ApiResponse({ status: 200, description: 'Contract signed successfully' })
   @ApiResponse({ status: 404, description: 'Contract not found' })
-  async sign(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.signContractCommand.execute(id, String(user.id));
+  async sign(@Param('id') id: string, @CurrentUser() user: IJwtUser) {
+    // Guard ensures user is authenticated and has valid structure [守卫确保用户已认证且结构有效]
+    return this.signContractCommand.execute(id, String((user as unknown as { id: string }).id));
   }
 
   @Post(':id/suspend')

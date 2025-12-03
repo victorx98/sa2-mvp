@@ -17,13 +17,22 @@ export interface SupabaseSignInResult {
   user: SupabaseAuthUser;
 }
 
+export enum SupabaseAuthErrorCode {
+  TOKEN_EXPIRED = "TOKEN_EXPIRED", // Token has expired [Token已过期]
+  TOKEN_INVALID = "TOKEN_INVALID", // Token is invalid [Token无效]
+  NETWORK_ERROR = "NETWORK_ERROR", // Network/connection error [网络错误]
+  UNKNOWN_ERROR = "UNKNOWN_ERROR", // Unknown error [未知错误]
+}
+
 export class SupabaseAuthException extends Error {
   constructor(
     message: string,
     public readonly status?: number,
     public readonly details?: unknown,
+    public readonly errorCode: SupabaseAuthErrorCode = SupabaseAuthErrorCode.UNKNOWN_ERROR,
   ) {
     super(message);
+    this.name = "SupabaseAuthException";
   }
 }
 
@@ -209,31 +218,77 @@ export class SupabaseAuthService {
 
   private handleAxiosError(error: unknown, message: string): SupabaseAuthException {
     if (axios.isAxiosError(error)) {
-      const axiosError = error as AxiosError<{ error?: string; msg?: string; error_description?: string }>;
+      const axiosError = error as AxiosError<{
+        error?: string;
+        msg?: string;
+        error_description?: string;
+        error_code?: string;
+        code?: number;
+      }>;
       const status = axiosError.response?.status;
+      const responseData = axiosError.response?.data;
       const errorMessage =
-        axiosError.response?.data?.error ||
-        axiosError.response?.data?.error_description ||
-        axiosError.response?.data?.msg ||
+        responseData?.error ||
+        responseData?.error_description ||
+        responseData?.msg ||
         axiosError.message;
+      const errorCode = responseData?.error_code;
 
-      // 区分超时错误和其他网络错误
+      // Identify token expiration error [识别token过期错误]
+      const isTokenExpired =
+        status === 403 &&
+        (errorCode === "bad_jwt" ||
+          (typeof responseData?.msg === "string" &&
+            responseData.msg.toLowerCase().includes("expired")) ||
+          (typeof errorMessage === "string" &&
+            errorMessage.toLowerCase().includes("expired")));
+
+      // Identify invalid token error [识别无效token错误]
+      const isTokenInvalid =
+        status === 401 ||
+        (status === 403 &&
+          errorCode === "bad_jwt" &&
+          !isTokenExpired);
+
+      // Determine error code [确定错误码]
+      let authErrorCode: SupabaseAuthErrorCode;
+      if (isTokenExpired) {
+        authErrorCode = SupabaseAuthErrorCode.TOKEN_EXPIRED;
+      } else if (isTokenInvalid) {
+        authErrorCode = SupabaseAuthErrorCode.TOKEN_INVALID;
+      } else if (axiosError.code === "ECONNABORTED" || !status) {
+        authErrorCode = SupabaseAuthErrorCode.NETWORK_ERROR;
+      } else {
+        authErrorCode = SupabaseAuthErrorCode.UNKNOWN_ERROR;
+      }
+
+      // Log error with appropriate level [根据错误类型记录日志]
       if (axiosError.code === "ECONNABORTED") {
         this.logger.warn(
           `${message}: Request timeout (${this.http.defaults.timeout}ms). ` +
-          `This may indicate network latency issues. ` +
-          `Consider adjusting SUPABASE_AUTH_TIMEOUT environment variable.`,
+            `This may indicate network latency issues. ` +
+            `Consider adjusting SUPABASE_AUTH_TIMEOUT environment variable.`,
+        );
+      } else if (isTokenExpired) {
+        // Token expiration is expected behavior, log at debug level [Token过期是预期行为，使用debug级别日志]
+        this.logger.debug(
+          `${message}: Token expired. Status=${status}, ErrorCode=${errorCode}, Message=${errorMessage}`,
         );
       } else {
-        // 更详细的错误日志，包括响应数据和请求信息
+        // Other errors log at error level [其他错误使用error级别日志]
         this.logger.error(
-          `${message}: Status=${status}, Message=${errorMessage}. ` +
-          `Response Data: ${JSON.stringify(axiosError.response?.data)}`,
+          `${message}: Status=${status}, ErrorCode=${errorCode}, Message=${errorMessage}. ` +
+            `Response Data: ${JSON.stringify(responseData)}`,
           axiosError.stack,
         );
       }
 
-      return new SupabaseAuthException(message, status, axiosError.response?.data);
+      return new SupabaseAuthException(
+        message,
+        status,
+        responseData,
+        authErrorCode,
+      );
     }
 
     if (error instanceof SupabaseAuthException) {
@@ -241,6 +296,11 @@ export class SupabaseAuthService {
     }
 
     this.logger.error(message, (error as Error)?.stack);
-    return new SupabaseAuthException(message);
+    return new SupabaseAuthException(
+      message,
+      undefined,
+      undefined,
+      SupabaseAuthErrorCode.UNKNOWN_ERROR,
+    );
   }
 }

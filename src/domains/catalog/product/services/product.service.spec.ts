@@ -207,7 +207,7 @@ describe("ProductService", () => {
   });
 
   describe("updateItemSortOrder", () => {
-    it("should do nothing as sortOrder field does not exist in database [由于数据库中不存在sortOrder字段，应该不执行任何操作]", async () => {
+    it("should update item sort order successfully [应该成功更新项目排序]", async () => {
       // Arrange [准备]
       const productId = randomUUID();
       const itemId = randomUUID();
@@ -216,7 +216,16 @@ describe("ProductService", () => {
       mockProduct.id = productId;
       mockProduct.status = ProductStatus.DRAFT; // Ensure product is in draft status [确保产品处于草稿状态]
 
-      // Mock product query [模拟产品查询]
+      const mockProductItem = { id: itemId, productId };
+
+      // Mock first select (product items query to get productId) [Mock第一次查询（产品项查询以获取产品ID）]
+      mockDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([mockProductItem]),
+        }),
+      });
+
+      // Mock second select (product query with row lock) [Mock第二次查询（带行锁的产品查询）]
       mockDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnValue({
           where: jest.fn().mockReturnValue({
@@ -228,24 +237,99 @@ describe("ProductService", () => {
         }),
       });
 
+      mockDb.update.mockReturnValue({
+        set: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(undefined),
+        }),
+      });
+
       // Act [执行]
-      await service.updateItemSortOrder(productId, [
+      await service.updateItemSortOrder([
         { itemId, sortOrder: newSortOrder },
       ]);
 
       // Assert [断言]
-      // Since the method is a no-op, we just verify it doesn't throw an exception
-      // 由于该方法是一个空操作，我们只验证它不抛出异常
-      expect(true).toBe(true);
+      expect(mockDb.update).toHaveBeenCalled();
+    });
+
+    it("should throw exception when items array is empty [当 items 数组为空时抛出异常]", async () => {
+      // Act & Assert [执行与断言]
+      await expect(service.updateItemSortOrder([])).rejects.toThrow(
+        CatalogException,
+      );
+      await expect(service.updateItemSortOrder([])).rejects.toThrow(
+        "Items array cannot be empty",
+      );
+    });
+
+    it("should throw exception when product item is not found [当产品项未找到时抛出异常]", async () => {
+      // Arrange [准备]
+      const itemId = randomUUID();
+
+      // Mock database to return no product item [模拟数据库返回无产品项]
+      mockDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
+        }),
+      });
+
+      // Act & Assert [执行与断言]
+      await expect(
+        service.updateItemSortOrder([{ itemId, sortOrder: 1 }]),
+      ).rejects.toThrow(CatalogNotFoundException);
+      await expect(
+        service.updateItemSortOrder([{ itemId, sortOrder: 1 }]),
+      ).rejects.toThrow("Product item not found");
+    });
+
+    it("should throw exception when items belong to different products [当 items 属于不同产品时抛出异常]", async () => {
+      // Arrange [准备]
+      const productId1 = randomUUID();
+      const productId2 = randomUUID();
+      const itemId1 = randomUUID();
+      const itemId2 = randomUUID();
+
+      const mockProductItems = [
+        { id: itemId1, productId: productId1 },
+        { id: itemId2, productId: productId2 },
+      ];
+
+      // Mock product items query [Mock产品项查询]
+      mockDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue(mockProductItems),
+        }),
+      });
+
+      // Act & Assert [执行与断言]
+      await expect(
+        service.updateItemSortOrder([
+          { itemId: itemId1, sortOrder: 1 },
+          { itemId: itemId2, sortOrder: 2 },
+        ]),
+      ).rejects.toThrow(CatalogException);
+      await expect(
+        service.updateItemSortOrder([
+          { itemId: itemId1, sortOrder: 1 },
+          { itemId: itemId2, sortOrder: 2 },
+        ]),
+      ).rejects.toThrow("All items must belong to the same product");
     });
 
     it("should throw exception when product is not found [当产品未找到时抛出异常]", async () => {
       // Arrange [准备]
       const productId = randomUUID();
       const itemId = randomUUID();
-      const newSortOrder = 1;
+      const mockProductItem = { id: itemId, productId };
 
-      // Mock database to return no product [模拟数据库返回无产品]
+      // Mock first select (product items query) [Mock第一次查询（产品项查询）]
+      mockDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([mockProductItem]),
+        }),
+      });
+
+      // Mock second select (product query returns empty) [Mock第二次查询（产品查询返回空）]
       mockDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnValue({
           where: jest.fn().mockReturnValue({
@@ -259,10 +343,49 @@ describe("ProductService", () => {
 
       // Act & Assert [执行与断言]
       await expect(
-        service.updateItemSortOrder(productId, [
-          { itemId, sortOrder: newSortOrder },
-        ]),
-      ).rejects.toThrow(new CatalogException("PRODUCT_NOT_FOUND"));
+        service.updateItemSortOrder([{ itemId, sortOrder: 1 }]),
+      ).rejects.toThrow(CatalogNotFoundException);
+      await expect(
+        service.updateItemSortOrder([{ itemId, sortOrder: 1 }]),
+      ).rejects.toThrow("Product not found");
+    });
+
+    it("should throw exception when product is not in draft status [当产品不是草稿状态时抛出异常]", async () => {
+      // Arrange [准备]
+      const productId = randomUUID();
+      const itemId = randomUUID();
+      const mockProduct = generateMockProduct();
+      mockProduct.id = productId;
+      mockProduct.status = ProductStatus.ACTIVE; // Product is not in draft status [产品不是草稿状态]
+
+      const mockProductItem = { id: itemId, productId };
+
+      // Mock first select (product items query) [Mock第一次查询（产品项查询）]
+      mockDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([mockProductItem]),
+        }),
+      });
+
+      // Mock second select (product query) [Mock第二次查询（产品查询）]
+      mockDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue([mockProduct]),
+            for: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockProduct]),
+            }),
+          }),
+        }),
+      });
+
+      // Act & Assert [执行与断言]
+      await expect(
+        service.updateItemSortOrder([{ itemId, sortOrder: 1 }]),
+      ).rejects.toThrow(CatalogException);
+      await expect(
+        service.updateItemSortOrder([{ itemId, sortOrder: 1 }]),
+      ).rejects.toThrow("Product is not in draft status");
     });
   });
 
@@ -768,12 +891,22 @@ describe("ProductService", () => {
       mockProduct.id = productId;
       mockProduct.status = ProductStatus.DRAFT; // Ensure product is in draft status [确保产品处于草稿状态]
 
+      const mockProductItem = { productId };
       const mockItems = [
         { id: itemId, productId, serviceTypeId: randomUUID() }, // Use randomUUID instead of faker [使用randomUUID替代faker]
         { id: randomUUID(), productId, serviceTypeId: randomUUID() }, // Use randomUUID instead of faker [使用randomUUID替代faker]
       ];
 
-      // Mock first select (product query)
+      // Mock first select (product item query to get productId) [Mock第一次查询（产品项查询以获取产品ID）]
+      mockDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue([mockProductItem]),
+          }),
+        }),
+      });
+
+      // Mock second select (product query with row lock) [Mock第二次查询（带行锁的产品查询）]
       mockDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnValue({
           where: jest.fn().mockReturnValue({
@@ -785,13 +918,10 @@ describe("ProductService", () => {
         }),
       });
 
-      // Mock second select (product items query)
+      // Mock third select (product items query) [Mock第三次查询（产品项查询）]
       mockDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnValue({
           where: jest.fn().mockResolvedValue(mockItems),
-          for: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue(mockItems),
-          }),
         }),
       });
 
@@ -800,18 +930,50 @@ describe("ProductService", () => {
       });
 
       // Act [执行]
-      await service.removeItem(productId, itemId);
+      await service.removeItem(itemId);
 
       // Assert [断言]
       expect(mockDb.delete).toHaveBeenCalled();
+    });
+
+    it("should throw exception when product item is not found [当产品项未找到时抛出异常]", async () => {
+      // Arrange [准备]
+      const itemId = randomUUID();
+
+      // Mock database to return no product item [模拟数据库返回无产品项]
+      mockDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue([]),
+          }),
+        }),
+      });
+
+      // Act & Assert [执行与断言]
+      await expect(service.removeItem(itemId)).rejects.toThrow(
+        CatalogNotFoundException,
+      );
+      await expect(service.removeItem(itemId)).rejects.toThrow(
+        "Product item not found",
+      );
     });
 
     it("should throw exception when product is not found [当产品未找到时抛出异常]", async () => {
       // Arrange [准备]
       const productId = randomUUID();
       const itemId = randomUUID();
+      const mockProductItem = { productId };
 
-      // Mock database to return no product [模拟数据库返回无产品]
+      // Mock first select (product item query) [Mock第一次查询（产品项查询）]
+      mockDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue([mockProductItem]),
+          }),
+        }),
+      });
+
+      // Mock second select (product query returns empty) [Mock第二次查询（产品查询返回空）]
       mockDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnValue({
           where: jest.fn().mockReturnValue({
@@ -824,15 +986,15 @@ describe("ProductService", () => {
       });
 
       // Act & Assert [执行与断言]
-      await expect(service.removeItem(productId, itemId)).rejects.toThrow(
-        CatalogException,
+      await expect(service.removeItem(itemId)).rejects.toThrow(
+        CatalogNotFoundException,
       );
-      await expect(service.removeItem(productId, itemId)).rejects.toThrow(
+      await expect(service.removeItem(itemId)).rejects.toThrow(
         "Product not found",
       );
     });
 
-    it("should throw exception when item is not found [当项未找到时抛出异常]", async () => {
+    it("should throw exception when product has only one item [当产品只有一个项时抛出异常]", async () => {
       // Arrange [准备]
       const productId = randomUUID();
       const itemId = randomUUID();
@@ -840,31 +1002,22 @@ describe("ProductService", () => {
       mockProduct.id = productId;
       mockProduct.status = ProductStatus.DRAFT;
 
+      const mockProductItem = { productId };
       const mockItems = [
-        { id: randomUUID(), productId, serviceTypeId: randomUUID() },
+        { id: itemId, productId, serviceTypeId: randomUUID() },
       ];
 
-      // Configure mock for multiple calls (each call needs 2 selects) [配置mock以处理多次调用（每次调用需要2次select）]
-      // Service calls: select -> from -> where (no limit for items query) [服务调用：select -> from -> where（items查询没有limit）]
+      // Configure mock for multiple calls [配置mock以处理多次调用]
+      // First call: product item query [第一次调用：产品项查询]
       mockDb.select
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue([mockProduct]), // First query uses limit [第一次查询使用limit]
-              for: jest.fn().mockReturnValue({
-                limit: jest.fn().mockResolvedValue([mockProduct]),
-              }),
+              limit: jest.fn().mockResolvedValue([mockProductItem]),
             }),
           }),
         })
-        .mockReturnValueOnce({
-          from: jest.fn().mockReturnValue({
-            where: jest.fn().mockResolvedValue(mockItems), // Second query has no limit [第二次查询没有limit]
-            for: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue(mockItems),
-            }),
-          }),
-        })
+        // Second call: product query [第二次调用：产品查询]
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockReturnValue({
@@ -875,21 +1028,44 @@ describe("ProductService", () => {
             }),
           }),
         })
+        // Third call: product items query [第三次调用：产品项查询]
         .mockReturnValueOnce({
           from: jest.fn().mockReturnValue({
             where: jest.fn().mockResolvedValue(mockItems),
-            for: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue(mockItems),
+          }),
+        })
+        // Second test call: product item query [第二次测试调用：产品项查询]
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockProductItem]),
             }),
+          }),
+        })
+        // Second test call: product query [第二次测试调用：产品查询]
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockProduct]),
+              for: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue([mockProduct]),
+              }),
+            }),
+          }),
+        })
+        // Second test call: product items query [第二次测试调用：产品项查询]
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockResolvedValue(mockItems),
           }),
         });
 
       // Act & Assert [执行与断言]
       // The service is called twice to verify both error code and message [服务被调用两次以验证错误代码和消息]
-      await expect(service.removeItem(productId, itemId)).rejects.toThrow(
+      await expect(service.removeItem(itemId)).rejects.toThrow(
         CatalogException,
       );
-      await expect(service.removeItem(productId, itemId)).rejects.toThrow(
+      await expect(service.removeItem(itemId)).rejects.toThrow(
         CATALOG_ERROR_MESSAGES.PRODUCT_MIN_ITEMS,
       );
     });
@@ -899,7 +1075,7 @@ describe("ProductService", () => {
     it("should return paginated products [应该返回分页产品]", async () => {
       // Arrange [准备]
       const filter: ProductFilterDto = {
-        keyword: "test",
+        name: "test",
         status: ProductStatus.ACTIVE,
       };
 
@@ -945,7 +1121,7 @@ describe("ProductService", () => {
     it("should return all products when no pagination provided [当没有提供分页时应该返回所有产品]", async () => {
       // Arrange [准备]
       const filter: ProductFilterDto = {
-        keyword: "test",
+        name: "test",
       };
 
       const mockProducts = [generateMockProduct(), generateMockProduct()];

@@ -13,6 +13,7 @@ import {
 } from "@domains/identity/user/user-interface";
 import {
   SupabaseAuthException,
+  SupabaseAuthErrorCode,
   SupabaseAuthService,
   SupabaseAuthUser,
 } from "@infrastructure/auth/supabase-auth.service";
@@ -86,7 +87,23 @@ export class JwtAuthGuard implements CanActivate {
       return await this.supabaseAuthService.getUserByToken(token);
     } catch (error) {
       if (error instanceof SupabaseAuthException) {
-        throw new UnauthorizedException("Invalid access token");
+        // Handle different error types with specific messages [根据不同错误类型返回特定消息]
+        switch (error.errorCode) {
+          case SupabaseAuthErrorCode.TOKEN_EXPIRED:
+            throw new UnauthorizedException(
+              "Token expired. Please refresh your token or login again.",
+            );
+          case SupabaseAuthErrorCode.TOKEN_INVALID:
+            throw new UnauthorizedException("Invalid access token");
+          case SupabaseAuthErrorCode.NETWORK_ERROR:
+            throw new UnauthorizedException(
+              "Authentication service unavailable. Please try again later.",
+            );
+          default:
+            throw new UnauthorizedException(
+              "Authentication failed. Please try again.",
+            );
+        }
       }
       throw error;
     }

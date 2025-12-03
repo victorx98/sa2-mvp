@@ -32,19 +32,63 @@
             "name": "status",
             "in": "query",
             "type": "string",
-            "description": "Filter products by status"
+            "description": "Filter products by status",
+            "enum": ["DRAFT", "PUBLISHED", "UNPUBLISHED", "DELETED"]
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "type": "string",
+            "description": "Filter products by code (fuzzy search)"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "type": "string",
+            "description": "Filter products by name (fuzzy search)"
+          },
+          {
+            "name": "userPersona",
+            "in": "query",
+            "type": "string",
+            "description": "Filter products by target user persona",
+            "enum": ["undergraduate", "graduate", "working"]
+          },
+          {
+            "name": "marketingLabel",
+            "in": "query",
+            "type": "string",
+            "description": "Filter products by marketing label"
           },
           {
             "name": "page",
             "in": "query",
             "type": "integer",
-            "description": "Page number"
+            "description": "Page number",
+            "default": 1
           },
           {
             "name": "pageSize",
             "in": "query",
             "type": "integer",
-            "description": "Items per page"
+            "description": "Items per page",
+            "default": 20,
+            "maximum": 100
+          },
+          {
+            "name": "field",
+            "in": "query",
+            "type": "string",
+            "description": "Sort field",
+            "default": "createdAt"
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "type": "string",
+            "description": "Sort order",
+            "enum": ["asc", "desc"],
+            "default": "desc"
           }
         ],
         "responses": {
@@ -52,7 +96,53 @@
             "description": "Successful operation",
             "schema": {
               "$ref": "#/definitions/Catalog_PaginatedResult"
+            },
+            "examples": {
+              "application/json": {
+                "data": [
+                  {
+                    "id": "123e4567-e89b-12d3-a456-426614174000",
+                    "name": "就业班",
+                    "code": "JOB-TRAINING-001",
+                    "description": "专业的就业培训课程",
+                    "coverImage": "https://example.com/cover.jpg",
+                    "targetUserPersonas": ["STUDENT"],
+                    "price": 219.09,
+                    "currency": "USD",
+                    "marketingLabels": ["HOT"],
+                    "status": "DRAFT",
+                    "metadata": {
+                      "features": ["就业指导", "简历优化", "面试技巧"],
+                      "faqs": [
+                        {
+                          "question": "课程时长是多久？",
+                          "answer": "3个月"
+                        }
+                      ]
+                    },
+                    "createdAt": "2024-01-01T00:00:00.000Z",
+                    "updatedAt": "2024-01-01T00:00:00.000Z",
+                    "createdBy": "user123"
+                  }
+                ],
+                "total": 10,
+                "page": 1,
+                "pageSize": 5,
+                "totalPages": 2
+              }
             }
+          },
+          "400": {
+            "description": "Bad Request - Invalid parameters"
+          },
+          "401": {
+            "description": "Unauthorized - Authentication failed"
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions"
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong"
           }
         },
         "security": [{ "Bearer": [] }]
@@ -76,7 +166,48 @@
             "description": "Product created successfully",
             "schema": {
               "$ref": "#/definitions/Catalog_Product"
+            },
+            "examples": {
+              "application/json": {
+                "id": "123e4567-e89b-12d3-a456-426614174000",
+                "name": "就业班",
+                "code": "JOB-TRAINING-001",
+                "description": "专业的就业培训课程",
+                "coverImage": "https://example.com/cover.jpg",
+                "targetUserPersonas": ["STUDENT"],
+                "price": 219.09,
+                "currency": "USD",
+                "marketingLabels": ["HOT"],
+                "status": "DRAFT",
+                "metadata": {
+                  "features": ["就业指导", "简历优化", "面试技巧"],
+                  "faqs": [
+                    {
+                      "question": "课程时长是多久？",
+                      "answer": "3个月"
+                    }
+                  ]
+                },
+                "createdAt": "2024-01-01T00:00:00.000Z",
+                "updatedAt": "2024-01-01T00:00:00.000Z",
+                "createdBy": "user123"
+              }
             }
+          },
+          "400": {
+            "description": "Bad Request - Invalid parameters"
+          },
+          "401": {
+            "description": "Unauthorized - Authentication failed"
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions"
+          },
+          "409": {
+            "description": "Conflict - Product code already exists"
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong"
           }
         },
         "security": [{ "Bearer": [] }]
@@ -1327,6 +1458,9 @@
         },
         "pageSize": {
           "type": "integer"
+        },
+        "totalPages": {
+          "type": "integer"
         }
       }
     },
@@ -1361,8 +1495,8 @@
           "description": "Target user personas for this product"
         },
         "price": {
-          "type": "string",
-          "description": "Product price stored as string for decimal precision"
+          "type": "number",
+          "description": "Product price"
         },
         "currency": {
           "type": "string",
@@ -1481,8 +1615,8 @@
           "description": "Target user personas for this product"
         },
         "price": {
-          "type": "string",
-          "description": "Product price stored as string for decimal precision"
+          "type": "number",
+          "description": "Product price"
         },
         "currency": {
           "type": "string",
@@ -1494,10 +1628,6 @@
             "type": "string"
           },
           "description": "Marketing labels for this product"
-        },
-        "status": {
-          "type": "string",
-          "description": "Product status (e.g., draft, published, unpublished)"
         },
         "metadata": {
           "type": "object",
@@ -1525,30 +1655,12 @@
                 }
               },
               "description": "Frequently asked questions"
-            },
-            "deliverables": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "Product deliverables"
-            },
-            "duration": {
-              "type": "string",
-              "description": "Product duration"
-            },
-            "prerequisites": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "Product prerequisites"
             }
           },
           "description": "Additional product metadata"
         }
       },
-      "required": ["name", "code", "price", "currency", "status"]
+      "required": ["name", "code", "price", "currency"]
     },
     "Catalog_UpdateProductDto": {
       "type": "object",
@@ -1577,8 +1689,8 @@
           "description": "Target user personas for this product"
         },
         "price": {
-          "type": "string",
-          "description": "Product price stored as string for decimal precision"
+          "type": "number",
+          "description": "Product price"
         },
         "currency": {
           "type": "string",
@@ -1590,10 +1702,6 @@
             "type": "string"
           },
           "description": "Marketing labels for this product"
-        },
-        "status": {
-          "type": "string",
-          "description": "Product status (e.g., draft, published, unpublished)"
         },
         "metadata": {
           "type": "object",
@@ -1621,24 +1729,6 @@
                 }
               },
               "description": "Frequently asked questions"
-            },
-            "deliverables": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "Product deliverables"
-            },
-            "duration": {
-              "type": "string",
-              "description": "Product duration"
-            },
-            "prerequisites": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "Product prerequisites"
             }
           },
           "description": "Additional product metadata"
@@ -1648,28 +1738,22 @@
     "Catalog_AddProductItemDto": {
       "type": "object",
       "properties": {
-        "name": {
+        "serviceTypeId": {
           "type": "string",
-          "description": "Product item name"
+          "format": "uuid",
+          "description": "Service type ID to add to the product"
         },
-        "code": {
-          "type": "string",
-          "description": "Product item code"
-        },
-        "description": {
-          "type": "string",
-          "description": "Product item description"
-        },
-        "price": {
-          "type": "string",
-          "description": "Product item price stored as string for decimal precision"
+        "quantity": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Quantity of this service type to add"
         },
         "sortOrder": {
           "type": "integer",
-          "description": "Product item sort order"
+          "description": "Sort order for this product item"
         }
       },
-      "required": ["name", "code"]
+      "required": ["serviceTypeId", "quantity"]
     },
     "Contract_PaginatedResult": {
       "type": "object",
@@ -1791,7 +1875,7 @@
           "description": "Product code"
         },
         "price": {
-          "type": "string",
+          "type": "number",
           "description": "Product price at contract creation"
         },
         "currency": {

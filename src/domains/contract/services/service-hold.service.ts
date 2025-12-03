@@ -237,7 +237,6 @@ export class ServiceHoldService {
    */
   async releaseExpiredHolds(
     batchSize = 100,
-    _sessionId?: string,
   ): Promise<{
     releasedCount: number;
     failedCount: number;
@@ -321,7 +320,7 @@ export class ServiceHoldService {
     failedCount: number;
     skippedCount: number;
   }> {
-    return await this.releaseExpiredHolds(batchSize, "manual-trigger");
+    return await this.releaseExpiredHolds(batchSize);
   }
 
   /**

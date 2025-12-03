@@ -26,17 +26,16 @@ export class UpdateProductItemSortOrderCommand extends CommandBase {
    * 执行更新产品项目排序顺序用例
    * [Execute update product item sort order use case]
    * 
-   * @param productId 产品ID
    * @param items 项目排序信息
    * @returns 执行结果
    */
-  async execute(productId: string, items: Array<{ itemId: string; sortOrder: number }>): Promise<void> {
+  async execute(items: Array<{ itemId: string; sortOrder: number }>): Promise<void> {
     try {
-      this.logger.debug(`Updating item sort order for product: ${productId}`);
-      await this.productService.updateItemSortOrder(productId, items);
-      this.logger.debug(`Item sort order updated successfully: ${productId}`);
+      this.logger.debug(`Updating product item sort order for ${items.length} items`);
+      await this.productService.updateItemSortOrder(items);
+      this.logger.debug(`Product item sort order updated successfully`);
     } catch (error) {
-      this.logger.error(`Failed to update item sort order: ${error.message}`, error.stack);
+      this.logger.error(`Failed to update product item sort order: ${error.message}`, error.stack);
       throw error;
     }
   }

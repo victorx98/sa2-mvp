@@ -59,21 +59,28 @@ export class AdminFinancialController {
     @CurrentUser() user: IJwtUser,
     @Body() createMentorAppealDto: CreateAppealDto
   ) {
+    // Guard ensures user is authenticated and has valid structure [守卫确保用户已认证且结构有效]
     return this.createMentorAppealCommand.execute({ 
       ...createMentorAppealDto, 
-      createdBy: String(user.id) 
+      createdBy: String((user as unknown as { id: string }).id) 
     });
   }
 
   @Get('mentor-appeals')
   @ApiOperation({ summary: 'Get all mentor appeals' })
   @ApiResponse({ status: 200, description: 'Mentor appeals retrieved successfully' })
-  async getMentorAppeals(
-    @Query() search: AppealSearchDto,
-    @Query() pagination?: IPaginationQuery,
-    @Query() sort?: ISortQuery
-  ) {
-    return this.getMentorAppealsQuery.execute({ filter: search, pagination, sort });
+  async getMentorAppeals(@Query() query: any) {
+    return this.getMentorAppealsQuery.execute({
+      filter: query as AppealSearchDto,
+      pagination: {
+        page: query.page,
+        pageSize: query.pageSize
+      } as IPaginationQuery,
+      sort: {
+        field: query.field,
+        direction: query.order
+      } as ISortQuery
+    });
   }
 
   @Get('mentor-appeals/:id')
@@ -92,9 +99,10 @@ export class AdminFinancialController {
     @CurrentUser() user: IJwtUser,
     @Param('id') id: string
   ) {
+    // Guard ensures user is authenticated and has valid structure [守卫确保用户已认证且结构有效]
     return this.approveMentorAppealCommand.execute({ 
       id, 
-      approvedBy: String(user.id) 
+      approvedBy: String((user as unknown as { id: string }).id) 
     });
   }
 
@@ -107,9 +115,10 @@ export class AdminFinancialController {
     @Param('id') id: string,
     @Body() rejectAppealDto: RejectAppealDto
   ) {
+    // Guard ensures user is authenticated and has valid structure [守卫确保用户已认证且结构有效]
     return this.rejectMentorAppealCommand.execute({ 
       id, 
-      rejectedBy: String(user.id),
+      rejectedBy: String((user as unknown as { id: string }).id),
       rejectReason: rejectAppealDto.rejectionReason 
     });
   }

@@ -26,17 +26,16 @@ export class RemoveProductItemCommand extends CommandBase {
    * 执行从产品移除项目用例
    * [Execute remove product item use case]
    * 
-   * @param productId 产品ID
    * @param itemId 项目ID
    * @returns 执行结果
    */
-  async execute(productId: string, itemId: string): Promise<void> {
+  async execute(itemId: string): Promise<void> {
     try {
-      this.logger.debug(`Removing item ${itemId} from product: ${productId}`);
-      await this.productService.removeItem(productId, itemId);
-      this.logger.debug(`Item removed from product successfully: ${productId}`);
+      this.logger.debug(`Removing product item: ${itemId}`);
+      await this.productService.removeItem(itemId);
+      this.logger.debug(`Product item removed successfully: ${itemId}`);
     } catch (error) {
-      this.logger.error(`Failed to remove item from product: ${error.message}`, error.stack);
+      this.logger.error(`Failed to remove product item: ${error.message}`, error.stack);
       throw error;
     }
   }

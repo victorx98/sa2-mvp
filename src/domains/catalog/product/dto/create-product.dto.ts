@@ -9,6 +9,7 @@ import {
   IsEnum,
   Min,
   IsNumber,
+  IsUrl,
 } from "class-validator";
 import { Type } from "class-transformer";
 import {

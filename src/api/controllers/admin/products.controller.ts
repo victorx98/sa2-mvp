@@ -4,6 +4,7 @@ import { JwtAuthGuard as AuthGuard } from '@shared/guards/jwt-auth.guard';
 import { RolesGuard } from '@shared/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
 import { CurrentUser } from '@shared/decorators/current-user.decorator';
+import type { IJwtUser } from '@shared/types/jwt-user.interface';
 import { CreateProductCommand } from '@application/commands/product/create-product.command';
 import { UpdateProductCommand } from '@application/commands/product/update-product.command';
 import { PublishProductCommand } from '@application/commands/product/publish-product.command';
@@ -56,40 +57,67 @@ export class AdminProductsController {
   @ApiResponse({ status: 201, description: 'Product created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   async create(
-    @CurrentUser() user: any,
+    @CurrentUser() user: IJwtUser,
     @Body() createProductDto: CreateProductDto,
   ) {
-    return this.createProductCommand.execute(createProductDto, String(user.id));
+    // Guard ensures user is authenticated and has valid structure [守卫确保用户已认证且结构有效]
+    // User object from JwtAuthGuard has 'id' property [来自JwtAuthGuard的用户对象具有'id'属性]
+    return this.createProductCommand.execute(createProductDto, String((user as unknown as { id: string }).id));
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all products' })
   @ApiResponse({ status: 200, description: 'Products retrieved successfully' })
-  async findAll(
-    @Query() filter: ProductFilterDto,
-    @Query() pagination: PaginationDto,
-    @Query() sort: SortDto,
-  ) {
+  async findAll(@Query() query: any) {
+    // Extract filter, pagination, and sort parameters
+    const filter = query as ProductFilterDto;
+    const pagination = {
+      page: Number(query.page),
+      pageSize: Number(query.pageSize)
+    } as PaginationDto;
+    const sort = {
+      field: query.field,
+      order: query.order
+    } as SortDto;
     return this.getProductsQuery.execute(filter, pagination, sort);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get product by ID' })
-  @ApiResponse({ status: 200, description: 'Product retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  async findOne(@Param('id') id: string) {
-    return this.getProductQuery.execute({ id });
+  // Item management routes (must come before generic :id routes to avoid conflicts) [商品项管理路由（必须在通用:id路由之前以避免冲突）]
+  @Delete('items/:itemId')
+  @ApiOperation({ summary: 'Remove item from product' })
+  @ApiResponse({ status: 204, description: 'Item removed from product successfully' })
+  @ApiResponse({ status: 404, description: 'Product item not found' })
+  async removeItem(@Param('itemId') itemId: string) {
+    return this.removeProductItemCommand.execute(itemId);
   }
 
-  @Patch(':id')
-  @ApiOperation({ summary: 'Update product' })
-  @ApiResponse({ status: 200, description: 'Product updated successfully' })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  async update(
-    @Param('id') id: string,
-    @Body() updateProductDto: UpdateProductDto,
+  @Patch('items/sort')
+  @ApiOperation({ summary: 'Update product item sort order' })
+  @ApiResponse({ status: 200, description: 'Product item sort order updated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 404, description: 'Product item not found' })
+  async updateItemSortOrder(
+    @Body() items: Array<{ itemId: string; sortOrder: number }>
   ) {
-    return this.updateProductCommand.execute(id, updateProductDto);
+    return this.updateProductItemSortOrderCommand.execute(items);
+  }
+
+  // Product-specific routes (more specific paths before generic :id) [产品特定路由（更具体的路径在通用:id之前）]
+  @Get(':id/snapshot')
+  @ApiOperation({ summary: 'Create product snapshot' })
+  @ApiResponse({ status: 200, description: 'Product snapshot created successfully' })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  async createSnapshot(@Param('id') id: string) {
+    return this.createProductSnapshotCommand.execute(id);
+  }
+
+  @Post(':id/items')
+  @ApiOperation({ summary: 'Add item to product' })
+  @ApiResponse({ status: 201, description: 'Item added to product successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  async addItem(@Param('id') id: string, @Body() addProductItemDto: AddProductItemDto) {
+    return this.addProductItemCommand.execute(id, addProductItemDto);
   }
 
   @Post(':id/publish')
@@ -116,40 +144,23 @@ export class AdminProductsController {
     return this.revertToDraftProductCommand.execute(id);
   }
 
-  @Post(':id/items')
-  @ApiOperation({ summary: 'Add item to product' })
-  @ApiResponse({ status: 201, description: 'Item added to product successfully' })
-  @ApiResponse({ status: 400, description: 'Bad request' })
+  // Generic product routes (must come after specific routes) [通用产品路由（必须在特定路由之后）]
+  @Get(':id')
+  @ApiOperation({ summary: 'Get product by ID' })
+  @ApiResponse({ status: 200, description: 'Product retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Product not found' })
-  async addItem(@Param('id') id: string, @Body() addProductItemDto: AddProductItemDto) {
-    return this.addProductItemCommand.execute(id, addProductItemDto);
+  async findOne(@Param('id') id: string) {
+    return this.getProductQuery.execute({ id });
   }
 
-  @Delete(':id/items/:itemId')
-  @ApiOperation({ summary: 'Remove item from product' })
-  @ApiResponse({ status: 204, description: 'Item removed from product successfully' })
-  @ApiResponse({ status: 404, description: 'Product or item not found' })
-  async removeItem(@Param('id') id: string, @Param('itemId') itemId: string) {
-    return this.removeProductItemCommand.execute(id, itemId);
-  }
-
-  @Patch(':id/items/sort')
-  @ApiOperation({ summary: 'Update product item sort order' })
-  @ApiResponse({ status: 200, description: 'Product item sort order updated successfully' })
-  @ApiResponse({ status: 400, description: 'Bad request' })
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update product' })
+  @ApiResponse({ status: 200, description: 'Product updated successfully' })
   @ApiResponse({ status: 404, description: 'Product not found' })
-  async updateItemSortOrder(
+  async update(
     @Param('id') id: string,
-    @Body() items: Array<{ itemId: string; sortOrder: number }>
+    @Body() updateProductDto: UpdateProductDto,
   ) {
-    return this.updateProductItemSortOrderCommand.execute(id, items);
-  }
-
-  @Get(':id/snapshot')
-  @ApiOperation({ summary: 'Create product snapshot' })
-  @ApiResponse({ status: 200, description: 'Product snapshot created successfully' })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  async createSnapshot(@Param('id') id: string) {
-    return this.createProductSnapshotCommand.execute(id);
+    return this.updateProductCommand.execute(id, updateProductDto);
   }
 }

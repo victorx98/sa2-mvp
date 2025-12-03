@@ -1,10 +1,8 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, Query, HttpException, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
-import { RolesGuard } from '@shared/guards/roles.guard';
-import { Roles } from '@shared/decorators/roles.decorator';
-import { CurrentUser } from '@shared/decorators/current-user.decorator';
-import { IJwtUser } from '@shared/types/jwt-user.interface';
+// import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
+// import { RolesGuard } from '@shared/guards/roles.guard';
+// import { Roles } from '@shared/decorators/roles.decorator';
 import { CreateJobPositionCommand } from '@application/commands/placement/create-job-position.command';
 import { UpdateJobPositionCommand } from '@application/commands/placement/update-job-position.command';
 import { UpdateJobApplicationStatusCommand } from '@application/commands/placement/update-job-application-status.command';
@@ -28,8 +26,8 @@ import { IPaginationQuery, ISortQuery } from '@shared/types/pagination.types';
  */
 @Controller('api/admin/placement')
 @ApiTags('Admin Placement')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+// @UseGuards(JwtAuthGuard, RolesGuard)
+// @Roles('admin')
 export class AdminPlacementController {
   constructor(
     // 职位管理相关
@@ -134,53 +132,59 @@ export class AdminPlacementController {
   @ApiOperation({ summary: 'Create a new configuration rule' })
   @ApiResponse({ status: 201, description: 'Configuration rule created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  async createConfigurationRule(
-    @CurrentUser() _user: IJwtUser,
-    @Body() _createRuleDto: unknown // 后续替换为实际的DTO
-  ) {
-    // 后续实现CreateConfigurationRuleCommand
-    return { data: null };
+  @ApiResponse({ status: 501, description: 'Not implemented' })
+  async createConfigurationRule() {
+    throw new HttpException(
+      'Configuration rule creation is not yet implemented',
+      HttpStatus.NOT_IMPLEMENTED,
+    );
   }
 
   @Get('rules')
   @ApiOperation({ summary: 'Get all configuration rules' })
   @ApiResponse({ status: 200, description: 'Configuration rules retrieved successfully' })
-  async getConfigurationRules(
-    @Query() _pagination?: IPaginationQuery,
-    @Query() _sort?: ISortQuery
-  ) {
-    // 后续实现GetConfigurationRulesQuery
-    return { data: [], meta: { total: 0, page: 1, pageSize: 20, totalPages: 0 } };
+  @ApiResponse({ status: 501, description: 'Not implemented' })
+  async getConfigurationRules() {
+    throw new HttpException(
+      'Configuration rules retrieval is not yet implemented',
+      HttpStatus.NOT_IMPLEMENTED,
+    );
   }
 
   @Get('rules/:id')
   @ApiOperation({ summary: 'Get configuration rule by ID' })
   @ApiResponse({ status: 200, description: 'Configuration rule retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Configuration rule not found' })
-  async getConfigurationRuleById(@Param('id') _id: string) {
-    // 后续实现GetConfigurationRuleQuery
-    return { data: null };
+  @ApiResponse({ status: 501, description: 'Not implemented' })
+  async getConfigurationRuleById() {
+    throw new HttpException(
+      'Configuration rule retrieval by ID is not yet implemented',
+      HttpStatus.NOT_IMPLEMENTED,
+    );
   }
 
   @Patch('rules/:id')
   @ApiOperation({ summary: 'Update configuration rule' })
   @ApiResponse({ status: 200, description: 'Configuration rule updated successfully' })
   @ApiResponse({ status: 404, description: 'Configuration rule not found' })
-  async updateConfigurationRule(
-    @Param('id') _id: string,
-    @Body() _updateRuleDto: unknown // 后续替换为实际的DTO
-  ) {
-    // 后续实现UpdateConfigurationRuleCommand
-    return { data: null };
+  @ApiResponse({ status: 501, description: 'Not implemented' })
+  async updateConfigurationRule() {
+    throw new HttpException(
+      'Configuration rule update is not yet implemented',
+      HttpStatus.NOT_IMPLEMENTED,
+    );
   }
 
   @Delete('rules/:id')
   @ApiOperation({ summary: 'Delete configuration rule' })
   @ApiResponse({ status: 204, description: 'Configuration rule deleted successfully' })
   @ApiResponse({ status: 404, description: 'Configuration rule not found' })
-  async deleteConfigurationRule(@Param('id') _id: string) {
-    // 后续实现DeleteConfigurationRuleCommand
-    return { data: null };
+  @ApiResponse({ status: 501, description: 'Not implemented' })
+  async deleteConfigurationRule() {
+    throw new HttpException(
+      'Configuration rule deletion is not yet implemented',
+      HttpStatus.NOT_IMPLEMENTED,
+    );
   }
 
   // ----------------------
@@ -191,20 +195,23 @@ export class AdminPlacementController {
   @ApiOperation({ summary: 'Get job application status history' })
   @ApiResponse({ status: 200, description: 'Job application status history retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Job application not found' })
-  async getJobApplicationHistory(@Param('id') _id: string) {
-    // 后续实现GetJobApplicationHistoryQuery
-    return { data: null };
+  @ApiResponse({ status: 501, description: 'Not implemented' })
+  async getJobApplicationHistory() {
+    throw new HttpException(
+      'Job application history retrieval is not yet implemented',
+      HttpStatus.NOT_IMPLEMENTED,
+    );
   }
 
   @Patch('job-applications/:id/rollback')
   @ApiOperation({ summary: 'Rollback job application status' })
   @ApiResponse({ status: 200, description: 'Job application status rolled back successfully' })
   @ApiResponse({ status: 404, description: 'Job application not found' })
-  async rollbackJobApplicationStatus(
-    @Param('id') _id: string,
-    @Body() _rollbackDto: unknown // 后续替换为实际的DTO
-  ) {
-    // 后续实现RollbackJobApplicationStatusCommand
-    return { data: null };
+  @ApiResponse({ status: 501, description: 'Not implemented' })
+  async rollbackJobApplicationStatus() {
+    throw new HttpException(
+      'Job application status rollback is not yet implemented',
+      HttpStatus.NOT_IMPLEMENTED,
+    );
   }
 }
