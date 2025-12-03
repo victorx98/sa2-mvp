@@ -48,9 +48,9 @@ export class AdminPlacementController {
   // 职位管理
   // ----------------------
 
-  @Post('job-applications')
-  @ApiOperation({ summary: 'Create a new job application' })
-  @ApiResponse({ status: 201, description: 'Job application created successfully' })
+  @Post('job-positions')
+  @ApiOperation({ summary: 'Create a new job position' })
+  @ApiResponse({ status: 201, description: 'Job position created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   async createJobPosition(
     @Body() createJobApplicationDto: ISubmitApplicationDto
@@ -60,9 +60,9 @@ export class AdminPlacementController {
     });
   }
 
-  @Get('job-applications')
-  @ApiOperation({ summary: 'Get all job applications' })
-  @ApiResponse({ status: 200, description: 'Job applications retrieved successfully' })
+  @Get('job-positions')
+  @ApiOperation({ summary: 'Get all job positions' })
+  @ApiResponse({ status: 200, description: 'Job positions retrieved successfully' })
   async getJobPositions(
     @Query() pagination?: IPaginationQuery,
     @Query() sort?: ISortQuery
@@ -70,18 +70,18 @@ export class AdminPlacementController {
     return this.getJobPositionsQuery.execute({ pagination, sort });
   }
 
-  @Get('job-applications/:id')
-  @ApiOperation({ summary: 'Get job application by ID' })
-  @ApiResponse({ status: 200, description: 'Job application retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Job application not found' })
+  @Get('job-positions/:id')
+  @ApiOperation({ summary: 'Get job position by ID' })
+  @ApiResponse({ status: 200, description: 'Job position retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Job position not found' })
   async getJobPositionById(@Param('id') id: string) {
     return this.getJobPositionQuery.execute({ id });
   }
 
-  @Patch('job-applications/:id')
-  @ApiOperation({ summary: 'Update job application' })
-  @ApiResponse({ status: 200, description: 'Job application updated successfully' })
-  @ApiResponse({ status: 404, description: 'Job application not found' })
+  @Patch('job-positions/:id')
+  @ApiOperation({ summary: 'Update job position' })
+  @ApiResponse({ status: 200, description: 'Job position updated successfully' })
+  @ApiResponse({ status: 404, description: 'Job position not found' })
   async updateJobPosition(
     @Param('id') id: string,
     @Body() updateStatusDto: IUpdateApplicationStatusDto
@@ -135,8 +135,8 @@ export class AdminPlacementController {
   @ApiResponse({ status: 201, description: 'Configuration rule created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   async createConfigurationRule(
-    @CurrentUser() user: IJwtUser,
-    @Body() createRuleDto: any // 后续替换为实际的DTO
+    @CurrentUser() _user: IJwtUser,
+    @Body() _createRuleDto: unknown // 后续替换为实际的DTO
   ) {
     // 后续实现CreateConfigurationRuleCommand
     return { data: null };
@@ -146,8 +146,8 @@ export class AdminPlacementController {
   @ApiOperation({ summary: 'Get all configuration rules' })
   @ApiResponse({ status: 200, description: 'Configuration rules retrieved successfully' })
   async getConfigurationRules(
-    @Query() pagination?: IPaginationQuery,
-    @Query() sort?: ISortQuery
+    @Query() _pagination?: IPaginationQuery,
+    @Query() _sort?: ISortQuery
   ) {
     // 后续实现GetConfigurationRulesQuery
     return { data: [], meta: { total: 0, page: 1, pageSize: 20, totalPages: 0 } };
@@ -157,7 +157,7 @@ export class AdminPlacementController {
   @ApiOperation({ summary: 'Get configuration rule by ID' })
   @ApiResponse({ status: 200, description: 'Configuration rule retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Configuration rule not found' })
-  async getConfigurationRuleById(@Param('id') id: string) {
+  async getConfigurationRuleById(@Param('id') _id: string) {
     // 后续实现GetConfigurationRuleQuery
     return { data: null };
   }
@@ -167,8 +167,8 @@ export class AdminPlacementController {
   @ApiResponse({ status: 200, description: 'Configuration rule updated successfully' })
   @ApiResponse({ status: 404, description: 'Configuration rule not found' })
   async updateConfigurationRule(
-    @Param('id') id: string,
-    @Body() updateRuleDto: any // 后续替换为实际的DTO
+    @Param('id') _id: string,
+    @Body() _updateRuleDto: unknown // 后续替换为实际的DTO
   ) {
     // 后续实现UpdateConfigurationRuleCommand
     return { data: null };
@@ -178,8 +178,33 @@ export class AdminPlacementController {
   @ApiOperation({ summary: 'Delete configuration rule' })
   @ApiResponse({ status: 204, description: 'Configuration rule deleted successfully' })
   @ApiResponse({ status: 404, description: 'Configuration rule not found' })
-  async deleteConfigurationRule(@Param('id') id: string) {
+  async deleteConfigurationRule(@Param('id') _id: string) {
     // 后续实现DeleteConfigurationRuleCommand
+    return { data: null };
+  }
+
+  // ----------------------
+  // 职位申请历史管理
+  // ----------------------
+
+  @Get('job-applications/:id/history')
+  @ApiOperation({ summary: 'Get job application status history' })
+  @ApiResponse({ status: 200, description: 'Job application status history retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Job application not found' })
+  async getJobApplicationHistory(@Param('id') _id: string) {
+    // 后续实现GetJobApplicationHistoryQuery
+    return { data: null };
+  }
+
+  @Patch('job-applications/:id/rollback')
+  @ApiOperation({ summary: 'Rollback job application status' })
+  @ApiResponse({ status: 200, description: 'Job application status rolled back successfully' })
+  @ApiResponse({ status: 404, description: 'Job application not found' })
+  async rollbackJobApplicationStatus(
+    @Param('id') _id: string,
+    @Body() _rollbackDto: unknown // 后续替换为实际的DTO
+  ) {
+    // 后续实现RollbackJobApplicationStatusCommand
     return { data: null };
   }
 }

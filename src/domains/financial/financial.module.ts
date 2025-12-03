@@ -31,6 +31,11 @@ import { PlacementApplicationStatusRolledBackListener } from "./events/listeners
   imports: [DatabaseModule],
   providers: [
     // Core services - Using custom token for interface-based injection
+    MentorPayableService,
+    SettlementService,
+    MentorPaymentInfoService,
+    MentorPaymentParamService,
+    MentorAppealService,
     {
       provide: "IMentorPayableService",
       useClass: MentorPayableService,
@@ -58,27 +63,18 @@ import { PlacementApplicationStatusRolledBackListener } from "./events/listeners
     PlacementApplicationStatusRolledBackListener,
   ],
   exports: [
-    // Export services with custom token for dependency injection
-    {
-      provide: "IMentorPayableService",
-      useClass: MentorPayableService,
-    },
-    {
-      provide: "ISettlementService",
-      useClass: SettlementService,
-    },
-    {
-      provide: "IMentorPaymentInfoService",
-      useClass: MentorPaymentInfoService,
-    },
-    {
-      provide: "IMentorPaymentParamService",
-      useClass: MentorPaymentParamService,
-    },
-    {
-      provide: "IMentorAppealService",
-      useClass: MentorAppealService,
-    },
+    // Export services with custom token for interface-based injection
+    "IMentorPayableService",
+    "ISettlementService",
+    "IMentorPaymentInfoService",
+    "IMentorPaymentParamService",
+    "IMentorAppealService",
+    // Export concrete service classes for direct injection in commands/queries
+    MentorPayableService,
+    SettlementService,
+    MentorPaymentInfoService,
+    MentorPaymentParamService,
+    MentorAppealService,
   ],
 })
 export class FinancialModule {}

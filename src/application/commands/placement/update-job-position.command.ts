@@ -1,5 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { CommandBase } from '@application/core/command.base';
+import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
+import type { DrizzleDatabase } from '@shared/types/database.types';
 import { JobApplicationService } from '@domains/placement/services/job-application.service';
 import { IUpdateApplicationStatusDto } from '@domains/placement/dto';
 
@@ -12,10 +14,10 @@ import { IUpdateApplicationStatusDto } from '@domains/placement/dto';
 @Injectable()
 export class UpdateJobPositionCommand extends CommandBase {
   constructor(
+    @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
     private readonly jobApplicationService: JobApplicationService,
-    ...args: ConstructorParameters<typeof CommandBase>
   ) {
-    super(...args);
+    super(db);
   }
 
   /**

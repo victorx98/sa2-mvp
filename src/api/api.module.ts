@@ -13,6 +13,9 @@ import { MentorProfileController } from "./controllers/mentor/mentor-profile.con
 import { CounselorProfileController } from "./controllers/counselor/counselor-profile.controller";
 import { AdminProductsController } from "./controllers/admin/products.controller";
 import { AdminContractsController } from "./controllers/admin/contracts.controller";
+import { AdminFinancialController } from "./controllers/admin/financial.controller";
+import { AdminPlacementController } from "./controllers/admin/placement.controller";
+import { SessionTypesController } from "./controllers/services/session-types.controller";
 import { ApplicationModule } from "@application/application.module";
 import { WebhookModule } from "@core/webhook/webhook.module";
 
@@ -31,29 +34,34 @@ import { WebhookModule } from "@core/webhook/webhook.module";
     WebhookModule,
   ],
   controllers: [
-    // Common Controllers
-    AuthController,
-    UserController,
-    SessionController,
-    ReferenceDataController,
+        // Common Controllers
+        AuthController,
+        UserController,
+        SessionController,
+        ReferenceDataController,
 
-    // Admin Controllers
-    AdminProductsController,
-    AdminContractsController,
+        // Service Controllers
+        SessionTypesController,
 
-    // Counselor Controllers
-    CounselorSessionsController,
-    CounselorStudentContractController,
-    CounselorProfileController,
-    CounselorsController,
+        // Admin Controllers
+        AdminProductsController,
+        AdminContractsController,
+        AdminFinancialController,
+        AdminPlacementController,
 
-    // Mentor Controllers
-    MentorsController,
-    MentorProfileController,
+        // Counselor Controllers
+        CounselorSessionsController,
+        CounselorStudentContractController,
+        CounselorProfileController,
+        CounselorsController,
 
-    // Student Controllers
-    StudentsController,
-    StudentProfileController,
-  ],
+        // Mentor Controllers
+        MentorsController,
+        MentorProfileController,
+
+        // Student Controllers
+        StudentsController,
+        StudentProfileController,
+      ],
 })
 export class ApiModule {}

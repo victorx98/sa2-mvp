@@ -1,10 +1,9 @@
-import { Controller, Get, Query, UseGuards } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiOkResponse, ApiBearerAuth, ApiQuery } from "@nestjs/swagger";
+import { Controller, Get, Query, Param, UseGuards } from "@nestjs/common";
+import { ApiTags, ApiOperation, ApiOkResponse, ApiBearerAuth } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
 import { Roles } from "@shared/decorators/roles.decorator";
 import { ApiPrefix } from "@api/api.constants";
-import { GetServiceBalanceDto } from "@api/dto/request/get-service-balance.dto";
 import { ServiceBalanceResponseDto } from "@api/dto/response/service-balance-response.dto";
 import { ServiceBalanceQuery } from "@application/queries/contract/service-balance.query";
 import { plainToInstance } from "class-transformer";
@@ -34,31 +33,20 @@ export class CounselorStudentContractController {
     private readonly serviceBalanceQuery: ServiceBalanceQuery,
   ) {}
 
-  @Get("getServiceBalance")
+  @Get(":studentId/balance")
   @ApiOperation({ summary: "Get service balance for a student" })
-  @ApiQuery({
-    name: "studentId",
-    required: true,
-    description: "Student ID",
-    type: String,
-  })
-  @ApiQuery({
-    name: "serviceType",
-    required: false,
-    description: "Service type (optional)",
-    type: String,
-  })
   @ApiOkResponse({
     description: "Service balance retrieved successfully",
     type: ServiceBalanceResponseDto,
     isArray: true,
   })
   async getServiceBalance(
-    @Query() query: GetServiceBalanceDto,
+    @Param("studentId") studentId: string,
+    @Query("serviceType") serviceType?: string,
   ): Promise<ServiceBalanceResponseDto[]> {
     const items = await this.serviceBalanceQuery.getServiceBalance(
-      query.studentId,
-      query.serviceType,
+      studentId,
+      serviceType,
     );
     return plainToInstance(ServiceBalanceResponseDto, items, {
       enableImplicitConversion: false,

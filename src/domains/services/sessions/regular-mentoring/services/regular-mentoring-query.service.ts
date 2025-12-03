@@ -39,7 +39,7 @@ export class RegularMentoringQueryService {
     return session;
   }
 
-  async countSessions(filters: SessionFiltersDto): Promise<number> {
+  async countSessions(_filters: SessionFiltersDto): Promise<number> {
     // Implement based on specific requirements
     // For now, return 0 as placeholder
     return 0;

@@ -327,6 +327,9 @@ trigger: always_on
   npm run test -- --testPathPatterns=<测试文件路径> --verbose
   ```
 
+# 文档编辑规范
+## **补充文档** 保留原文档内容并补充缺失的内容
+
 # 禁止事项
 
 - **文档创建**: 禁止创建任何形式的总结文档

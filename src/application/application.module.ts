@@ -6,6 +6,8 @@ import { DatabaseModule } from "@infrastructure/database/database.module";
 // Domain Layer
 import { UserModule } from "@domains/identity/user/user.module";
 import { CatalogModule } from "@domains/catalog/catalog.module";
+import { FinancialModule } from "@domains/financial/financial.module";
+import { PlacementModule } from "@domains/placement/placement.module";
 
 // Application Layer - Queries
 import { UserQueryService } from "./queries/user-query.service";
@@ -18,8 +20,18 @@ import { SchoolListQuery } from "./queries/school/school-list.query";
 import { MajorListQuery } from "./queries/major/major-list.query";
 import { ServiceBalanceQuery } from "./queries/contract/service-balance.query";
 import { GetContractQuery } from "./queries/contract/get-contract.query";
+import { GetContractsQuery } from "./queries/contract/get-contracts.query";
 import { GetProductQuery } from "./queries/product/get-product.query";
 import { GetProductsQuery } from "./queries/product/get-products.query";
+import { GetSessionTypesQuery } from "./queries/services/get-session-types.query";
+import { GetMentorAppealsQuery } from "./queries/financial/get-mentor-appeals.query";
+import { GetMentorAppealQuery } from "./queries/financial/get-mentor-appeal.query";
+import { GetSettlementsQuery } from "./queries/financial/get-settlements.query";
+import { GetSettlementQuery } from "./queries/financial/get-settlement.query";
+import { GetJobPositionsQuery } from "./queries/placement/get-job-positions.query";
+import { GetJobPositionQuery } from "./queries/placement/get-job-position.query";
+import { GetJobApplicationsQuery } from "./queries/placement/get-job-applications.query";
+import { GetJobApplicationQuery } from "./queries/placement/get-job-application.query";
 
 // Application Layer - Commands
 import { RegisterCommand } from "./commands/auth/register.command";
@@ -31,7 +43,28 @@ import { UpdateCounselorProfileCommand } from "./commands/profile/update-counsel
 import { CreateProductCommand } from "./commands/product/create-product.command";
 import { UpdateProductCommand } from "./commands/product/update-product.command";
 import { PublishProductCommand } from "./commands/product/publish-product.command";
+import { UnpublishProductCommand } from "./commands/product/unpublish-product.command";
+import { RevertToDraftProductCommand } from "./commands/product/revert-to-draft.command";
+import { AddProductItemCommand } from "./commands/product/add-product-item.command";
+import { RemoveProductItemCommand } from "./commands/product/remove-product-item.command";
+import { UpdateProductItemSortOrderCommand } from "./commands/product/update-item-sort-order.command";
+import { CreateProductSnapshotCommand } from "./commands/product/create-snapshot.command";
 import { CreateContractCommand } from "./commands/contract/create-contract.command";
+import { ActivateContractCommand } from "./commands/contract/activate-contract.command";
+import { SignContractCommand } from "./commands/contract/sign-contract.command";
+import { SuspendContractCommand } from "./commands/contract/suspend-contract.command";
+import { ResumeContractCommand } from "./commands/contract/resume-contract.command";
+import { CompleteContractCommand } from "./commands/contract/complete-contract.command";
+import { TerminateContractCommand } from "./commands/contract/terminate-contract.command";
+import { UpdateContractCommand } from "./commands/contract/update-contract.command";
+import { ConsumeServiceCommand } from "./commands/contract/consume-service.command";
+import { AddAmendmentLedgerCommand } from "./commands/contract/add-amendment-ledger.command";
+import { CreateMentorAppealCommand } from "./commands/financial/create-mentor-appeal.command";
+import { ApproveMentorAppealCommand } from "./commands/financial/approve-mentor-appeal.command";
+import { RejectMentorAppealCommand } from "./commands/financial/reject-mentor-appeal.command";
+import { CreateJobPositionCommand } from "./commands/placement/create-job-position.command";
+import { UpdateJobPositionCommand } from "./commands/placement/update-job-position.command";
+import { UpdateJobApplicationStatusCommand } from "./commands/placement/update-job-application-status.command";
 
 // Application Layer - Commands (兼容层)
 import { AuthCommandService } from "./commands/auth-command/auth-command.service";
@@ -64,6 +97,8 @@ import { QueryModule } from "@domains/query/query.module";
     CatalogModule, // Domain层：Catalog
     ServicesModule, // Domain层：Services
     ContractModule, // Domain层：Contract
+    FinancialModule, // Domain层：Financial
+    PlacementModule, // Domain层：Placement
     QueryModule, // Domain层：Query (跨域查询)
   ],
   providers: [
@@ -79,8 +114,18 @@ import { QueryModule } from "@domains/query/query.module";
     MajorListQuery,
     ServiceBalanceQuery,
     GetContractQuery,
+    GetContractsQuery,
     GetProductQuery,
     GetProductsQuery,
+    GetSessionTypesQuery,
+    GetMentorAppealsQuery,
+    GetMentorAppealQuery,
+    GetSettlementsQuery,
+    GetSettlementQuery,
+    GetJobPositionsQuery,
+    GetJobPositionQuery,
+    GetJobApplicationsQuery,
+    GetJobApplicationQuery,
 
     // Commands
     RegisterCommand,
@@ -92,7 +137,28 @@ import { QueryModule } from "@domains/query/query.module";
     CreateProductCommand,
     UpdateProductCommand,
     PublishProductCommand,
+    UnpublishProductCommand,
+    RevertToDraftProductCommand,
+    AddProductItemCommand,
+    RemoveProductItemCommand,
+    UpdateProductItemSortOrderCommand,
+    CreateProductSnapshotCommand,
     CreateContractCommand,
+    ActivateContractCommand,
+    SignContractCommand,
+    SuspendContractCommand,
+    ResumeContractCommand,
+    CompleteContractCommand,
+    TerminateContractCommand,
+    UpdateContractCommand,
+    ConsumeServiceCommand,
+    AddAmendmentLedgerCommand,
+    CreateMentorAppealCommand,
+    ApproveMentorAppealCommand,
+    RejectMentorAppealCommand,
+    CreateJobPositionCommand,
+    UpdateJobPositionCommand,
+    UpdateJobApplicationStatusCommand,
 
     // Commands (兼容层)
     AuthCommandService,
@@ -118,8 +184,18 @@ import { QueryModule } from "@domains/query/query.module";
     MajorListQuery,
     ServiceBalanceQuery,
     GetContractQuery,
+    GetContractsQuery,
     GetProductQuery,
     GetProductsQuery,
+    GetSessionTypesQuery,
+    GetMentorAppealsQuery,
+    GetMentorAppealQuery,
+    GetSettlementsQuery,
+    GetSettlementQuery,
+    GetJobPositionsQuery,
+    GetJobPositionQuery,
+    GetJobApplicationsQuery,
+    GetJobApplicationQuery,
 
     // Commands
     RegisterCommand,
@@ -131,7 +207,28 @@ import { QueryModule } from "@domains/query/query.module";
     CreateProductCommand,
     UpdateProductCommand,
     PublishProductCommand,
+    UnpublishProductCommand,
+    RevertToDraftProductCommand,
+    AddProductItemCommand,
+    RemoveProductItemCommand,
+    UpdateProductItemSortOrderCommand,
+    CreateProductSnapshotCommand,
     CreateContractCommand,
+    ActivateContractCommand,
+    SignContractCommand,
+    SuspendContractCommand,
+    ResumeContractCommand,
+    CompleteContractCommand,
+    TerminateContractCommand,
+    UpdateContractCommand,
+    ConsumeServiceCommand,
+    AddAmendmentLedgerCommand,
+    CreateMentorAppealCommand,
+    ApproveMentorAppealCommand,
+    RejectMentorAppealCommand,
+    CreateJobPositionCommand,
+    UpdateJobPositionCommand,
+    UpdateJobApplicationStatusCommand,
 
     // Commands (兼容层 - 保持向后兼容)
     AuthCommandService,
