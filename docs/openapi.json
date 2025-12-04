@@ -166,7 +166,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BookSessionDto"
+                "$ref": "#/components/schemas/BookSessionRequestDto"
               }
             }
           }
@@ -200,9 +200,9 @@
         ]
       }
     },
-    "/api/reference/schools": {
+    "/api/schools": {
       "get": {
-        "operationId": "ReferenceDataController_getSchools",
+        "operationId": "SchoolsController_getSchools",
         "parameters": [
           {
             "name": "text",
@@ -236,13 +236,13 @@
         ],
         "summary": "Search schools by Chinese or English name",
         "tags": [
-          "Reference Data"
+          "Schools"
         ]
       }
     },
-    "/api/reference/majors": {
+    "/api/majors": {
       "get": {
-        "operationId": "ReferenceDataController_getMajors",
+        "operationId": "MajorsController_getMajors",
         "parameters": [
           {
             "name": "text",
@@ -276,68 +276,20 @@
         ],
         "summary": "Search majors by Chinese or English name",
         "tags": [
-          "Reference Data"
+          "Majors"
         ]
       }
     },
-    "/api/counselor/sessions": {
-      "post": {
-        "description": "\n      Counselors book a one-on-one coaching session for their assigned students.\n\n      Flow:\n      1. Validate counselor permissions\n      2. Check student service balance\n      3. Verify mentor availability\n      4. Create the session booking\n      5. Reserve the calendar slot\n      6. Create the meeting link\n      7. Send notifications\n    ",
-        "operationId": "CounselorSessionsController_bookSession",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BookSessionRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Booking created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BookSessionResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request parameters or insufficient balance"
-          },
-          "403": {
-            "description": "Not authorized to book for this student"
-          },
-          "409": {
-            "description": "Timeslot conflict (mentor already scheduled)"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Counselor books a session for a student",
-        "tags": [
-          "Counselor Portal - Sessions"
-        ]
-      }
-    },
-    "/api/student/contract/getServiceBalance": {
+    "/api/students/{studentId}/contracts": {
       "get": {
         "operationId": "CounselorStudentContractController_getServiceBalance",
         "parameters": [
           {
             "name": "studentId",
             "required": true,
-            "in": "query",
+            "in": "path",
             "description": "Student ID",
             "schema": {
-              "example": "123e4567-e89b-12d3-a456-426614174000",
               "type": "string"
             }
           },
@@ -347,7 +299,6 @@
             "in": "query",
             "description": "Service type (optional)",
             "schema": {
-              "example": "one_on_one_session",
               "type": "string"
             }
           }
@@ -378,7 +329,7 @@
         ]
       }
     },
-    "/api/counselor/profile": {
+    "/api/counselors/profile": {
       "put": {
         "operationId": "CounselorProfileController_updateProfile",
         "parameters": [],
@@ -527,7 +478,7 @@
         ]
       }
     },
-    "/api/mentor/profile": {
+    "/api/mentors/profile": {
       "get": {
         "operationId": "MentorProfileController_getProfile",
         "parameters": [],
@@ -629,6 +580,15 @@
             }
           },
           {
+            "name": "studentId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by specific student ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "required": false,
             "in": "query",
@@ -672,7 +632,7 @@
         ]
       }
     },
-    "/api/student/profile": {
+    "/api/students/profile": {
       "get": {
         "operationId": "StudentProfileController_getProfile",
         "parameters": [],
@@ -964,52 +924,52 @@
           "id"
         ]
       },
-      "BookSessionDto": {
+      "BookSessionRequestDto": {
         "type": "object",
         "properties": {
           "studentId": {
             "type": "string",
-            "description": "Student ID"
+            "description": "Student ID",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
           },
           "mentorId": {
             "type": "string",
-            "description": "Mentor ID"
+            "description": "Mentor ID",
+            "example": "123e4567-e89b-12d3-a456-426614174001"
           },
-          "startTime": {
+          "scheduledStartTime": {
             "type": "string",
-            "description": "Start time (ISO 8601 format)",
-            "example": "2024-01-20T10:00:00Z"
+            "description": "Session start time (ISO 8601 format)",
+            "example": "2025-11-10T14:00:00Z"
           },
           "duration": {
             "type": "number",
-            "description": "Duration (minutes)",
+            "description": "Session duration (minutes)",
             "example": 60
-          },
-          "name": {
-            "type": "string",
-            "description": "Session name"
           },
           "serviceType": {
             "type": "string",
-            "description": "Service type (e.g., gap_analysis, individual_session, mock_interview)"
+            "description": "Service type",
+            "example": "external"
           },
-          "provider": {
+          "topic": {
             "type": "string",
-            "description": "Meeting provider (optional, defaults to zoom)",
-            "enum": [
-              "zoom",
-              "teams",
-              "google_meet",
-              "feishu"
-            ]
+            "description": "Session topic",
+            "example": "Resume review guidance"
+          },
+          "meetingProvider": {
+            "type": "string",
+            "description": "Meeting provider",
+            "example": "zoom"
           }
         },
         "required": [
           "studentId",
           "mentorId",
-          "startTime",
+          "scheduledStartTime",
           "duration",
-          "name"
+          "serviceType",
+          "topic"
         ]
       },
       "BookSessionResponseDto": {
@@ -1165,54 +1125,6 @@
           "nameEn",
           "createdAt",
           "modifiedAt"
-        ]
-      },
-      "BookSessionRequestDto": {
-        "type": "object",
-        "properties": {
-          "studentId": {
-            "type": "string",
-            "description": "Student ID",
-            "example": "123e4567-e89b-12d3-a456-426614174000"
-          },
-          "mentorId": {
-            "type": "string",
-            "description": "Mentor ID",
-            "example": "123e4567-e89b-12d3-a456-426614174001"
-          },
-          "scheduledStartTime": {
-            "type": "string",
-            "description": "Session start time (ISO 8601 format)",
-            "example": "2025-11-10T14:00:00Z"
-          },
-          "duration": {
-            "type": "number",
-            "description": "Session duration (minutes)",
-            "example": 60
-          },
-          "serviceType": {
-            "type": "string",
-            "description": "Service type",
-            "example": "external"
-          },
-          "topic": {
-            "type": "string",
-            "description": "Session topic",
-            "example": "Resume review guidance"
-          },
-          "meetingProvider": {
-            "type": "string",
-            "description": "Meeting provider",
-            "example": "zoom"
-          }
-        },
-        "required": [
-          "studentId",
-          "mentorId",
-          "scheduledStartTime",
-          "duration",
-          "serviceType",
-          "topic"
         ]
       },
       "ServiceBalanceResponseDto": {
