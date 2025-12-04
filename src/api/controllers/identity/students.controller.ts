@@ -35,7 +35,7 @@ export class StudentsController {
     private readonly studentListQuery: StudentListQuery,
   ) {}
 
-  @Get("find")
+  @Get('find')
   @Roles("mentor", "counselor")
   @ApiOperation({ summary: "find students" })
   @ApiQuery({

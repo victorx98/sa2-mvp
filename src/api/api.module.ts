@@ -1,16 +1,16 @@
 import { Module } from "@nestjs/common";
-import { AuthController } from "./controllers/auth.controller";
-import { UserController } from "./controllers/user.controller";
-import { SessionController } from "./controllers/session.controller";
-import { CounselorSessionsController } from "./controllers/counselor/counselor-sessions.controller";
-import { CounselorStudentContractController } from "./controllers/counselor/counselor-student-contract.controller";
-import { CounselorsController } from "./controllers/counselor/counselors.controller";
-import { MentorsController } from "./controllers/mentor/mentors.controller";
-import { ReferenceDataController } from "./controllers/reference-data.controller";
-import { StudentsController } from "./controllers/student/students.controller";
-import { StudentProfileController } from "./controllers/student/student-profile.controller";
-import { MentorProfileController } from "./controllers/mentor/mentor-profile.controller";
-import { CounselorProfileController } from "./controllers/counselor/counselor-profile.controller";
+import { AuthController } from "./controllers/identity/auth.controller";
+import { UserController } from "./controllers/identity/user.controller";
+import { SessionController } from "./controllers/sessions/sessions.controller";
+import { CounselorStudentContractController } from "./controllers/identity/counselor-student-contract.controller";
+import { CounselorsController } from "./controllers/identity/counselors.controller";
+import { MentorsController } from "./controllers/identity/mentors.controller";
+import { SchoolsController } from "./controllers/references/schools.controller";
+import { MajorsController } from "./controllers/references/majors.controller";
+import { StudentsController } from "./controllers/identity/students.controller";
+import { StudentProfileController } from "./controllers/identity/student-profile.controller";
+import { MentorProfileController } from "./controllers/identity/mentor-profile.controller";
+import { CounselorProfileController } from "./controllers/identity/counselor-profile.controller";
 import { ApplicationModule } from "@application/application.module";
 import { WebhookModule } from "@core/webhook/webhook.module";
 
@@ -33,10 +33,12 @@ import { WebhookModule } from "@core/webhook/webhook.module";
     AuthController,
     UserController,
     SessionController,
-    ReferenceDataController,
+    
+    // Reference Data Controllers
+    SchoolsController,
+    MajorsController,
 
     // Counselor Controllers
-    CounselorSessionsController,
     CounselorStudentContractController,
     CounselorProfileController,
     CounselorsController,

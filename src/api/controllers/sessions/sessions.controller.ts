@@ -1,12 +1,5 @@
-import {
-  Controller,
-  Post,
-  Body,
-  UseGuards,
-  HttpCode,
-  HttpStatus,
-} from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiCreatedResponse } from "@nestjs/swagger";
+import { Controller, Post, Body, UseGuards } from "@nestjs/common";
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiCreatedResponse, ApiBody } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
 import { Roles } from "@shared/decorators/roles.decorator";
@@ -14,6 +7,7 @@ import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import { User } from "@domains/identity/user/user-interface";
 import { BookSessionCommand } from "@application/commands/booking/book-session.command";
 import { BookSessionInput } from "@application/commands/booking/dto/book-session-input.dto";
+import { BookSessionOutput } from "@application/commands/booking/dto/book-session-output.dto";
 import { ApiProperty } from "@nestjs/swagger";
 import {
   IsString,
@@ -24,7 +18,6 @@ import {
   IsOptional,
 } from "class-validator";
 import { ApiPrefix } from "@api/api.constants";
-import { BookSessionOutput } from "@application/commands/booking/dto/book-session-output.dto";
 import { BookSessionResponseDto } from "@api/dto/response/session-response.dto";
 import { plainToInstance } from "class-transformer";
 
@@ -92,47 +85,31 @@ class BookSessionRequestDto {
 }
 
 /**
- * API Layer - Counselor Sessions Controller
- * 路由：/api/counselor/sessions
+ * API Layer - Session Controller
+ * 职责：提供会话相关的 HTTP 接口
+ * 特点：薄控制器，只负责路由和参数验证，业务逻辑委托给 Application Layer
  *
- * 职责：
- * 1. 定义HTTP路由
- * 2. 参数提取和验证
- * 3. 调用 Application Layer 服务
- * 4. 返回HTTP响应
+ * 注意：此控制器用于学生自己预约，但 BookSessionCommand 需要 counselorId
+ * 暂时使用学生的 ID 作为 counselorId，未来可能需要调整
  */
-@ApiTags("Counselor Portal - Sessions")
-@Controller(`${ApiPrefix}/counselor/sessions`)
+@ApiTags("Sessions")
+@Controller(`${ApiPrefix}/sessions`)
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('counselor')
+@Roles("counselor")
 @ApiBearerAuth()
-export class CounselorSessionsController {
+export class SessionController {
   constructor(
     // ✅ 直接注入 Application Layer 服务
     private readonly bookSessionCommand: BookSessionCommand,
   ) {}
 
   /**
-   * 预约会话
-   * POST /api/counselor/sessions
+   * 预约课程
+   * POST /sessions/book
    */
-  @Post()
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({
-    summary: "Counselor books a session for a student",
-    description: `
-      Counselors book a one-on-one coaching session for their assigned students.
-
-      Flow:
-      1. Validate counselor permissions
-      2. Check student service balance
-      3. Verify mentor availability
-      4. Create the session booking
-      5. Reserve the calendar slot
-      6. Create the meeting link
-      7. Send notifications
-    `,
-  })
+  @Post("book")
+  @ApiOperation({ summary: "Book a session" })
+  @ApiBody({ type: BookSessionRequestDto })
   @ApiCreatedResponse({
     description: "Booking created successfully",
     type: BookSessionResponseDto,
@@ -142,12 +119,8 @@ export class CounselorSessionsController {
     description: "Invalid request parameters or insufficient balance",
   })
   @ApiResponse({
-    status: 403,
-    description: "Not authorized to book for this student",
-  })
-  @ApiResponse({
     status: 409,
-    description: "Timeslot conflict (mentor already scheduled)",
+    description: "Timeslot conflict; mentor unavailable",
   })
   async bookSession(
     @CurrentUser() user: User,
