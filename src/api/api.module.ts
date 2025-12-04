@@ -1,16 +1,16 @@
 import { Module } from "@nestjs/common";
-import { AuthController } from "./controllers/auth/auth.controller";
-import { UserController } from "./controllers/users/user.controller";
+import { AuthController } from "./controllers/identity/auth.controller";
+import { UserController } from "./controllers/identity/user.controller";
 import { SessionController } from "./controllers/sessions/sessions.controller";
-import { CounselorStudentContractController } from "./controllers/counselors/counselor-student-contract.controller";
-import { CounselorsController } from "./controllers/counselors/counselors.controller";
-import { MentorsController } from "./controllers/mentors/mentors.controller";
+import { CounselorStudentContractController } from "./controllers/identity/counselor-student-contract.controller";
+import { CounselorsController } from "./controllers/identity/counselors.controller";
+import { MentorsController } from "./controllers/identity/mentors.controller";
 import { SchoolsController } from "./controllers/references/schools.controller";
 import { MajorsController } from "./controllers/references/majors.controller";
-import { StudentsController } from "./controllers/students/students.controller";
-import { StudentProfileController } from "./controllers/students/student-profile.controller";
-import { MentorProfileController } from "./controllers/mentors/mentor-profile.controller";
-import { CounselorProfileController } from "./controllers/counselors/counselor-profile.controller";
+import { StudentsController } from "./controllers/identity/students.controller";
+import { StudentProfileController } from "./controllers/identity/student-profile.controller";
+import { MentorProfileController } from "./controllers/identity/mentor-profile.controller";
+import { CounselorProfileController } from "./controllers/identity/counselor-profile.controller";
 import { ApplicationModule } from "@application/application.module";
 import { WebhookModule } from "@core/webhook/webhook.module";
 
