@@ -615,6 +615,63 @@
         ]
       }
     },
+    "/api/students/listOfCounselorView": {
+      "get": {
+        "operationId": "StudentsController_listOfCounselorView",
+        "parameters": [
+          {
+            "name": "text",
+            "required": false,
+            "in": "query",
+            "description": "Search keyword (searches in both Chinese and English names)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (starting from 1)",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Number of items per page (max 100)",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated student list for counselor view retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedStudentCounselorViewResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get paginated student list for counselor view with school and major names",
+        "tags": [
+          "Students"
+        ]
+      }
+    },
     "/api/student/profile": {
       "get": {
         "operationId": "StudentProfileController_getProfile",
@@ -1566,6 +1623,195 @@
           "graduationDate",
           "createdAt",
           "modifiedAt"
+        ]
+      },
+      "StudentCounselorViewResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Student record ID"
+          },
+          "status": {
+            "type": "string",
+            "description": "Student status"
+          },
+          "underMajor": {
+            "type": "string",
+            "description": "Undergraduate major ID"
+          },
+          "underCollege": {
+            "type": "string",
+            "description": "Undergraduate college ID"
+          },
+          "graduateMajor": {
+            "type": "string",
+            "description": "Graduate major ID"
+          },
+          "graduateCollege": {
+            "type": "string",
+            "description": "Graduate college ID"
+          },
+          "highSchool": {
+            "type": "string",
+            "description": "High school ID"
+          },
+          "aiResumeSummary": {
+            "type": "string",
+            "description": "AI generated resume summary"
+          },
+          "customerImportance": {
+            "type": "string",
+            "description": "Customer importance label"
+          },
+          "graduationDate": {
+            "type": "string",
+            "description": "Graduation date",
+            "format": "date-time",
+            "nullable": true
+          },
+          "backgroundInfo": {
+            "type": "string",
+            "description": "Background information"
+          },
+          "grades": {
+            "type": "string",
+            "description": "Grades information"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Record creation time",
+            "format": "date-time"
+          },
+          "modifiedAt": {
+            "type": "string",
+            "description": "Record last modification time",
+            "format": "date-time"
+          },
+          "email": {
+            "type": "string",
+            "description": "Student email"
+          },
+          "nameEn": {
+            "type": "string",
+            "description": "Student English name"
+          },
+          "nameZh": {
+            "type": "string",
+            "description": "Student Chinese name"
+          },
+          "country": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2 country code (US, CN, GB, CA)",
+            "enum": [
+              "US",
+              "CN",
+              "GB",
+              "CA"
+            ]
+          },
+          "gender": {
+            "type": "string",
+            "description": "Gender",
+            "enum": [
+              "male",
+              "female"
+            ]
+          },
+          "underCollegeNameZh": {
+            "type": "string",
+            "description": "Undergraduate college Chinese name"
+          },
+          "underCollegeNameEn": {
+            "type": "string",
+            "description": "Undergraduate college English name"
+          },
+          "graduateCollegeNameZh": {
+            "type": "string",
+            "description": "Graduate college Chinese name"
+          },
+          "graduateCollegeNameEn": {
+            "type": "string",
+            "description": "Graduate college English name"
+          },
+          "highSchoolNameZh": {
+            "type": "string",
+            "description": "High school Chinese name"
+          },
+          "highSchoolNameEn": {
+            "type": "string",
+            "description": "High school English name"
+          },
+          "underMajorNameZh": {
+            "type": "string",
+            "description": "Undergraduate major Chinese name"
+          },
+          "underMajorNameEn": {
+            "type": "string",
+            "description": "Undergraduate major English name"
+          },
+          "graduateMajorNameZh": {
+            "type": "string",
+            "description": "Graduate major Chinese name"
+          },
+          "graduateMajorNameEn": {
+            "type": "string",
+            "description": "Graduate major English name"
+          },
+          "counselorStatus": {
+            "type": "string",
+            "description": "Counselor assignment status"
+          },
+          "counselorType": {
+            "type": "string",
+            "description": "Counselor assignment type"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "graduationDate",
+          "createdAt",
+          "modifiedAt"
+        ]
+      },
+      "PaginatedStudentCounselorViewResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Student list data",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentCounselorViewResponseDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "Total number of records",
+            "example": 100
+          },
+          "page": {
+            "type": "number",
+            "description": "Current page number",
+            "example": 1
+          },
+          "pageSize": {
+            "type": "number",
+            "description": "Number of items per page",
+            "example": 20
+          },
+          "totalPages": {
+            "type": "number",
+            "description": "Total number of pages",
+            "example": 5
+          }
+        },
+        "required": [
+          "data",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
         ]
       },
       "UpdateStudentProfileDto": {

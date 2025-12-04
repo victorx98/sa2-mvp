@@ -7,7 +7,7 @@ import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import { StudentListQuery } from "@application/queries/student/student-list.query";
 import { User } from "@domains/identity/user/user-interface";
 import { ApiPrefix } from "@api/api.constants";
-import { StudentSummaryResponseDto } from "@api/dto/response/student-response.dto";
+import { StudentSummaryResponseDto, StudentCounselorViewResponseDto, PaginatedStudentCounselorViewResponseDto } from "@api/dto/response/student-response.dto";
 import { plainToInstance } from "class-transformer";
 
 /**
@@ -58,6 +58,70 @@ export class StudentsController {
     return plainToInstance(StudentSummaryResponseDto, items, {
       enableImplicitConversion: false,
     });
+  }
+
+  @Get("listOfCounselorView")
+  @Roles("counselor")
+  @ApiOperation({ summary: "Get paginated student list for counselor view with school and major names" })
+  @ApiQuery({
+    name: "text",
+    required: false,
+    description: "Search keyword (searches in both Chinese and English names)",
+    type: String,
+  })
+  @ApiQuery({
+    name: "studentId",
+    required: false,
+    description: "Filter by specific student ID",
+    type: String,
+  })
+  @ApiQuery({
+    name: "page",
+    required: false,
+    description: "Page number (starting from 1)",
+    type: Number,
+    example: 1,
+  })
+  @ApiQuery({
+    name: "pageSize",
+    required: false,
+    description: "Number of items per page (max 100)",
+    type: Number,
+    example: 20,
+  })
+  @ApiOkResponse({
+    description: "Paginated student list for counselor view retrieved successfully",
+    type: PaginatedStudentCounselorViewResponseDto,
+  })
+  async listOfCounselorView(
+    @CurrentUser() user: User,
+    @Query("text") text?: string,
+    @Query("studentId") studentId?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ): Promise<PaginatedStudentCounselorViewResponseDto> {
+    // 解析分页参数，设置默认值和限制
+    const pageNum = Math.max(1, parseInt(page || "1", 10) || 1);
+    const pageSizeNum = Math.min(100, Math.max(1, parseInt(pageSize || "20", 10) || 20));
+
+    // ✅ 调用 Application Layer 服务，获取包含学校名称和专业名称的学生列表（带分页）
+    const result = await this.studentListQuery.listOfCounselorView(
+      user.id,
+      text,
+      pageNum,
+      pageSizeNum,
+      studentId,
+    );
+    
+    return {
+      data: plainToInstance(StudentCounselorViewResponseDto, result.data, {
+        enableImplicitConversion: false,
+      }),
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      totalPages: result.totalPages,
+    };
   }
 
 }
