@@ -7,9 +7,7 @@ import { CurrentUser } from '@shared/decorators/current-user.decorator';
 import type { IJwtUser } from '@shared/types/jwt-user.interface';
 import { CreateProductCommand } from '@application/commands/product/create-product.command';
 import { UpdateProductCommand } from '@application/commands/product/update-product.command';
-import { PublishProductCommand } from '@application/commands/product/publish-product.command';
-import { UnpublishProductCommand } from '@application/commands/product/unpublish-product.command';
-import { RevertToDraftProductCommand } from '@application/commands/product/revert-to-draft.command';
+import { UpdateProductStatusCommand } from '@application/commands/product/update-product-status.command';
 import { AddProductItemCommand } from '@application/commands/product/add-product-item.command';
 import { RemoveProductItemCommand } from '@application/commands/product/remove-product-item.command';
 import { UpdateProductItemSortOrderCommand } from '@application/commands/product/update-item-sort-order.command';
@@ -18,6 +16,7 @@ import { GetProductQuery } from '@application/queries/product/get-product.query'
 import { GetProductsQuery } from '@application/queries/product/get-products.query';
 import { CreateProductDto } from '@domains/catalog/product/dto/create-product.dto';
 import { UpdateProductDto } from '@domains/catalog/product/dto/update-product.dto';
+import { UpdateProductStatusDto } from '@domains/catalog/product/dto/update-product-status.dto';
 import { AddProductItemDto } from '@domains/catalog/product/dto/add-product-item.dto';
 import { ProductFilterDto } from '@domains/catalog/product/dto/product-filter.dto';
 import { PaginationDto } from '@domains/catalog/common/dto/pagination.dto';
@@ -41,9 +40,7 @@ export class AdminProductsController {
   constructor(
     private readonly createProductCommand: CreateProductCommand,
     private readonly updateProductCommand: UpdateProductCommand,
-    private readonly publishProductCommand: PublishProductCommand,
-    private readonly unpublishProductCommand: UnpublishProductCommand,
-    private readonly revertToDraftProductCommand: RevertToDraftProductCommand,
+    private readonly updateProductStatusCommand: UpdateProductStatusCommand,
     private readonly addProductItemCommand: AddProductItemCommand,
     private readonly removeProductItemCommand: RemoveProductItemCommand,
     private readonly updateProductItemSortOrderCommand: UpdateProductItemSortOrderCommand,
@@ -120,28 +117,16 @@ export class AdminProductsController {
     return this.addProductItemCommand.execute(id, addProductItemDto);
   }
 
-  @Post(':id/publish')
-  @ApiOperation({ summary: 'Publish product' })
-  @ApiResponse({ status: 200, description: 'Product published successfully' })
+  @Patch(':id/status')
+  @ApiOperation({ summary: 'Update product status' })
+  @ApiResponse({ status: 200, description: 'Product status updated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request or invalid status transition' })
   @ApiResponse({ status: 404, description: 'Product not found' })
-  async publish(@Param('id') id: string) {
-    return this.publishProductCommand.execute(id);
-  }
-
-  @Post(':id/unpublish')
-  @ApiOperation({ summary: 'Unpublish product' })
-  @ApiResponse({ status: 200, description: 'Product unpublished successfully' })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  async unpublish(@Param('id') id: string) {
-    return this.unpublishProductCommand.execute(id);
-  }
-
-  @Post(':id/revert-to-draft')
-  @ApiOperation({ summary: 'Revert product to draft' })
-  @ApiResponse({ status: 200, description: 'Product reverted to draft successfully' })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  async revertToDraft(@Param('id') id: string) {
-    return this.revertToDraftProductCommand.execute(id);
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() updateProductStatusDto: UpdateProductStatusDto,
+  ) {
+    return this.updateProductStatusCommand.execute(id, updateProductStatusDto.status);
   }
 
   // Generic product routes (must come after specific routes) [通用产品路由（必须在特定路由之后）]

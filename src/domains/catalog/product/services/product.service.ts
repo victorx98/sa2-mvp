@@ -535,14 +535,17 @@ export class ProductService {
   }
 
   /**
-   * Publish product [发布产品]
-   * - [修复] Enforces at least one product item before publishing [发布前强制要求至少一个产品项]
-   * - Uses FOR UPDATE lock to prevent concurrent modifications [使用FOR UPDATE锁防止并发修改]
-   *
+   * Update product status [更新产品状态]
+   * Handles state transitions:
+   * - DRAFT -> ACTIVE (publish)
+   * - ACTIVE -> INACTIVE (unpublish)
+   * - INACTIVE -> DRAFT (revert to draft)
+   * 
    * @param id - Product ID [产品ID]
-   * @returns Published product [发布的产品]
+   * @param targetStatus - Target status [目标状态]
+   * @returns Updated product [更新后的产品]
    */
-  async publish(id: string): Promise<IProduct> {
+  async updateStatus(id: string, targetStatus: ProductStatus): Promise<IProduct> {
     // Wrap in transaction with row lock to ensure atomicity [使用事务和行锁确保原子性]
     const updatedProduct = await this.db.transaction(async (tx) => {
       // Retrieve product with row lock [检索产品并加行锁]
@@ -557,112 +560,100 @@ export class ProductService {
         throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
       }
 
-      if (product.status !== ProductStatus.DRAFT) {
-        throw new CatalogException(
-          "INVALID_STATUS_TRANSITION",
-          `Cannot publish product. Product must be in DRAFT status, but current status is ${product.status}`,
-        );
+      // Handle state transitions [处理状态转换]
+      switch (targetStatus) {
+        case ProductStatus.ACTIVE:
+          // Publish logic (DRAFT -> ACTIVE) [发布逻辑]
+          if (product.status !== ProductStatus.DRAFT) {
+            throw new CatalogException(
+              "INVALID_STATUS_TRANSITION",
+              `Cannot publish product. Product must be in DRAFT status, but current status is ${product.status}`,
+            );
+          }
+
+          // Verify product has at least one item [验证产品至少有一个项目]
+          const items = await tx
+            .select({ id: schema.productItems.id })
+            .from(schema.productItems)
+            .where(eq(schema.productItems.productId, id))
+            .limit(1);
+
+          if (items.length === 0) {
+            throw new CatalogException(
+              "PRODUCT_MIN_ITEMS",
+              "Product must have at least one item to be published",
+            );
+          }
+
+          // Validate product item references within transaction [在事务中验证产品项引用]
+          const allItems = await tx
+            .select()
+            .from(schema.productItems)
+            .where(eq(schema.productItems.productId, id));
+
+          await this.validateProductItemReferences(allItems, tx);
+
+          // Update product status [更新产品状态]
+          const [published] = await tx
+            .update(schema.products)
+            .set({
+              status: ProductStatus.ACTIVE,
+              publishedAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(schema.products.id, id))
+            .returning();
+          return published;
+
+        case ProductStatus.INACTIVE:
+          // Unpublish logic (ACTIVE -> INACTIVE) [取消发布逻辑]
+          if (product.status !== ProductStatus.ACTIVE) {
+            throw new CatalogException(
+              "INVALID_STATUS_TRANSITION",
+              `Cannot unpublish product. Product must be in ACTIVE status, but current status is ${product.status}`,
+            );
+          }
+
+          const [unpublished] = await tx
+            .update(schema.products)
+            .set({
+              status: ProductStatus.INACTIVE,
+              unpublishedAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(schema.products.id, id))
+            .returning();
+          return unpublished;
+
+        case ProductStatus.DRAFT:
+          // Revert to draft logic (INACTIVE -> DRAFT) [恢复草稿逻辑]
+          if (product.status !== ProductStatus.INACTIVE) {
+            throw new CatalogException(
+              "INVALID_STATUS_TRANSITION",
+              `Cannot revert product to draft. Product must be in INACTIVE status, but current status is ${product.status}`,
+            );
+          }
+
+          const [reverted] = await tx
+            .update(schema.products)
+            .set({
+              status: ProductStatus.DRAFT,
+              unpublishedAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(schema.products.id, id))
+            .returning();
+          return reverted;
+
+        default:
+          throw new CatalogException(
+            "INVALID_STATUS_TRANSITION",
+            `Invalid target status: ${targetStatus}`,
+          );
       }
-
-      // [修复] Verify product has at least one item [验证产品至少有一个项目]
-      const items = await tx
-        .select({ id: schema.productItems.id })
-        .from(schema.productItems)
-        .where(eq(schema.productItems.productId, id))
-        .limit(1);
-
-      if (items.length === 0) {
-        throw new CatalogException(
-          "PRODUCT_MIN_ITEMS",
-          "Product must have at least one item to be published",
-        );
-      }
-
-      // Validate product item references within transaction [在事务中验证产品项引用]
-      const allItems = await tx
-        .select()
-        .from(schema.productItems)
-        .where(eq(schema.productItems.productId, id));
-
-      await this.validateProductItemReferences(allItems, tx);
-
-      // Update product status [更新产品状态]
-      const [updated] = await tx
-        .update(schema.products)
-        .set({
-          status: ProductStatus.ACTIVE,
-          publishedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.products.id, id))
-        .returning();
-
-      return updated;
     });
 
     return this.mapToProductInterface(updatedProduct);
-  }
-
-  /**
-   * Unpublish product [取消发布产品]
-   */
-  async unpublish(id: string): Promise<IProduct> {
-    const product = await this.findOne({ id });
-
-    if (!product) {
-      throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
-    }
-
-    if (product.status !== ProductStatus.ACTIVE) {
-      throw new CatalogException(
-        "INVALID_STATUS_TRANSITION",
-        `Cannot unpublish product. Product must be in ACTIVE status, but current status is ${product.status}`,
-      );
-    }
-
-    // Update product status [更新产品状态]
-    const updatedProduct = await this.db
-      .update(schema.products)
-      .set({
-        status: ProductStatus.INACTIVE,
-        unpublishedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.products.id, id))
-      .returning();
-
-    return this.mapToProductInterface(updatedProduct[0]);
-  }
-
-  /**
-   * Revert product to draft [将产品恢复为草稿]
-   */
-  async revertToDraft(id: string): Promise<IProduct> {
-    const product = await this.findOne({ id });
-
-    if (!product) {
-      throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
-    }
-
-    if (product.status !== ProductStatus.INACTIVE) {
-      throw new CatalogException(
-        "INVALID_STATUS_TRANSITION",
-        `Cannot revert product to draft. Product must be in INACTIVE status, but current status is ${product.status}`,
-      );
-    }
-
-    // Update product status [更新产品状态]
-    const updatedProduct = await this.db
-      .update(schema.products)
-      .set({
-        status: ProductStatus.DRAFT,
-        unpublishedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.products.id, id))
-      .returning();
-
-    return this.mapToProductInterface(updatedProduct[0]);
   }
 
   /**

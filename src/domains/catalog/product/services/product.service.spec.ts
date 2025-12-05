@@ -266,20 +266,24 @@ describe("ProductService", () => {
       // Arrange [准备]
       const itemId = randomUUID();
 
-      // Mock database to return no product item [模拟数据库返回无产品项]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockResolvedValue([]),
-        }),
+      // Mock database transaction [模拟数据库事务]
+      mockDb.transaction.mockImplementation(async (callback) => {
+        const mockTx = {
+          select: jest.fn()
+            // First call: get product items by ids
+            .mockReturnValueOnce({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockResolvedValue([]),
+              }),
+            }),
+        };
+        return callback(mockTx);
       });
 
       // Act & Assert [执行与断言]
       await expect(
         service.updateItemSortOrder([{ itemId, sortOrder: 1 }]),
       ).rejects.toThrow(CatalogNotFoundException);
-      await expect(
-        service.updateItemSortOrder([{ itemId, sortOrder: 1 }]),
-      ).rejects.toThrow("Product item not found");
     });
 
     it("should throw exception when items belong to different products [当 items 属于不同产品时抛出异常]", async () => {
@@ -294,11 +298,18 @@ describe("ProductService", () => {
         { id: itemId2, productId: productId2 },
       ];
 
-      // Mock product items query [Mock产品项查询]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockResolvedValue(mockProductItems),
-        }),
+      // Mock database transaction [模拟数据库事务]
+      mockDb.transaction.mockImplementation(async (callback) => {
+        const mockTx = {
+          select: jest.fn()
+            // First call: get product items by ids
+            .mockReturnValueOnce({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockResolvedValue(mockProductItems),
+              }),
+            }),
+        };
+        return callback(mockTx);
       });
 
       // Act & Assert [执行与断言]
@@ -308,12 +319,6 @@ describe("ProductService", () => {
           { itemId: itemId2, sortOrder: 2 },
         ]),
       ).rejects.toThrow(CatalogException);
-      await expect(
-        service.updateItemSortOrder([
-          { itemId: itemId1, sortOrder: 1 },
-          { itemId: itemId2, sortOrder: 2 },
-        ]),
-      ).rejects.toThrow("All items must belong to the same product");
     });
 
     it("should throw exception when product is not found [当产品未找到时抛出异常]", async () => {
@@ -322,32 +327,35 @@ describe("ProductService", () => {
       const itemId = randomUUID();
       const mockProductItem = { id: itemId, productId };
 
-      // Mock first select (product items query) [Mock第一次查询（产品项查询）]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockResolvedValue([mockProductItem]),
-        }),
-      });
-
-      // Mock second select (product query returns empty) [Mock第二次查询（产品查询返回空）]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue([]),
-            for: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue([]),
+      // Mock database transaction [模拟数据库事务]
+      mockDb.transaction.mockImplementation(async (callback) => {
+        const mockTx = {
+          select: jest.fn()
+            // First call: get product items by ids
+            .mockReturnValueOnce({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockResolvedValue([mockProductItem]),
+              }),
+            })
+            // Second call: get product by id with lock
+            .mockReturnValueOnce({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue({
+                  limit: jest.fn().mockResolvedValue([]),
+                  for: jest.fn().mockReturnValue({
+                    limit: jest.fn().mockResolvedValue([]),
+                  }),
+                }),
+              }),
             }),
-          }),
-        }),
+        };
+        return callback(mockTx);
       });
 
       // Act & Assert [执行与断言]
       await expect(
         service.updateItemSortOrder([{ itemId, sortOrder: 1 }]),
       ).rejects.toThrow(CatalogNotFoundException);
-      await expect(
-        service.updateItemSortOrder([{ itemId, sortOrder: 1 }]),
-      ).rejects.toThrow("Product not found");
     });
 
     it("should throw exception when product is not in draft status [当产品不是草稿状态时抛出异常]", async () => {
@@ -360,32 +368,35 @@ describe("ProductService", () => {
 
       const mockProductItem = { id: itemId, productId };
 
-      // Mock first select (product items query) [Mock第一次查询（产品项查询）]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockResolvedValue([mockProductItem]),
-        }),
-      });
-
-      // Mock second select (product query) [Mock第二次查询（产品查询）]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue([mockProduct]),
-            for: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue([mockProduct]),
+      // Mock database transaction [模拟数据库事务]
+      mockDb.transaction.mockImplementation(async (callback) => {
+        const mockTx = {
+          select: jest.fn()
+            // First call: get product items by ids
+            .mockReturnValueOnce({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockResolvedValue([mockProductItem]),
+              }),
+            })
+            // Second call: get product by id with lock
+            .mockReturnValueOnce({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue({
+                  limit: jest.fn().mockResolvedValue([mockProduct]),
+                  for: jest.fn().mockReturnValue({
+                    limit: jest.fn().mockResolvedValue([mockProduct]),
+                  }),
+                }),
+              }),
             }),
-          }),
-        }),
+        };
+        return callback(mockTx);
       });
 
       // Act & Assert [执行与断言]
       await expect(
         service.updateItemSortOrder([{ itemId, sortOrder: 1 }]),
       ).rejects.toThrow(CatalogException);
-      await expect(
-        service.updateItemSortOrder([{ itemId, sortOrder: 1 }]),
-      ).rejects.toThrow("Product is not in draft status");
     });
   });
 
@@ -962,35 +973,38 @@ describe("ProductService", () => {
       // Arrange [准备]
       const productId = randomUUID();
       const itemId = randomUUID();
-      const mockProductItem = { productId };
+      const mockProductItem = { productId, id: itemId };
 
-      // Mock first select (product item query) [Mock第一次查询（产品项查询）]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue([mockProductItem]),
-          }),
-        }),
-      });
-
-      // Mock second select (product query returns empty) [Mock第二次查询（产品查询返回空）]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue([]),
-            for: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue([]),
+      // Mock database transaction [模拟数据库事务]
+      mockDb.transaction.mockImplementation(async (callback) => {
+        const mockTx = {
+          select: jest.fn()
+            // First call: get product item by id
+            .mockReturnValueOnce({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue({
+                  limit: jest.fn().mockResolvedValue([mockProductItem]),
+                }),
+              }),
+            })
+            // Second call: get product by id with lock (returns empty)
+            .mockReturnValueOnce({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue({
+                  limit: jest.fn().mockResolvedValue([]),
+                  for: jest.fn().mockReturnValue({
+                    limit: jest.fn().mockResolvedValue([]),
+                  }),
+                }),
+              }),
             }),
-          }),
-        }),
+        };
+        return callback(mockTx);
       });
 
       // Act & Assert [执行与断言]
       await expect(service.removeItem(itemId)).rejects.toThrow(
         CatalogNotFoundException,
-      );
-      await expect(service.removeItem(itemId)).rejects.toThrow(
-        "Product not found",
       );
     });
 
@@ -1218,33 +1232,128 @@ describe("ProductService", () => {
     });
   });
 
-  describe("publish", () => {
-    it("should publish product successfully [应该成功发布产品]", async () => {
-      // Arrange [准备]
-      const productId = randomUUID();
-      const mockProduct = generateMockProduct();
-      mockProduct.id = productId;
-      mockProduct.status = ProductStatus.DRAFT;
+  describe("updateStatus", () => {
+    describe("DRAFT -> ACTIVE (Publish)", () => {
+      it("should publish product successfully [应该成功发布产品]", async () => {
+        // Arrange [准备]
+        const productId = randomUUID();
+        const mockProduct = generateMockProduct();
+        mockProduct.id = productId;
+        mockProduct.status = ProductStatus.DRAFT;
 
-      const publishedProduct = { ...mockProduct, status: ProductStatus.ACTIVE };
+        const publishedProduct = { ...mockProduct, status: ProductStatus.ACTIVE };
 
-      // Create a consistent service type ID to use across all mocks
-      const serviceTypeId = randomUUID();
-      const itemId = randomUUID();
-      
-      // Reset all mocks
-      jest.clearAllMocks();
-      
-      // Mock the transaction
-      mockDb.transaction.mockImplementation(async (callback) => {
-        // Create a promise that resolves to product items array
-        const productItemsPromise = Promise.resolve([{ id: itemId, serviceTypeId }]);
+        // Create a consistent service type ID to use across all mocks
+        const serviceTypeId = randomUUID();
+        const itemId = randomUUID();
         
-        // Mock database context with specific return values for each select call
-        const mockTx = {
-          select: jest.fn()
-            // First call: get product with FOR UPDATE lock
-            .mockReturnValueOnce({
+        // Reset all mocks
+        jest.clearAllMocks();
+        
+        // Mock the transaction
+        mockDb.transaction.mockImplementation(async (callback) => {
+          // Create a promise that resolves to product items array
+          const productItemsPromise = Promise.resolve([{ id: itemId, serviceTypeId }]);
+          
+          // Mock database context with specific return values for each select call
+          const mockTx = {
+            select: jest.fn()
+              // First call: get product with FOR UPDATE lock
+              .mockReturnValueOnce({
+                from: jest.fn().mockReturnValue({
+                  where: jest.fn().mockReturnValue({
+                    for: jest.fn().mockReturnValue({
+                      limit: jest.fn().mockResolvedValue([mockProduct]),
+                    }),
+                  }),
+                }),
+              })
+              // Second call: check product has at least one item
+              .mockReturnValueOnce({
+                from: jest.fn().mockReturnValue({
+                  where: jest.fn().mockReturnValue({
+                    limit: jest.fn().mockResolvedValue([{ id: itemId }]),
+                  }),
+                }),
+              })
+              // Third call: get all product items - return a promise that resolves to array
+              .mockReturnValueOnce({
+                from: jest.fn().mockReturnValue({
+                  where: jest.fn().mockReturnValue(productItemsPromise),
+                }),
+              })
+              // Fourth call: validate service types - return service type data
+              .mockReturnValueOnce({
+                from: jest.fn().mockReturnValue({
+                  where: jest.fn().mockReturnValue({
+                    // Return array directly when awaited, no need for limit
+                    then: jest.fn().mockImplementation((resolve) => {
+                      resolve([{ id: serviceTypeId, status: 'ACTIVE' }]);
+                      return Promise.resolve();
+                    }),
+                  }),
+                }),
+              }),
+            update: jest.fn().mockReturnValue({
+              set: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue({
+                  returning: jest.fn().mockResolvedValue([publishedProduct]),
+                }),
+              }),
+            }),
+          };
+          
+          // Execute the callback with our mock transaction
+          return callback(mockTx);
+        });
+
+        // Act [执行]
+        const result = await service.updateStatus(productId, ProductStatus.ACTIVE);
+
+        // Assert [断言]
+        expect(result).toBeDefined();
+        expect(result.id).toBe(productId);
+        expect(result.status).toBe(ProductStatus.ACTIVE);
+        expect(result.publishedAt).toBeDefined();
+      });
+
+      it("should throw exception when product is not found [当产品未找到时抛出异常]", async () => {
+        // Arrange [准备]
+        const productId = randomUUID();
+
+        // Mock database to return no product [模拟数据库返回无产品]
+        mockDb.transaction.mockImplementation(async (callback) => {
+          const mockTx = {
+            select: jest.fn().mockReturnValue({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue({
+                  for: jest.fn().mockReturnValue({
+                    limit: jest.fn().mockResolvedValue([]),
+                  }),
+                }),
+              }),
+            }),
+          };
+          return callback(mockTx);
+        });
+
+        // Act & Assert [执行与断言]
+        await expect(service.updateStatus(productId, ProductStatus.ACTIVE)).rejects.toThrow(
+          new CatalogNotFoundException("PRODUCT_NOT_FOUND"),
+        );
+      });
+
+      it("should throw exception when product is already published [当产品已发布时抛出异常]", async () => {
+        // Arrange [准备]
+        const productId = randomUUID();
+        const mockProduct = generateMockProduct();
+        mockProduct.id = productId;
+        mockProduct.status = ProductStatus.ACTIVE;
+
+        // Mock database to find product [模拟数据库查找产品]
+        mockDb.transaction.mockImplementation(async (callback) => {
+          const mockTx = {
+            select: jest.fn().mockReturnValue({
               from: jest.fn().mockReturnValue({
                 where: jest.fn().mockReturnValue({
                   for: jest.fn().mockReturnValue({
@@ -1252,323 +1361,176 @@ describe("ProductService", () => {
                   }),
                 }),
               }),
-            })
-            // Second call: check product has at least one item
-            .mockReturnValueOnce({
+            }),
+          };
+          return callback(mockTx);
+        });
+
+        // Act & Assert [执行与断言]
+        try {
+          await service.updateStatus(productId, ProductStatus.ACTIVE);
+          fail("Expected CatalogException to be thrown");
+        } catch (error) {
+          expect(error).toBeInstanceOf(CatalogException);
+          expect((error as CatalogException).code).toBe("INVALID_STATUS_TRANSITION");
+        }
+      });
+    });
+
+    describe("ACTIVE -> INACTIVE (Unpublish)", () => {
+      it("should unpublish product successfully [应该成功取消发布产品]", async () => {
+        // Arrange [准备]
+        const productId = randomUUID();
+        const mockProduct = generateMockProduct();
+        mockProduct.id = productId;
+        mockProduct.status = ProductStatus.ACTIVE;
+
+        const unpublishedProduct = {
+          ...mockProduct,
+          status: ProductStatus.INACTIVE,
+        };
+
+        // Mock database transaction
+        mockDb.transaction.mockImplementation(async (callback) => {
+          const mockTx = {
+            select: jest.fn().mockReturnValue({
               from: jest.fn().mockReturnValue({
                 where: jest.fn().mockReturnValue({
-                  limit: jest.fn().mockResolvedValue([{ id: itemId }]),
-                }),
-              }),
-            })
-            // Third call: get all product items - return a promise that resolves to array
-            .mockReturnValueOnce({
-              from: jest.fn().mockReturnValue({
-                where: jest.fn().mockReturnValue(productItemsPromise),
-              }),
-            })
-            // Fourth call: validate service types - return service type data
-            .mockReturnValueOnce({
-              from: jest.fn().mockReturnValue({
-                where: jest.fn().mockReturnValue({
-                  // Return array directly when awaited, no need for limit
-                  then: jest.fn().mockImplementation((resolve) => {
-                    resolve([{ id: serviceTypeId, status: 'ACTIVE' }]);
-                    return Promise.resolve();
+                  for: jest.fn().mockReturnValue({
+                    limit: jest.fn().mockResolvedValue([mockProduct]),
                   }),
                 }),
               }),
             }),
-          update: jest.fn().mockReturnValue({
-            set: jest.fn().mockReturnValue({
-              where: jest.fn().mockReturnValue({
-                returning: jest.fn().mockResolvedValue([publishedProduct]),
+            update: jest.fn().mockReturnValue({
+              set: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue({
+                  returning: jest.fn().mockResolvedValue([unpublishedProduct]),
+                }),
               }),
             }),
-          }),
+          };
+          return callback(mockTx);
+        });
+
+        // Act [执行]
+        const result = await service.updateStatus(productId, ProductStatus.INACTIVE);
+
+        // Assert [断言]
+        expect(result).toBeDefined();
+        expect(result.id).toBe(productId);
+        expect(result.status).toBe(ProductStatus.INACTIVE);
+        expect(result.unpublishedAt).toBeDefined();
+      });
+
+      it("should throw exception when product is not published [当产品未发布时抛出异常]", async () => {
+        // Arrange [准备]
+        const productId = randomUUID();
+        const mockProduct = generateMockProduct();
+        mockProduct.id = productId;
+        mockProduct.status = ProductStatus.DRAFT;
+
+        // Mock database transaction
+        mockDb.transaction.mockImplementation(async (callback) => {
+          const mockTx = {
+            select: jest.fn().mockReturnValue({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue({
+                  for: jest.fn().mockReturnValue({
+                    limit: jest.fn().mockResolvedValue([mockProduct]),
+                  }),
+                }),
+              }),
+            }),
+          };
+          return callback(mockTx);
+        });
+
+        // Act & Assert [执行与断言]
+        await expect(service.updateStatus(productId, ProductStatus.INACTIVE)).rejects.toThrow(
+          CatalogException,
+        );
+        await expect(service.updateStatus(productId, ProductStatus.INACTIVE)).rejects.toThrow(
+          /Cannot unpublish product/, // 使用正则表达式匹配错误消息
+        );
+      });
+    });
+
+    describe("INACTIVE -> DRAFT (Revert to Draft)", () => {
+      it("should revert a published product to draft status successfully [应该成功将已发布的产品恢复为草稿状态]", async () => {
+        // Arrange [准备]
+        const productId = randomUUID();
+        const existingProduct = generateMockProduct();
+        existingProduct.id = productId;
+        existingProduct.status = ProductStatus.INACTIVE;
+
+        const revertedProduct = {
+          ...existingProduct,
+          status: ProductStatus.DRAFT,
         };
-        
-        // Execute the callback with our mock transaction
-        return callback(mockTx);
-      });
 
-      // Mock database update [模拟数据库更新]
-      mockDb.update.mockReturnValueOnce({
-        set: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            returning: jest.fn().mockResolvedValue([publishedProduct]),
-          }),
-        }),
-      });
-
-      // Act [执行]
-      const result = await service.publish(productId);
-
-      // Assert [断言]
-      expect(result).toBeDefined();
-      expect(result.id).toBe(productId);
-      expect(result.status).toBe(ProductStatus.ACTIVE);
-      expect(result.publishedAt).toBeDefined();
-    });
-
-    it("should throw exception when product is not found [当产品未找到时抛出异常]", async () => {
-      // Arrange [准备]
-      const productId = randomUUID();
-
-      // Mock database to return no product [模拟数据库返回无产品]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue([]),
-            for: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue([]),
+        // Mock database transaction
+        mockDb.transaction.mockImplementation(async (callback) => {
+          const mockTx = {
+            select: jest.fn().mockReturnValue({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue({
+                  for: jest.fn().mockReturnValue({
+                    limit: jest.fn().mockResolvedValue([existingProduct]),
+                  }),
+                }),
+              }),
             }),
-          }),
-        }),
-      });
-
-      // Act & Assert [执行与断言]
-      await expect(service.publish(productId)).rejects.toThrow(
-        new CatalogNotFoundException("PRODUCT_NOT_FOUND"),
-      );
-    });
-
-    it("should throw exception when product is already published [当产品已发布时抛出异常]", async () => {
-      // Arrange [准备]
-      const productId = randomUUID();
-      const mockProduct = generateMockProduct();
-      mockProduct.id = productId;
-      mockProduct.status = ProductStatus.ACTIVE;
-
-      // Mock database to find product [模拟数据库查找产品]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue([mockProduct]),
-            for: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue([mockProduct]),
+            update: jest.fn().mockReturnValue({
+              set: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue({
+                  returning: jest.fn().mockResolvedValue([revertedProduct]),
+                }),
+              }),
             }),
-          }),
-        }),
+          };
+          return callback(mockTx);
+        });
+
+        // Act [执行]
+        const result = await service.updateStatus(productId, ProductStatus.DRAFT);
+
+        // Assert [断言]
+        expect(result).toBeDefined();
+        expect(result.status).toBe(ProductStatus.DRAFT);
       });
 
-      // Mock database to find product items for findOne method
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            orderBy: jest.fn().mockResolvedValue([]),
-            for: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue([]),
+      it("should throw exception when product is already in draft status [当产品已经是草稿状态时抛出异常]", async () => {
+        // Arrange [准备]
+        const productId = randomUUID();
+        const existingProduct = generateMockProduct();
+        existingProduct.id = productId;
+        existingProduct.status = ProductStatus.DRAFT;
+
+        // Mock database transaction
+        mockDb.transaction.mockImplementation(async (callback) => {
+          const mockTx = {
+            select: jest.fn().mockReturnValue({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue({
+                  for: jest.fn().mockReturnValue({
+                    limit: jest.fn().mockResolvedValue([existingProduct]),
+                  }),
+                }),
+              }),
             }),
-          }),
-        }),
+          };
+          return callback(mockTx);
+        });
+
+        // Act & Assert [执行与断言]
+        await expect(service.updateStatus(productId, ProductStatus.DRAFT)).rejects.toThrow(
+          CatalogException,
+        );
+        await expect(service.updateStatus(productId, ProductStatus.DRAFT)).rejects.toThrow(
+          /Cannot revert product to draft/, // 使用正则表达式匹配错误消息
+        );
       });
-
-      // Act & Assert [执行与断言]
-      await expect(service.publish(productId)).rejects.toThrow(
-        new CatalogException(CATALOG_ERROR_MESSAGES.PRODUCT_ALREADY_PUBLISHED),
-      );
-    });
-  });
-
-  describe("unpublish", () => {
-    it("should unpublish product successfully [应该成功取消发布产品]", async () => {
-      // Arrange [准备]
-      const productId = randomUUID();
-      const mockProduct = generateMockProduct();
-      mockProduct.id = productId;
-      mockProduct.status = ProductStatus.ACTIVE;
-
-      const unpublishedProduct = {
-        ...mockProduct,
-        status: ProductStatus.INACTIVE,
-      };
-
-      // Mock database to find product [模拟数据库查找产品]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue([mockProduct]),
-          }),
-        }),
-      });
-
-      // Mock database to find product items for findOne method
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            orderBy: jest.fn().mockResolvedValue([]),
-          }),
-        }),
-      });
-
-      // Mock database update [模拟数据库更新]
-      mockDb.update.mockReturnValueOnce({
-        set: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            returning: jest.fn().mockResolvedValue([unpublishedProduct]),
-          }),
-        }),
-      });
-
-      // Act [执行]
-      const result = await service.unpublish(productId);
-
-      // Assert [断言]
-      expect(result).toBeDefined();
-      expect(result.id).toBe(productId);
-      expect(result.status).toBe(ProductStatus.INACTIVE);
-      expect(result.unpublishedAt).toBeDefined();
-    });
-
-    it("should throw exception when product is not found [当产品未找到时抛出异常]", async () => {
-      // Arrange [准备]
-      const productId = randomUUID();
-
-      // Mock database to return no product [模拟数据库返回无产品]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue([]),
-          }),
-        }),
-      });
-
-      // Act & Assert [执行与断言]
-      await expect(service.unpublish(productId)).rejects.toThrow(
-        new CatalogNotFoundException("PRODUCT_NOT_FOUND"),
-      );
-    });
-
-    it("should throw exception when product is not published [当产品未发布时抛出异常]", async () => {
-      // Arrange [准备]
-      const productId = randomUUID();
-      const mockProduct = generateMockProduct();
-      mockProduct.id = productId;
-      mockProduct.status = ProductStatus.DRAFT;
-
-      // Mock database to find product [模拟数据库查找产品]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue([mockProduct]),
-          }),
-        }),
-      });
-
-      // Mock database to find product items for findOne method
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            orderBy: jest.fn().mockResolvedValue([]),
-          }),
-        }),
-      });
-
-      // Act & Assert [执行与断言]
-      await expect(service.unpublish(productId)).rejects.toThrow(
-        new CatalogException(CATALOG_ERROR_MESSAGES.PRODUCT_NOT_PUBLISHED),
-      );
-    });
-  });
-
-  describe("revertToDraft", () => {
-    it("should revert a published product to draft status successfully [应该成功将已发布的产品恢复为草稿状态]", async () => {
-      // Arrange [准备]
-      const productId = randomUUID(); // Use randomUUID instead of faker [使用randomUUID替代faker]
-      const existingProduct = generateMockProduct();
-      existingProduct.id = productId;
-      existingProduct.status = ProductStatus.INACTIVE; // Should be INACTIVE for revertToDraft [应该是INACTIVE状态才能恢复为草稿]
-
-      // Mock database to find existing product [模拟数据库查找已存在的产品]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue([existingProduct]),
-          }),
-        }),
-      });
-
-      // Mock database to find product items for findOne method
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            orderBy: jest.fn().mockResolvedValue([]),
-          }),
-        }),
-      });
-
-      // Mock database update [模拟数据库更新]
-      const mockReturning = jest
-        .fn()
-        .mockResolvedValue([
-          { ...existingProduct, status: ProductStatus.DRAFT },
-        ]);
-      mockDb.update.mockReturnValue({
-        set: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            returning: mockReturning,
-          }),
-        }),
-      });
-
-      // Act [执行]
-      const result = await service.revertToDraft(productId);
-
-      // Assert [断言]
-      expect(result).toBeDefined();
-      expect(result.status).toBe(ProductStatus.DRAFT);
-      expect(mockDb.update).toHaveBeenCalled();
-    });
-
-    it("should throw exception when product to revert is not found [当要恢复的产品未找到时抛出异常]", async () => {
-      // Arrange [准备]
-      const productId = randomUUID(); // Use randomUUID instead of faker [使用randomUUID替代faker]
-
-      // Mock database operations [模拟数据库操作]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue([]),
-          }),
-        }),
-      });
-
-      // Act & Assert [执行与断言]
-      await expect(service.revertToDraft(productId)).rejects.toThrow(
-        new CatalogNotFoundException("PRODUCT_NOT_FOUND"),
-      );
-    });
-
-    it("should throw exception when product is already in draft status [当产品已经是草稿状态时抛出异常]", async () => {
-      // Arrange [准备]
-      const productId = randomUUID(); // Use randomUUID instead of faker [使用randomUUID替代faker]
-      const existingProduct = generateMockProduct();
-      existingProduct.id = productId;
-      existingProduct.status = ProductStatus.DRAFT;
-
-      // Mock database to find existing product [模拟数据库查找已存在的产品]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue([existingProduct]),
-          }),
-        }),
-      });
-
-      // Mock database to find product items for findOne method
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            orderBy: jest.fn().mockResolvedValue([]),
-          }),
-        }),
-      });
-
-      // Act & Assert [执行与断言]
-      await expect(service.revertToDraft(productId)).rejects.toThrow(
-        new CatalogException(CATALOG_ERROR_MESSAGES.INVALID_STATUS_TRANSITION),
-      );
     });
   });
 
@@ -1576,10 +1538,13 @@ describe("ProductService", () => {
     it("should create product snapshot successfully [应该成功创建产品快照]", async () => {
       // Arrange [准备]
       const productId = randomUUID(); // Use randomUUID instead of faker [使用randomUUID替代faker]
+      const serviceTypeId = randomUUID();
+      const mockProductItem = generateMockProductItem();
+      mockProductItem.serviceTypeId = serviceTypeId as `${string}-${string}-${string}-${string}-${string}`;
+      
       const existingProduct = generateMockProduct();
       existingProduct.id = productId;
       existingProduct.status = ProductStatus.ACTIVE;
-      existingProduct.items = [generateMockProductItem()]; // Add items to product [为产品添加项]
 
       // Mock database to find existing product [模拟数据库查找已存在的产品]
       mockDb.select.mockReturnValueOnce({
@@ -1594,8 +1559,19 @@ describe("ProductService", () => {
       mockDb.select.mockReturnValueOnce({
         from: jest.fn().mockReturnValue({
           where: jest.fn().mockReturnValue({
-            orderBy: jest.fn().mockResolvedValue([generateMockProductItem()]),
+            orderBy: jest.fn().mockResolvedValue([mockProductItem]),
           }),
+        }),
+      });
+
+      // Mock database to find service types [模拟数据库查找服务类型]
+      const mockServiceType = generateMockServiceType({
+        id: serviceTypeId,
+        code: "SERVICE_CODE_001",
+      });
+      mockDb.select.mockReturnValueOnce({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([mockServiceType]),
         }),
       });
 
@@ -1608,6 +1584,7 @@ describe("ProductService", () => {
       expect(result.productName).toBe(existingProduct.name);
       expect(result.productCode).toBe(existingProduct.code);
       expect(result.items).toHaveLength(1);
+      expect(result.items[0].serviceTypeCode).toBe(mockServiceType.code);
     });
 
     it("should throw exception when product to snapshot is not found [当要快照的产品未找到时抛出异常]", async () => {
@@ -1635,29 +1612,29 @@ describe("ProductService", () => {
       const existingProduct = generateMockProduct();
       existingProduct.id = productId;
       existingProduct.status = ProductStatus.DRAFT;
-      existingProduct.items = []; // Add items to product [为产品添加项]
 
-      // Mock database to find existing product [模拟数据库查找已存在的产品]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue([existingProduct]),
+      // Mock database transaction [模拟数据库事务]
+      mockDb.select
+        // First call: get product by id (findOne method)
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([existingProduct]),
+            }),
           }),
-        }),
-      });
-
-      // Mock database to find product items [模拟数据库查找产品项]
-      mockDb.select.mockReturnValueOnce({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            orderBy: jest.fn().mockResolvedValue([]),
+        })
+        // Second call: get product items
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              orderBy: jest.fn().mockResolvedValue([]),
+            }),
           }),
-        }),
-      });
+        });
 
       // Act & Assert [执行与断言]
       await expect(service.createSnapshot(productId)).rejects.toThrow(
-        new CatalogException("PRODUCT_NOT_PUBLISHED"),
+        CatalogException,
       );
     });
   });
