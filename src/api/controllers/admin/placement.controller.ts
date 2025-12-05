@@ -1,8 +1,9 @@
 import { Controller, Get, Post, Body, Param, Patch, Delete, Query, HttpException, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-// import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
-// import { RolesGuard } from '@shared/guards/roles.guard';
-// import { Roles } from '@shared/decorators/roles.decorator';
+import { JwtAuthGuard as AuthGuard } from '@shared/guards/jwt-auth.guard';
+import { RolesGuard } from '@shared/guards/roles.guard';
+import { Roles } from '@shared/decorators/roles.decorator';
+import { UseGuards } from '@nestjs/common';
 import { CreateJobPositionCommand } from '@application/commands/placement/create-job-position.command';
 import { UpdateJobPositionCommand } from '@application/commands/placement/update-job-position.command';
 import { UpdateJobApplicationStatusCommand } from '@application/commands/placement/update-job-application-status.command';
@@ -10,8 +11,10 @@ import { GetJobPositionsQuery } from '@application/queries/placement/get-job-pos
 import { GetJobPositionQuery } from '@application/queries/placement/get-job-position.query';
 import { GetJobApplicationsQuery } from '@application/queries/placement/get-job-applications.query';
 import { GetJobApplicationQuery } from '@application/queries/placement/get-job-application.query';
-import { ISubmitApplicationDto, IUpdateApplicationStatusDto } from '@domains/placement/dto';
+import { ICreateJobPositionDto, ISubmitApplicationDto, IUpdateApplicationStatusDto } from '@domains/placement/dto';
 import { IPaginationQuery, ISortQuery } from '@shared/types/pagination.types';
+import { CurrentUser } from '@shared/decorators/current-user.decorator';
+import type { IJwtUser } from '@shared/types/jwt-user.interface';
 
 /**
  * Admin Placement Controller
@@ -26,8 +29,8 @@ import { IPaginationQuery, ISortQuery } from '@shared/types/pagination.types';
  */
 @Controller('api/admin/placement')
 @ApiTags('Admin Placement')
-// @UseGuards(JwtAuthGuard, RolesGuard)
-// @Roles('admin')
+@UseGuards(AuthGuard, RolesGuard)
+@Roles('admin', 'manager')
 export class AdminPlacementController {
   constructor(
     // 职位管理相关
@@ -51,11 +54,18 @@ export class AdminPlacementController {
   @ApiResponse({ status: 201, description: 'Job position created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   async createJobPosition(
-    @Body() createJobApplicationDto: ISubmitApplicationDto
+    @Body() createJobPositionDto: ICreateJobPositionDto,
+    @CurrentUser() user: IJwtUser,
   ) {
-    return this.createJobPositionCommand.execute({ 
-      jobApplication: createJobApplicationDto 
+    // Use command pattern to create job position [使用命令模式创建职位]
+    const result = await this.createJobPositionCommand.execute({
+      createJobPositionDto: {
+        ...createJobPositionDto,
+        createdBy: String((user as unknown as { id: string }).id),
+      },
     });
+    // IServiceResult structure: { data: T, event?: {...}, events?: [...] } [IServiceResult结构]
+    return result.data;
   }
 
   @Get('job-positions')
@@ -76,18 +86,24 @@ export class AdminPlacementController {
     return this.getJobPositionQuery.execute({ id });
   }
 
-  @Patch('job-positions/:id')
-  @ApiOperation({ summary: 'Update job position' })
-  @ApiResponse({ status: 200, description: 'Job position updated successfully' })
+  @Patch('job-positions/:id/expire')
+  @ApiOperation({ summary: 'Mark job position as expired' })
+  @ApiResponse({ status: 200, description: 'Job position marked as expired successfully' })
   @ApiResponse({ status: 404, description: 'Job position not found' })
-  async updateJobPosition(
+  async markJobPositionExpired(
     @Param('id') id: string,
-    @Body() updateStatusDto: IUpdateApplicationStatusDto
+    @Body() markExpiredDto: { reason?: string },
+    @CurrentUser() user: IJwtUser,
   ) {
-    return this.updateJobPositionCommand.execute({ 
-      id, 
-      updateStatusDto 
+    // Use command pattern to mark job position as expired [使用命令模式标记职位过期]
+    const result = await this.updateJobPositionCommand.execute({
+      jobId: id,
+      expiredBy: String((user as unknown as { id: string }).id),
+      expiredByType: 'bd' as const, // Admin users are treated as BD (business development) for job expiration tracking [管理员用户在职位过期跟踪中被视为BD]
+      reason: markExpiredDto.reason,
     });
+    // IServiceResult structure: { data: T, event?: {...}, events?: [...] } [IServiceResult结构]
+    return result.data;
   }
 
   // ----------------------

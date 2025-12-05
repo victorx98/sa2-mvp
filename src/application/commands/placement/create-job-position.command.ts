@@ -2,8 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { CommandBase } from '@application/core/command.base';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase } from '@shared/types/database.types';
-import { JobApplicationService } from '@domains/placement/services/job-application.service';
-import { ISubmitApplicationDto } from '@domains/placement/dto';
+import { JobPositionService } from '@domains/placement/services/job-position.service';
+import { ICreateJobPositionDto } from '@domains/placement/dto';
 
 /**
  * Create Job Position Command
@@ -15,7 +15,7 @@ import { ISubmitApplicationDto } from '@domains/placement/dto';
 export class CreateJobPositionCommand extends CommandBase {
   constructor(
     @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    private readonly jobApplicationService: JobApplicationService,
+    private readonly jobPositionService: JobPositionService,
   ) {
     super(db);
   }
@@ -28,11 +28,11 @@ export class CreateJobPositionCommand extends CommandBase {
    * @returns 执行结果
    */
   async execute(input: {
-    jobApplication: ISubmitApplicationDto;
+    createJobPositionDto: ICreateJobPositionDto;
   }) {
     return this.withTransaction(async () => {
-      return this.jobApplicationService.submitApplication(
-        input.jobApplication
+      return this.jobPositionService.createJobPosition(
+        input.createJobPositionDto
       );
     });
   }

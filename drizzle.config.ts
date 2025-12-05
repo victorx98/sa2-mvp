@@ -33,10 +33,14 @@ export default {
   out: './src/infrastructure/database/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    // Use lazy getter to defer URL creation until drizzle-kit actually needs it [使用延迟getter延迟URL创建直到drizzle-kit实际需要它]
-    // This prevents errors during config module loading when DATABASE_URL is not set [这防止在DATABASE_URL未设置时配置模块加载期间出错]
+    // Use lazy getter to defer validation until drizzle-kit needs it [使用延迟getter将验证推迟到drizzle-kit需要时]
+    // This prevents blocking NestJS startup when DATABASE_URL is in a different env file [这防止DATABASE_URL在不同env文件时阻塞NestJS启动]
+    // Drizzle-kit will still fail fast when actually used [实际使用时drizzle-kit仍会快速失败]
     get url() {
-      return createEnhancedDatabaseUrl();
+      const url = createEnhancedDatabaseUrl();
+      // Log for debugging when drizzle-kit actually uses this config [当drizzle-kit实际使用此配置时记录以便调试]
+      console.log('Drizzle-kit config loaded, DATABASE_URL validated');
+      return url;
     }
   },
   breakpoints: true,

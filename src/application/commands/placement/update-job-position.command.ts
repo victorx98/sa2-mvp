@@ -2,20 +2,20 @@ import { Inject, Injectable } from '@nestjs/common';
 import { CommandBase } from '@application/core/command.base';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase } from '@shared/types/database.types';
-import { JobApplicationService } from '@domains/placement/services/job-application.service';
-import { IUpdateApplicationStatusDto } from '@domains/placement/dto';
+import { JobPositionService } from '@domains/placement/services/job-position.service';
+import { IMarkJobExpiredDto } from '@domains/placement/dto';
 
 /**
  * Update Job Position Command
  * [更新职位命令]
  * 
- * 用于更新职位信息
+ * 用于标记职位过期
  */
 @Injectable()
 export class UpdateJobPositionCommand extends CommandBase {
   constructor(
     @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    private readonly jobApplicationService: JobApplicationService,
+    private readonly jobPositionService: JobPositionService,
   ) {
     super(db);
   }
@@ -27,14 +27,9 @@ export class UpdateJobPositionCommand extends CommandBase {
    * @param input 命令输入
    * @returns 执行结果
    */
-  async execute(input: {
-    id: string;
-    updateStatusDto: IUpdateApplicationStatusDto;
-  }) {
+  async execute(input: IMarkJobExpiredDto) {
     return this.withTransaction(async () => {
-      return this.jobApplicationService.updateApplicationStatus(
-        input.updateStatusDto
-      );
+      return this.jobPositionService.markJobExpired(input);
     });
   }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, Query, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard as AuthGuard } from '@shared/guards/jwt-auth.guard';
 import { RolesGuard } from '@shared/guards/roles.guard';
@@ -61,9 +61,22 @@ export class AdminProductsController {
   async findAll(@Query() query: any) {
     // Extract filter, pagination, and sort parameters
     const filter = query as ProductFilterDto;
+    
+    // Validate and provide defaults for pagination [验证分页参数并提供默认值]
+    const page = query.page !== undefined && query.page !== null && !isNaN(Number(query.page))
+      ? Number(query.page)
+      : 1;
+    const pageSize = query.pageSize !== undefined && query.pageSize !== null && !isNaN(Number(query.pageSize))
+      ? Number(query.pageSize)
+      : 20;
+
+    if (page < 1 || pageSize < 1) {
+      throw new HttpException('Invalid pagination parameters. Page and pageSize must be positive integers.', HttpStatus.BAD_REQUEST);
+    }
+
     const pagination = {
-      page: Number(query.page),
-      pageSize: Number(query.pageSize)
+      page,
+      pageSize
     } as PaginationDto;
     const sort = {
       orderField: query.orderField || query.field, // Support both old and new parameter name for backward compatibility

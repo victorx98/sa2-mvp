@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Query, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard as AuthGuard } from '@shared/guards/jwt-auth.guard';
 import { RolesGuard } from '@shared/guards/roles.guard';
@@ -68,18 +68,22 @@ export class AdminContractsController {
     });
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get contract by ID' })
-  @ApiResponse({ status: 200, description: 'Contract retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Contract not found' })
-  async findOne(@Param('id') id: string) {
-    return this.getContractQuery.execute({ contractId: id });
-  }
-
   @Get()
   @ApiOperation({ summary: 'Get all contracts' })
   @ApiResponse({ status: 200, description: 'Contracts retrieved successfully' })
   async findAll(@Query() query: any) {
+    // Validate and provide defaults for pagination [验证分页参数并提供默认值]
+    const page = query.page !== undefined && query.page !== null && !isNaN(Number(query.page))
+      ? Number(query.page)
+      : 1;
+    const pageSize = query.pageSize !== undefined && query.pageSize !== null && !isNaN(Number(query.pageSize))
+      ? Number(query.pageSize)
+      : 20;
+
+    if (page < 1 || pageSize < 1) {
+      throw new HttpException('Invalid pagination parameters. Page and pageSize must be positive integers.', HttpStatus.BAD_REQUEST);
+    }
+
     return this.getContractsQuery.execute(
       {
         studentId: query.studentId,
@@ -89,8 +93,8 @@ export class AdminContractsController {
         signedBefore: query.signedBefore
       },
       {
-        page: query.page,
-        pageSize: query.pageSize
+        page,
+        pageSize
       } as IPaginationQuery,
       {
         field: query.field,
