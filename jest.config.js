@@ -19,6 +19,7 @@ module.exports = {
     '^@operations/(.*)$': '<rootDir>/src/operations/$1',
     '^@core/(.*)$': '<rootDir>/src/core/$1',
     '^@shared/(.*)$': '<rootDir>/src/shared/$1',
+    '^@telemetry/(.*)$': '<rootDir>/src/telemetry/$1',
     '^test/utils/(.*)$': '<rootDir>/test/utils/$1',
     '^@test/(.*)$': '<rootDir>/test/$1',
   },

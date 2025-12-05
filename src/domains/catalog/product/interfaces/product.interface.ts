@@ -4,6 +4,7 @@ import {
   ProductStatus,
   UserPersona,
 } from "@shared/types/catalog-enums";
+import { IProductItem } from "./product-item.interface";
 
 /**
  * Product Interface [产品接口]
@@ -32,6 +33,7 @@ export interface IProduct {
     duration?: string;
     prerequisites?: string[];
   };
+  items?: IProductItem[]; // Product items [产品项]
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;

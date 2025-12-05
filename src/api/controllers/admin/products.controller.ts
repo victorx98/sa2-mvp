@@ -8,16 +8,12 @@ import type { IJwtUser } from '@shared/types/jwt-user.interface';
 import { CreateProductCommand } from '@application/commands/product/create-product.command';
 import { UpdateProductCommand } from '@application/commands/product/update-product.command';
 import { UpdateProductStatusCommand } from '@application/commands/product/update-product-status.command';
-import { AddProductItemCommand } from '@application/commands/product/add-product-item.command';
-import { RemoveProductItemCommand } from '@application/commands/product/remove-product-item.command';
-import { UpdateProductItemSortOrderCommand } from '@application/commands/product/update-item-sort-order.command';
 import { CreateProductSnapshotCommand } from '@application/commands/product/create-snapshot.command';
 import { GetProductQuery } from '@application/queries/product/get-product.query';
 import { GetProductsQuery } from '@application/queries/product/get-products.query';
 import { CreateProductDto } from '@domains/catalog/product/dto/create-product.dto';
 import { UpdateProductDto } from '@domains/catalog/product/dto/update-product.dto';
 import { UpdateProductStatusDto } from '@domains/catalog/product/dto/update-product-status.dto';
-import { AddProductItemDto } from '@domains/catalog/product/dto/add-product-item.dto';
 import { ProductFilterDto } from '@domains/catalog/product/dto/product-filter.dto';
 import { PaginationDto } from '@domains/catalog/common/dto/pagination.dto';
 import { SortDto } from '@domains/catalog/common/dto/sort.dto';
@@ -41,9 +37,6 @@ export class AdminProductsController {
     private readonly createProductCommand: CreateProductCommand,
     private readonly updateProductCommand: UpdateProductCommand,
     private readonly updateProductStatusCommand: UpdateProductStatusCommand,
-    private readonly addProductItemCommand: AddProductItemCommand,
-    private readonly removeProductItemCommand: RemoveProductItemCommand,
-    private readonly updateProductItemSortOrderCommand: UpdateProductItemSortOrderCommand,
     private readonly createProductSnapshotCommand: CreateProductSnapshotCommand,
     private readonly getProductQuery: GetProductQuery,
     private readonly getProductsQuery: GetProductsQuery,
@@ -73,30 +66,10 @@ export class AdminProductsController {
       pageSize: Number(query.pageSize)
     } as PaginationDto;
     const sort = {
-      field: query.field,
-      order: query.order
+      orderField: query.orderField || query.field, // Support both old and new parameter name for backward compatibility
+      orderDirection: query.orderDirection || query.order // Support both old and new parameter name for backward compatibility
     } as SortDto;
     return this.getProductsQuery.execute(filter, pagination, sort);
-  }
-
-  // Item management routes (must come before generic :id routes to avoid conflicts) [商品项管理路由（必须在通用:id路由之前以避免冲突）]
-  @Delete('items/:itemId')
-  @ApiOperation({ summary: 'Remove item from product' })
-  @ApiResponse({ status: 204, description: 'Item removed from product successfully' })
-  @ApiResponse({ status: 404, description: 'Product item not found' })
-  async removeItem(@Param('itemId') itemId: string) {
-    return this.removeProductItemCommand.execute(itemId);
-  }
-
-  @Patch('items/sort')
-  @ApiOperation({ summary: 'Update product item sort order' })
-  @ApiResponse({ status: 200, description: 'Product item sort order updated successfully' })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  @ApiResponse({ status: 404, description: 'Product item not found' })
-  async updateItemSortOrder(
-    @Body() items: Array<{ itemId: string; sortOrder: number }>
-  ) {
-    return this.updateProductItemSortOrderCommand.execute(items);
   }
 
   // Product-specific routes (more specific paths before generic :id) [产品特定路由（更具体的路径在通用:id之前）]
@@ -106,15 +79,6 @@ export class AdminProductsController {
   @ApiResponse({ status: 404, description: 'Product not found' })
   async createSnapshot(@Param('id') id: string) {
     return this.createProductSnapshotCommand.execute(id);
-  }
-
-  @Post(':id/items')
-  @ApiOperation({ summary: 'Add item to product' })
-  @ApiResponse({ status: 201, description: 'Item added to product successfully' })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  async addItem(@Param('id') id: string, @Body() addProductItemDto: AddProductItemDto) {
-    return this.addProductItemCommand.execute(id, addProductItemDto);
   }
 
   @Patch(':id/status')

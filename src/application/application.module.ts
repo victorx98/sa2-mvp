@@ -42,9 +42,7 @@ import { UpdateMentorProfileCommand } from "./commands/profile/update-mentor-pro
 import { UpdateCounselorProfileCommand } from "./commands/profile/update-counselor-profile.command";
 import { CreateProductCommand } from "./commands/product/create-product.command";
 import { UpdateProductCommand } from "./commands/product/update-product.command";
-import { PublishProductCommand } from "./commands/product/publish-product.command";
-import { UnpublishProductCommand } from "./commands/product/unpublish-product.command";
-import { RevertToDraftProductCommand } from "./commands/product/revert-to-draft.command";
+import { UpdateProductStatusCommand } from "./commands/product/update-product-status.command";
 import { AddProductItemCommand } from "./commands/product/add-product-item.command";
 import { RemoveProductItemCommand } from "./commands/product/remove-product-item.command";
 import { UpdateProductItemSortOrderCommand } from "./commands/product/update-item-sort-order.command";
@@ -136,9 +134,7 @@ import { QueryModule } from "@domains/query/query.module";
     UpdateCounselorProfileCommand,
     CreateProductCommand,
     UpdateProductCommand,
-    PublishProductCommand,
-    UnpublishProductCommand,
-    RevertToDraftProductCommand,
+    UpdateProductStatusCommand,
     AddProductItemCommand,
     RemoveProductItemCommand,
     UpdateProductItemSortOrderCommand,
@@ -206,9 +202,7 @@ import { QueryModule } from "@domains/query/query.module";
     UpdateCounselorProfileCommand,
     CreateProductCommand,
     UpdateProductCommand,
-    PublishProductCommand,
-    UnpublishProductCommand,
-    RevertToDraftProductCommand,
+    UpdateProductStatusCommand,
     AddProductItemCommand,
     RemoveProductItemCommand,
     UpdateProductItemSortOrderCommand,
