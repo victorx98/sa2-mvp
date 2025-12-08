@@ -89,6 +89,20 @@ export class StudentsController {
     type: Number,
     example: 20,
   })
+  @ApiQuery({
+    name: "createdStart",
+    required: false,
+    description: "Filter by creation time start (ISO 8601 date string)",
+    type: String,
+    example: "2024-01-01T00:00:00Z",
+  })
+  @ApiQuery({
+    name: "createdEnd",
+    required: false,
+    description: "Filter by creation time end (ISO 8601 date string)",
+    type: String,
+    example: "2024-12-31T23:59:59Z",
+  })
   @ApiOkResponse({
     description: "Paginated student list for counselor view retrieved successfully",
     type: PaginatedStudentCounselorViewResponseDto,
@@ -99,6 +113,8 @@ export class StudentsController {
     @Query("studentId") studentId?: string,
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
+    @Query("createdStart") createdStart?: string,
+    @Query("createdEnd") createdEnd?: string,
   ): Promise<PaginatedStudentCounselorViewResponseDto> {
     // 解析分页参数，设置默认值和限制
     const pageNum = Math.max(1, parseInt(page || "1", 10) || 1);
@@ -111,6 +127,8 @@ export class StudentsController {
       pageNum,
       pageSizeNum,
       studentId,
+      createdStart,
+      createdEnd,
     );
     
     return {

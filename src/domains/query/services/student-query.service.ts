@@ -205,11 +205,15 @@ export class StudentQueryService {
     page: number = 1,
     pageSize: number = 20,
     studentId?: string,
+    createdStart?: string,
+    createdEnd?: string,
   ): Promise<IPaginatedResult<StudentCounselorViewItem>> {
     this.logger.log(
       `Listing students for counselor view${counselorId ? ` for counselor: ${counselorId}` : ""}${
         text ? ` with text=${text}` : ""
-      }${studentId ? ` with studentId=${studentId}` : ""} - page: ${page}, pageSize: ${pageSize}`,
+      }${studentId ? ` with studentId=${studentId}` : ""}${
+        createdStart ? ` with createdStart=${createdStart}` : ""
+      }${createdEnd ? ` with createdEnd=${createdEnd}` : ""} - page: ${page}, pageSize: ${pageSize}`,
     );
 
     // 构建 where 条件
@@ -247,6 +251,39 @@ export class StudentQueryService {
           },
         } as any,
       });
+    }
+
+    // 构建创建时间范围过滤条件
+    if (createdStart || createdEnd) {
+      const createdTimeFilter: Record<string, unknown> = {};
+      
+      if (createdStart) {
+        try {
+          const startDate = new Date(createdStart);
+          if (!isNaN(startDate.getTime())) {
+            createdTimeFilter.gte = startDate;
+          }
+        } catch (error) {
+          this.logger.warn(`Invalid createdStart date format: ${createdStart}`, error);
+        }
+      }
+      
+      if (createdEnd) {
+        try {
+          const endDate = new Date(createdEnd);
+          if (!isNaN(endDate.getTime())) {
+            createdTimeFilter.lte = endDate;
+          }
+        } catch (error) {
+          this.logger.warn(`Invalid createdEnd date format: ${createdEnd}`, error);
+        }
+      }
+      
+      if (Object.keys(createdTimeFilter).length > 0) {
+        whereConditions.push({
+          createdTime: createdTimeFilter as any,
+        });
+      }
     }
 
     const where: WhereInput = whereConditions.length > 0 ? ({ AND: whereConditions } as WhereInput) : {};

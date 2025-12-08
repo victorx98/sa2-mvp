@@ -75,6 +75,8 @@ export class StudentListQuery {
     page: number = 1,
     pageSize: number = 20,
     studentId?: string,
+    createdStart?: string,
+    createdEnd?: string,
   ): Promise<IPaginatedResult<StudentCounselorViewItem>> {
     return this.studentQueryService.listOfCounselorView(
       counselorId,
@@ -82,6 +84,8 @@ export class StudentListQuery {
       page,
       pageSize,
       studentId,
+      createdStart,
+      createdEnd,
     );
   }
 }
