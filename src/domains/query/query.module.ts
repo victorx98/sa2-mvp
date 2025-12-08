@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { DatabaseModule } from "@infrastructure/database/database.module";
+import { QueryBuilderModule } from "@shared/query-builder";
 import { StudentQueryService } from "./services/student-query.service";
 import { MentorQueryService } from "./services/mentor-query.service";
 import { CounselorQueryService } from "./services/counselor-query.service";
@@ -14,7 +15,7 @@ import { MajorQueryService } from "./services/major-query.service";
  * 3. 高效查询，可以直接 join 各域表
  */
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, QueryBuilderModule],
   providers: [
     StudentQueryService,
     MentorQueryService,
