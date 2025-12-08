@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { trace, Span, SpanStatusCode } from '@opentelemetry/api';
+import { trace, Span, SpanStatusCode, context } from '@opentelemetry/api';
+import { logs, SeverityNumber } from '@opentelemetry/api-logs';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { SQL } from 'drizzle-orm';
 import * as schema from './schema';
@@ -39,7 +40,10 @@ export type DbOperationType = 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | 'TRANS
 @Injectable()
 export class DatabaseTraceService {
   private readonly logger = new Logger(DatabaseTraceService.name);
-  private readonly tracer = trace.getTracer('mentorx-database');
+  // 使用与 OTEL_RESOURCE_ATTRIBUTES 中 service.name 一致的名字
+  private readonly serviceName = process.env.SERVICE_NAME ?? process.env.OTEL_SERVICE_NAME ?? 'mentorxsa2';
+  private readonly tracer = trace.getTracer(this.serviceName);
+  private readonly otelLogger = logs.getLogger(this.serviceName);
 
   /**
    * 追踪数据库查询操作
@@ -59,6 +63,7 @@ export class DatabaseTraceService {
     attributes?: Record<string, string | number | boolean>,
   ): Promise<T> {
     const spanName = `db.${operationType.toLowerCase()}.${tableName}`;
+    const startTime = Date.now();
     
     return await this.tracer.startActiveSpan(spanName, async (span: Span) => {
       try {
@@ -76,7 +81,6 @@ export class DatabaseTraceService {
         }
 
         // 执行数据库操作
-        const startTime = Date.now();
         const result = await operation();
         const duration = Date.now() - startTime;
 
@@ -84,8 +88,9 @@ export class DatabaseTraceService {
         span.setAttribute('db.execution.duration_ms', duration);
         
         // 记录结果元数据（不记录实际数据）
-        if (Array.isArray(result)) {
-          span.setAttribute('db.result.count', result.length);
+        const resultCount = Array.isArray(result) ? result.length : undefined;
+        if (resultCount !== undefined) {
+          span.setAttribute('db.result.count', resultCount);
         } else if (result && typeof result === 'object') {
           span.setAttribute('db.result.type', 'object');
         }
@@ -93,8 +98,12 @@ export class DatabaseTraceService {
         // 标记为成功
         span.setStatus({ code: SpanStatusCode.OK });
 
+        // 发送日志到 Grafana Cloud Log 板块
+        this.emitLog(span, operationName, operationType, tableName, duration, resultCount);
+
         return result;
       } catch (error) {
+        const duration = Date.now() - startTime;
         // 记录错误
         if (error instanceof Error) {
           span.recordException(error);
@@ -103,6 +112,9 @@ export class DatabaseTraceService {
             message: error.message,
           });
           span.setAttribute('error.type', error.constructor.name);
+          
+          // 发送错误日志
+          this.emitLog(span, operationName, operationType, tableName, duration, undefined, error);
           
           this.logger.error(
             `Database operation failed: ${operationName}`,
@@ -299,6 +311,82 @@ export class DatabaseTraceService {
         span.end();
       }
     });
+  }
+
+  /**
+   * 发送数据库操作日志到 Grafana Cloud Log 板块
+   * 参考 OtelLoggerService 的实现
+   */
+  private emitLog(
+    span: Span,
+    operationName: string,
+    operationType: DbOperationType,
+    tableName: string,
+    durationMs: number,
+    resultCount?: number,
+    error?: Error,
+  ): void {
+    try {
+      const spanContext = span.spanContext();
+      
+      // 构建日志消息
+      let message: string;
+      let severity: SeverityNumber;
+      
+      if (error) {
+        message = `Database ${operationType} failed on "${tableName}": ${error.message}`;
+        severity = SeverityNumber.ERROR;
+      } else {
+        const resultInfo = resultCount !== undefined ? ` (${resultCount} rows)` : '';
+        message = `Database ${operationType} on "${tableName}" completed in ${durationMs}ms${resultInfo}`;
+        severity = SeverityNumber.INFO;
+      }
+
+      // 构建日志属性
+      const attributes: Record<string, string | number> = {
+        'db.system': 'postgresql',
+        'db.operation': operationType,
+        'db.sql.table': tableName,
+        'db.operation.name': operationName,
+        'db.execution.duration_ms': durationMs,
+      };
+
+      if (resultCount !== undefined) {
+        attributes['db.result.count'] = resultCount;
+      }
+
+      // 添加 trace 上下文
+      if (spanContext && spanContext.traceId && spanContext.traceId !== '00000000000000000000000000000000') {
+        attributes['traceId'] = spanContext.traceId;
+        attributes['spanId'] = spanContext.spanId;
+      }
+
+      // 如果有错误，添加异常信息
+      if (error) {
+        attributes['exception.type'] = error.constructor.name;
+        attributes['exception.message'] = error.message;
+        if (error.stack) {
+          attributes['exception.stacktrace'] = error.stack;
+        }
+      }
+
+      // 发送日志（与 OtelLoggerService 相同的方式）
+      this.otelLogger.emit({
+        severityNumber: severity,
+        severityText: error ? 'ERROR' : 'INFO',
+        body: message,
+        attributes,
+        timestamp: Date.now(),
+        context: spanContext 
+          ? trace.setSpan(context.active(), trace.wrapSpanContext(spanContext))
+          : context.active(),
+      });
+    } catch (logError) {
+      // 避免日志失败影响主流程
+      if (process.env.OTEL_LOG_LEVEL === 'DEBUG') {
+        this.logger.debug(`Failed to emit database log: ${logError}`);
+      }
+    }
   }
 }
 

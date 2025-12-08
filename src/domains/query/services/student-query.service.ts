@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { sql } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
+import { TRACED_DATABASE_CONNECTION } from "@infrastructure/database/traced-database.provider";
 import * as schema from "@infrastructure/database/schema";
 import { Country, Gender } from "@shared/types/identity-enums";
 import { IPaginatedResult } from "@shared/types/paginated-result";
@@ -19,7 +19,7 @@ export class StudentQueryService {
   private readonly logger = new Logger(StudentQueryService.name);
 
   constructor(
-    @Inject(DATABASE_CONNECTION)
+    @Inject(TRACED_DATABASE_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
   ) {}
 
