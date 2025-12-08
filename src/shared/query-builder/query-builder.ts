@@ -34,7 +34,7 @@ import {
   getTableColumns,
   getTableName,
 } from 'drizzle-orm';
-import { PgTable, PgColumn } from 'drizzle-orm/pg-core';
+import { PgTable, PgColumn, alias } from 'drizzle-orm/pg-core';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import {
   FindManyArgs,
@@ -668,11 +668,20 @@ export class FieldSelectionParser {
 // ============================================================================
 
 interface JoinInfo {
+  /** 原始表 */
   table: PgTable<any>;
-  alias: string;
+  /** 带别名的表（用于 JOIN） */
+  aliasedTable: ReturnType<typeof alias>;
+  /** 别名名称 */
+  aliasName: string;
+  /** JOIN 条件 */
   on: SQL;
+  /** JOIN 类型 */
   type: JoinType;
+  /** 关系定义 */
   relation: RelationDefinition;
+  /** 关系名称 */
+  relationName: string;
 }
 
 export class JoinBuilder {
@@ -683,12 +692,13 @@ export class JoinBuilder {
 
   /**
    * 添加 JOIN
+   * 使用别名避免同一表多次 JOIN 时的冲突
    */
   addJoin(
     fromTable: PgTable<any>,
     relationName: string,
     joinType: JoinType = 'left',
-  ): { alias: string; table: PgTable<any> } | null {
+  ): { alias: string; table: PgTable<any>; aliasedTable: ReturnType<typeof alias> } | null {
     const tableName = getTableName(fromTable);
     const relation = this.registry.getRelation(tableName, relationName);
     
@@ -697,11 +707,15 @@ export class JoinBuilder {
     const targetTable = this.registry.getTableInstance(relation.target);
     if (!targetTable) return null;
 
-    const alias = `j${this.aliasCounter++}`;
+    // 为每个 JOIN 创建唯一别名
+    const aliasName = `${relationName}_${this.aliasCounter++}`;
+    const aliasedTable = alias(targetTable, aliasName);
+    
     const fromColumns = getTableColumns(fromTable);
+    // 获取原始表的列信息（用于检查字段是否存在）
     const targetColumns = getTableColumns(targetTable);
 
-    // 构建 ON 条件
+    // 构建 ON 条件（使用别名表的列）
     let onCondition: SQL;
     
     if (relation.type === 'many-to-one' || relation.type === 'one-to-one') {
@@ -710,9 +724,10 @@ export class JoinBuilder {
       const toField = relation.toField || 'id';
       
       if (fromField in fromColumns && toField in targetColumns) {
+        // 使用别名表的列
         onCondition = eq(
           fromColumns[fromField] as PgColumn,
-          targetColumns[toField] as PgColumn
+          (aliasedTable as any)[toField] as PgColumn
         );
       } else {
         return null;
@@ -725,7 +740,7 @@ export class JoinBuilder {
       if (fromField in fromColumns && toField in targetColumns) {
         onCondition = eq(
           fromColumns[fromField] as PgColumn,
-          targetColumns[toField] as PgColumn
+          (aliasedTable as any)[toField] as PgColumn
         );
       } else {
         return null;
@@ -737,13 +752,15 @@ export class JoinBuilder {
 
     this.joins.push({
       table: targetTable,
-      alias,
+      aliasedTable,
+      aliasName,
       on: onCondition,
       type: joinType,
       relation,
+      relationName,
     });
 
-    return { alias, table: targetTable };
+    return { alias: aliasName, table: targetTable, aliasedTable };
   }
 
   /**
@@ -811,7 +828,7 @@ export class QueryExecutor<TSchema extends Record<string, unknown>> {
 
     // 构建 JOIN
     const joinBuilder = new JoinBuilder(this.registry);
-    const joinedTables = new Map<string, PgTable<any>>();
+    const joinedTables = new Map<string, { table: PgTable<any>; aliasedTable: any }>();
     const relationConfigs = new Map<string, {
       where?: WhereInput;
       orderBy?: OrderByInput;
@@ -827,7 +844,7 @@ export class QueryExecutor<TSchema extends Record<string, unknown>> {
       const result = joinBuilder.addJoin(table, relationName, joinType);
       
       if (result) {
-        joinedTables.set(relationName, result.table);
+        joinedTables.set(relationName, { table: result.table, aliasedTable: result.aliasedTable });
         if (config.where || config.orderBy || config.take || config.skip) {
           relationConfigs.set(relationName, {
             where: config.where,
@@ -877,7 +894,7 @@ export class QueryExecutor<TSchema extends Record<string, unknown>> {
     table: T,
     fieldSelection: ParsedFieldSelection,
     joinBuilder: JoinBuilder,
-    joinedTables: Map<string, PgTable<any>>,
+    joinedTables: Map<string, { table: PgTable<any>; aliasedTable: any }>,
     relationConfigs: Map<string, { where?: WhereInput; orderBy?: OrderByInput; take?: number; skip?: number }>,
     where: WhereInput | undefined,
     orderBy: OrderByInput | undefined,
@@ -901,29 +918,30 @@ export class QueryExecutor<TSchema extends Record<string, unknown>> {
       }
     }
 
-    // JOIN 表字段（带前缀）
+    // JOIN 表字段（带前缀，使用别名表的列）
     const joinFieldMap = new Map<string, string[]>(); // relationName -> fieldNames
     
-    for (const [relationName, joinedTable] of joinedTables) {
-      const relation = this.registry.getRelation(tableName, relationName);
-      if (!relation) continue;
-
+    for (const join of joins) {
+      const relationName = join.relationName;
       const relationConfig = fieldSelection.relations.get(relationName);
-      const joinedColumns = getTableColumns(joinedTable);
+      
+      // 获取原始表的列信息（用于确定字段名）
+      const originalColumns = getTableColumns(join.table);
       
       // 确定要选择的字段
       let fieldsToSelect: string[];
       if (relationConfig?.nested && relationConfig.nested.fields.size > 0) {
         fieldsToSelect = Array.from(relationConfig.nested.fields);
       } else {
-        fieldsToSelect = Object.keys(joinedColumns);
+        fieldsToSelect = Object.keys(originalColumns);
       }
 
       const prefixedFields: string[] = [];
       for (const fieldName of fieldsToSelect) {
-        if (fieldName in joinedColumns) {
+        if (fieldName in originalColumns) {
           const prefixedName = `${relationName}_${fieldName}`;
-          selectedColumns[prefixedName] = joinedColumns[fieldName] as PgColumn;
+          // 使用别名表的列
+          selectedColumns[prefixedName] = (join.aliasedTable as any)[fieldName] as PgColumn;
           prefixedFields.push(fieldName);
         }
       }
@@ -933,16 +951,16 @@ export class QueryExecutor<TSchema extends Record<string, unknown>> {
     // 构建查询
     let query = this.db.select(selectedColumns).from(table as any).$dynamic();
 
-    // 添加 JOIN
+    // 添加 JOIN（使用别名表）
     for (const join of joins) {
       if (join.type === 'left') {
-        query = query.leftJoin(join.table as any, join.on);
+        query = query.leftJoin(join.aliasedTable as any, join.on);
       } else if (join.type === 'inner') {
-        query = query.innerJoin(join.table as any, join.on);
+        query = query.innerJoin(join.aliasedTable as any, join.on);
       } else if (join.type === 'right') {
-        query = query.rightJoin(join.table as any, join.on);
+        query = query.rightJoin(join.aliasedTable as any, join.on);
       } else if (join.type === 'full') {
-        query = query.fullJoin(join.table as any, join.on);
+        query = query.fullJoin(join.aliasedTable as any, join.on);
       }
     }
 
@@ -957,9 +975,10 @@ export class QueryExecutor<TSchema extends Record<string, unknown>> {
 
     for (const [relationName, config] of relationConfigs) {
       if (config.where) {
-        const joinedTable = joinedTables.get(relationName);
-        if (joinedTable) {
-          const relationWhere = this.whereParser.parse(joinedTable, config.where);
+        const joinedInfo = joinedTables.get(relationName);
+        if (joinedInfo) {
+          // 使用别名表进行条件解析
+          const relationWhere = this.whereParser.parse(joinedInfo.aliasedTable, config.where);
           if (relationWhere) {
             allConditions.push(relationWhere);
           }
@@ -999,7 +1018,12 @@ export class QueryExecutor<TSchema extends Record<string, unknown>> {
     }
 
     // 应用排序
-    const orderByConditions = this.orderByParser.parse(table, orderBy, joinedTables);
+    // 将 joinedTables 转换为 OrderByParser 需要的格式（使用别名表）
+    const aliasedTablesMap = new Map<string, PgTable<any>>();
+    for (const [relationName, { aliasedTable }] of joinedTables) {
+      aliasedTablesMap.set(relationName, aliasedTable);
+    }
+    const orderByConditions = this.orderByParser.parse(table, orderBy, aliasedTablesMap);
     if (orderByConditions.length > 0) {
       query = query.orderBy(...orderByConditions);
     }

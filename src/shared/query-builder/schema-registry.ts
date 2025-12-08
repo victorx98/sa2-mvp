@@ -90,18 +90,25 @@ export class SchemaRegistry {
   private isPgTable(value: unknown): boolean {
     if (!value || typeof value !== 'object') return false;
     
-    // 检查是否有 Drizzle 表的特征
-    const obj = value as Record<string, unknown>;
-    return (
-      '_' in obj &&
-      typeof obj._ === 'object' &&
-      obj._ !== null &&
-      'name' in (obj._ as Record<string, unknown>)
+    // 方法1：检查 Drizzle 的 Symbol 标记
+    const symbols = Object.getOwnPropertySymbols(value);
+    const hasDrizzleTableSymbol = symbols.some(
+      sym => sym.toString().includes('drizzle:IsDrizzleTable')
     );
+    if (hasDrizzleTableSymbol) return true;
+
+    // 方法2：尝试使用 getTableName（如果成功说明是表）
+    try {
+      const name = getTableName(value as PgTable<any>);
+      return typeof name === 'string' && name.length > 0;
+    } catch {
+      return false;
+    }
   }
 
   /**
    * 从外键推断关系
+   * 同时处理显式 foreignKeys 和列上的内联 .references()
    */
   private inferRelationsFromForeignKeys(table: PgTable<any>): void {
     const tableName = getTableName(table);
@@ -110,8 +117,10 @@ export class SchemaRegistry {
 
     try {
       const config = getTableConfig(table);
-      const foreignKeys = config.foreignKeys || [];
+      const columns = getTableColumns(table);
 
+      // 方法1：处理显式定义的 foreignKeys
+      const foreignKeys = config.foreignKeys || [];
       for (const fk of foreignKeys) {
         const ref = fk.reference();
         if (!ref.columns || ref.columns.length === 0) continue;
@@ -119,64 +128,117 @@ export class SchemaRegistry {
         const fromColumn = ref.columns[0];
         const toColumn = ref.foreignColumns[0];
         const targetTable = ref.foreignTable;
-        const targetTableName = getTableName(targetTable);
+        
+        this.addRelationFromReference(
+          table,
+          tableName,
+          tableMetadata,
+          fromColumn.name,
+          targetTable,
+          toColumn.name,
+        );
+      }
 
-        // 获取列名
-        const fromFieldName = this.getColumnPropertyName(table, fromColumn.name);
-        const toFieldName = this.getColumnPropertyName(targetTable, toColumn.name);
-
-        if (!fromFieldName || !toFieldName) continue;
-
-        // 生成关系名称：使用外键字段名（移除 Id 后缀）
-        let relationName = fromFieldName;
-        if (relationName.endsWith('Id')) {
-          relationName = relationName.slice(0, -2);
-        }
-
-        // 如果关系名和目标表名相同，或者外键字段就是主键，用目标表的导出名
-        if (relationName === 'id' || relationName === tableName) {
-          const targetExportName = this.tableNameToExportName.get(targetTableName);
-          if (targetExportName) {
-            // 从 userTable 转为 user
-            relationName = targetExportName.replace(/Table$/, '');
-          } else {
-            relationName = targetTableName;
-          }
-        }
-
-        // 避免重复添加
-        if (tableMetadata.relations[relationName]) continue;
-
-        // 添加多对一关系（从当前表到目标表）
-        tableMetadata.relations[relationName] = {
-          name: relationName,
-          type: 'many-to-one',
-          target: targetTableName,
-          fromField: fromFieldName,
-          toField: toFieldName,
-          optional: true,
-        };
-
-        // 同时在目标表添加一对多关系（反向关系）
-        const targetMetadata = this.tables.get(targetTableName);
-        if (targetMetadata) {
-          // 生成反向关系名（复数形式）
-          const reverseRelationName = this.pluralize(tableName);
-          
-          if (!targetMetadata.relations[reverseRelationName]) {
-            targetMetadata.relations[reverseRelationName] = {
-              name: reverseRelationName,
-              type: 'one-to-many',
-              target: tableName,
-              fromField: toFieldName,
-              toField: fromFieldName,
-              optional: false,
-            };
+      // 方法2：处理列上的内联 .references() 定义
+      for (const [propName, column] of Object.entries(columns)) {
+        const col = column as any;
+        
+        // 检查列是否有内联引用
+        // Drizzle 将引用信息存储在列的内部配置中
+        if (col.references) {
+          try {
+            // references 是一个函数，调用它获取引用配置
+            const refConfig = typeof col.references === 'function' ? col.references() : col.references;
+            
+            if (refConfig && refConfig.foreignTable) {
+              const targetTable = refConfig.foreignTable;
+              const targetColumns = refConfig.foreignColumns || [];
+              const toColumnName = targetColumns.length > 0 ? targetColumns[0].name : 'id';
+              
+              this.addRelationFromReference(
+                table,
+                tableName,
+                tableMetadata,
+                col.name, // 数据库列名
+                targetTable,
+                toColumnName,
+              );
+            }
+          } catch (_e) {
+            // 忽略解析错误
           }
         }
       }
     } catch (_e) {
       // 某些表可能没有外键配置，忽略错误
+    }
+  }
+
+  /**
+   * 从引用信息添加关系
+   */
+  private addRelationFromReference(
+    table: PgTable<any>,
+    tableName: string,
+    tableMetadata: TableMetadata,
+    fromColumnDbName: string,
+    targetTable: PgTable<any>,
+    toColumnDbName: string,
+  ): void {
+    const targetTableName = getTableName(targetTable);
+
+    // 获取属性名
+    const fromFieldName = this.getColumnPropertyName(table, fromColumnDbName);
+    const toFieldName = this.getColumnPropertyName(targetTable, toColumnDbName);
+
+    if (!fromFieldName || !toFieldName) return;
+
+    // 生成关系名称：使用外键字段名（移除 Id 后缀）
+    let relationName = fromFieldName;
+    if (relationName.endsWith('Id')) {
+      relationName = relationName.slice(0, -2);
+    }
+
+    // 如果关系名是 'id' 或与当前表名相同，使用目标表的导出名
+    if (relationName === 'id' || relationName === tableName) {
+      const targetExportName = this.tableNameToExportName.get(targetTableName);
+      if (targetExportName) {
+        // 从 userTable 转为 user
+        relationName = targetExportName.replace(/Table$/, '');
+      } else {
+        relationName = targetTableName;
+      }
+    }
+
+    // 避免重复添加
+    if (tableMetadata.relations[relationName]) return;
+
+    // 添加多对一关系（从当前表到目标表）
+    tableMetadata.relations[relationName] = {
+      name: relationName,
+      type: 'many-to-one',
+      target: targetTableName,
+      fromField: fromFieldName,
+      toField: toFieldName,
+      optional: true,
+    };
+
+    // 同时在目标表添加一对多关系（反向关系）
+    const targetMetadata = this.tables.get(targetTableName);
+    if (targetMetadata) {
+      // 生成反向关系名（复数形式）
+      const reverseRelationName = this.pluralize(tableName);
+      
+      if (!targetMetadata.relations[reverseRelationName]) {
+        targetMetadata.relations[reverseRelationName] = {
+          name: reverseRelationName,
+          type: 'one-to-many',
+          target: tableName,
+          fromField: toFieldName,
+          toField: fromFieldName,
+          optional: false,
+        };
+      }
     }
   }
 
@@ -196,16 +258,26 @@ export class SchemaRegistry {
   }
 
   /**
-   * 简单的复数化
+   * 简单的复数化（转为驼峰格式）
    */
   private pluralize(word: string): string {
-    if (word.endsWith('s') || word.endsWith('x') || word.endsWith('ch') || word.endsWith('sh')) {
-      return word + 'es';
+    // 先转为驼峰格式
+    const camelCase = this.toCamelCase(word);
+    
+    if (camelCase.endsWith('s') || camelCase.endsWith('x') || camelCase.endsWith('ch') || camelCase.endsWith('sh')) {
+      return camelCase + 'es';
     }
-    if (word.endsWith('y') && !/[aeiou]y$/.test(word)) {
-      return word.slice(0, -1) + 'ies';
+    if (camelCase.endsWith('y') && !/[aeiou]y$/.test(camelCase)) {
+      return camelCase.slice(0, -1) + 'ies';
     }
-    return word + 's';
+    return camelCase + 's';
+  }
+
+  /**
+   * 将 snake_case 转为 camelCase
+   */
+  private toCamelCase(str: string): string {
+    return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
   }
 
   /**

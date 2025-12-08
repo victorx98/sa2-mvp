@@ -5,6 +5,8 @@ import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider"
 import * as schema from "@infrastructure/database/schema";
 import { Country, Gender } from "@shared/types/identity-enums";
 import { IPaginatedResult } from "@shared/types/paginated-result";
+import { PrismaQueryService } from "@shared/query-builder";
+import { WhereInput, IncludeConfig } from "@shared/query-builder/types";
 
 /**
  * Student Query Service
@@ -21,7 +23,10 @@ export class StudentQueryService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
-  ) {}
+    private readonly queryService: PrismaQueryService,
+  ) {
+    // 关系已自动从 schema 推断，无需手动定义
+  }
 
   /**
    * 根据导师ID获取学生列表
@@ -192,6 +197,7 @@ export class StudentQueryService {
    * 获取顾问视图的学生列表（带分页）
    * 关联查询 students、user、schools、majors 表
    * 返回包含学校名称和专业名称的完整信息，支持分页
+   * 使用通用查询构建器实现
    */
   async listOfCounselorView(
     counselorId?: string,
@@ -206,157 +212,122 @@ export class StudentQueryService {
       }${studentId ? ` with studentId=${studentId}` : ""} - page: ${page}, pageSize: ${pageSize}`,
     );
 
-    const searchFilter = this.buildSearchFilter(text);
-    const studentIdFilter = this.buildStudentIdFilter(studentId);
-    const offset = (page - 1) * pageSize;
+    // 构建 where 条件
+    const whereConditions: WhereInput[] = [];
 
-    // 并行执行 count 查询和 data 查询
-    let countQuery: ReturnType<typeof this.db.execute>;
-    let dataQuery: ReturnType<typeof this.db.execute>;
-
-    if (counselorId) {
-      // 构建 count 查询
-      countQuery = this.db.execute(sql`
-        SELECT COUNT(DISTINCT s.id) as total
-        FROM student s
-        LEFT JOIN "user" u ON s.id = u.id
-        INNER JOIN student_counselor sc ON s.id = sc.student_id
-        INNER JOIN counselor c ON sc.counselor_id = c.id
-        WHERE c.id = ${counselorId}
-          AND s.id IS NOT NULL
-          ${searchFilter}
-          ${studentIdFilter}
-      `);
-
-      // 构建 data 查询
-      dataQuery = this.db.execute(sql`
-        SELECT DISTINCT
-          s.id,
-          s.status,
-          s.under_major,
-          s.under_college,
-          s.graduate_major,
-          s.graduate_college,
-          s.high_school,
-          s.ai_resume_summary,
-          s.customer_importance,
-          s.graduation_date,
-          s.background_info,
-          s.grades,
-          s.created_time,
-          s.modified_time,
-          u.email,
-          u.name_en,
-          u.name_zh,
-          u.country,
-          u.gender,
-          -- 本科学校信息
-          under_school.name_zh as under_college_name_zh,
-          under_school.name_en as under_college_name_en,
-          -- 研究生学校信息
-          grad_school.name_zh as graduate_college_name_zh,
-          grad_school.name_en as graduate_college_name_en,
-          -- 高中学校信息
-          high_school.name_zh as high_school_name_zh,
-          high_school.name_en as high_school_name_en,
-          -- 本科专业信息
-          under_major.name_zh as under_major_name_zh,
-          under_major.name_en as under_major_name_en,
-          -- 研究生专业信息
-          grad_major.name_zh as graduate_major_name_zh,
-          grad_major.name_en as graduate_major_name_en,
-          -- 顾问关联信息
-          sc.status as counselor_status,
-          sc.type as counselor_type
-        FROM student s
-        LEFT JOIN "user" u ON s.id = u.id
-        LEFT JOIN schools under_school ON s.under_college = under_school.id
-        LEFT JOIN schools grad_school ON s.graduate_college = grad_school.id
-        LEFT JOIN schools high_school ON s.high_school = high_school.id
-        LEFT JOIN majors under_major ON s.under_major = under_major.id
-        LEFT JOIN majors grad_major ON s.graduate_major = grad_major.id
-        INNER JOIN student_counselor sc ON s.id = sc.student_id
-        INNER JOIN counselor c ON sc.counselor_id = c.id
-        WHERE c.id = ${counselorId}
-          AND s.id IS NOT NULL
-          ${searchFilter}
-          ${studentIdFilter}
-        ORDER BY s.created_time DESC
-        LIMIT ${pageSize}
-        OFFSET ${offset}
-      `);
-    } else {
-      // 构建 count 查询
-      countQuery = this.db.execute(sql`
-        SELECT COUNT(DISTINCT s.id) as total
-        FROM student s
-        LEFT JOIN "user" u ON s.id = u.id
-        WHERE s.id IS NOT NULL
-          ${searchFilter}
-          ${studentIdFilter}
-      `);
-
-      // 构建 data 查询
-      dataQuery = this.db.execute(sql`
-        SELECT DISTINCT
-          s.id,
-          s.status,
-          s.under_major,
-          s.under_college,
-          s.graduate_major,
-          s.graduate_college,
-          s.high_school,
-          s.ai_resume_summary,
-          s.customer_importance,
-          s.graduation_date,
-          s.background_info,
-          s.grades,
-          s.created_time,
-          s.modified_time,
-          u.email,
-          u.name_en,
-          u.name_zh,
-          u.country,
-          u.gender,
-          -- 本科学校信息
-          under_school.name_zh as under_college_name_zh,
-          under_school.name_en as under_college_name_en,
-          -- 研究生学校信息
-          grad_school.name_zh as graduate_college_name_zh,
-          grad_school.name_en as graduate_college_name_en,
-          -- 高中学校信息
-          high_school.name_zh as high_school_name_zh,
-          high_school.name_en as high_school_name_en,
-          -- 本科专业信息
-          under_major.name_zh as under_major_name_zh,
-          under_major.name_en as under_major_name_en,
-          -- 研究生专业信息
-          grad_major.name_zh as graduate_major_name_zh,
-          grad_major.name_en as graduate_major_name_en,
-          -- 顾问关联信息（当没有 counselorId 时为空）
-          NULL as counselor_status,
-          NULL as counselor_type
-        FROM student s
-        LEFT JOIN "user" u ON s.id = u.id
-        LEFT JOIN schools under_school ON s.under_college = under_school.id
-        LEFT JOIN schools grad_school ON s.graduate_college = grad_school.id
-        LEFT JOIN schools high_school ON s.high_school = high_school.id
-        LEFT JOIN majors under_major ON s.under_major = under_major.id
-        LEFT JOIN majors grad_major ON s.graduate_major = grad_major.id
-        WHERE s.id IS NOT NULL
-          ${searchFilter}
-          ${studentIdFilter}
-        ORDER BY s.created_time DESC
-        LIMIT ${pageSize}
-        OFFSET ${offset}
-      `);
+    // 学生ID过滤
+    if (studentId) {
+      whereConditions.push({ id: { equals: studentId } as any });
     }
 
-    // 并行执行 count 和 data 查询
-    const [countResult, dataResult] = await Promise.all([countQuery, dataQuery]);
+    // 构建搜索条件（在 user 表的字段中搜索）
+    if (text && text.trim().length > 0) {
+      const searchTerm = text.trim();
+      whereConditions.push({
+        user: {
+          is: {
+            OR: [
+              { nameEn: { contains: searchTerm, mode: "insensitive" } },
+              { nameZh: { contains: searchTerm, mode: "insensitive" } },
+              { email: { contains: searchTerm, mode: "insensitive" } },
+            ],
+          },
+        } as any,
+      });
+    }
 
-    const total = Number(countResult.rows[0]?.total || 0);
-    const data = dataResult.rows.map((row) => this.mapRowToCounselorViewItem(row));
+    // 如果有 counselorId，需要通过 student_counselor 表过滤
+    if (counselorId) {
+      // 使用关联过滤：通过 student_counselor 表过滤
+      // 关系名为 "studentCounselors"（一对多关系）
+      whereConditions.push({
+        studentCounselors: {
+          some: {
+            counselorId: { equals: counselorId },
+          },
+        } as any,
+      });
+    }
+
+    const where: WhereInput = whereConditions.length > 0 ? ({ AND: whereConditions } as WhereInput) : {};
+
+    // 构建 include 配置
+    const include: IncludeConfig = {
+      // 关联 user 表（一对一关系，student.id = user.id）
+      user: {
+        select: {
+          email: true,
+          nameEn: true,
+          nameZh: true,
+          country: true,
+          gender: true,
+        },
+      },
+      // 关联学校表（多个关系）
+      underCollege: {
+        select: {
+          nameZh: true,
+          nameEn: true,
+        },
+      },
+      graduateCollege: {
+        select: {
+          nameZh: true,
+          nameEn: true,
+        },
+      },
+      highSchool: {
+        select: {
+          nameZh: true,
+          nameEn: true,
+        },
+      },
+      // 关联专业表
+      underMajor: {
+        select: {
+          nameZh: true,
+          nameEn: true,
+        },
+      },
+      graduateMajor: {
+        select: {
+          nameZh: true,
+          nameEn: true,
+        },
+      },
+    };
+
+    // 如果有 counselorId，需要包含 student_counselor 关联信息
+    if (counselorId) {
+      // 假设关系名为 "studentCounselors"
+      include.studentCounselors = {
+        where: {
+          counselorId: { equals: counselorId },
+        },
+        select: {
+          status: true,
+          type: true,
+        },
+        take: 1, // 只取第一个匹配的记录
+      };
+    }
+
+    // 执行查询
+    const skip = (page - 1) * pageSize;
+    const results = await this.queryService.findMany(schema.studentTable, {
+      where,
+      include,
+      orderBy: { createdTime: "desc" },
+      take: pageSize,
+      skip,
+      relationLoadStrategy: "join",
+    });
+
+    // 执行 count 查询
+    const total = await this.queryService.count(schema.studentTable, { where });
+
+    // 映射结果
+    const data = results.map((row) => this.mapQueryResultToCounselorViewItem(row, counselorId));
     const totalPages = Math.ceil(total / pageSize);
 
     return {
@@ -433,6 +404,72 @@ export class StudentQueryService {
       // 顾问关联信息
       counselorStatus: String(row.counselor_status || ""),
       counselorType: String(row.counselor_type || ""),
+    };
+  }
+
+  /**
+   * 将通用查询构建器返回的嵌套结果映射为 StudentCounselorViewItem
+   */
+  private mapQueryResultToCounselorViewItem(
+    row: Record<string, unknown>,
+    counselorId?: string,
+  ): StudentCounselorViewItem {
+    const user = row.user as Record<string, unknown> | undefined;
+    const underCollege = row.underCollege as Record<string, unknown> | undefined;
+    const graduateCollege = row.graduateCollege as Record<string, unknown> | undefined;
+    const highSchool = row.highSchool as Record<string, unknown> | undefined;
+    const underMajor = row.underMajor as Record<string, unknown> | undefined;
+    const graduateMajor = row.graduateMajor as Record<string, unknown> | undefined;
+    
+    // 获取 student_counselor 关联信息
+    let counselorStatus = "";
+    let counselorType = "";
+    if (counselorId) {
+      const studentCounselors = row.studentCounselors as Array<Record<string, unknown>> | undefined;
+      if (studentCounselors && studentCounselors.length > 0) {
+        const sc = studentCounselors[0];
+        counselorStatus = String(sc.status || "");
+        counselorType = String(sc.type || "");
+      }
+    }
+
+    return {
+      id: String(row.id || ""),
+      status: String(row.status || ""),
+      underMajor: String(row.underMajor || ""),
+      underCollege: String(row.underCollege || ""),
+      graduateMajor: String(row.graduateMajor || ""),
+      graduateCollege: String(row.graduateCollege || ""),
+      highSchool: String(row.highSchool || ""),
+      aiResumeSummary: String(row.aiResumeSummary || ""),
+      customerImportance: String(row.customerImportance || ""),
+      graduationDate: row.graduationDate
+        ? new Date(String(row.graduationDate))
+        : null,
+      backgroundInfo: String(row.backgroundInfo || ""),
+      grades: String(row.grades || ""),
+      createdAt: row.createdTime as Date,
+      modifiedAt: row.modifiedTime as Date,
+      email: user ? String(user.email || "") : "",
+      nameEn: user ? String(user.nameEn || "") : "",
+      nameZh: user ? String(user.nameZh || "") : "",
+      country: user?.country ? (user.country as Country) : undefined,
+      gender: user?.gender ? (user.gender as Gender) : undefined,
+      // 学校名称
+      underCollegeNameZh: underCollege ? String(underCollege.nameZh || "") : "",
+      underCollegeNameEn: underCollege ? String(underCollege.nameEn || "") : "",
+      graduateCollegeNameZh: graduateCollege ? String(graduateCollege.nameZh || "") : "",
+      graduateCollegeNameEn: graduateCollege ? String(graduateCollege.nameEn || "") : "",
+      highSchoolNameZh: highSchool ? String(highSchool.nameZh || "") : "",
+      highSchoolNameEn: highSchool ? String(highSchool.nameEn || "") : "",
+      // 专业名称
+      underMajorNameZh: underMajor ? String(underMajor.nameZh || "") : "",
+      underMajorNameEn: underMajor ? String(underMajor.nameEn || "") : "",
+      graduateMajorNameZh: graduateMajor ? String(graduateMajor.nameZh || "") : "",
+      graduateMajorNameEn: graduateMajor ? String(graduateMajor.nameEn || "") : "",
+      // 顾问关联信息
+      counselorStatus,
+      counselorType,
     };
   }
 }
