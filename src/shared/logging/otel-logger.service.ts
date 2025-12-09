@@ -125,6 +125,8 @@ export class OtelLoggerService extends ConsoleLogger {
     if (spanContext) {
       attributes["traceId"] = spanContext.traceId;
       attributes["spanId"] = spanContext.spanId;
+      attributes["trace_id"] = spanContext.traceId;
+      attributes["span_id"] = spanContext.spanId;
     }
 
     const inputError = this.extractError(originalMessage, optionalParams);
