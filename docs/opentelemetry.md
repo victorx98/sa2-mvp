@@ -111,7 +111,7 @@ Service Process (Resource)
 | Attribute | 描述细节 | 依附于 Resource/Span | 为 Resource 或 Span 提供额外信息 |
 | Tracer | 追踪来源 | 工具对象 | 用于创建 Span，标记 instrumentation 来源 |
 
-#### Span vs Log 使用决策
+#### Span vs Log vs Event 使用决策
 
 **总体结论**
 
@@ -119,6 +119,7 @@ Service Process (Resource)
 |------|---------|
 | 记录一个"操作"、"行为"、"事务过程" | **Span** |
 | 记录事件细节、状态信息、调试信息 | **Log** |
+| 记录 Span 内部的关键事件点 | **Event** |
 
 **何时使用 Span**
 
@@ -138,16 +139,27 @@ Log 用于捕获事件，而不是行为过程：
 - ✓ 调试变量、上下文信息
 - ✓ 错误细节
 
+**何时使用 Event**
+
+Event 不是日志，也不是独立存在的，它属于某一个 Span：
+- ✓ 重试发生一次（在重试 Span 内记录）
+- ✓ 某个状态变化（如："cache hit"、"cache miss"）
+- ✓ 阶段性 checkpoint（如："validation passed"、"payment initiated"）
+- ✓ 模块内部关键但非独立行为（在 Span 生命周期内的关键节点）
+
 **决策矩阵**
 
-| 情况描述 | 用 Span | 用 Log |
-|---------|---------|--------|
-| 有明确开始、结束 | ✅ | optional |
-| 能度量耗时 | ✅ | optional |
-| 是性能瓶颈来源 | ✅ | optional |
-| 是用户可感知动作 | ✅ | optional |
-| 只输出状态文本 | ❌ | ✅ |
-| 高频且无性能意义 | ❌ | ✅ |
-| 调试变量、上下文 | ❌ | ✅ |
-| 错误细节 | optional | ✅ |
-| 出现异常时定位问题 | Span + Log | ✅ |
+| 情况描述 | 用 Span | 用 Log | 用 Event |
+|---------|---------|--------|----------|
+| 有明确开始、结束 | ✅ | optional | ❌ |
+| 能度量耗时 | ✅ | optional | ❌ |
+| 是性能瓶颈来源 | ✅ | optional | ❌ |
+| 是用户可感知动作 | ✅ | optional | ❌ |
+| 只输出状态文本 | ❌ | ✅ | optional |
+| 高频且无性能意义 | ❌ | ✅ | optional |
+| 调试变量、上下文 | ❌ | ✅ | ❌ |
+| 错误细节 | optional | ✅ | optional |
+| 出现异常时定位问题 | Span + Log | ✅ | optional |
+| Span 内部的关键事件点 | ❌ | optional | ✅ |
+| 状态变化（如 cache hit/miss） | ❌ | optional | ✅ |
+| 阶段性 checkpoint | ❌ | optional | ✅ |
