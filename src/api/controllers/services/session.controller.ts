@@ -322,7 +322,10 @@ export class SessionController {
       Retrieve sessions with support for multiple query combinations:
       
       Query Parameters:
-      - sessionType (required): Filter by session type (regular_mentoring, gap_analysis, ai_career)
+      - sessionType (optional): Filter by session type, supports single or multiple values
+        * Not provided: returns all session types
+        * Single: ?sessionType=regular_mentoring
+        * Multiple: ?sessionType=regular_mentoring&sessionType=gap_analysis
       - studentId (optional): Filter by specific student ID
       - mentorId (optional): Filter by specific mentor ID
       - counselorId (optional): Filter by specific counselor ID (counselor role only)
@@ -333,8 +336,10 @@ export class SessionController {
       - limit (optional): Results per page
       
       Examples:
+      - GET /api/services/sessions (returns all types)
       - GET /api/services/sessions?sessionType=regular_mentoring
       - GET /api/services/sessions?sessionType=gap_analysis&studentId=xxx
+      - GET /api/services/sessions?sessionType=regular_mentoring&sessionType=gap_analysis
       - GET /api/services/sessions?sessionType=ai_career&mentorId=xxx&studentId=yyy
     `,
   })
@@ -349,15 +354,16 @@ export class SessionController {
   })
   async getSessionsList(
     @CurrentUser() user: User,
-    @Query('sessionType') sessionType: string,
+    @Query('sessionType') sessionType?: string | string[],
     @Query('studentId') studentId?: string,
     @Query('mentorId') mentorId?: string,
     @Query('counselorId') counselorId?: string,
     @Query() filters?: any,
   ): Promise<SessionResponseDto[]> {
-    if (!sessionType) {
-      throw new Error('sessionType query parameter is required');
-    }
+    // If sessionType is not provided, query all types
+    const types = sessionType 
+      ? (Array.isArray(sessionType) ? sessionType : [sessionType])
+      : [SessionType.REGULAR_MENTORING, SessionType.GAP_ANALYSIS, SessionType.AI_CAREER];
 
     const userRole = user.roles?.[0] || 'student';
 
@@ -368,15 +374,32 @@ export class SessionController {
       counselorId,
     };
 
-    const sessions = await this.sessionOrchestratorService.getSessionsByRole(
-      sessionType,
-      user.id,
-      userRole,
-      sessionFilters,
+    // Fetch sessions for all types in parallel
+    const results = await Promise.all(
+      types.map(type =>
+        this.sessionOrchestratorService.getSessionsByRole(
+          type,
+          user.id,
+          userRole,
+          sessionFilters,
+        ),
+      ),
     );
 
-    // Use appropriate mapper based on session type
-    return this.mapSessionsToResponse(sessionType, sessions || []);
+    // Flatten and merge all results
+    const allSessions = results.flat();
+
+    // Sort by scheduledAt descending (most recent first)
+    allSessions.sort((a, b) => {
+      const dateA = new Date(a.scheduledAt).getTime();
+      const dateB = new Date(b.scheduledAt).getTime();
+      return dateB - dateA;
+    });
+
+    // Map each session using its corresponding mapper
+    return allSessions.map(session =>
+      this.mapSessionToResponse(session.sessionType, session),
+    );
   }
 
   /**
