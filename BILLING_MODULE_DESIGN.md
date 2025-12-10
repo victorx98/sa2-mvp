@@ -2611,9 +2611,7 @@ export const serviceLedgerTypeEnum = pgEnum('service_ledger_type', [
 export const serviceLedgerSourceEnum = pgEnum('service_ledger_source', [
   'booking_completed',    // 预约完成
   'booking_cancelled',    // 预约取消
-  'contract_signed',      // 合同签约
   'manual_adjustment',    // 手动调整
-  'auto_expiration',      // 自动过期
 ]);
 
 export const serviceLedgers = pgTable('service_ledgers', {
@@ -2645,9 +2643,6 @@ export const serviceLedgers = pgTable('service_ledgers', {
   // ⚠️ Append-Only 设计：记录不可修改，无需 updatedAt 字段
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   createdBy: uuid('created_by').notNull().references(() => users.id),
-
-  // 元数据
-  metadata: json('metadata'), // 额外信息（如原始balance、操作IP等）
 });
 
 // 索引
@@ -6645,7 +6640,7 @@ export class ServiceHoldService {
             serviceType: hold.serviceType,
             quantity: -hold.quantity, // 负数表示消费
             type: 'expiration',
-            source: 'auto_expiration',
+            source: 'manual_adjustment', // 过期扣减使用手动调整来源
             balanceAfter: await this.calculateBalanceAfter(
               tx,
               hold.contractId,
@@ -7657,7 +7652,7 @@ const billingMetrics = {
 };
 
 // 在业务逻辑中使用
-billingMetrics.chargesCreated.inc({ service_type: 'gap_analysis', pricing_type: 'per_service' });
+billingMetrics.chargesCreated.inc({ service_type: 'External', pricing_type: 'per_service' });
 billingMetrics.chargeAmount.observe(charge.totalAmount);
 ```
 

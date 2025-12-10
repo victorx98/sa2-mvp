@@ -98,12 +98,20 @@ describe("PlacementApplicationStatusRolledBackListener", () => {
         },
       ];
 
-      (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(mockJobApplication);
-      (db.query.mentorPayableLedgers.findMany as jest.Mock).mockResolvedValue(mockOriginalBillingRecords);
-      (mentorPayableService.adjustPayableLedger as jest.Mock).mockResolvedValue(undefined);
+      (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(
+        mockJobApplication,
+      );
+      (db.query.mentorPayableLedgers.findMany as jest.Mock).mockResolvedValue(
+        mockOriginalBillingRecords,
+      );
+      (mentorPayableService.adjustPayableLedger as jest.Mock).mockResolvedValue(
+        undefined,
+      );
 
       // Act
-      await listener.handlePlacementApplicationStatusRolledBackEvent(mockEvent as any);
+      await listener.handlePlacementApplicationStatusRolledBackEvent(
+        mockEvent as any,
+      );
 
       // Assert
       expect(db.query.jobApplications.findFirst).toHaveBeenCalledWith({
@@ -118,8 +126,9 @@ describe("PlacementApplicationStatusRolledBackListener", () => {
       });
       expect(mentorPayableService.adjustPayableLedger).toHaveBeenCalledWith({
         originalLedgerId: "ledger-id-123",
-        adjustmentAmount: -100.00,
-        reason: "Placement application status rolled back: Status changed by mistake",
+        adjustmentAmount: -100.0,
+        reason:
+          "Placement application status rolled back: Status changed by mistake",
         createdBy: "user-id-123",
       });
     });
@@ -138,7 +147,9 @@ describe("PlacementApplicationStatusRolledBackListener", () => {
       };
 
       // Act
-      await listener.handlePlacementApplicationStatusRolledBackEvent(invalidEvent as any);
+      await listener.handlePlacementApplicationStatusRolledBackEvent(
+        invalidEvent as any,
+      );
 
       // Assert
       expect(db.query.jobApplications.findFirst).not.toHaveBeenCalled();
@@ -150,7 +161,9 @@ describe("PlacementApplicationStatusRolledBackListener", () => {
       (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(null);
 
       // Act
-      await listener.handlePlacementApplicationStatusRolledBackEvent(mockEvent as any);
+      await listener.handlePlacementApplicationStatusRolledBackEvent(
+        mockEvent as any,
+      );
 
       // Assert
       expect(db.query.jobApplications.findFirst).toHaveBeenCalled();
@@ -168,11 +181,17 @@ describe("PlacementApplicationStatusRolledBackListener", () => {
         status: "submitted",
       };
 
-      (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(mockJobApplication);
-      (db.query.mentorPayableLedgers.findMany as jest.Mock).mockResolvedValue([]);
+      (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(
+        mockJobApplication,
+      );
+      (db.query.mentorPayableLedgers.findMany as jest.Mock).mockResolvedValue(
+        [],
+      );
 
       // Act
-      await listener.handlePlacementApplicationStatusRolledBackEvent(mockEvent as any);
+      await listener.handlePlacementApplicationStatusRolledBackEvent(
+        mockEvent as any,
+      );
 
       // Assert
       expect(db.query.jobApplications.findFirst).toHaveBeenCalled();
@@ -221,29 +240,45 @@ describe("PlacementApplicationStatusRolledBackListener", () => {
         },
       ];
 
-      (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(mockJobApplication);
-      (db.query.mentorPayableLedgers.findMany as jest.Mock).mockResolvedValue(mockOriginalBillingRecords);
-      (mentorPayableService.adjustPayableLedger as jest.Mock).mockResolvedValue(undefined);
+      (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(
+        mockJobApplication,
+      );
+      (db.query.mentorPayableLedgers.findMany as jest.Mock).mockResolvedValue(
+        mockOriginalBillingRecords,
+      );
+      (mentorPayableService.adjustPayableLedger as jest.Mock).mockResolvedValue(
+        undefined,
+      );
 
       // Act
-      await listener.handlePlacementApplicationStatusRolledBackEvent(mockEvent as any);
+      await listener.handlePlacementApplicationStatusRolledBackEvent(
+        mockEvent as any,
+      );
 
       // Assert
       expect(db.query.jobApplications.findFirst).toHaveBeenCalled();
       expect(db.query.mentorPayableLedgers.findMany).toHaveBeenCalled();
       expect(mentorPayableService.adjustPayableLedger).toHaveBeenCalledTimes(2);
-      expect(mentorPayableService.adjustPayableLedger).toHaveBeenNthCalledWith(1, {
-        originalLedgerId: "ledger-id-123",
-        adjustmentAmount: -100.00,
-        reason: "Placement application status rolled back: Status changed by mistake",
-        createdBy: "user-id-123",
-      });
-      expect(mentorPayableService.adjustPayableLedger).toHaveBeenNthCalledWith(2, {
-        originalLedgerId: "ledger-id-456",
-        adjustmentAmount: -50.00,
-        reason: "Placement application status rolled back: Status changed by mistake",
-        createdBy: "user-id-123",
-      });
+      expect(mentorPayableService.adjustPayableLedger).toHaveBeenNthCalledWith(
+        1,
+        {
+          originalLedgerId: "ledger-id-123",
+          adjustmentAmount: -100.0,
+          reason:
+            "Placement application status rolled back: Status changed by mistake",
+          createdBy: "user-id-123",
+        },
+      );
+      expect(mentorPayableService.adjustPayableLedger).toHaveBeenNthCalledWith(
+        2,
+        {
+          originalLedgerId: "ledger-id-456",
+          adjustmentAmount: -50.0,
+          reason:
+            "Placement application status rolled back: Status changed by mistake",
+          createdBy: "user-id-123",
+        },
+      );
     });
   });
 });

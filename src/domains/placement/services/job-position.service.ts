@@ -32,7 +32,9 @@ export class JobPositionService {
    */
   async createJobPosition(
     dto: ICreateJobPositionDto,
-  ): Promise<IServiceResult<typeof recommendedJobs.$inferSelect, Record<string, unknown>>> {
+  ): Promise<
+    IServiceResult<typeof recommendedJobs.$inferSelect, Record<string, unknown>>
+  > {
     this.logger.log(
       `Creating job position: ${dto.title} at ${dto.companyName}`,
     );
@@ -80,9 +82,9 @@ export class JobPositionService {
     if (dto.requirements) {
       // Extract skills array if available, otherwise use empty array
       values.requirements = Array.isArray(dto.requirements)
-        ? dto.requirements as string[]
+        ? (dto.requirements as string[])
         : dto.requirements.skills
-          ? dto.requirements.skills as string[]
+          ? (dto.requirements.skills as string[])
           : [];
     } else {
       values.requirements = [];
@@ -209,7 +211,7 @@ export class JobPositionService {
 
     // Build query with dynamic conditions [构建动态条件查询]
     let query = this.db.select().from(recommendedJobs);
-    
+
     // Apply conditions if any
     if (conditions.length > 0) {
       query = query.where(and(...conditions)) as typeof query;

@@ -4,9 +4,9 @@ import { IsEnum, IsOptional, IsString } from "class-validator";
 export class SortDto {
   @IsOptional()
   @IsString()
-  field?: string = "createdAt"; // Field name to sort by
+  orderField?: string = "createdAt"; // Field name to sort by
 
   @IsOptional()
   @IsEnum(["asc", "desc"])
-  order?: "asc" | "desc" = "desc"; // Sort direction
+  orderDirection?: "asc" | "desc" = "desc"; // Sort direction
 }

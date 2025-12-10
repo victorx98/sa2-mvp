@@ -20,7 +20,10 @@ import type {
 import { SettlementStatus } from "../dto/settlement/settlement.enums";
 import { SETTLEMENT_CONFIRMED_EVENT } from "@shared/events/event-constants";
 import type { ISettlementConfirmedPayload } from "@shared/events/settlement-confirmed.event";
-import { parseDateToUTC, isValidISODateString } from "../common/utils/date-time.utils";
+import {
+  parseDateToUTC,
+  isValidISODateString,
+} from "../common/utils/date-time.utils";
 
 /**
  * Settlement Service Implementation (结算服务实现)
@@ -91,9 +94,7 @@ export class SettlementService implements ISettlementService {
       }
 
       if (deductionRate < 0 || deductionRate > 1) {
-        throw new BadRequestException(
-          "Deduction rate must be between 0 and 1",
-        );
+        throw new BadRequestException("Deduction rate must be between 0 and 1");
       }
 
       // 2. Get mentor's active payment info (获取导师的有效支付信息)
@@ -127,7 +128,7 @@ export class SettlementService implements ISettlementService {
 
       // 4. [修复] Atomically claim unpaid payable ledgers with SELECT FOR UPDATE SKIP LOCKED
       // 使用SELECT FOR UPDATE SKIP LOCKED防止并发结算问题
-      const [year, month] = settlementMonth.split('-').map(Number);
+      const [year, month] = settlementMonth.split("-").map(Number);
       const startOfMonth = new Date(year, month - 1, 1);
       const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
 
@@ -143,7 +144,8 @@ export class SettlementService implements ISettlementService {
         FOR UPDATE SKIP LOCKED
       `);
 
-      const payableLedgers = payableLedgersResult.rows as typeof schema.mentorPayableLedgers.$inferSelect[];
+      const payableLedgers =
+        payableLedgersResult.rows as (typeof schema.mentorPayableLedgers.$inferSelect)[];
 
       if (!payableLedgers || payableLedgers.length === 0) {
         throw new BadRequestException(

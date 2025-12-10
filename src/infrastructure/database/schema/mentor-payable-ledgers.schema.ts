@@ -139,7 +139,9 @@ export const mentorPayableLedgers = pgTable("mentor_payable_ledgers", {
    * Created At - Record creation timestamp (immutable)
    * (创建时间 - 记录创建时间戳，不可变)
    */
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 
   /**
    * Created By - Operator user ID (for audit trail)

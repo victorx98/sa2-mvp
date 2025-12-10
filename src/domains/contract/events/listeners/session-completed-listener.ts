@@ -34,7 +34,7 @@ export class SessionCompletedListener {
     private readonly serviceLedgerService: ServiceLedgerService,
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-  ) { }
+  ) {}
 
   /**
    * 监听服务会话完成事件
@@ -47,12 +47,8 @@ export class SessionCompletedListener {
     event: IServiceSessionCompletedEvent,
   ): Promise<void> {
     try {
-      const {
-        sessionId,
-        studentId,
-        sessionTypeCode,
-        actualDurationHours,
-      } = event.payload || {};
+      const { sessionId, studentId, sessionTypeCode, actualDurationHours } =
+        event.payload || {};
 
       this.logger.log(
         `Processing session completed event: ${event.id}, sessionId: ${sessionId}, studentId: ${studentId}, sessionType: ${sessionTypeCode}, duration: ${actualDurationHours}h`,
@@ -96,14 +92,8 @@ export class SessionCompletedListener {
         // 释放预占 (Release hold if exists)
         if (activeHolds.length > 0) {
           const hold = activeHolds[0];
-          await this.serviceHoldService.releaseHold(
-            hold.id,
-            "completed",
-            tx,
-          );
-          this.logger.log(
-            `Released hold ${hold.id} for session ${sessionId}`,
-          );
+          await this.serviceHoldService.releaseHold(hold.id, "completed", tx);
+          this.logger.log(`Released hold ${hold.id} for session ${sessionId}`);
         }
 
         // 记录消耗 (Record consumption)
@@ -117,6 +107,7 @@ export class SessionCompletedListener {
             serviceType: sessionTypeCode,
             quantity: consumptionQuantity,
             relatedBookingId: sessionId,
+            bookingSource: "regular_mentoring_sessions", // Booking table name for session consumption [会话消费的预约表名]
             createdBy: studentId, // Use studentId as valid UUID for createdBy field [使用studentId作为有效的UUID]
           },
           tx,

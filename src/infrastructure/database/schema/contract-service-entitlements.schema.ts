@@ -9,7 +9,7 @@ import {
 import { serviceTypes } from "./service-types.schema";
 
 /**
- * Contract service entitlements table (v2.16.12 - 学生级权益累积制)
+ * Contract service entitlements table
  *
  * Core Architecture: 学生级别权益累积制 (Per-student cumulative entitlement system)
  * - PRIMARY KEY: (student_id, service_type) - 累积制核心

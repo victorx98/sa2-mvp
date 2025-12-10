@@ -5,12 +5,12 @@
  * 定义合同在生命周期中的不同状态
  */
 export enum ContractStatus {
-  DRAFT = "draft",
-  SIGNED = "signed",
-  ACTIVE = "active",
-  SUSPENDED = "suspended",
-  COMPLETED = "completed",
-  TERMINATED = "terminated",
+  DRAFT = "DRAFT",
+  SIGNED = "SIGNED",
+  ACTIVE = "ACTIVE",
+  SUSPENDED = "SUSPENDED",
+  COMPLETED = "COMPLETED",
+  TERMINATED = "TERMINATED",
 }
 
 /**

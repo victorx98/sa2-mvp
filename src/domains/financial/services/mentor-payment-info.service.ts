@@ -175,7 +175,9 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
       });
 
       if (!paymentInfo) {
-        this.logger.warn(`No active payment info found for mentor: ${mentorId}`);
+        this.logger.warn(
+          `No active payment info found for mentor: ${mentorId}`,
+        );
         return null;
       }
 
@@ -341,7 +343,10 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
         }
 
         case "CHECK": {
-          const details = paymentDetails as { payee?: string; address?: string };
+          const details = paymentDetails as {
+            payee?: string;
+            address?: string;
+          };
           if (!details.payee || !details.address) {
             this.logger.warn(
               `Validation failed: missing check details for mentor: ${mentorId}`,
