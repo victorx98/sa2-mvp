@@ -59,7 +59,10 @@ export const paymentParams = pgTable("payment_params", {
    * Precision: 10 digits total, 1 decimal place (DECIMAL(10,1))
    * (用于从原始币种转换到目标币种的默认汇率)
    */
-  defaultExchangeRate: numeric("default_exchange_rate", { precision: 10, scale: 1 }).notNull(),
+  defaultExchangeRate: numeric("default_exchange_rate", {
+    precision: 10,
+    scale: 1,
+  }).notNull(),
 
   /**
    * Default Deduction Rate (默认扣除比率)
@@ -67,18 +70,25 @@ export const paymentParams = pgTable("payment_params", {
    * Precision: 5 digits total, 4 decimal places (e.g., 0.0500 for 5%)
    * (默认扣除百分比，如平台费用)
    */
-  defaultDeductionRate: numeric("default_deduction_rate", { precision: 5, scale: 4 }).notNull(),
+  defaultDeductionRate: numeric("default_deduction_rate", {
+    precision: 5,
+    scale: 4,
+  }).notNull(),
 
   // ========== Timestamps ==========
   /**
    * Created At (创建时间)
    */
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 
   /**
    * Updated At (更新时间)
    */
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 
   /**
    * Created By (创建人)

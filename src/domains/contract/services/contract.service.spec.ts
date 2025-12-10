@@ -5,14 +5,21 @@ import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider"
 import { ContractService } from "./contract.service";
 import { CreateContractDto } from "../dto/create-contract.dto";
 import { FindOneContractDto } from "../dto/find-one-contract.dto";
-import { ContractException, ContractNotFoundException } from "../common/exceptions/contract.exception";
+import {
+  ContractException,
+  ContractNotFoundException,
+} from "../common/exceptions/contract.exception";
 import { ConsumeServiceDto } from "../dto/consume-service.dto";
 import { AddAmendmentLedgerDto } from "../dto/add-amendment-ledger.dto";
 import { Currency } from "@shared/types/catalog-enums";
-import { ContractStatus, AmendmentLedgerType } from "@shared/types/contract-enums";
+import {
+  ContractStatus,
+  AmendmentLedgerType,
+} from "@shared/types/contract-enums";
 import { IProductSnapshot } from "../common/types/snapshot.types";
 import { randomUUID } from "crypto";
 import type { ServiceType } from "@infrastructure/database/schema";
+import * as schema from "@infrastructure/database/schema";
 
 /**
  * Unit Tests for ContractService
@@ -109,18 +116,25 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
     mockDb.query.contracts.findFirst = jest.fn().mockResolvedValue(null);
     mockDb.query.contracts.findMany = jest.fn().mockResolvedValue([]);
     mockDb.query.products.findFirst = jest.fn().mockResolvedValue(null);
-    mockDb.query.contractServiceEntitlements.findFirst = jest.fn().mockResolvedValue(null);
-    mockDb.query.contractServiceEntitlements.findMany = jest.fn().mockResolvedValue([]);
+    mockDb.query.contractServiceEntitlements.findFirst = jest
+      .fn()
+      .mockResolvedValue(null);
+    mockDb.query.contractServiceEntitlements.findMany = jest
+      .fn()
+      .mockResolvedValue([]);
 
     moduleRef = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot({
-        isGlobal: true,
-        envFilePath: ".env",
-      }), EventEmitterModule.forRoot({
-        wildcard: true,
-        delimiter: ".",
-        verboseMemoryLeak: false,
-      })],
+      imports: [
+        ConfigModule.forRoot({
+          isGlobal: true,
+          envFilePath: ".env",
+        }),
+        EventEmitterModule.forRoot({
+          wildcard: true,
+          delimiter: ".",
+          verboseMemoryLeak: false,
+        }),
+      ],
       providers: [
         {
           provide: DATABASE_CONNECTION,
@@ -164,12 +178,11 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         ],
         snapshotAt: new Date(),
       };
-      const createDto: CreateContractDto = {
+      const createDto: CreateContractDto & { createdBy: string } = {
         productSnapshot,
         studentId: testStudentId,
         productId: testProductId,
         createdBy: testCreatedBy,
-        signedAt: new Date(),
         title: "Test Contract",
       };
 
@@ -184,8 +197,6 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         totalAmount: "1000.00",
         currency: Currency.USD,
         validityDays: 365,
-        signedAt: new Date(),
-        expiresAt: new Date(),
         createdBy: testCreatedBy,
       };
 
@@ -200,7 +211,7 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      
+
       // Mock the select query for product details
       const mockProductSelect = jest.fn().mockResolvedValue([mockProduct]);
       mockDb.select = jest.fn().mockReturnValue({
@@ -224,28 +235,62 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       ];
 
       // Mock the product items query
-      mockDb.select = jest.fn().mockImplementationOnce(() => ({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue([mockProduct]),
+      mockDb.select = jest
+        .fn()
+        .mockImplementationOnce(() => ({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockProduct]),
+            }),
           }),
-        }),
-      })).mockImplementationOnce(() => ({
-        from: jest.fn().mockReturnValue({
-          leftJoin: jest.fn(() => ({
-            where: jest.fn(() => ({
-              orderBy: jest.fn().mockResolvedValue(mockProductItems),
+        }))
+        .mockImplementationOnce(() => ({
+          from: jest.fn().mockReturnValue({
+            leftJoin: jest.fn(() => ({
+              where: jest.fn(() => ({
+                orderBy: jest.fn().mockResolvedValue(mockProductItems),
+              })),
             })),
-          })),
-        }),
-      }));
-      
+          }),
+        }));
+
       const mockValues = jest.fn().mockReturnThis();
       const mockReturning = jest.fn().mockResolvedValue([mockContract]);
 
       mockDb.insert = jest.fn().mockReturnValue({
         values: mockValues,
         returning: mockReturning,
+      });
+
+      // Mock transaction to support createEntitlementsFromSnapshot [Mock事务以支持createEntitlementsFromSnapshot]
+      mockDb.transaction = jest.fn(async (callback) => {
+        const mockTxInsertValues = jest.fn().mockReturnValue({
+          returning: jest.fn().mockResolvedValue([mockContract]),
+          onConflictDoUpdate: jest.fn().mockResolvedValue([]),
+        });
+        const mockTxInsert = jest.fn().mockReturnValue({
+          values: mockTxInsertValues,
+        });
+        const mockTx = {
+          ...mockDb,
+          select: jest.fn().mockReturnValue({
+            from: jest.fn().mockReturnValue({
+              where: jest.fn().mockResolvedValue([
+                { code: "CONSULTATION" }, // Mock service types query result [Mock服务类型查询结果]
+              ]),
+            }),
+          }),
+          insert: mockTxInsert,
+          update: jest.fn().mockReturnValue({
+            set: jest.fn().mockReturnValue({
+              where: jest.fn().mockReturnValue({
+                returning: jest.fn().mockResolvedValue([mockContract]),
+              }),
+            }),
+          }),
+          query: mockDb.query,
+        };
+        return await callback(mockTx);
       });
 
       // Act
@@ -266,7 +311,7 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         status: "ACTIVE",
       });
 
-      const createDto: CreateContractDto = {
+      const createDto: CreateContractDto & { createdBy: string } = {
         productSnapshot: {
           productId: testProductId,
           productName: "Test Product",
@@ -289,7 +334,9 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       };
 
       // Act & Assert
-      await expect(contractService.create(createDto)).rejects.toThrow(ContractException);
+      await expect(contractService.create(createDto)).rejects.toThrow(
+        ContractException,
+      );
     });
   });
 
@@ -315,7 +362,9 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       });
 
       // Act
-      const result = await contractService.findOne({ contractId: testContractId });
+      const result = await contractService.findOne({
+        contractId: testContractId,
+      });
 
       // Assert
       expect(result).toEqual(mockContract);
@@ -342,7 +391,9 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       });
 
       // Act
-      const result = await contractService.findOne({ contractNumber: "TEST-2025-0001" });
+      const result = await contractService.findOne({
+        contractNumber: "TEST-2025-0001",
+      });
 
       // Assert
       expect(result).toEqual(mockContract);
@@ -380,7 +431,9 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
     it("should throw error when studentId is missing [当缺少学生ID时应该抛出错误]", async () => {
       // Act & Assert
       await expect(
-        contractService.findOne({ status: ContractStatus.SIGNED } as FindOneContractDto),
+        contractService.findOne({
+          status: ContractStatus.SIGNED,
+        } as FindOneContractDto),
       ).rejects.toThrow(ContractException);
     });
   });
@@ -400,8 +453,18 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
           price: "1000.00",
           currency: Currency.USD,
           items: [
-            { productItemId: randomUUID(), serviceTypeCode: "CONSULTATION", quantity: 5, sortOrder: 1 },
-            { productItemId: randomUUID(), serviceTypeCode: "MENTORING", quantity: 10, sortOrder: 2 },
+            {
+              productItemId: randomUUID(),
+              serviceTypeCode: "CONSULTATION",
+              quantity: 5,
+              sortOrder: 1,
+            },
+            {
+              productItemId: randomUUID(),
+              serviceTypeCode: "MENTORING",
+              quantity: 10,
+              sortOrder: 2,
+            },
           ],
           snapshotAt: new Date(),
         } as IProductSnapshot,
@@ -409,7 +472,9 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       };
 
       // Mock findOne - use spy instead of overriding mockDb.select
-      jest.spyOn(contractService, "findOne").mockResolvedValue(mockContract as any);
+      jest
+        .spyOn(contractService, "findOne")
+        .mockResolvedValue(mockContract as any);
 
       // Mock service types batch query
       const mockServiceTypes = [
@@ -425,7 +490,8 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       const mockWhere2 = jest.fn().mockResolvedValue(mockExistingEntitlements);
 
       mockDb.select = jest.fn().mockReturnValue({
-        from: jest.fn()
+        from: jest
+          .fn()
           .mockReturnValueOnce({ where: mockWhere1 })
           .mockReturnValueOnce({ where: mockWhere2 }),
       });
@@ -444,11 +510,13 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
           update: jest.fn().mockReturnValue({
             set: jest.fn().mockReturnValue({
               where: jest.fn().mockReturnValue({
-                returning: jest.fn().mockResolvedValue([{
-                  ...mockContract,
-                  status: ContractStatus.ACTIVE,
-                  activatedAt: new Date(),
-                }]),
+                returning: jest.fn().mockResolvedValue([
+                  {
+                    ...mockContract,
+                    status: ContractStatus.ACTIVE,
+                    activatedAt: new Date(),
+                  },
+                ]),
               }),
             }),
           }),
@@ -457,7 +525,10 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       });
 
       // Act
-      const result = await contractService.activate(testContractId);
+      const result = await contractService.updateStatus(
+        testContractId,
+        ContractStatus.ACTIVE,
+      );
 
       // Assert
       expect(result.status).toBe(ContractStatus.ACTIVE);
@@ -469,7 +540,9 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       jest.spyOn(contractService, "findOne").mockResolvedValue(null);
 
       // Act & Assert
-      await expect(contractService.activate(testContractId)).rejects.toThrow(ContractNotFoundException);
+      await expect(
+        contractService.updateStatus(testContractId, ContractStatus.ACTIVE),
+      ).rejects.toThrow(ContractNotFoundException);
     });
 
     it("should throw error if contract already active [如果合约已激活应该抛出错误]", async () => {
@@ -479,10 +552,14 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         status: ContractStatus.ACTIVE,
       };
 
-      jest.spyOn(contractService, "findOne").mockResolvedValue(mockContract as any);
+      jest
+        .spyOn(contractService, "findOne")
+        .mockResolvedValue(mockContract as any);
 
       // Act & Assert
-      await expect(contractService.activate(testContractId)).rejects.toThrow(ContractException);
+      await expect(
+        contractService.updateStatus(testContractId, ContractStatus.ACTIVE),
+      ).rejects.toThrow(ContractException);
     });
 
     it("should throw error if contract not in signed status [如果合约不在已签署状态应该抛出错误]", async () => {
@@ -492,10 +569,14 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         status: ContractStatus.DRAFT,
       };
 
-      jest.spyOn(contractService, "findOne").mockResolvedValue(mockContract as any);
+      jest
+        .spyOn(contractService, "findOne")
+        .mockResolvedValue(mockContract as any);
 
       // Act & Assert
-      await expect(contractService.activate(testContractId)).rejects.toThrow(ContractException);
+      await expect(
+        contractService.updateStatus(testContractId, ContractStatus.ACTIVE),
+      ).rejects.toThrow(ContractException);
     });
   });
 
@@ -507,11 +588,16 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         serviceType: "CONSULTATION",
         quantity: 1,
         relatedBookingId: randomUUID(),
-        createdBy: testCreatedBy,
+        bookingSource: "regular_mentoring_sessions", // Required when relatedBookingId is provided [当relatedBookingId存在时必填]
       };
 
       const mockEntitlements = [
-        { studentId: testStudentId, serviceType: "CONSULTATION", availableQuantity: 5, consumedQuantity: 0 },
+        {
+          studentId: testStudentId,
+          serviceType: "CONSULTATION",
+          availableQuantity: 5,
+          consumedQuantity: 0,
+        },
       ];
 
       mockDb.select = jest.fn().mockReturnValue({
@@ -544,7 +630,7 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       });
 
       // Act
-      await contractService.consumeService(consumeDto);
+      await contractService.consumeService(consumeDto, testCreatedBy);
 
       // Assert
       expect(mockDb.transaction).toHaveBeenCalled();
@@ -557,11 +643,15 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         studentId: testStudentId,
         serviceType: "CONSULTATION",
         quantity: 10,
-        createdBy: testCreatedBy,
       };
 
       const mockEntitlements = [
-        { studentId: testStudentId, serviceType: "CONSULTATION", availableQuantity: 5, consumedQuantity: 0 },
+        {
+          studentId: testStudentId,
+          serviceType: "CONSULTATION",
+          availableQuantity: 5,
+          consumedQuantity: 0,
+        },
       ];
 
       mockDb.transaction = jest.fn(async (callback) => {
@@ -580,7 +670,9 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       });
 
       // Act & Assert
-      await expect(contractService.consumeService(consumeDto)).rejects.toThrow(ContractException);
+      await expect(
+        contractService.consumeService(consumeDto, testCreatedBy),
+      ).rejects.toThrow(ContractException);
     });
 
     it("should throw error if no entitlements found [如果未找到权益应该抛出错误]", async () => {
@@ -589,7 +681,6 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         studentId: testStudentId,
         serviceType: "CONSULTATION",
         quantity: 1,
-        createdBy: testCreatedBy,
       };
 
       mockDb.transaction = jest.fn(async (callback) => {
@@ -608,7 +699,9 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       });
 
       // Act & Assert
-      await expect(contractService.consumeService(consumeDto)).rejects.toThrow(ContractNotFoundException);
+      await expect(
+        contractService.consumeService(consumeDto, testCreatedBy),
+      ).rejects.toThrow(ContractNotFoundException);
     });
   });
 
@@ -621,7 +714,9 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         status: ContractStatus.ACTIVE,
       };
 
-      jest.spyOn(contractService, "findOne").mockResolvedValue(mockContract as any);
+      jest
+        .spyOn(contractService, "findOne")
+        .mockResolvedValue(mockContract as any);
 
       const mockUpdatedContract = {
         ...mockContract,
@@ -640,11 +735,16 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       });
 
       // Act
-      const result = await contractService.terminate(testContractId, "User requested termination");
+      const result = await contractService.updateStatus(
+        testContractId,
+        ContractStatus.TERMINATED,
+        { reason: "User requested termination" },
+      );
 
       // Assert
       expect(result.status).toBe(ContractStatus.TERMINATED);
-      expect(result.terminatedAt).toBeDefined();
+      // Status change is recorded in history table, not in contract record
+      // [状态变更记录在历史表中，不在合同记录中]
       // ✅ Contract domain no longer publishes events [合同域不再发布事件]
     });
 
@@ -655,11 +755,17 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         status: ContractStatus.DRAFT,
       };
 
-      jest.spyOn(contractService, "findOne").mockResolvedValue(mockContract as any);
+      jest
+        .spyOn(contractService, "findOne")
+        .mockResolvedValue(mockContract as any);
 
       // Act & Assert
       await expect(
-        contractService.terminate(testContractId, "Test reason"),
+        contractService.updateStatus(
+          testContractId,
+          ContractStatus.TERMINATED,
+          { reason: "Test reason" },
+        ),
       ).rejects.toThrow(ContractException);
     });
 
@@ -670,11 +776,17 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         status: ContractStatus.ACTIVE,
       };
 
-      jest.spyOn(contractService, "findOne").mockResolvedValue(mockContract as any);
+      jest
+        .spyOn(contractService, "findOne")
+        .mockResolvedValue(mockContract as any);
 
       // Act & Assert
       await expect(
-        contractService.terminate(testContractId, ""),
+        contractService.updateStatus(
+          testContractId,
+          ContractStatus.TERMINATED,
+          { reason: "" },
+        ),
       ).rejects.toThrow(ContractException);
     });
   });
@@ -688,12 +800,13 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         status: ContractStatus.ACTIVE,
       };
 
-      jest.spyOn(contractService, "findOne").mockResolvedValue(mockContract as any);
+      jest
+        .spyOn(contractService, "findOne")
+        .mockResolvedValue(mockContract as any);
 
       const mockUpdatedContract = {
         ...mockContract,
         status: ContractStatus.SUSPENDED,
-        suspendedAt: new Date(),
       };
 
       const mockReturning = jest.fn().mockResolvedValue([mockUpdatedContract]);
@@ -706,13 +819,17 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         }),
       });
 
-
       // Act
-      const result = await contractService.suspend(testContractId, "Payment overdue");
+      const result = await contractService.updateStatus(
+        testContractId,
+        ContractStatus.SUSPENDED,
+        { reason: "Payment overdue" },
+      );
 
       // Assert
       expect(result.status).toBe(ContractStatus.SUSPENDED);
-      expect(result.suspendedAt).toBeDefined();
+      // Status change is recorded in history table, not in contract record
+      // [状态变更记录在历史表中，不在合同记录中]
       // ✅ Contract domain no longer publishes events [合同域不再发布事件]
     });
 
@@ -723,11 +840,15 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         status: ContractStatus.DRAFT,
       };
 
-      jest.spyOn(contractService, "findOne").mockResolvedValue(mockContract as any);
+      jest
+        .spyOn(contractService, "findOne")
+        .mockResolvedValue(mockContract as any);
 
       // Act & Assert
       await expect(
-        contractService.suspend(testContractId, "Test reason"),
+        contractService.updateStatus(testContractId, ContractStatus.SUSPENDED, {
+          reason: "Test reason",
+        }),
       ).rejects.toThrow(ContractException);
     });
   });
@@ -739,15 +860,15 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         id: testContractId,
         contractNumber: "TEST-2025-0001",
         status: ContractStatus.SUSPENDED,
-        suspendedAt: new Date(),
       };
 
-      jest.spyOn(contractService, "findOne").mockResolvedValue(mockContract as any);
+      jest
+        .spyOn(contractService, "findOne")
+        .mockResolvedValue(mockContract as any);
 
       const mockUpdatedContract = {
         ...mockContract,
         status: ContractStatus.ACTIVE,
-        suspendedAt: null,
       };
 
       const mockReturning = jest.fn().mockResolvedValue([mockUpdatedContract]);
@@ -760,13 +881,16 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         }),
       });
 
-
       // Act
-      const result = await contractService.resume(testContractId);
+      const result = await contractService.updateStatus(
+        testContractId,
+        ContractStatus.ACTIVE,
+      );
 
       // Assert
       expect(result.status).toBe(ContractStatus.ACTIVE);
-      expect(result.suspendedAt).toBeNull();
+      // Status change is recorded in history table, not in contract record
+      // [状态变更记录在历史表中，不在合同记录中]
       // ✅ Contract domain no longer publishes events [合同域不再发布事件]
     });
 
@@ -777,10 +901,14 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         status: ContractStatus.ACTIVE,
       };
 
-      jest.spyOn(contractService, "findOne").mockResolvedValue(mockContract as any);
+      jest
+        .spyOn(contractService, "findOne")
+        .mockResolvedValue(mockContract as any);
 
       // Act & Assert
-      await expect(contractService.resume(testContractId)).rejects.toThrow(ContractException);
+      await expect(
+        contractService.updateStatus(testContractId, ContractStatus.ACTIVE),
+      ).rejects.toThrow(ContractException);
     });
   });
 
@@ -793,12 +921,13 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         status: ContractStatus.ACTIVE,
       };
 
-      jest.spyOn(contractService, "findOne").mockResolvedValue(mockContract as any);
+      jest
+        .spyOn(contractService, "findOne")
+        .mockResolvedValue(mockContract as any);
 
       const mockUpdatedContract = {
         ...mockContract,
         status: ContractStatus.COMPLETED,
-        completedAt: new Date(),
       };
 
       const mockReturning = jest.fn().mockResolvedValue([mockUpdatedContract]);
@@ -811,13 +940,16 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         }),
       });
 
-
       // Act
-      const result = await contractService.complete(testContractId);
+      const result = await contractService.updateStatus(
+        testContractId,
+        ContractStatus.COMPLETED,
+      );
 
       // Assert
       expect(result.status).toBe(ContractStatus.COMPLETED);
-      expect(result.completedAt).toBeDefined();
+      // Status change is recorded in history table, not in contract record
+      // [状态变更记录在历史表中，不在合同记录中]
       // ✅ Contract domain no longer publishes events [合同域不再发布事件]
     });
   });
@@ -831,12 +963,13 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         status: ContractStatus.DRAFT,
       };
 
-      jest.spyOn(contractService, "findOne").mockResolvedValue(mockContract as any);
+      jest
+        .spyOn(contractService, "findOne")
+        .mockResolvedValue(mockContract as any);
 
       const mockUpdatedContract = {
         ...mockContract,
         status: ContractStatus.SIGNED,
-        signedAt: new Date(),
       };
 
       const mockReturning = jest.fn().mockResolvedValue([mockUpdatedContract]);
@@ -850,11 +983,16 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       });
 
       // Act
-      const result = await contractService.sign(testContractId, testCreatedBy);
+      const result = await contractService.updateStatus(
+        testContractId,
+        ContractStatus.SIGNED,
+        { signedBy: testCreatedBy },
+      );
 
       // Assert
       expect(result.status).toBe(ContractStatus.SIGNED);
-      expect(result.signedAt).toBeDefined();
+      // Status change is recorded in history table, not in contract record
+      // [状态变更记录在历史表中，不在合同记录中]
       // ✅ Contract domain no longer publishes events [合同域不再发布事件]
     });
 
@@ -865,10 +1003,16 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         status: ContractStatus.SIGNED,
       };
 
-      jest.spyOn(contractService, "findOne").mockResolvedValue(mockContract as any);
+      jest
+        .spyOn(contractService, "findOne")
+        .mockResolvedValue(mockContract as any);
 
       // Act & Assert
-      await expect(contractService.sign(testContractId, testCreatedBy)).rejects.toThrow(ContractException);
+      await expect(
+        contractService.updateStatus(testContractId, ContractStatus.SIGNED, {
+          signedBy: testCreatedBy,
+        }),
+      ).rejects.toThrow(ContractException);
     });
   });
 
@@ -958,7 +1102,9 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         createdBy: testCreatedBy,
       };
 
-      jest.spyOn(contractService, "findOne").mockResolvedValue(mockContract as any);
+      jest
+        .spyOn(contractService, "findOne")
+        .mockResolvedValue(mockContract as any);
 
       const mockServiceType: ServiceType = {
         id: randomUUID(),
@@ -991,7 +1137,9 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       };
 
       // Arrange - Mock the query to return the entitlement
-      (mockDb.query.contractServiceEntitlements.findFirst as jest.Mock).mockResolvedValue(mockEntitlement);
+      (
+        mockDb.query.contractServiceEntitlements.findFirst as jest.Mock
+      ).mockResolvedValue(mockEntitlement);
 
       const mockValues = jest.fn().mockReturnValue({
         onConflictDoUpdate: jest.fn().mockReturnThis(),
@@ -1009,6 +1157,144 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       expect(result.serviceType).toBe("CONSULTATION");
       expect(mockDb.transaction).toHaveBeenCalled();
       // ✅ Contract domain no longer publishes events [合同域不再发布事件]
+    });
+
+    it("should store metadata.bookingSource when relatedBookingId is provided [当提供relatedBookingId时应该存储metadata.bookingSource]", async () => {
+      // Arrange
+      const mockContract = {
+        id: testContractId,
+        contractNumber: "TEST-2025-0001",
+        studentId: testStudentId,
+        status: ContractStatus.ACTIVE,
+        createdBy: testCreatedBy,
+      };
+
+      jest
+        .spyOn(contractService, "findOne")
+        .mockResolvedValue(mockContract as any);
+
+      const mockServiceType: ServiceType = {
+        id: randomUUID(),
+        code: "CONSULTATION",
+        name: "Consultation",
+        description: "Consultation service",
+        status: "ACTIVE",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const testBookingId = randomUUID();
+      const addAmendmentDto: AddAmendmentLedgerDto = {
+        studentId: testStudentId,
+        contractId: testContractId,
+        serviceType: mockServiceType,
+        ledgerType: AmendmentLedgerType.ADDON,
+        quantityChanged: 5,
+        reason: "Additional consultation sessions",
+        description: "Bonus sessions for good performance",
+        relatedBookingId: testBookingId,
+        bookingSource: "job_applications", // Required when relatedBookingId is provided [当relatedBookingId存在时必填]
+        createdBy: testCreatedBy,
+      };
+
+      const mockEntitlement = {
+        id: randomUUID(),
+        studentId: testStudentId,
+        serviceType: "CONSULTATION",
+        totalQuantity: 15,
+        availableQuantity: 15,
+        createdBy: testCreatedBy,
+      };
+
+      (
+        mockDb.query.contractServiceEntitlements.findFirst as jest.Mock
+      ).mockResolvedValue(mockEntitlement);
+
+      const mockValues = jest.fn().mockReturnValue({
+        onConflictDoUpdate: jest.fn().mockReturnThis(),
+        returning: jest.fn().mockResolvedValue([mockEntitlement]),
+      });
+
+      const mockServiceLedgerValues = jest.fn().mockReturnThis();
+      mockDb.insert = jest.fn((table) => {
+        if (table === schema.contractAmendmentLedgers) {
+          return {
+            values: mockValues,
+          };
+        }
+        if (table === schema.serviceLedgers) {
+          return {
+            values: mockServiceLedgerValues,
+          };
+        }
+        return {
+          values: jest.fn().mockReturnThis(),
+        };
+      });
+
+      // Act
+      await contractService.addAmendmentLedger(addAmendmentDto);
+
+      // Assert - Verify service ledger was created with metadata.bookingSource [验证服务流水已创建并包含metadata.bookingSource]
+      expect(mockServiceLedgerValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            bookingSource: "job_applications",
+          }),
+          relatedBookingId: testBookingId,
+        }),
+      );
+    });
+
+    it("should throw error when relatedBookingId exists but bookingSource is missing [当relatedBookingId存在但bookingSource缺失时应该抛出错误]", async () => {
+      // Arrange
+      const mockContract = {
+        id: testContractId,
+        contractNumber: "TEST-2025-0001",
+        studentId: testStudentId,
+        status: ContractStatus.ACTIVE,
+        createdBy: testCreatedBy,
+      };
+
+      jest
+        .spyOn(contractService, "findOne")
+        .mockResolvedValue(mockContract as any);
+
+      const mockServiceType: ServiceType = {
+        id: randomUUID(),
+        code: "CONSULTATION",
+        name: "Consultation",
+        description: "Consultation service",
+        status: "ACTIVE",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const addAmendmentDto: AddAmendmentLedgerDto = {
+        studentId: testStudentId,
+        contractId: testContractId,
+        serviceType: mockServiceType,
+        ledgerType: AmendmentLedgerType.ADDON,
+        quantityChanged: 5,
+        reason: "Additional consultation sessions",
+        relatedBookingId: randomUUID(), // relatedBookingId exists [relatedBookingId存在]
+        // bookingSource is missing [bookingSource缺失]
+        createdBy: testCreatedBy,
+      };
+
+      // Act & Assert
+      await expect(
+        contractService.addAmendmentLedger(addAmendmentDto),
+      ).rejects.toThrow(ContractException);
+      try {
+        await contractService.addAmendmentLedger(addAmendmentDto);
+        fail("Expected ContractException to be thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(ContractException);
+        expect((error as ContractException).code).toBe(
+          "BOOKING_SOURCE_REQUIRED",
+        );
+      }
     });
   });
 
@@ -1040,9 +1326,15 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         availableQuantity: 5,
       };
 
-      jest.spyOn(contractService, "findOne").mockResolvedValue(mockSecondContract as any);
+      jest
+        .spyOn(contractService, "findOne")
+        .mockResolvedValue(mockSecondContract as any);
 
-      const mockReturning = jest.fn().mockResolvedValue([{ ...mockSecondContract, status: ContractStatus.ACTIVE }]);
+      const mockReturning = jest
+        .fn()
+        .mockResolvedValue([
+          { ...mockSecondContract, status: ContractStatus.ACTIVE },
+        ]);
       mockDb.update = jest.fn().mockReturnValue({
         set: jest.fn().mockReturnValue({
           where: jest.fn().mockReturnValue({
@@ -1051,7 +1343,9 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         }),
       });
 
-      mockDb.query.contractServiceEntitlements.findFirst = jest.fn().mockResolvedValue(mockExistingEntitlement);
+      mockDb.query.contractServiceEntitlements.findFirst = jest
+        .fn()
+        .mockResolvedValue(mockExistingEntitlement);
 
       // Mock batch query for service types - return all required service types
       const mockTx = {
@@ -1077,7 +1371,10 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       });
 
       // Act
-      const result = await contractService.activate(secondContractId);
+      const result = await contractService.updateStatus(
+        secondContractId,
+        ContractStatus.ACTIVE,
+      );
 
       // Assert
       expect(result.status).toBe(ContractStatus.ACTIVE);
@@ -1088,61 +1385,131 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
     });
 
     it("should handle batch query with multiple service type IDs using inArray [应该使用 inArray 处理多个服务类型ID的批量查询]", async () => {
+      // Note: This test verifies that createEntitlementsFromSnapshot uses inArray for batch queries
+      // [注意：此测试验证 createEntitlementsFromSnapshot 使用 inArray 进行批量查询]
+      // The batch query happens during contract creation, not activation
+      // [批量查询发生在合约创建时，而不是激活时]
+      // This test is kept for regression testing of the batch query optimization
+      // [保留此测试以进行批量查询优化的回归测试]
+
       // Arrange
-      const serviceTypeIds = [testServiceTypeId1, testServiceTypeId2, randomUUID()];
+      const serviceTypeCodes = [
+        "CONSULTATION",
+        "RESUME_REVIEW",
+        "INTERVIEW_PREP",
+      ];
+      const productSnapshot: IProductSnapshot = {
+        productId: testProductId,
+        productName: "Test Product",
+        productCode: "TEST-PRODUCT",
+        price: "1000.00",
+        currency: Currency.USD,
+        items: serviceTypeCodes.map((code, index) => ({
+          productItemId: randomUUID(),
+          serviceTypeCode: code,
+          quantity: 5,
+          sortOrder: index + 1,
+        })),
+        snapshotAt: new Date(),
+      };
+      const createDto: CreateContractDto & { createdBy: string } = {
+        productSnapshot,
+        studentId: testStudentId,
+        productId: testProductId,
+        createdBy: testCreatedBy,
+        title: "Test Contract",
+      };
 
       const mockContract = {
         id: testContractId,
+        contractNumber: "TEST-2025-0001",
+        title: "Test Contract",
         studentId: testStudentId,
-        status: ContractStatus.SIGNED,
-        productSnapshot: {
-          items: serviceTypeIds.map(() => ({ serviceTypeCode: "CONSULTATION", quantity: 5 })),
-        },
+        productId: testProductId,
+        productSnapshot: productSnapshot as any,
+        status: ContractStatus.DRAFT,
+        totalAmount: "1000.00",
+        currency: Currency.USD,
+        validityDays: 365,
         createdBy: testCreatedBy,
       };
 
-      jest.spyOn(contractService, "findOne").mockResolvedValue(mockContract as any);
+      (mockDb.query.products.findFirst as jest.Mock).mockResolvedValue({
+        id: testProductId,
+        name: "Test Product",
+        code: "TEST-PRODUCT",
+        status: "ACTIVE",
+      });
 
-      const mockReturning = jest.fn().mockResolvedValue([{ ...mockContract, status: ContractStatus.ACTIVE }]);
-      mockDb.update = jest.fn().mockReturnValue({
-        set: jest.fn().mockReturnValue({
-          where: jest.fn().mockReturnValue({
-            returning: mockReturning,
+      const mockProductItems = serviceTypeCodes.map((code, index) => ({
+        id: randomUUID(),
+        productId: testProductId,
+        serviceTypeId: randomUUID(),
+        quantity: 5,
+        sortOrder: index + 1,
+        serviceTypeCode: code,
+      }));
+
+      // Mock product query
+      mockDb.select = jest
+        .fn()
+        .mockImplementationOnce(() => ({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([
+                {
+                  id: testProductId,
+                  name: "Test Product",
+                  code: "TEST-PRODUCT",
+                  status: "ACTIVE",
+                  price: "1000.00",
+                  currency: Currency.USD,
+                },
+              ]),
+            }),
           }),
+        }))
+        .mockImplementationOnce(() => ({
+          from: jest.fn().mockReturnValue({
+            leftJoin: jest.fn(() => ({
+              where: jest.fn(() => ({
+                orderBy: jest.fn().mockResolvedValue(mockProductItems),
+              })),
+            })),
+          }),
+        }));
+
+      const mockWhere = jest
+        .fn()
+        .mockResolvedValue(serviceTypeCodes.map((code) => ({ code })));
+
+      mockDb.insert = jest.fn().mockReturnValue({
+        values: jest.fn().mockReturnValue({
+          returning: jest.fn().mockResolvedValue([mockContract]),
+          onConflictDoUpdate: jest.fn().mockResolvedValue([]),
         }),
       });
 
-      mockDb.query.contractServiceEntitlements.findFirst = jest.fn().mockResolvedValue(null);
-
-      const mockWhere = jest.fn().mockResolvedValue([
-        { id: testServiceTypeId1, code: "CONSULTATION" },
-        { id: testServiceTypeId2, code: "RESUME_REVIEW" },
-        { id: serviceTypeIds[2], code: "INTERVIEW_PREP" },
-      ]);
-      const mockTx = {
-        ...mockDb,
-        select: jest.fn().mockReturnValue({
-          from: jest.fn().mockReturnValue({
-            where: mockWhere,
-          }),
-        }),
-        insert: jest.fn().mockReturnValue({
-          values: jest.fn().mockReturnValue({
-            onConflictDoUpdate: jest.fn().mockResolvedValue([]),
-          }),
-        }),
-        query: mockDb.query,
-      };
-
       mockDb.transaction = jest.fn(async (callback) => {
+        const mockTx = {
+          ...mockDb,
+          select: jest.fn().mockReturnValue({
+            from: jest.fn().mockReturnValue({
+              where: mockWhere,
+            }),
+          }),
+          insert: mockDb.insert,
+          query: mockDb.query,
+        };
         return await callback(mockTx);
       });
 
       // Act
-      await contractService.activate(testContractId);
+      await contractService.create(createDto);
 
       // Assert
-      // Verify that where was called with inArray (can't directly check inArray, but can verify behavior)
+      // Verify that where was called (inArray is used internally by drizzle)
+      // [验证 where 被调用（inArray 由 drizzle 内部使用）]
       expect(mockWhere).toHaveBeenCalled();
       const whereArg = mockWhere.mock.calls[0][0];
       expect(whereArg).toBeDefined();

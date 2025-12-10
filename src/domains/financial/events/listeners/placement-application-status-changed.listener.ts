@@ -1,8 +1,6 @@
 import { Injectable, Logger, Inject } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
-import {
-  IJobApplicationStatusChangedEvent,
-} from "@shared/events/placement-application.events";
+import { IJobApplicationStatusChangedEvent } from "@shared/events/placement-application.events";
 import { JOB_APPLICATION_STATUS_CHANGED_EVENT } from "@shared/events/event-constants";
 import { MentorPayableService } from "@domains/financial/services/mentor-payable.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
@@ -27,7 +25,9 @@ import { eq } from "drizzle-orm";
  */
 @Injectable()
 export class PlacementApplicationStatusChangedListener {
-  private readonly logger = new Logger(PlacementApplicationStatusChangedListener.name);
+  private readonly logger = new Logger(
+    PlacementApplicationStatusChangedListener.name,
+  );
 
   constructor(
     @Inject("IMentorPayableService")
@@ -54,11 +54,7 @@ export class PlacementApplicationStatusChangedListener {
       const payload = event.payload;
 
       // Extract required fields from payload
-      const {
-        applicationId,
-        previousStatus,
-        newStatus,
-      } = payload || {};
+      const { applicationId, previousStatus, newStatus } = payload || {};
 
       // Validate payload
       if (!applicationId || !newStatus) {
@@ -78,9 +74,7 @@ export class PlacementApplicationStatusChangedListener {
       });
 
       if (!jobApplication) {
-        this.logger.error(
-          `Job application not found: ${applicationId}`,
-        );
+        this.logger.error(`Job application not found: ${applicationId}`);
         return;
       }
 
@@ -88,11 +82,7 @@ export class PlacementApplicationStatusChangedListener {
 
       // 2. Determine billing eligibility based on status change
       // Only bill for specific status changes (e.g., recommended, interviewed, hired)
-      const billableStatusChanges = [
-        "recommended",
-        "interviewed",
-        "hired",
-      ];
+      const billableStatusChanges = ["recommended", "interviewed", "hired"];
 
       if (!billableStatusChanges.includes(newStatus)) {
         this.logger.log(
@@ -110,9 +100,7 @@ export class PlacementApplicationStatusChangedListener {
       });
 
       if (!studentMentor) {
-        this.logger.error(
-          `No mentor assigned to student: ${studentId}`,
-        );
+        this.logger.error(`No mentor assigned to student: ${studentId}`);
         return;
       }
 

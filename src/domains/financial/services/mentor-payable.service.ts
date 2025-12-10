@@ -5,9 +5,10 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { eq, and } from "drizzle-orm";
-import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
-import type { DrizzleDatabase } from "@shared/types/database.types";
+import { DrizzleDatabase } from "@shared/types/database.types";
+import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
+import { MentorPriceService } from "./mentor-price.service";
 
 /**
  * Mentor Payable Service (导师应付账款服务)
@@ -22,6 +23,7 @@ export class MentorPayableService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
+    private readonly mentorPriceService: MentorPriceService,
   ) {}
 
   /**
@@ -39,7 +41,7 @@ export class MentorPayableService {
     actualDurationHours: number;
     durationHours: number;
     allowBilling: boolean;
-    refrenceId?: string; // Note: typo in the original type definition
+    refrenceId?: string; // Note: typo in the original type definition (注意：原始类型定义中的拼写错误)
   }): Promise<void> {
     try {
       const {
@@ -51,9 +53,7 @@ export class MentorPayableService {
         refrenceId,
       } = payload;
 
-      this.logger.log(
-        `Creating per-session billing for session: ${sessionId}`,
-      );
+      this.logger.log(`Creating per-session billing for session: ${sessionId}`);
 
       // Input validation
       if (!sessionId || !studentId || !mentorId || !sessionTypeCode) {
@@ -70,13 +70,10 @@ export class MentorPayableService {
       }
 
       // Get mentor price using sessionTypeCode
-      const mentorPrice = await this.db.query.mentorPrices.findFirst({
-        where: and(
-          eq(schema.mentorPrices.mentorId, mentorId),
-          eq(schema.mentorPrices.sessionTypeCode, sessionTypeCode),
-          eq(schema.mentorPrices.status, "active"),
-        ),
-      });
+      const mentorPrice = await this.mentorPriceService.getMentorPrice(
+        mentorId,
+        sessionTypeCode,
+      );
 
       if (!mentorPrice) {
         throw new BadRequestException(
@@ -151,6 +148,8 @@ export class MentorPayableService {
    * Get mentor price configuration
    * (获取导师价格配置)
    *
+   * Proxy method to MentorPriceService
+   *
    * @param mentorId - Mentor ID
    * @param sessionTypeCode - Session type code
    * @returns Mentor price or null
@@ -159,30 +158,7 @@ export class MentorPayableService {
     mentorId: string,
     sessionTypeCode: string,
   ): Promise<typeof schema.mentorPrices.$inferSelect | null> {
-    try {
-      if (!mentorId || !sessionTypeCode) {
-        this.logger.warn(
-          "Empty mentorId or sessionTypeCode provided to getMentorPrice",
-        );
-        return null;
-      }
-
-      const mentorPrice = await this.db.query.mentorPrices.findFirst({
-        where: and(
-          eq(schema.mentorPrices.mentorId, mentorId),
-          eq(schema.mentorPrices.sessionTypeCode, sessionTypeCode),
-          eq(schema.mentorPrices.status, "active"),
-        ),
-      });
-
-      return mentorPrice || null;
-    } catch (error) {
-      this.logger.error(
-        `Error getting mentor price for mentor: ${mentorId}, session type: ${sessionTypeCode}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-      throw error;
-    }
+    return this.mentorPriceService.getMentorPrice(mentorId, sessionTypeCode);
   }
 
   /**
@@ -203,10 +179,11 @@ export class MentorPayableService {
       this.logger.log(`Adjusting payable ledger: ${originalLedgerId}`);
 
       // Query original record
-      const originalLedger =
-        await this.db.query.mentorPayableLedgers.findFirst({
+      const originalLedger = await this.db.query.mentorPayableLedgers.findFirst(
+        {
           where: eq(schema.mentorPayableLedgers.id, originalLedgerId),
-        });
+        },
+      );
 
       if (!originalLedger) {
         throw new BadRequestException(
@@ -249,7 +226,7 @@ export class MentorPayableService {
    */
   public async getAdjustmentChain(
     originalLedgerId: string,
-  ): Promise<typeof schema.mentorPayableLedgers.$inferSelect[]> {
+  ): Promise<(typeof schema.mentorPayableLedgers.$inferSelect)[]> {
     try {
       const chainRecords = await this.db.query.mentorPayableLedgers.findMany({
         where: eq(schema.mentorPayableLedgers.originalId, originalLedgerId),
@@ -281,12 +258,7 @@ export class MentorPayableService {
     allowBilling: boolean;
   }): Promise<void> {
     try {
-      const {
-        applicationId,
-        studentId,
-        mentorId,
-        sessionTypeCode,
-      } = payload;
+      const { applicationId, studentId, mentorId, sessionTypeCode } = payload;
 
       this.logger.log(
         `Creating placement billing for application: ${applicationId}`,
@@ -307,13 +279,10 @@ export class MentorPayableService {
       }
 
       // Get mentor price using sessionTypeCode
-      const mentorPrice = await this.db.query.mentorPrices.findFirst({
-        where: and(
-          eq(schema.mentorPrices.mentorId, mentorId),
-          eq(schema.mentorPrices.sessionTypeCode, sessionTypeCode),
-          eq(schema.mentorPrices.status, "active"),
-        ),
-      });
+      const mentorPrice = await this.mentorPriceService.getMentorPrice(
+        mentorId,
+        sessionTypeCode,
+      );
 
       if (!mentorPrice) {
         throw new BadRequestException(

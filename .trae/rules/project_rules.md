@@ -295,17 +295,14 @@ trigger: always_on
   # 运行最近修改的测试文件（集成测试）
   npm run test -- --testPathPatterns=$(git diff --name-only HEAD~1 | grep 'test/.*\.e2e-spec\.ts$' | head -1)
   
-  # 使用便捷脚本运行最近修改的测试文件（默认单元测试）
-  npm run test:recent
-  
-  # 使用便捷脚本运行最近修改的集成测试
-  npm run test:recent e2e
+  # 运行最近修改的单元测试文件
+  npm run test -- --testPathPatterns=$(git diff --name-only HEAD~1 | grep 'src/.*\.spec\.ts$' | head -1)
   ```
-- **脚本说明**: 项目提供了 `scripts/run-recent-test.sh` 脚本，用于自动识别并运行最近修改的测试文件
+- **说明**: 使用 `git diff` 和 `--testPathPatterns` 参数来运行最近修改的测试文件
 - **验证步骤**:
   1. 修改测试文件后，使用 `git status` 确认文件已修改
   2. 使用 `git diff --name-only HEAD~1 | grep '\.spec\.ts$'` 确认修改的测试文件
-  3. 执行上述命令或使用便捷脚本运行对应的测试文件
+  3. 执行上述命令运行对应的测试文件（直接使用 `npm run test -- --testPathPatterns=...` 命令）
   4. 验证测试结果是否符合预期
 
 ## 测试执行环境配置
@@ -327,8 +324,27 @@ trigger: always_on
   npm run test -- --testPathPatterns=<测试文件路径> --verbose
   ```
 
+# 文档编辑规范
+## **补充文档** 保留原文档内容并补充缺失的内容
+
 # 禁止事项
 
 - **文档创建**: 禁止创建任何形式的总结文档
 - **代码备份**: 禁止创建代码备份文件
 - **提交语言**: 生成提交内容时，必须使用英文，禁止使用中文
+
+# 代码编辑范围规范
+
+## 允许编辑的目录
+
+- **src/api/** - API层模块（控制器、DTO等）
+- **src/domains/** - 业务领域模块（财务、合同、目录等）
+- **src/application/** - 应用层模块（命令、查询等）
+- **src/infrastructure/** - 基础设施模块（数据库、认证等）
+- **test/** - 测试文件目录
+
+## 编辑原则
+
+- **职责分离**: 遵循DDD架构原则，各层职责清晰
+- **代码质量**: 所有修改必须通过ESLint检查和测试验证
+- **向后兼容**: 修改时应考虑向后兼容性，避免破坏现有功能

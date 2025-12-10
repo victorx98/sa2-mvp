@@ -16,10 +16,17 @@ import {
 import { APPLICATION_STATUSES } from "@domains/placement/types/application-status.types";
 
 // Job position status enum [岗位状态枚举]
-export const jobStatusEnum = pgEnum("job_status", ["active", "inactive", "expired"]);
+export const jobStatusEnum = pgEnum("job_status", [
+  "active",
+  "inactive",
+  "expired",
+]);
 
 // Application status enum [投递状态枚举]
-export const applicationStatusEnum = pgEnum("application_status", APPLICATION_STATUSES);
+export const applicationStatusEnum = pgEnum(
+  "application_status",
+  APPLICATION_STATUSES,
+);
 
 // Application type enum [投递类型枚举]
 export const applicationTypeEnum = pgEnum("application_type", [
@@ -71,11 +78,18 @@ export const recommendedJobs = pgTable(
     externalId: varchar("external_id", { length: 100 }), // External ID [外部ID]
     status: varchar("status", { length: 50 }).notNull().default("active"), // Job status [岗位状态]
     duplicateCheckStatus: varchar("duplicate_check_status", { length: 50 }), // Duplicate check status [重复检查状态]
-    duplicateConfidenceScore: decimal("duplicate_confidence_score", { precision: 3, scale: 2 }), // Duplicate confidence score [重复置信度分数]
+    duplicateConfidenceScore: decimal("duplicate_confidence_score", {
+      precision: 3,
+      scale: 2,
+    }), // Duplicate confidence score [重复置信度分数]
 
     // Timestamps [时间戳]
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(), // Creation time [创建时间]
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(), // Update time [更新时间]
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(), // Creation time [创建时间]
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(), // Update time [更新时间]
     createdBy: uuid("created_by"), // Created by [创建人]
     updatedBy: uuid("updated_by"), // Updated by [更新人]
     version: integer("version").default(1).notNull(), // Version [版本]
@@ -121,8 +135,12 @@ export const jobApplications = pgTable(
     resultReason: text("result_reason"), // Result reason [结果原因]
 
     // Timestamps [时间戳]
-    submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(), // Submission time [提交时间]
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(), // Update time [更新时间]
+    submittedAt: timestamp("submitted_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(), // Submission time [提交时间]
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(), // Update time [更新时间]
 
     // Business fields [业务字段]
     isUrgent: boolean("is_urgent").default(false).notNull(), // Urgent application flag [加急申请标记]
@@ -167,13 +185,18 @@ export const applicationHistory = pgTable(
     changeMetadata: jsonb("change_metadata"), // Change metadata [变更元数据]
 
     // Timestamp [时间戳]
-    changedAt: timestamp("changed_at", { withTimezone: true }).defaultNow().notNull(), // Change time [变更时间]
+    changedAt: timestamp("changed_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(), // Change time [变更时间]
   },
   (table) => [
     // Core query indexes [核心查询索引]
     index("idx_application_history_application").on(table.applicationId),
     index("idx_application_history_changed_at").on(table.changedAt),
-    index("idx_application_history_status_change").on(table.previousStatus, table.newStatus),
+    index("idx_application_history_status_change").on(
+      table.previousStatus,
+      table.newStatus,
+    ),
   ],
 );
 
@@ -181,6 +204,12 @@ export const applicationHistory = pgTable(
  * Creates a partial index for the specified table and column with a WHERE clause
  * [为指定表和列创建带WHERE条件的部分索引]
  */
-function _partialIndex<T extends { name: string }>(indexName: string, column: T, value: string) {
-  return index(indexName).on(column).where(sql`${column} = ${value}`);
+function _partialIndex<T extends { name: string }>(
+  indexName: string,
+  column: T,
+  value: string,
+) {
+  return index(indexName)
+    .on(column)
+    .where(sql`${column} = ${value}`);
 }

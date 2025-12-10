@@ -21,7 +21,9 @@ export function parseDateToUTC(dateString: string): Date {
   const date = new Date(dateString);
 
   if (isNaN(date.getTime())) {
-    throw new Error(`Invalid date format: ${dateString}. Expected ISO 8601 format.`);
+    throw new Error(
+      `Invalid date format: ${dateString}. Expected ISO 8601 format.`,
+    );
   }
 
   return date;
@@ -54,12 +56,17 @@ export function formatDateToISOString(date: Date): string {
  */
 export function getStartOfDayUTC(dateString: string): Date {
   const date = parseDateToUTC(dateString);
-  return new Date(Date.UTC(
-    date.getUTCFullYear(),
-    date.getUTCMonth(),
-    date.getUTCDate(),
-    0, 0, 0, 0
-  ));
+  return new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      0,
+      0,
+      0,
+      0,
+    ),
+  );
 }
 
 /**
@@ -70,12 +77,17 @@ export function getStartOfDayUTC(dateString: string): Date {
  */
 export function getEndOfDayUTC(dateString: string): Date {
   const date = parseDateToUTC(dateString);
-  return new Date(Date.UTC(
-    date.getUTCFullYear(),
-    date.getUTCMonth(),
-    date.getUTCDate(),
-    23, 59, 59, 999
-  ));
+  return new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      23,
+      59,
+      59,
+      999,
+    ),
+  );
 }
 
 /**

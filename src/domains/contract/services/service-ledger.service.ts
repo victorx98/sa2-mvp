@@ -27,19 +27,31 @@ export class ServiceLedgerService {
   ) {}
 
   /**
-   * Record service consumption(v2.16.12 - 学生级权益累积制)
+   * Record service consumption
    * - Quantity must be negative (consumption)(数量必须为负值(消耗))
    * - Create consumption ledger entry(创建消耗账本条目)
    * - Trigger automatically updates consumed_quantity(触发器自动更新已消耗数量)
-   *
-   * @change {v2.16.12} Now queries by studentId + serviceType (aggregates across contracts)
    */
   async recordConsumption(
     dto: IRecordConsumptionDto,
     tx?: DrizzleTransaction,
   ): Promise<ServiceLedger> {
-    const { studentId, serviceType, quantity, relatedBookingId, createdBy } =
-      dto;
+    const {
+      studentId,
+      serviceType,
+      quantity,
+      relatedBookingId,
+      bookingSource,
+      createdBy,
+    } = dto;
+
+    // Validate: bookingSource is required when relatedBookingId is provided [验证：当relatedBookingId存在时，bookingSource必填]
+    if (relatedBookingId && !bookingSource) {
+      throw new ContractException(
+        "BOOKING_SOURCE_REQUIRED",
+        "bookingSource is required when relatedBookingId is provided",
+      );
+    }
 
     // 1. Validate quantity (must be negative for consumption)(1. 验证数量(必须为负值表示消耗))
     validateLedgerQuantity("consumption", -quantity);
@@ -67,6 +79,7 @@ export class ServiceLedgerService {
     );
 
     // Check sufficient balance(检查足够余额)
+    // Note: quantity is positive here (consumption amount), will be stored as negative in ledger [注意：quantity这里是正数（消费数量），将在账本中存储为负数]
     if (totalAvailable < quantity) {
       throw new ContractException("INSUFFICIENT_BALANCE");
     }
@@ -82,6 +95,8 @@ export class ServiceLedgerService {
         source: "booking_completed",
         balanceAfter: totalAvailable - quantity,
         relatedBookingId,
+        metadata:
+          relatedBookingId && bookingSource ? { bookingSource } : undefined, // Store bookingSource in metadata when relatedBookingId exists [当relatedBookingId存在时，在metadata中存储bookingSource]
         createdBy,
       })
       .returning();
@@ -90,12 +105,10 @@ export class ServiceLedgerService {
   }
 
   /**
-   * Record manual adjustment(v2.16.12 - 学生级权益累积制)
+   * Record manual adjustment
    * - Quantity can be positive (add) or negative (deduct)(数量可以是正值(增加)或负值(扣除))
    * - Reason is required(必须提供原因)
    * - Create adjustment ledger entry(创建调整账本条目)
-   *
-   * @change {v2.16.12} Now queries by studentId + serviceType (aggregates across contracts)
    */
   async recordAdjustment(
     dto: IRecordAdjustmentDto,
@@ -130,6 +143,17 @@ export class ServiceLedgerService {
       0,
     );
 
+    // Calculate balance after adjustment [计算调整后的余额]
+    const balanceAfter = totalAvailable + quantity;
+
+    // Check balance lower limit (prevent negative balance) [检查余额下限（防止余额为负）]
+    if (balanceAfter < 0) {
+      throw new ContractException(
+        "INSUFFICIENT_BALANCE_FOR_ADJUSTMENT",
+        `Adjustment would result in negative balance. Current: ${totalAvailable}, Adjustment: ${quantity}, Result: ${balanceAfter}`,
+      );
+    }
+
     // 3. Create ledger record(3. 创建账本记录)
     const [ledger] = await executor
       .insert(schema.serviceLedgers)
@@ -139,7 +163,7 @@ export class ServiceLedgerService {
         quantity,
         type: "adjustment",
         source: "manual_adjustment",
-        balanceAfter: totalAvailable + quantity,
+        balanceAfter,
         reason,
         createdBy,
       })
@@ -149,11 +173,9 @@ export class ServiceLedgerService {
   }
 
   /**
-   * Calculate available balance(v2.16.12 - 学生级权益累积制)
+   * Calculate available balance
    * - Sum from entitlements table across all contracts(从权利表汇总所有合同)
    * - Returns aggregated balance info(返回聚合余额信息)
-   *
-   * @change {v2.16.12} Now queries by studentId + serviceType (aggregates across contracts)
    */
   async calculateAvailableBalance(
     studentId: string,
@@ -192,20 +214,8 @@ export class ServiceLedgerService {
   }
 
   /**
-   * Query ledgers with optional archive(v2.16.12 - 学生级权益累积制)
-   * - Default: query main table only(默认: 仅查询主表)
-   * - includeArchive=true: UNION ALL with archive table(includeArchive=true: 与归档表使用UNION ALL)
-   * - Archive queries enforce date range ≤ 1 year (Decision I5)(归档查询强制执行≤1年的日期范围[决策I5])
-   *
-   * @change {v2.16.12} Removed contractId filter, now primary query is studentId + serviceType
-   */
-  /**
-   * Query ledgers [冷热数据分离已移除]
-   * - Simplified to query only main table(简化为仅查询主表)
-   * - Removed archive-related logic(移除了归档相关逻辑)
-   *
-   * @change {v2.16.12} Removed contractId filter, now primary query is studentId + serviceType
-   * @change {v2.17.0} Removed includeArchive parameter and archive-related logic
+   * Query ledgers
+   * - Query main table only(仅查询主表)
    */
   async queryLedgers(
     filter: {
@@ -255,11 +265,9 @@ export class ServiceLedgerService {
   }
 
   /**
-   * Reconcile balance at student level (v2.16.12 - 学生级权益累积制)
+   * Reconcile balance at student level
    * - Verify consumed_quantity matches ledger sum across ALL contracts(验证所有合同的已消耗数量与账本总和匹配)
    * - Returns true if balanced(如果平衡则返回true)
-   *
-   * @change {v2.16.12} New method for student-level reconciliation
    */
   async reconcileBalance(
     studentId: string,
@@ -296,9 +304,21 @@ export class ServiceLedgerService {
         ),
       );
 
-    const ledgerSum = ledgers.reduce((sum, l) => sum + l.quantity, 0);
+    // Calculate consumption and adjustment sums separately [分别计算消费和调整的总和]
+    // Consumption quantities are negative, adjustments can be positive or negative [消费数量为负数，调整可以是正数或负数]
+    let consumptionSum = 0;
+    let adjustmentSum = 0;
 
-    // 3. Compare (ledger sum is negative, so we take absolute value)
-    return Math.abs(ledgerSum) === totalConsumed;
+    for (const ledger of ledgers) {
+      if (ledger.type === "consumption") {
+        consumptionSum += ledger.quantity; // Negative values [负值]
+      } else if (ledger.type === "adjustment") {
+        adjustmentSum += ledger.quantity; // Can be positive or negative [可以是正数或负数]
+      }
+    }
+
+    // Compare: consumed_quantity should equal absolute value of consumption sum [比较：consumed_quantity应等于消费总和的绝对值]
+    // Note: Adjustment sum is not included in consumed_quantity [注意：调整总和不包括在consumed_quantity中]
+    return Math.abs(consumptionSum) === totalConsumed;
   }
 }

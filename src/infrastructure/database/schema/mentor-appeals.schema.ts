@@ -168,7 +168,9 @@ export const mentorAppeals = pgTable("mentor_appeals", {
    * Default: NOW()
    * (申诉提交的时间戳)
    */
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 export type MentorAppeal = typeof mentorAppeals.$inferSelect;
