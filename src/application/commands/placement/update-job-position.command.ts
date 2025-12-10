@@ -1,14 +1,14 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { CommandBase } from '@application/core/command.base';
-import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
-import type { DrizzleDatabase } from '@shared/types/database.types';
-import { JobPositionService } from '@domains/placement/services/job-position.service';
-import { IMarkJobExpiredDto } from '@domains/placement/dto';
+import { Inject, Injectable } from "@nestjs/common";
+import { CommandBase } from "@application/core/command.base";
+import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
+import type { DrizzleDatabase } from "@shared/types/database.types";
+import { JobPositionService } from "@domains/placement/services/job-position.service";
+import { IMarkJobExpiredDto } from "@domains/placement/dto";
 
 /**
  * Update Job Position Command
  * [更新职位命令]
- * 
+ *
  * 用于标记职位过期
  */
 @Injectable()
@@ -23,7 +23,7 @@ export class UpdateJobPositionCommand extends CommandBase {
   /**
    * 执行命令
    * [Execute command]
-   * 
+   *
    * @param input 命令输入
    * @returns 执行结果
    */

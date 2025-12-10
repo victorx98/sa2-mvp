@@ -1,4 +1,4 @@
-import { Logger, ValidationPipe } from "@nestjs/common";
+import { Logger, ValidationPipe, BadRequestException } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import * as dotenv from "dotenv";
@@ -70,12 +70,43 @@ async function bootstrap() {
   process.once("SIGINT", signalHandler);
   process.once("SIGTERM", signalHandler);
 
-  // Enable validation
+  // Enable validation with detailed error logging [启用验证并记录详细错误日志]
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      exceptionFactory: (errors) => {
+        // Format validation errors for detailed logging [格式化验证错误以便详细记录]
+        const messages = errors.map((err) => {
+          const constraints = err.constraints
+            ? Object.values(err.constraints)
+            : [];
+          return {
+            property: err.property,
+            constraints,
+            value: err.value,
+            children: err.children?.length || 0,
+          };
+        });
+
+        // Log detailed validation errors [记录详细的验证错误]
+        logger.error(
+          `Validation failed: ${JSON.stringify(messages, null, 2)}`,
+          "ValidationPipe",
+        );
+
+        // Return formatted error response [返回格式化的错误响应]
+        return new BadRequestException({
+          statusCode: 400,
+          message: "Validation failed",
+          errors: messages.map((msg) => ({
+            field: msg.property,
+            messages: msg.constraints,
+            value: msg.value,
+          })),
+        });
+      },
     }),
   );
 
@@ -87,13 +118,13 @@ async function bootstrap() {
 
   // Configure Swagger documentation
   const config = new DocumentBuilder()
-    .setTitle('MentorX API')
-    .setDescription('API documentation for MentorX platform')
-    .setVersion('1.0')
+    .setTitle("MentorX API")
+    .setDescription("API documentation for MentorX platform")
+    .setVersion("1.0")
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup("api/docs", app, document);
 
   const port = process.env.PORT || 8080;
   await app.listen(port);

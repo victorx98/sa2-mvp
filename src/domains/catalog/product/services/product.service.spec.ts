@@ -1,14 +1,14 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ProductService } from './product.service';
-import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
-import { CreateProductDto } from '../dto/create-product.dto';
-import { UpdateProductDto } from '../dto/update-product.dto';
-import { AddProductItemDto } from '../dto/add-product-item.dto';
-import { ProductFilterDto } from '../dto/product-filter.dto';
-import { FindOneProductDto } from '../dto/find-one-product.dto';
-import { SortDto } from '../../common/dto/sort.dto';
-import { ProductStatus, Currency } from '@shared/types/catalog-enums';
-import { randomUUID } from 'crypto';
+import { Test, TestingModule } from "@nestjs/testing";
+import { ProductService } from "./product.service";
+import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
+import { CreateProductDto } from "../dto/create-product.dto";
+import { UpdateProductDto } from "../dto/update-product.dto";
+import { AddProductItemDto } from "../dto/add-product-item.dto";
+import { ProductFilterDto } from "../dto/product-filter.dto";
+import { FindOneProductDto } from "../dto/find-one-product.dto";
+import { SortDto } from "../../common/dto/sort.dto";
+import { ProductStatus, Currency } from "@shared/types/catalog-enums";
+import { randomUUID } from "crypto";
 
 // Define a type that includes the then method to make it awaitable
 type MockQuery = {
@@ -47,14 +47,16 @@ const createMockQuery = (): any => {
     for: jest.fn().mockReturnThis(),
     execute: jest.fn().mockResolvedValue([]),
   };
-  
+
   return mockQuery;
 };
 
 // Helper function to mock the getOrderBy method
 const mockGetOrderBy = () => {
   // Mock the getOrderBy method to return a simple SQL expression
-  jest.spyOn(ProductService.prototype as any, 'getOrderBy').mockReturnValue('createdAt DESC');
+  jest
+    .spyOn(ProductService.prototype as any, "getOrderBy")
+    .mockReturnValue("createdAt DESC");
 };
 
 const mockDb = {
@@ -72,40 +74,40 @@ const mockDb = {
   inArray: jest.fn((a, b) => ({ inArray: true, a, b })),
   schema: {
     products: {
-      id: 'id',
-      name: 'name',
-      code: 'code',
-      description: 'description',
-      coverImage: 'coverImage',
-      targetUserPersona: 'targetUserPersona',
-      price: 'price',
-      currency: 'currency',
-      marketingLabels: 'marketingLabels',
-      status: 'status',
-      publishedAt: 'publishedAt',
-      unpublishedAt: 'unpublishedAt',
-      metadata: 'metadata',
-      createdAt: 'createdAt',
-      updatedAt: 'updatedAt',
-      createdBy: 'createdBy',
+      id: "id",
+      name: "name",
+      code: "code",
+      description: "description",
+      coverImage: "coverImage",
+      targetUserPersona: "targetUserPersona",
+      price: "price",
+      currency: "currency",
+      marketingLabels: "marketingLabels",
+      status: "status",
+      publishedAt: "publishedAt",
+      unpublishedAt: "unpublishedAt",
+      metadata: "metadata",
+      createdAt: "createdAt",
+      updatedAt: "updatedAt",
+      createdBy: "createdBy",
     },
     productItems: {
-      id: 'id',
-      productId: 'productId',
-      serviceTypeId: 'serviceTypeId',
-      quantity: 'quantity',
-      sortOrder: 'sortOrder',
-      createdAt: 'createdAt',
-      updatedAt: 'updatedAt',
+      id: "id",
+      productId: "productId",
+      serviceTypeId: "serviceTypeId",
+      quantity: "quantity",
+      sortOrder: "sortOrder",
+      createdAt: "createdAt",
+      updatedAt: "updatedAt",
     },
     serviceTypes: {
-      id: 'id',
-      code: 'code',
-      name: 'name',
-      description: 'description',
-      status: 'status',
-      createdAt: 'createdAt',
-      updatedAt: 'updatedAt',
+      id: "id",
+      code: "code",
+      name: "name",
+      description: "description",
+      status: "status",
+      createdAt: "createdAt",
+      updatedAt: "updatedAt",
     },
   },
 };
@@ -117,10 +119,10 @@ const generateMockProduct = (overrides: any = {}) => ({
   code: `PROD-${Math.floor(Math.random() * 1000)}`,
   description: `Test description for product`,
   coverImage: `https://example.com/test-image-${Math.floor(Math.random() * 1000)}.jpg`,
-  targetUserPersona: ['undergraduate'],
-  price: '1000.00',
-  currency: 'USD',
-  marketingLabels: ['hot'],
+  targetUserPersona: ["undergraduate"],
+  price: "1000.00",
+  currency: "USD",
+  marketingLabels: ["hot"],
   status: ProductStatus.DRAFT,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -140,7 +142,7 @@ const generateMockProductItem = (overrides: any = {}) => ({
   ...overrides,
 });
 
-describe('ProductService', () => {
+describe("ProductService", () => {
   let service: ProductService;
   let mockDatabase: any;
 
@@ -162,14 +164,14 @@ describe('ProductService', () => {
     mockDatabase = module.get<any>(DATABASE_CONNECTION);
   });
 
-  describe('create', () => {
-    it('should create a product successfully [应该成功创建产品]', async () => {
+  describe("create", () => {
+    it("should create a product successfully [应该成功创建产品]", async () => {
       // Arrange
       const createDto: CreateProductDto = {
-        name: 'Test Product',
-        code: 'TEST-PROD-001',
-        description: 'Test product description',
-        price: 1000.00,
+        name: "Test Product",
+        code: "TEST-PROD-001",
+        description: "Test product description",
+        price: 1000.0,
         currency: Currency.USD,
       };
       const userId = randomUUID();
@@ -205,15 +207,17 @@ describe('ProductService', () => {
     });
   });
 
-  describe('search', () => {
-    it('should return products with items successfully [应该成功返回包含产品项的产品列表]', async () => {
+  describe("search", () => {
+    it("should return products with items successfully [应该成功返回包含产品项的产品列表]", async () => {
       // Arrange
       const filter: ProductFilterDto = {};
       const pagination = { page: 1, pageSize: 10 };
-      const sort: SortDto = { orderField: 'createdAt', orderDirection: 'desc' };
+      const sort: SortDto = { orderField: "createdAt", orderDirection: "desc" };
 
       const mockProduct = generateMockProduct();
-      const mockProductItem = generateMockProductItem({ productId: mockProduct.id });
+      const mockProductItem = generateMockProductItem({
+        productId: mockProduct.id,
+      });
 
       // Mock the getOrderBy method
       mockGetOrderBy();
@@ -223,29 +227,29 @@ describe('ProductService', () => {
       mockDatabase.select.mockImplementation((selection: any) => {
         selectCallCount++;
         const mockQuery = createMockQuery();
-        
+
         // Mock total count query
         if (selection && selection.total) {
           // This is the count query, it should return [{ total: 1 }] when awaited
-          mockQuery.then = jest.fn(function(resolve) {
+          mockQuery.then = jest.fn(function (resolve) {
             return Promise.resolve([{ total: 1 }]).then(resolve);
           });
-        } 
+        }
         // Mock products list query
         else if (selectCallCount === 2) {
           // This is the products query with pagination, it should return [mockProduct] when awaited
-          mockQuery.then = jest.fn(function(resolve) {
+          mockQuery.then = jest.fn(function (resolve) {
             return Promise.resolve([mockProduct]).then(resolve);
           });
-        } 
+        }
         // Mock product items query
         else {
           // This is the product items query for a specific product, it should return [mockProductItem] when awaited
-          mockQuery.then = jest.fn(function(resolve) {
+          mockQuery.then = jest.fn(function (resolve) {
             return Promise.resolve([mockProductItem]).then(resolve);
           });
         }
-        
+
         return mockQuery;
       });
 
@@ -260,8 +264,8 @@ describe('ProductService', () => {
     });
   });
 
-  describe('findOne', () => {
-    it('should find a product by id successfully [应该成功通过ID查找产品]', async () => {
+  describe("findOne", () => {
+    it("should find a product by id successfully [应该成功通过ID查找产品]", async () => {
       // Arrange
       const productId = randomUUID();
       const findDto: FindOneProductDto = { id: productId };
@@ -271,16 +275,16 @@ describe('ProductService', () => {
       // Mock database calls
       mockDatabase.select.mockImplementation(() => {
         const mockQuery = createMockQuery();
-        
+
         // Mock product query
         if (mockDatabase.select.mock.calls.length === 1) {
           mockQuery.limit.mockResolvedValue([mockProduct]);
-        } 
+        }
         // Mock product items query
         else {
           mockQuery.orderBy.mockResolvedValue([mockProductItem]);
         }
-        
+
         return mockQuery;
       });
 
@@ -294,12 +298,12 @@ describe('ProductService', () => {
     });
   });
 
-  describe('update', () => {
-    it('should update a product successfully [应该成功更新产品]', async () => {
+  describe("update", () => {
+    it("should update a product successfully [应该成功更新产品]", async () => {
       // Arrange
       const productId = randomUUID();
       const updateDto: UpdateProductDto = {
-        name: 'Updated Product Name',
+        name: "Updated Product Name",
       };
       const mockProduct = generateMockProduct({ id: productId });
 
@@ -319,7 +323,8 @@ describe('ProductService', () => {
       });
 
       // Act
-      const result = await service.update(productId, updateDto);
+      const userId = randomUUID(); // Mock user ID for testing [模拟测试用的用户ID]
+      const result = await service.update(productId, updateDto, userId);
 
       // Assert
       expect(result).toBeDefined();
@@ -327,16 +332,32 @@ describe('ProductService', () => {
     });
   });
 
-  describe('updateStatus', () => {
-    it('should update product status successfully [应该成功更新产品状态]', async () => {
+  describe("updateStatus", () => {
+    it("should update product status successfully [应该成功更新产品状态]", async () => {
       // Arrange
       const productId = randomUUID();
       const targetStatus = ProductStatus.ACTIVE;
-      const mockProduct = generateMockProduct({ id: productId, status: ProductStatus.DRAFT });
-      const updatedProduct = { ...mockProduct, status: targetStatus, publishedAt: new Date() };
+      const mockProduct = generateMockProduct({
+        id: productId,
+        status: ProductStatus.DRAFT,
+      });
+      const updatedProduct = {
+        ...mockProduct,
+        status: targetStatus,
+        publishedAt: new Date(),
+      };
       const serviceTypeId = randomUUID();
-      const mockProductItems = [{ id: 'item1', serviceTypeId, quantity: 1, sortOrder: 0, createdAt: new Date(), updatedAt: new Date() }];
-      const mockServiceTypes = [{ id: serviceTypeId, status: 'ACTIVE' }];
+      const mockProductItems = [
+        {
+          id: "item1",
+          serviceTypeId,
+          quantity: 1,
+          sortOrder: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+      const mockServiceTypes = [{ id: serviceTypeId, status: "ACTIVE" }];
 
       // Mock database transaction
       mockDatabase.transaction.mockImplementation(async (cb: any) => {
@@ -345,7 +366,7 @@ describe('ProductService', () => {
           from: jest.fn().mockReturnThis(),
           where: jest.fn().mockReturnThis(),
           for: jest.fn().mockReturnThis(),
-          limit: jest.fn().mockImplementation(function() {
+          limit: jest.fn().mockImplementation(function () {
             // First select: get product with lock
             if (mockTx.select.mock.calls.length === 1) {
               return Promise.resolve([mockProduct]);
@@ -355,16 +376,22 @@ describe('ProductService', () => {
           orderBy: jest.fn().mockReturnThis(),
           update: jest.fn().mockReturnThis(),
           set: jest.fn().mockReturnThis(),
-          returning: jest.fn().mockImplementation(function() {
+          returning: jest.fn().mockImplementation(function () {
             return Promise.resolve([updatedProduct]);
           }),
-          then: jest.fn(function(resolve: any) {
+          then: jest.fn(function (resolve: any) {
             // Second select: get product items
-            if (mockTx.from.mock.calls.length === 1 && mockTx.where.mock.calls.length === 1) {
+            if (
+              mockTx.from.mock.calls.length === 1 &&
+              mockTx.where.mock.calls.length === 1
+            ) {
               return Promise.resolve(mockProductItems).then(resolve);
             }
             // Third select: get service types
-            if (mockTx.from.mock.calls.length === 2 && mockTx.where.mock.calls.length === 2) {
+            if (
+              mockTx.from.mock.calls.length === 2 &&
+              mockTx.where.mock.calls.length === 2
+            ) {
               return Promise.resolve(mockServiceTypes).then(resolve);
             }
             return Promise.resolve([]).then(resolve);
@@ -384,43 +411,49 @@ describe('ProductService', () => {
     });
   });
 
-  describe('createSnapshot', () => {
-    it('should create a product snapshot successfully [应该成功创建产品快照]', async () => {
+  describe("createSnapshot", () => {
+    it("should create a product snapshot successfully [应该成功创建产品快照]", async () => {
       // Arrange
       const productId = randomUUID();
-      const mockProduct = generateMockProduct({ id: productId, status: ProductStatus.ACTIVE });
+      const mockProduct = generateMockProduct({
+        id: productId,
+        status: ProductStatus.ACTIVE,
+      });
       const serviceTypeId = randomUUID();
-      const mockProductItem = generateMockProductItem({ productId, serviceTypeId });
-      const mockServiceType = { id: serviceTypeId, code: 'ST-001' };
+      const mockProductItem = generateMockProductItem({
+        productId,
+        serviceTypeId,
+      });
+      const mockServiceType = { id: serviceTypeId, code: "ST-001" };
 
       // Mock database calls
       let selectCallCount = 0;
       mockDatabase.select.mockImplementation(() => {
         selectCallCount++;
         const mockQuery = createMockQuery();
-        
+
         // Mock product query
         if (selectCallCount === 1) {
           // Return product when awaited
-          mockQuery.then = jest.fn(function(resolve) {
+          mockQuery.then = jest.fn(function (resolve) {
             return Promise.resolve([mockProduct]).then(resolve);
           });
-        } 
+        }
         // Mock product items query
         else if (selectCallCount === 2) {
           // Return product items when awaited
-          mockQuery.then = jest.fn(function(resolve) {
+          mockQuery.then = jest.fn(function (resolve) {
             return Promise.resolve([mockProductItem]).then(resolve);
           });
-        } 
+        }
         // Mock service types query
         else {
           // Return service types array when awaited
-          mockQuery.then = jest.fn(function(resolve) {
+          mockQuery.then = jest.fn(function (resolve) {
             return Promise.resolve([mockServiceType]).then(resolve);
           });
         }
-        
+
         return mockQuery;
       });
 
@@ -434,8 +467,8 @@ describe('ProductService', () => {
     });
   });
 
-  describe('addItem', () => {
-    it('should add a product item successfully [应该成功添加产品项]', async () => {
+  describe("addItem", () => {
+    it("should add a product item successfully [应该成功添加产品项]", async () => {
       // Arrange
       const productId = randomUUID();
       const serviceTypeId = randomUUID();
@@ -443,8 +476,11 @@ describe('ProductService', () => {
         serviceTypeId,
         quantity: 5,
       };
-      const mockProduct = generateMockProduct({ id: productId, status: ProductStatus.DRAFT });
-      const mockServiceType = { id: serviceTypeId, status: 'ACTIVE' };
+      const mockProduct = generateMockProduct({
+        id: productId,
+        status: ProductStatus.DRAFT,
+      });
+      const mockServiceType = { id: serviceTypeId, status: "ACTIVE" };
 
       // Mock database calls
       mockDatabase.transaction.mockImplementation(async (cb: any) => {
@@ -452,36 +488,36 @@ describe('ProductService', () => {
         const mockTx = {
           select: jest.fn(() => {
             const mockQuery = createMockQuery();
-            
+
             // Mock product check with row lock
             if (mockTx.select.mock.calls.length === 1) {
               mockQuery.for.mockReturnThis();
               // Return product when awaited
-              mockQuery.then = jest.fn(function(resolve) {
+              mockQuery.then = jest.fn(function (resolve) {
                 return Promise.resolve([mockProduct]).then(resolve);
               });
-            } 
+            }
             // Mock service types check
             else if (mockTx.select.mock.calls.length === 2) {
               // Return service type array when awaited
-              mockQuery.then = jest.fn(function(resolve) {
+              mockQuery.then = jest.fn(function (resolve) {
                 return Promise.resolve([mockServiceType]).then(resolve);
               });
-            } 
+            }
             // Mock product items check
             else {
               // Return empty array when awaited (no existing items)
-              mockQuery.then = jest.fn(function(resolve) {
+              mockQuery.then = jest.fn(function (resolve) {
                 return Promise.resolve([]).then(resolve);
               });
             }
-            
+
             return mockQuery;
           }),
           insert: jest.fn(() => {
             const mockQuery = createMockQuery();
             // Return nothing when awaited (insert successful)
-            mockQuery.then = jest.fn(function(resolve) {
+            mockQuery.then = jest.fn(function (resolve) {
               return Promise.resolve([]).then(resolve);
             });
             return mockQuery;
@@ -499,14 +535,17 @@ describe('ProductService', () => {
     });
   });
 
-  describe('removeItem', () => {
-    it('should remove a product item successfully [应该成功移除产品项]', async () => {
+  describe("removeItem", () => {
+    it("should remove a product item successfully [应该成功移除产品项]", async () => {
       // Arrange
       const productId = randomUUID();
       const itemId = randomUUID();
-      const mockProduct = generateMockProduct({ id: productId, status: ProductStatus.DRAFT });
+      const mockProduct = generateMockProduct({
+        id: productId,
+        status: ProductStatus.DRAFT,
+      });
       const mockProductItem = { productId: productId };
-      
+
       // Track if delete was called in transaction
       let deleteCalled = false;
 
@@ -516,21 +555,21 @@ describe('ProductService', () => {
         const mockTx = {
           select: jest.fn(() => {
             const mockQuery = createMockQuery();
-            
+
             // Mock product item query
             if (mockTx.select.mock.calls.length === 1) {
               mockQuery.limit.mockResolvedValue([mockProductItem]);
-            } 
+            }
             // Mock product check
             else if (mockTx.select.mock.calls.length === 2) {
               mockQuery.for.mockReturnThis();
               mockQuery.limit.mockResolvedValue([mockProduct]);
-            } 
+            }
             // Mock product items count check
             else {
               mockQuery.execute.mockResolvedValue([{ count: 2 }]);
             }
-            
+
             return mockQuery;
           }),
           delete: jest.fn(() => {
@@ -549,71 +588,6 @@ describe('ProductService', () => {
       // Assert
       expect(mockDatabase.transaction).toHaveBeenCalled();
       expect(deleteCalled).toBe(true);
-    });
-  });
-
-  describe('updateItemSortOrder', () => {
-    it('should update product item sort order successfully [应该成功更新产品项排序]', async () => {
-      // Arrange
-      const productId = randomUUID();
-      const itemId1 = randomUUID();
-      const itemId2 = randomUUID();
-      const updateItems = [
-        { itemId: itemId1, sortOrder: 2 },
-        { itemId: itemId2, sortOrder: 1 },
-      ];
-      const mockProduct = generateMockProduct({ id: productId, status: ProductStatus.DRAFT });
-      const mockProductItems = [
-        { id: itemId1, productId },
-        { id: itemId2, productId },
-      ];
-      let updateCount = 0;
-
-      // Mock database calls
-      mockDatabase.transaction.mockImplementation(async (cb: any) => {
-        // Create a mock transaction object that will be passed to the callback
-        const mockTx = {
-          select: jest.fn(() => {
-            const mockQuery = createMockQuery();
-            
-            // Mock product items query
-            if (mockTx.select.mock.calls.length === 1) {
-              // Return product items array when awaited
-              mockQuery.then = jest.fn(function(resolve) {
-                return Promise.resolve(mockProductItems).then(resolve);
-              });
-            } 
-            // Mock product check
-            else {
-              mockQuery.for.mockReturnThis();
-              // Return product when awaited
-              mockQuery.then = jest.fn(function(resolve) {
-                return Promise.resolve([mockProduct]).then(resolve);
-              });
-            }
-            
-            return mockQuery;
-          }),
-          update: jest.fn(() => {
-            updateCount++;
-            const mockQuery = createMockQuery();
-            // Return nothing when awaited (update successful)
-            mockQuery.then = jest.fn(function(resolve) {
-              return Promise.resolve([]).then(resolve);
-            });
-            return mockQuery;
-          }),
-        };
-
-        return cb(mockTx);
-      });
-
-      // Act
-      await service.updateItemSortOrder(updateItems);
-
-      // Assert
-      expect(mockDatabase.transaction).toHaveBeenCalled();
-      expect(updateCount).toBe(2);
     });
   });
 });

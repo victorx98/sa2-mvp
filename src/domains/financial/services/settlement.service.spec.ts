@@ -110,7 +110,11 @@ describe("SettlementService", () => {
       mentorId: testMentorId,
       paymentCurrency: "CNY",
       paymentMethod: "DOMESTIC_TRANSFER" as const,
-      paymentDetails: { bankName: "Test Bank", accountNumber: "1234567890", accountHolder: "Test Mentor" },
+      paymentDetails: {
+        bankName: "Test Bank",
+        accountNumber: "1234567890",
+        accountHolder: "Test Mentor",
+      },
       status: "ACTIVE" as const,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -164,13 +168,18 @@ describe("SettlementService", () => {
     };
 
     beforeEach(() => {
-      mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(mockPaymentInfo);
+      mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(
+        mockPaymentInfo,
+      );
       mockDb.execute.mockResolvedValue({ rows: mockPayableLedgers });
       mockDb.insert().returning.mockResolvedValue([mockSettlement]);
     });
 
     it("should successfully generate a settlement", async () => {
-      const result = await settlementService.generateSettlement(mockRequest, testMentorId);
+      const result = await settlementService.generateSettlement(
+        mockRequest,
+        testMentorId,
+      );
 
       expect(mockDb.query.mentorPaymentInfos.findFirst).toHaveBeenCalledWith({
         where: expect.any(Object),
@@ -258,6 +267,16 @@ describe("SettlementService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it("should fail if settlement already exists", async () => {
+      mockDb.query.settlementLedgers.findFirst.mockResolvedValueOnce({
+        id: "existing-settlement-id",
+      });
+
+      await expect(
+        settlementService.generateSettlement(mockRequest, testMentorId),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it("should fail if no payable ledgers exist", async () => {
       mockDb.execute.mockResolvedValue({ rows: [] });
 
@@ -266,8 +285,19 @@ describe("SettlementService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it("should fail if settlement creation fails", async () => {
+      mockDb.insert().returning.mockResolvedValue([]);
+
+      await expect(
+        settlementService.generateSettlement(mockRequest, testMentorId),
+      ).rejects.toThrow("Failed to create settlement record");
+    });
+
     it("should calculate correct amounts with exchange rate and deduction", async () => {
-      const result = await settlementService.generateSettlement(mockRequest, testMentorId);
+      const result = await settlementService.generateSettlement(
+        mockRequest,
+        testMentorId,
+      );
 
       // Original: 100 + 150 = 250
       // After deduction (5%): 250 * 0.95 = 237.5
@@ -317,7 +347,9 @@ describe("SettlementService", () => {
         createdBy: testMentorId,
       };
 
-      mockDb.query.settlementLedgers.findFirst.mockResolvedValue(mockSettlement);
+      mockDb.query.settlementLedgers.findFirst.mockResolvedValue(
+        mockSettlement,
+      );
 
       const result = await settlementService.getSettlementById("settlement-id");
 
@@ -330,9 +362,19 @@ describe("SettlementService", () => {
     it("should return null when settlement not found", async () => {
       mockDb.query.settlementLedgers.findFirst.mockResolvedValue(null);
 
-      const result = await settlementService.getSettlementById("non-existent-id");
+      const result =
+        await settlementService.getSettlementById("non-existent-id");
 
       expect(result).toBeNull();
+    });
+
+    it("should throw error when database query fails", async () => {
+      const dbError = new Error("Database error");
+      mockDb.query.settlementLedgers.findFirst.mockRejectedValue(dbError);
+
+      await expect(
+        settlementService.getSettlementById("settlement-id"),
+      ).rejects.toThrow("Database error");
     });
   });
 
@@ -354,7 +396,9 @@ describe("SettlementService", () => {
         createdBy: testMentorId,
       };
 
-      mockDb.query.settlementLedgers.findFirst.mockResolvedValue(mockSettlement);
+      mockDb.query.settlementLedgers.findFirst.mockResolvedValue(
+        mockSettlement,
+      );
 
       const result = await settlementService.getSettlementByMentorAndMonth(
         testMentorId,
@@ -375,6 +419,18 @@ describe("SettlementService", () => {
       );
 
       expect(result).toBeNull();
+    });
+
+    it("should throw error when database query fails", async () => {
+      const dbError = new Error("Database error");
+      mockDb.query.settlementLedgers.findFirst.mockRejectedValue(dbError);
+
+      await expect(
+        settlementService.getSettlementByMentorAndMonth(
+          testMentorId,
+          testSettlementMonth,
+        ),
+      ).rejects.toThrow("Database error");
     });
   });
 
@@ -409,10 +465,12 @@ describe("SettlementService", () => {
         },
       ];
 
-      mockDb.query.settlementLedgers.findMany.mockResolvedValue(mockSettlements);
-      mockDb.select().from().where = jest.fn().mockReturnValue([
-        { count: "2" },
-      ]) as any;
+      mockDb.query.settlementLedgers.findMany.mockResolvedValue(
+        mockSettlements,
+      );
+      mockDb.select().from().where = jest
+        .fn()
+        .mockReturnValue([{ count: "2" }]) as any;
 
       const result = await settlementService.findSettlements({
         page: 1,
@@ -427,9 +485,9 @@ describe("SettlementService", () => {
 
     it("should apply mentor filter", async () => {
       mockDb.query.settlementLedgers.findMany.mockResolvedValue([]);
-      mockDb.select().from().where = jest.fn().mockReturnValue([
-        { count: "0" },
-      ]) as any;
+      mockDb.select().from().where = jest
+        .fn()
+        .mockReturnValue([{ count: "0" }]) as any;
 
       await settlementService.findSettlements({
         mentorId: testMentorId,
@@ -446,9 +504,9 @@ describe("SettlementService", () => {
 
     it("should apply month filter", async () => {
       mockDb.query.settlementLedgers.findMany.mockResolvedValue([]);
-      mockDb.select().from().where = jest.fn().mockReturnValue([
-        { count: "0" },
-      ]) as any;
+      mockDb.select().from().where = jest
+        .fn()
+        .mockReturnValue([{ count: "0" }]) as any;
 
       await settlementService.findSettlements({
         settlementMonth: testSettlementMonth,
@@ -461,6 +519,54 @@ describe("SettlementService", () => {
           where: expect.any(Object),
         }),
       );
+    });
+
+    it("should validate startDate format", async () => {
+      await expect(
+        settlementService.findSettlements({
+          startDate: "invalid-date",
+          page: 1,
+          pageSize: 10,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should validate endDate format", async () => {
+      await expect(
+        settlementService.findSettlements({
+          endDate: "invalid-date",
+          page: 1,
+          pageSize: 10,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should apply date range filter", async () => {
+      mockDb.query.settlementLedgers.findMany.mockResolvedValue([]);
+      mockDb.select().from().where = jest
+        .fn()
+        .mockReturnValue([{ count: "0" }]) as any;
+
+      await settlementService.findSettlements({
+        startDate: "2024-01-01",
+        endDate: "2024-01-31",
+        page: 1,
+        pageSize: 10,
+      });
+
+      expect(mockDb.query.settlementLedgers.findMany).toHaveBeenCalled();
+    });
+
+    it("should throw error when database query fails", async () => {
+      const dbError = new Error("Database error");
+      mockDb.select().from().where = jest.fn().mockRejectedValue(dbError);
+
+      await expect(
+        settlementService.findSettlements({
+          page: 1,
+          pageSize: 10,
+        }),
+      ).rejects.toThrow("Database error");
     });
   });
 
@@ -485,11 +591,21 @@ describe("SettlementService", () => {
 
       mockDb.query.settlementDetails.findMany.mockResolvedValue(mockDetails);
 
-      const result = await settlementService.getSettlementDetails("settlement-id");
+      const result =
+        await settlementService.getSettlementDetails("settlement-id");
 
       expect(result).toHaveLength(2);
       expect(result[0].settlementId).toBe("settlement-id");
       expect(result[0].mentorPayableId).toBe("ledger-1");
+    });
+
+    it("should throw error when database query fails", async () => {
+      const dbError = new Error("Database error");
+      mockDb.query.settlementDetails.findMany.mockRejectedValue(dbError);
+
+      await expect(
+        settlementService.getSettlementDetails("settlement-id"),
+      ).rejects.toThrow("Database error");
     });
   });
 });

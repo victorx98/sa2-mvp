@@ -1666,9 +1666,7 @@ enum ServiceLedgerType {
 enum ServiceLedgerSource {
   BOOKING_COMPLETED = 'booking_completed',    // 预约完成
   BOOKING_CANCELLED = 'booking_cancelled',    // 预约取消
-  CONTRACT_SIGNED = 'contract_signed',        // 合同签约
   MANUAL_ADJUSTMENT = 'manual_adjustment',    // 手动调整
-  AUTO_EXPIRATION = 'auto_expiration',        // 自动过期
 }
 ```
 
@@ -2143,9 +2141,7 @@ export const serviceLedgerTypeEnum = pgEnum('service_ledger_type', [
 export const serviceLedgerSourceEnum = pgEnum('service_ledger_source', [
   'booking_completed',    // 预约完成
   'booking_cancelled',    // 预约取消
-  'contract_signed',      // 合同签约
   'manual_adjustment',    // 手动调整
-  'auto_expiration',      // 自动过期
 ]);
 
 export const serviceLedgers = pgTable('service_ledgers', {
@@ -2176,9 +2172,6 @@ export const serviceLedgers = pgTable('service_ledgers', {
   reason: text('reason'), // 调整原因（manual_adjustment时必填）
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   createdBy: uuid('created_by').notNull().references(() => users.id),
-
-  // 元数据
-  metadata: json('metadata'), // 额外信息（如原始balance、操作IP等）
 });
 
 // 索引
@@ -3668,7 +3661,7 @@ interface ServiceBalance {
 //    getServiceBalance({ contractId: 'xxx', serviceType: 'gap_analysis' })
 //
 // 4. 查询学生所有一对一咨询服务的余额
-//    getServiceBalance({ studentId: 'xxx', serviceType: 'session' })
+//    getServiceBalance({ studentId: 'xxx', serviceType: 'External' })
 //
 // 注意：
 // - 前端只关心总可用量，不关心来源明细
@@ -4956,7 +4949,7 @@ enum ContractStatus { ... }
 
 ```typescript
 const contractId = '...';
-const serviceType = 'gap_analysis';
+const serviceType = 'External'; // 引用 service_types.code
 const createdAt = new Date();
 
 // DTO 属性

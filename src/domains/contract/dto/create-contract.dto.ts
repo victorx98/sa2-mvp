@@ -3,11 +3,10 @@ import {
   IsUUID,
   IsString,
   IsObject,
-  ValidateNested,
   IsOptional,
-  IsDateString,
+  IsEnum,
 } from "class-validator";
-import { Type } from "class-transformer";
+import { ContractStatus } from "@shared/types/contract-enums";
 import { IProductSnapshot } from "../common/types/snapshot.types";
 
 /**
@@ -25,17 +24,19 @@ export class CreateContractDto {
 
   @IsNotEmpty()
   @IsObject()
-  @ValidateNested()
-  @Type(() => Object)
+  // productSnapshot structure is validated in business logic layer
+  // [productSnapshot结构在业务逻辑层进行验证]
+  // Note: @ValidateNested() cannot be used with interface types
+  // [注意：@ValidateNested()不能用于接口类型]
   productSnapshot: IProductSnapshot; // Product snapshot (产品快照)
 
   @IsOptional()
-  @IsDateString()
-  signedAt?: Date; // Contract signing date (合约签署日期)
+  @IsEnum(ContractStatus)
+  status?: ContractStatus; // Initial contract status, defaults to DRAFT (初始合同状态，默认为DRAFT)
+  // Only DRAFT or SIGNED is allowed for initial status [初始状态只允许DRAFT或SIGNED]
 
-  @IsNotEmpty()
-  @IsString()
-  createdBy: string; // ID of creator (创建人ID)
+  // createdBy is set by controller from JWT token, should not be provided by client
+  // [createdBy由控制器从JWT token中获取，不应由客户端提供]
 
   @IsOptional()
   @IsString()

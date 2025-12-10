@@ -23,15 +23,24 @@ import { GetContractQuery } from "./queries/contract/get-contract.query";
 import { GetContractsQuery } from "./queries/contract/get-contracts.query";
 import { GetProductQuery } from "./queries/product/get-product.query";
 import { GetProductsQuery } from "./queries/product/get-products.query";
+import { GetServiceTypesQuery } from "./queries/service-type/get-service-types.query";
 import { GetSessionTypesQuery } from "./queries/services/get-session-types.query";
 import { GetMentorAppealsQuery } from "./queries/financial/get-mentor-appeals.query";
 import { GetMentorAppealQuery } from "./queries/financial/get-mentor-appeal.query";
 import { GetSettlementsQuery } from "./queries/financial/get-settlements.query";
 import { GetSettlementQuery } from "./queries/financial/get-settlement.query";
+import { GetMentorPricesQuery } from "./queries/financial/get-mentor-prices.query";
+import { GetMentorPriceQuery } from "./queries/financial/get-mentor-price.query";
+import { GetAdjustmentChainQuery } from "./queries/financial/get-adjustment-chain.query";
+import { GetSettlementByMentorAndMonthQuery } from "./queries/financial/get-settlement-by-mentor-and-month.query";
+import { GetSettlementDetailsQuery } from "./queries/financial/get-settlement-details.query";
+import { GetPaymentParamsQuery } from "./queries/financial/get-payment-params.query";
+import { GetMentorPaymentInfoQuery } from "./queries/financial/get-mentor-payment-info.query";
 import { GetJobPositionsQuery } from "./queries/placement/get-job-positions.query";
 import { GetJobPositionQuery } from "./queries/placement/get-job-position.query";
 import { GetJobApplicationsQuery } from "./queries/placement/get-job-applications.query";
 import { GetJobApplicationQuery } from "./queries/placement/get-job-application.query";
+import { GetJobApplicationHistoryQuery } from "./queries/placement/get-job-application-history.query";
 
 // Application Layer - Commands
 import { RegisterCommand } from "./commands/auth/register.command";
@@ -45,7 +54,6 @@ import { UpdateProductCommand } from "./commands/product/update-product.command"
 import { UpdateProductStatusCommand } from "./commands/product/update-product-status.command";
 import { AddProductItemCommand } from "./commands/product/add-product-item.command";
 import { RemoveProductItemCommand } from "./commands/product/remove-product-item.command";
-import { UpdateProductItemSortOrderCommand } from "./commands/product/update-item-sort-order.command";
 import { CreateProductSnapshotCommand } from "./commands/product/create-snapshot.command";
 import { CreateContractCommand } from "./commands/contract/create-contract.command";
 import { ActivateContractCommand } from "./commands/contract/activate-contract.command";
@@ -55,14 +63,27 @@ import { ResumeContractCommand } from "./commands/contract/resume-contract.comma
 import { CompleteContractCommand } from "./commands/contract/complete-contract.command";
 import { TerminateContractCommand } from "./commands/contract/terminate-contract.command";
 import { UpdateContractCommand } from "./commands/contract/update-contract.command";
+import { UpdateContractStatusCommand } from "./commands/contract/update-contract-status.command";
 import { ConsumeServiceCommand } from "./commands/contract/consume-service.command";
 import { AddAmendmentLedgerCommand } from "./commands/contract/add-amendment-ledger.command";
 import { CreateMentorAppealCommand } from "./commands/financial/create-mentor-appeal.command";
 import { ApproveMentorAppealCommand } from "./commands/financial/approve-mentor-appeal.command";
 import { RejectMentorAppealCommand } from "./commands/financial/reject-mentor-appeal.command";
+import { CreateMentorPriceCommand } from "./commands/financial/create-mentor-price.command";
+import { UpdateMentorPriceCommand } from "./commands/financial/update-mentor-price.command";
+import { UpdateMentorPriceStatusCommand } from "./commands/financial/update-mentor-price-status.command";
+import { BatchCreateMentorPricesCommand } from "./commands/financial/batch-create-mentor-prices.command";
+import { BatchUpdateMentorPricesCommand } from "./commands/financial/batch-update-mentor-prices.command";
+import { AdjustPayableLedgerCommand } from "./commands/financial/adjust-payable-ledger.command";
+import { GenerateSettlementCommand } from "./commands/financial/generate-settlement.command";
+import { UpdateOrCreatePaymentParamsCommand } from "./commands/financial/update-or-create-payment-params.command";
+import { ModifyPaymentParamsCommand } from "./commands/financial/modify-payment-params.command";
+import { CreateOrUpdateMentorPaymentInfoCommand } from "./commands/financial/create-or-update-mentor-payment-info.command";
+import { UpdateMentorPaymentInfoStatusCommand } from "./commands/financial/update-mentor-payment-info-status.command";
 import { CreateJobPositionCommand } from "./commands/placement/create-job-position.command";
 import { UpdateJobPositionCommand } from "./commands/placement/update-job-position.command";
 import { UpdateJobApplicationStatusCommand } from "./commands/placement/update-job-application-status.command";
+import { RollbackJobApplicationStatusCommand } from "./commands/placement/rollback-job-application-status.command";
 
 // Application Layer - Commands (兼容层)
 import { AuthCommandService } from "./commands/auth-command/auth-command.service";
@@ -100,7 +121,6 @@ import { QueryModule } from "@domains/query/query.module";
     QueryModule, // Domain层：Query (跨域查询)
   ],
   providers: [
-
     // Queries
     UserQueryService,
     StudentListQuery,
@@ -115,15 +135,24 @@ import { QueryModule } from "@domains/query/query.module";
     GetContractsQuery,
     GetProductQuery,
     GetProductsQuery,
+    GetServiceTypesQuery,
     GetSessionTypesQuery,
     GetMentorAppealsQuery,
     GetMentorAppealQuery,
     GetSettlementsQuery,
     GetSettlementQuery,
+    GetMentorPricesQuery,
+    GetMentorPriceQuery,
+    GetAdjustmentChainQuery,
+    GetSettlementByMentorAndMonthQuery,
+    GetSettlementDetailsQuery,
+    GetPaymentParamsQuery,
+    GetMentorPaymentInfoQuery,
     GetJobPositionsQuery,
     GetJobPositionQuery,
     GetJobApplicationsQuery,
     GetJobApplicationQuery,
+    GetJobApplicationHistoryQuery,
 
     // Commands
     RegisterCommand,
@@ -137,7 +166,6 @@ import { QueryModule } from "@domains/query/query.module";
     UpdateProductStatusCommand,
     AddProductItemCommand,
     RemoveProductItemCommand,
-    UpdateProductItemSortOrderCommand,
     CreateProductSnapshotCommand,
     CreateContractCommand,
     ActivateContractCommand,
@@ -147,14 +175,27 @@ import { QueryModule } from "@domains/query/query.module";
     CompleteContractCommand,
     TerminateContractCommand,
     UpdateContractCommand,
+    UpdateContractStatusCommand,
     ConsumeServiceCommand,
     AddAmendmentLedgerCommand,
     CreateMentorAppealCommand,
     ApproveMentorAppealCommand,
     RejectMentorAppealCommand,
+    CreateMentorPriceCommand,
+    UpdateMentorPriceCommand,
+    UpdateMentorPriceStatusCommand,
+    BatchCreateMentorPricesCommand,
+    BatchUpdateMentorPricesCommand,
+    AdjustPayableLedgerCommand,
+    GenerateSettlementCommand,
+    UpdateOrCreatePaymentParamsCommand,
+    ModifyPaymentParamsCommand,
+    CreateOrUpdateMentorPaymentInfoCommand,
+    UpdateMentorPaymentInfoStatusCommand,
     CreateJobPositionCommand,
     UpdateJobPositionCommand,
     UpdateJobApplicationStatusCommand,
+    RollbackJobApplicationStatusCommand,
 
     // Commands (兼容层)
     AuthCommandService,
@@ -168,6 +209,10 @@ import { QueryModule } from "@domains/query/query.module";
     ServicesModule,
     UserModule,
     ContractModule,
+    CatalogModule,
+    FinancialModule,
+    PlacementModule,
+    QueryModule,
 
     // Queries
     UserQueryService,
@@ -183,15 +228,24 @@ import { QueryModule } from "@domains/query/query.module";
     GetContractsQuery,
     GetProductQuery,
     GetProductsQuery,
+    GetServiceTypesQuery,
     GetSessionTypesQuery,
     GetMentorAppealsQuery,
     GetMentorAppealQuery,
     GetSettlementsQuery,
     GetSettlementQuery,
+    GetMentorPricesQuery,
+    GetMentorPriceQuery,
+    GetAdjustmentChainQuery,
+    GetSettlementByMentorAndMonthQuery,
+    GetSettlementDetailsQuery,
+    GetPaymentParamsQuery,
+    GetMentorPaymentInfoQuery,
     GetJobPositionsQuery,
     GetJobPositionQuery,
     GetJobApplicationsQuery,
     GetJobApplicationQuery,
+    GetJobApplicationHistoryQuery,
 
     // Commands
     RegisterCommand,
@@ -205,7 +259,6 @@ import { QueryModule } from "@domains/query/query.module";
     UpdateProductStatusCommand,
     AddProductItemCommand,
     RemoveProductItemCommand,
-    UpdateProductItemSortOrderCommand,
     CreateProductSnapshotCommand,
     CreateContractCommand,
     ActivateContractCommand,
@@ -215,14 +268,27 @@ import { QueryModule } from "@domains/query/query.module";
     CompleteContractCommand,
     TerminateContractCommand,
     UpdateContractCommand,
+    UpdateContractStatusCommand,
     ConsumeServiceCommand,
     AddAmendmentLedgerCommand,
     CreateMentorAppealCommand,
     ApproveMentorAppealCommand,
     RejectMentorAppealCommand,
+    CreateMentorPriceCommand,
+    UpdateMentorPriceCommand,
+    UpdateMentorPriceStatusCommand,
+    BatchCreateMentorPricesCommand,
+    BatchUpdateMentorPricesCommand,
+    AdjustPayableLedgerCommand,
+    GenerateSettlementCommand,
+    UpdateOrCreatePaymentParamsCommand,
+    ModifyPaymentParamsCommand,
+    CreateOrUpdateMentorPaymentInfoCommand,
+    UpdateMentorPaymentInfoStatusCommand,
     CreateJobPositionCommand,
     UpdateJobPositionCommand,
     UpdateJobApplicationStatusCommand,
+    RollbackJobApplicationStatusCommand,
 
     // Commands (兼容层 - 保持向后兼容)
     AuthCommandService,

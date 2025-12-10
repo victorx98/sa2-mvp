@@ -1,8 +1,6 @@
 import { Injectable, Logger, Inject } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
-import {
-  IJobApplicationStatusRolledBackEvent,
-} from "@shared/events/placement-application.events";
+import { IJobApplicationStatusRolledBackEvent } from "@shared/events/placement-application.events";
 import { JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT } from "@shared/events/event-constants";
 import { MentorPayableService } from "@domains/financial/services/mentor-payable.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
@@ -27,7 +25,9 @@ import { eq, and } from "drizzle-orm";
  */
 @Injectable()
 export class PlacementApplicationStatusRolledBackListener {
-  private readonly logger = new Logger(PlacementApplicationStatusRolledBackListener.name);
+  private readonly logger = new Logger(
+    PlacementApplicationStatusRolledBackListener.name,
+  );
 
   constructor(
     @Inject("IMentorPayableService")
@@ -80,21 +80,20 @@ export class PlacementApplicationStatusRolledBackListener {
       });
 
       if (!jobApplication) {
-        this.logger.error(
-          `Job application not found: ${applicationId}`,
-        );
+        this.logger.error(`Job application not found: ${applicationId}`);
         return;
       }
 
       // 2. Retrieve previously created billing records for this application and status
       // Find the original billing record that needs to be adjusted
-      const originalBillingRecords = await this.db.query.mentorPayableLedgers.findMany({
-        where: and(
-          eq(schema.mentorPayableLedgers.referenceId, applicationId),
-          eq(schema.mentorPayableLedgers.sessionTypeCode, previousStatus),
-          eq(schema.mentorPayableLedgers.originalId, null), // Only adjust original records, not adjustments
-        ),
-      });
+      const originalBillingRecords =
+        await this.db.query.mentorPayableLedgers.findMany({
+          where: and(
+            eq(schema.mentorPayableLedgers.referenceId, applicationId),
+            eq(schema.mentorPayableLedgers.sessionTypeCode, previousStatus),
+            eq(schema.mentorPayableLedgers.originalId, null), // Only adjust original records, not adjustments
+          ),
+        });
 
       if (originalBillingRecords.length === 0) {
         this.logger.warn(

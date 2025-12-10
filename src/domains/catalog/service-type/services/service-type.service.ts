@@ -1,10 +1,10 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { ServiceTypeRepository } from '../service-type.repository';
-import { ServiceTypeFilterDto } from '../dto/service-type-filter.dto';
-import { PaginationDto } from '../../common/dto/pagination.dto';
-import { SortDto } from '../../common/dto/sort.dto';
-import { PaginatedResult } from '@shared/types/paginated-result';
-import { IServiceType } from '../interfaces/service-type.interface';
+import { Injectable, Inject } from "@nestjs/common";
+import { ServiceTypeRepository } from "../service-type.repository";
+import { ServiceTypeFilterDto } from "../dto/service-type-filter.dto";
+import { PaginationDto } from "../../common/dto/pagination.dto";
+import { SortDto } from "../../common/dto/sort.dto";
+import { PaginatedResult } from "@shared/types/paginated-result";
+import { IServiceType } from "../interfaces/service-type.interface";
 
 /**
  * Service Type Service [服务类型服务]
@@ -13,14 +13,12 @@ import { IServiceType } from '../interfaces/service-type.interface';
  */
 @Injectable()
 export class ServiceTypeService {
-  constructor(
-    private readonly serviceTypeRepository: ServiceTypeRepository,
-  ) {}
+  constructor(private readonly serviceTypeRepository: ServiceTypeRepository) {}
 
   /**
    * Search service types with filter, pagination and sort
    * [根据筛选条件、分页和排序查询服务类型]
-   * 
+   *
    * @param filter Filter criteria [筛选条件]
    * @param pagination Pagination options [分页选项]
    * @param sort Sort options [排序选项]
@@ -46,7 +44,11 @@ export class ServiceTypeService {
     }
 
     // Get service types with pagination and sort [获取带分页和排序的服务类型]
-    const serviceTypes = await this.serviceTypeRepository.findMany(filter, pagination, sort);
+    const serviceTypes = await this.serviceTypeRepository.findMany(
+      filter,
+      pagination,
+      sort,
+    );
 
     // Calculate pagination info [计算分页信息]
     const page = pagination?.page || 1;

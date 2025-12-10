@@ -11,8 +11,8 @@ export class ContractFilterDto {
   studentId?: string; // Student ID (学生ID)
 
   @IsOptional()
-  @Transform(({ value }) => value === "" ? undefined : value)
-  @IsEnum(["signed", "active", "suspended", "completed", "terminated"])
+  @Transform(({ value }) => (value === "" ? undefined : value))
+  @IsEnum(["SIGNED", "ACTIVE", "SUSPENDED", "COMPLETED", "TERMINATED"])
   status?: string; // Contract status (合约状态)
 
   @IsOptional()

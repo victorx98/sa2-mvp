@@ -1,27 +1,47 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "SA2-MVP API",
-    "description": "SA2-MVP 后端API文档，包含Catalog、Contract、Financial和Placement四个业务域的所有API接口",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "title": "SA2 MVP API Documentation",
+    "description": "SA2 MVP项目的API文档，包含catalog、contract、financial、placement四个业务域的所有API接口",
+    "contact": {
+      "name": "SA2 MVP Team",
+      "email": "team@sa2-mvp.com"
+    }
   },
   "host": "localhost:3000",
   "basePath": "/",
   "schemes": [
-    "http"
+    "http",
+    "https"
   ],
+  "securityDefinitions": {
+    "Bearer": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\""
+    }
+  },
   "paths": {
     "/api/admin/products": {
       "post": {
-        "tags": ["Catalog"],
-        "summary": "创建产品",
-        "description": "创建一个新的产品，支持同时添加产品项",
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Create a new product",
+        "description": "创建一个新的产品",
         "operationId": "createProduct",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
             "in": "body",
             "name": "body",
-            "description": "产品创建请求体",
+            "description": "Product object to be created",
             "required": true,
             "schema": {
               "$ref": "#/definitions/CreateProductDto"
@@ -30,129 +50,145 @@
         ],
         "responses": {
           "201": {
-            "description": "产品创建成功",
+            "description": "Product created successfully",
             "schema": {
               "$ref": "#/definitions/Product"
             }
           },
           "400": {
-            "description": "请求参数错误",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       },
       "get": {
-        "tags": ["Catalog"],
-        "summary": "获取所有产品",
-        "description": "获取所有产品，支持筛选、分页和排序",
-        "operationId": "getAllProducts",
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Get all products",
+        "description": "获取所有产品列表",
+        "operationId": "getProducts",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
+            "in": "query",
             "name": "page",
-            "in": "query",
+            "description": "Page number",
+            "required": false,
             "type": "integer",
-            "default": 1,
-            "description": "页码"
+            "default": 1
           },
           {
+            "in": "query",
             "name": "pageSize",
-            "in": "query",
+            "description": "Number of items per page",
+            "required": false,
             "type": "integer",
-            "default": 20,
-            "description": "每页数量"
+            "default": 20
           },
           {
-            "name": "field",
             "in": "query",
+            "name": "orderField",
+            "description": "Field to order by",
+            "required": false,
             "type": "string",
-            "default": "createdAt",
-            "description": "排序字段"
+            "default": "createdAt"
           },
           {
-            "name": "order",
             "in": "query",
+            "name": "orderDirection",
+            "description": "Order direction",
+            "required": false,
             "type": "string",
-            "default": "desc",
-            "enum": ["asc", "desc"],
-            "description": "排序方向"
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "default": "desc"
           }
         ],
         "responses": {
           "200": {
-            "description": "产品列表获取成功",
+            "description": "Products retrieved successfully",
             "schema": {
-              "$ref": "#/definitions/PaginatedProductResponse"
+              "$ref": "#/definitions/PaginatedResult"
             }
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/products/{id}": {
       "get": {
-        "tags": ["Catalog"],
-        "summary": "获取单个产品",
-        "description": "根据ID获取单个产品的详细信息",
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Get product by ID",
+        "description": "根据ID获取产品详情",
         "operationId": "getProductById",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "id",
             "in": "path",
+            "name": "id",
+            "description": "Product ID",
             "required": true,
             "type": "string",
-            "format": "uuid",
-            "description": "产品ID"
+            "format": "uuid"
           }
         ],
         "responses": {
           "200": {
-            "description": "产品获取成功",
+            "description": "Product retrieved successfully",
             "schema": {
-              "$ref": "#/definitions/ProductDetail"
+              "$ref": "#/definitions/Product"
             }
           },
           "404": {
-            "description": "产品未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Product not found"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       },
       "patch": {
-        "tags": ["Catalog"],
-        "summary": "更新产品",
-        "description": "更新产品信息，支持添加、删除和排序产品项",
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Update product",
+        "description": "更新产品信息",
         "operationId": "updateProduct",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "id",
             "in": "path",
+            "name": "id",
+            "description": "Product ID",
             "required": true,
             "type": "string",
-            "format": "uuid",
-            "description": "产品ID"
+            "format": "uuid"
           },
           {
             "in": "body",
             "name": "body",
-            "description": "产品更新请求体",
+            "description": "Product update object",
             "required": true,
             "schema": {
               "$ref": "#/definitions/UpdateProductDto"
@@ -161,81 +197,85 @@
         ],
         "responses": {
           "200": {
-            "description": "产品更新成功",
+            "description": "Product updated successfully",
             "schema": {
               "$ref": "#/definitions/Product"
             }
           },
           "404": {
-            "description": "产品未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Product not found"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/products/{id}/snapshot": {
       "get": {
-        "tags": ["Catalog"],
-        "summary": "创建产品快照",
-        "description": "为指定产品创建快照，用于记录产品在特定时间点的状态",
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Create product snapshot",
+        "description": "创建产品快照",
         "operationId": "createProductSnapshot",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "id",
             "in": "path",
+            "name": "id",
+            "description": "Product ID",
             "required": true,
             "type": "string",
-            "format": "uuid",
-            "description": "产品ID"
+            "format": "uuid"
           }
         ],
         "responses": {
           "200": {
-            "description": "产品快照创建成功",
+            "description": "Product snapshot created successfully",
             "schema": {
               "$ref": "#/definitions/ProductSnapshot"
             }
           },
           "404": {
-            "description": "产品未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Product not found"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/products/{id}/status": {
       "patch": {
-        "tags": ["Catalog"],
-        "summary": "更新产品状态",
-        "description": "更新产品状态，支持DRAFT->ACTIVE（发布）、ACTIVE->INACTIVE（取消发布）、INACTIVE->DRAFT（恢复草稿）",
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Update product status",
+        "description": "更新产品状态",
         "operationId": "updateProductStatus",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "id",
             "in": "path",
+            "name": "id",
+            "description": "Product ID",
             "required": true,
             "type": "string",
-            "format": "uuid",
-            "description": "产品ID"
+            "format": "uuid"
           },
           {
             "in": "body",
             "name": "body",
-            "description": "产品状态更新请求体",
+            "description": "Product status update object",
             "required": true,
             "schema": {
               "$ref": "#/definitions/UpdateProductStatusDto"
@@ -244,94 +284,105 @@
         ],
         "responses": {
           "200": {
-            "description": "产品状态更新成功",
+            "description": "Product status updated successfully",
             "schema": {
               "$ref": "#/definitions/Product"
             }
           },
-          "404": {
-            "description": "产品未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
-          },
           "400": {
-            "description": "无效的状态转换",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Bad request or invalid status transition"
+          },
+          "404": {
+            "description": "Product not found"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/service-types": {
       "get": {
-        "tags": ["Catalog"],
-        "summary": "获取所有服务类型",
-        "description": "获取所有服务类型，支持筛选、分页和排序",
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Get all service types",
+        "description": "获取所有服务类型列表",
         "operationId": "getServiceTypes",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
+            "in": "query",
             "name": "page",
-            "in": "query",
+            "description": "Page number",
+            "required": false,
             "type": "integer",
-            "default": 1,
-            "description": "页码"
+            "default": 1
           },
           {
+            "in": "query",
             "name": "pageSize",
-            "in": "query",
+            "description": "Number of items per page",
+            "required": false,
             "type": "integer",
-            "default": 20,
-            "description": "每页数量"
+            "default": 20
           },
           {
-            "name": "field",
             "in": "query",
+            "name": "orderField",
+            "description": "Field to order by",
+            "required": false,
             "type": "string",
-            "default": "createdAt",
-            "description": "排序字段"
+            "default": "createdAt"
           },
           {
-            "name": "order",
             "in": "query",
+            "name": "orderDirection",
+            "description": "Order direction",
+            "required": false,
             "type": "string",
-            "default": "desc",
-            "enum": ["asc", "desc"],
-            "description": "排序方向"
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "default": "desc"
           }
         ],
         "responses": {
           "200": {
-            "description": "服务类型列表获取成功",
+            "description": "Service types retrieved successfully",
             "schema": {
-              "$ref": "#/definitions/PaginatedServiceTypeResponse"
+              "$ref": "#/definitions/PaginatedResult"
             }
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/contracts": {
       "post": {
-        "tags": ["Contract"],
-        "summary": "创建合同",
+        "tags": [
+          "Contract"
+        ],
+        "summary": "Create a new contract",
         "description": "创建一个新的合同",
         "operationId": "createContract",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
             "in": "body",
             "name": "body",
-            "description": "合同创建请求体",
+            "description": "Contract object to be created",
             "required": true,
             "schema": {
               "$ref": "#/definitions/CreateContractDto"
@@ -340,163 +391,131 @@
         ],
         "responses": {
           "201": {
-            "description": "合同创建成功",
+            "description": "Contract created successfully",
             "schema": {
               "$ref": "#/definitions/Contract"
             }
           },
           "400": {
-            "description": "请求参数错误",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       },
       "get": {
-        "tags": ["Contract"],
-        "summary": "获取所有合同",
-        "description": "获取所有合同，支持筛选、分页和排序",
-        "operationId": "getAllContracts",
+        "tags": [
+          "Contract"
+        ],
+        "summary": "Get all contracts",
+        "description": "获取所有合同列表",
+        "operationId": "getContracts",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
+            "in": "query",
             "name": "studentId",
-            "in": "query",
+            "description": "Student ID",
+            "required": false,
             "type": "string",
-            "format": "uuid",
-            "description": "学生ID"
+            "format": "uuid"
           },
           {
+            "in": "query",
             "name": "status",
-            "in": "query",
-            "type": "string",
-            "description": "合同状态"
+            "description": "Contract status",
+            "required": false,
+            "type": "string"
           },
           {
+            "in": "query",
             "name": "productId",
-            "in": "query",
+            "description": "Product ID",
+            "required": false,
             "type": "string",
-            "format": "uuid",
-            "description": "产品ID"
+            "format": "uuid"
           },
           {
-            "name": "signedAfter",
             "in": "query",
-            "type": "string",
-            "format": "date-time",
-            "description": "签署时间之后"
-          },
-          {
-            "name": "signedBefore",
-            "in": "query",
-            "type": "string",
-            "format": "date-time",
-            "description": "签署时间之前"
-          },
-          {
             "name": "page",
-            "in": "query",
+            "description": "Page number",
+            "required": false,
             "type": "integer",
-            "default": 1,
-            "description": "页码"
+            "default": 1
           },
           {
+            "in": "query",
             "name": "pageSize",
-            "in": "query",
+            "description": "Number of items per page",
+            "required": false,
             "type": "integer",
-            "default": 20,
-            "description": "每页数量"
+            "default": 20
           },
           {
-            "name": "field",
             "in": "query",
+            "name": "orderField",
+            "description": "Field to order by",
+            "required": false,
             "type": "string",
-            "default": "createdAt",
-            "description": "排序字段"
+            "default": "createdAt"
           },
           {
-            "name": "order",
             "in": "query",
+            "name": "orderDirection",
+            "description": "Order direction",
+            "required": false,
             "type": "string",
-            "default": "desc",
-            "enum": ["asc", "desc"],
-            "description": "排序方向"
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "default": "desc"
           }
         ],
         "responses": {
           "200": {
-            "description": "合同列表获取成功",
+            "description": "Contracts retrieved successfully",
             "schema": {
-              "$ref": "#/definitions/PaginatedContractResponse"
+              "$ref": "#/definitions/PaginatedResult"
             }
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/contracts/{id}": {
-      "get": {
-        "tags": ["Contract"],
-        "summary": "获取单个合同",
-        "description": "根据ID获取单个合同的详细信息",
-        "operationId": "getContractById",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string",
-            "format": "uuid",
-            "description": "合同ID"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "合同获取成功",
-            "schema": {
-              "$ref": "#/definitions/ContractDetail"
-            }
-          },
-          "404": {
-            "description": "合同未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      },
       "patch": {
-        "tags": ["Contract"],
-        "summary": "更新合同",
+        "tags": [
+          "Contract"
+        ],
+        "summary": "Update contract",
         "description": "更新合同信息",
         "operationId": "updateContract",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "id",
             "in": "path",
+            "name": "id",
+            "description": "Contract ID",
             "required": true,
             "type": "string",
-            "format": "uuid",
-            "description": "合同ID"
+            "format": "uuid"
           },
           {
             "in": "body",
             "name": "body",
-            "description": "合同更新请求体",
+            "description": "Contract update object",
             "required": true,
             "schema": {
               "$ref": "#/definitions/UpdateContractDto"
@@ -505,290 +524,89 @@
         ],
         "responses": {
           "200": {
-            "description": "合同更新成功",
+            "description": "Contract updated successfully",
             "schema": {
               "$ref": "#/definitions/Contract"
             }
           },
           "404": {
-            "description": "合同未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Contract not found"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
-    "/api/admin/contracts/{id}/activate": {
-      "post": {
-        "tags": ["Contract"],
-        "summary": "激活合同",
-        "description": "激活指定的合同",
-        "operationId": "activateContract",
-        "parameters": [
+    "/api/admin/contracts/{id}/status": {
+      "patch": {
+        "tags": [
+          "Contract"
+        ],
+        "summary": "Update contract status",
+        "description": "更新合同状态",
+        "operationId": "updateContractStatus",
+        "security": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string",
-            "format": "uuid",
-            "description": "合同ID"
+            "Bearer": []
           }
         ],
-        "responses": {
-          "200": {
-            "description": "合同激活成功",
-            "schema": {
-              "$ref": "#/definitions/Contract"
-            }
-          },
-          "404": {
-            "description": "合同未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/admin/contracts/{id}/sign": {
-      "post": {
-        "tags": ["Contract"],
-        "summary": "签署合同",
-        "description": "签署指定的合同",
-        "operationId": "signContract",
         "parameters": [
           {
-            "name": "id",
             "in": "path",
+            "name": "id",
+            "description": "Contract ID",
             "required": true,
             "type": "string",
-            "format": "uuid",
-            "description": "合同ID"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "合同签署成功",
-            "schema": {
-              "$ref": "#/definitions/Contract"
-            }
-          },
-          "404": {
-            "description": "合同未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/admin/contracts/{id}/suspend": {
-      "post": {
-        "tags": ["Contract"],
-        "summary": "暂停合同",
-        "description": "暂停指定的合同",
-        "operationId": "suspendContract",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string",
-            "format": "uuid",
-            "description": "合同ID"
+            "format": "uuid"
           },
           {
             "in": "body",
             "name": "body",
-            "description": "合同暂停请求体",
+            "description": "Contract status update object",
             "required": true,
             "schema": {
-              "type": "object",
-              "properties": {
-                "reason": {
-                  "type": "string",
-                  "description": "暂停原因"
-                }
-              },
-              "required": ["reason"]
+              "$ref": "#/definitions/UpdateContractStatusDto"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "合同暂停成功",
+            "description": "Contract status updated successfully",
             "schema": {
               "$ref": "#/definitions/Contract"
             }
           },
-          "404": {
-            "description": "合同未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/admin/contracts/{id}/resume": {
-      "post": {
-        "tags": ["Contract"],
-        "summary": "恢复合同",
-        "description": "恢复指定的合同",
-        "operationId": "resumeContract",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string",
-            "format": "uuid",
-            "description": "合同ID"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "合同恢复成功",
-            "schema": {
-              "$ref": "#/definitions/Contract"
-            }
+          "400": {
+            "description": "Invalid status transition"
           },
           "404": {
-            "description": "合同未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/admin/contracts/{id}/complete": {
-      "post": {
-        "tags": ["Contract"],
-        "summary": "完成合同",
-        "description": "完成指定的合同",
-        "operationId": "completeContract",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string",
-            "format": "uuid",
-            "description": "合同ID"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "合同完成成功",
-            "schema": {
-              "$ref": "#/definitions/Contract"
-            }
+            "description": "Contract not found"
           },
-          "404": {
-            "description": "合同未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/admin/contracts/{id}/terminate": {
-      "post": {
-        "tags": ["Contract"],
-        "summary": "终止合同",
-        "description": "终止指定的合同",
-        "operationId": "terminateContract",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string",
-            "format": "uuid",
-            "description": "合同ID"
-          },
-          {
-            "in": "body",
-            "name": "body",
-            "description": "合同终止请求体",
-            "required": true,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "reason": {
-                  "type": "string",
-                  "description": "终止原因"
-                }
-              },
-              "required": ["reason"]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "合同终止成功",
-            "schema": {
-              "$ref": "#/definitions/Contract"
-            }
-          },
-          "404": {
-            "description": "合同未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/contracts/consume": {
       "post": {
-        "tags": ["Contract"],
-        "summary": "消费服务",
-        "description": "消费合同中的服务",
+        "tags": [
+          "Contract"
+        ],
+        "summary": "Consume service",
+        "description": "消费服务",
         "operationId": "consumeService",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
             "in": "body",
             "name": "body",
-            "description": "服务消费请求体",
+            "description": "Service consumption object",
             "required": true,
             "schema": {
               "$ref": "#/definitions/ConsumeServiceDto"
@@ -797,46 +615,35 @@
         ],
         "responses": {
           "200": {
-            "description": "服务消费成功",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "success": {
-                  "type": "boolean",
-                  "description": "消费是否成功"
-                },
-                "remaining": {
-                  "type": "integer",
-                  "description": "剩余服务数量"
-                }
-              }
-            }
+            "description": "Service consumed successfully"
           },
           "400": {
-            "description": "请求参数错误",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/contracts/amendment-ledger": {
       "post": {
-        "tags": ["Contract"],
-        "summary": "添加修订台账",
-        "description": "为合同添加修订台账",
+        "tags": [
+          "Contract"
+        ],
+        "summary": "Add amendment ledger",
+        "description": "添加合同修订 ledger",
         "operationId": "addAmendmentLedger",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
             "in": "body",
             "name": "body",
-            "description": "修订台账添加请求体",
+            "description": "Amendment ledger object",
             "required": true,
             "schema": {
               "$ref": "#/definitions/AddAmendmentLedgerDto"
@@ -845,43 +652,35 @@
         ],
         "responses": {
           "201": {
-            "description": "修订台账添加成功",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "string",
-                  "format": "uuid",
-                  "description": "修订台账ID"
-                }
-              }
-            }
+            "description": "Amendment ledger added successfully"
           },
           "400": {
-            "description": "请求参数错误",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/financial/mentor-appeals": {
       "post": {
-        "tags": ["Financial"],
-        "summary": "创建导师申诉",
+        "tags": [
+          "Financial"
+        ],
+        "summary": "Create a new mentor appeal",
         "description": "创建一个新的导师申诉",
         "operationId": "createMentorAppeal",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
             "in": "body",
             "name": "body",
-            "description": "导师申诉创建请求体",
+            "description": "Mentor appeal object to be created",
             "required": true,
             "schema": {
               "$ref": "#/definitions/CreateAppealDto"
@@ -890,168 +689,175 @@
         ],
         "responses": {
           "201": {
-            "description": "导师申诉创建成功",
-            "schema": {
-              "$ref": "#/definitions/MentorAppeal"
-            }
+            "description": "Mentor appeal created successfully"
           },
           "400": {
-            "description": "请求参数错误",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       },
       "get": {
-        "tags": ["Financial"],
-        "summary": "获取所有导师申诉",
-        "description": "获取所有导师申诉，支持筛选、分页和排序",
-        "operationId": "getAllMentorAppeals",
+        "tags": [
+          "Financial"
+        ],
+        "summary": "Get all mentor appeals",
+        "description": "获取所有导师申诉列表",
+        "operationId": "getMentorAppeals",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
+            "in": "query",
             "name": "page",
-            "in": "query",
+            "description": "Page number",
+            "required": false,
             "type": "integer",
-            "default": 1,
-            "description": "页码"
+            "default": 1
           },
           {
+            "in": "query",
             "name": "pageSize",
-            "in": "query",
+            "description": "Number of items per page",
+            "required": false,
             "type": "integer",
-            "default": 20,
-            "description": "每页数量"
+            "default": 20
           },
           {
+            "in": "query",
             "name": "field",
-            "in": "query",
-            "type": "string",
-            "default": "createdAt",
-            "description": "排序字段"
+            "description": "Field to order by",
+            "required": false,
+            "type": "string"
           },
           {
-            "name": "order",
             "in": "query",
+            "name": "order",
+            "description": "Order direction",
+            "required": false,
             "type": "string",
-            "default": "desc",
-            "enum": ["asc", "desc"],
-            "description": "排序方向"
+            "enum": [
+              "asc",
+              "desc"
+            ]
           }
         ],
         "responses": {
           "200": {
-            "description": "导师申诉列表获取成功",
+            "description": "Mentor appeals retrieved successfully",
             "schema": {
-              "$ref": "#/definitions/PaginatedMentorAppealResponse"
+              "$ref": "#/definitions/PaginatedResult"
             }
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/financial/mentor-appeals/{id}": {
       "get": {
-        "tags": ["Financial"],
-        "summary": "获取单个导师申诉",
-        "description": "根据ID获取单个导师申诉的详细信息",
+        "tags": [
+          "Financial"
+        ],
+        "summary": "Get mentor appeal by ID",
+        "description": "根据ID获取导师申诉详情",
         "operationId": "getMentorAppealById",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "id",
             "in": "path",
+            "name": "id",
+            "description": "Mentor appeal ID",
             "required": true,
             "type": "string",
-            "format": "uuid",
-            "description": "导师申诉ID"
+            "format": "uuid"
           }
         ],
         "responses": {
           "200": {
-            "description": "导师申诉获取成功",
-            "schema": {
-              "$ref": "#/definitions/MentorAppeal"
-            }
+            "description": "Mentor appeal retrieved successfully"
           },
           "404": {
-            "description": "导师申诉未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Mentor appeal not found"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/financial/mentor-appeals/{id}/approve": {
       "patch": {
-        "tags": ["Financial"],
-        "summary": "批准导师申诉",
-        "description": "批准指定的导师申诉",
+        "tags": [
+          "Financial"
+        ],
+        "summary": "Approve mentor appeal",
+        "description": "批准导师申诉",
         "operationId": "approveMentorAppeal",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "id",
             "in": "path",
+            "name": "id",
+            "description": "Mentor appeal ID",
             "required": true,
             "type": "string",
-            "format": "uuid",
-            "description": "导师申诉ID"
+            "format": "uuid"
           }
         ],
         "responses": {
           "200": {
-            "description": "导师申诉批准成功",
-            "schema": {
-              "$ref": "#/definitions/MentorAppeal"
-            }
+            "description": "Mentor appeal approved successfully"
           },
           "404": {
-            "description": "导师申诉未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Mentor appeal not found"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/financial/mentor-appeals/{id}/reject": {
       "patch": {
-        "tags": ["Financial"],
-        "summary": "拒绝导师申诉",
-        "description": "拒绝指定的导师申诉",
+        "tags": [
+          "Financial"
+        ],
+        "summary": "Reject mentor appeal",
+        "description": "拒绝导师申诉",
         "operationId": "rejectMentorAppeal",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "id",
             "in": "path",
+            "name": "id",
+            "description": "Mentor appeal ID",
             "required": true,
             "type": "string",
-            "format": "uuid",
-            "description": "导师申诉ID"
+            "format": "uuid"
           },
           {
             "in": "body",
             "name": "body",
-            "description": "导师申诉拒绝请求体",
+            "description": "Rejection reason",
             "required": true,
             "schema": {
               "$ref": "#/definitions/RejectAppealDto"
@@ -1060,591 +866,582 @@
         ],
         "responses": {
           "200": {
-            "description": "导师申诉拒绝成功",
-            "schema": {
-              "$ref": "#/definitions/MentorAppeal"
-            }
+            "description": "Mentor appeal rejected successfully"
           },
           "404": {
-            "description": "导师申诉未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Mentor appeal not found"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/financial/settlements": {
       "get": {
-        "tags": ["Financial"],
-        "summary": "获取所有结算",
-        "description": "获取所有结算，支持筛选、分页和排序",
-        "operationId": "getAllSettlements",
-        "parameters": [
+        "tags": [
+          "Financial"
+        ],
+        "summary": "Get all settlements",
+        "description": "获取所有结算列表",
+        "operationId": "getSettlements",
+        "security": [
           {
-            "name": "page",
-            "in": "query",
-            "type": "integer",
-            "default": 1,
-            "description": "页码"
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "type": "integer",
-            "default": 20,
-            "description": "每页数量"
-          },
-          {
-            "name": "field",
-            "in": "query",
-            "type": "string",
-            "default": "createdAt",
-            "description": "排序字段"
-          },
-          {
-            "name": "order",
-            "in": "query",
-            "type": "string",
-            "default": "desc",
-            "enum": ["asc", "desc"],
-            "description": "排序方向"
+            "Bearer": []
           }
         ],
         "responses": {
           "200": {
-            "description": "结算列表获取成功",
+            "description": "Settlements retrieved successfully",
             "schema": {
-              "$ref": "#/definitions/PaginatedSettlementResponse"
+              "$ref": "#/definitions/PaginatedResult"
             }
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/financial/settlements/{id}": {
       "get": {
-        "tags": ["Financial"],
-        "summary": "获取单个结算",
-        "description": "根据ID获取单个结算的详细信息",
+        "tags": [
+          "Financial"
+        ],
+        "summary": "Get settlement by ID",
+        "description": "根据ID获取结算详情",
         "operationId": "getSettlementById",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "id",
             "in": "path",
+            "name": "id",
+            "description": "Settlement ID",
             "required": true,
             "type": "string",
-            "format": "uuid",
-            "description": "结算ID"
+            "format": "uuid"
           }
         ],
         "responses": {
           "200": {
-            "description": "结算获取成功",
-            "schema": {
-              "$ref": "#/definitions/Settlement"
-            }
+            "description": "Settlement retrieved successfully"
           },
           "404": {
-            "description": "结算未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Settlement not found"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/placement/job-positions": {
       "post": {
-        "tags": ["Placement"],
-        "summary": "创建职位",
+        "tags": [
+          "Placement"
+        ],
+        "summary": "Create a new job position",
         "description": "创建一个新的职位",
         "operationId": "createJobPosition",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
             "in": "body",
             "name": "body",
-            "description": "职位创建请求体",
+            "description": "Job position object to be created",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/SubmitApplicationDto"
+              "$ref": "#/definitions/ICreateJobPositionDto"
             }
           }
         ],
         "responses": {
           "201": {
-            "description": "职位创建成功",
-            "schema": {
-              "$ref": "#/definitions/JobPosition"
-            }
+            "description": "Job position created successfully"
           },
           "400": {
-            "description": "请求参数错误",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       },
       "get": {
-        "tags": ["Placement"],
-        "summary": "获取所有职位",
-        "description": "获取所有职位，支持分页和排序",
-        "operationId": "getAllJobPositions",
+        "tags": [
+          "Placement"
+        ],
+        "summary": "Get all job positions",
+        "description": "获取所有职位列表",
+        "operationId": "getJobPositions",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
+            "in": "query",
             "name": "page",
-            "in": "query",
+            "description": "Page number",
+            "required": false,
             "type": "integer",
-            "default": 1,
-            "description": "页码"
+            "default": 1
           },
           {
+            "in": "query",
             "name": "pageSize",
-            "in": "query",
+            "description": "Number of items per page",
+            "required": false,
             "type": "integer",
-            "default": 20,
-            "description": "每页数量"
+            "default": 20
           },
           {
+            "in": "query",
             "name": "field",
-            "in": "query",
-            "type": "string",
-            "default": "createdAt",
-            "description": "排序字段"
+            "description": "Field to order by",
+            "required": false,
+            "type": "string"
           },
           {
-            "name": "order",
             "in": "query",
+            "name": "direction",
+            "description": "Order direction",
+            "required": false,
             "type": "string",
-            "default": "desc",
-            "enum": ["asc", "desc"],
-            "description": "排序方向"
+            "enum": [
+              "asc",
+              "desc"
+            ]
           }
         ],
         "responses": {
           "200": {
-            "description": "职位列表获取成功",
+            "description": "Job positions retrieved successfully",
             "schema": {
-              "$ref": "#/definitions/PaginatedJobPositionResponse"
+              "$ref": "#/definitions/PaginatedResult"
             }
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/placement/job-positions/{id}": {
       "get": {
-        "tags": ["Placement"],
-        "summary": "获取单个职位",
-        "description": "根据ID获取单个职位的详细信息",
+        "tags": [
+          "Placement"
+        ],
+        "summary": "Get job position by ID",
+        "description": "根据ID获取职位详情",
         "operationId": "getJobPositionById",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "id",
             "in": "path",
+            "name": "id",
+            "description": "Job position ID",
             "required": true,
             "type": "string",
-            "format": "uuid",
-            "description": "职位ID"
+            "format": "uuid"
           }
         ],
         "responses": {
           "200": {
-            "description": "职位获取成功",
-            "schema": {
-              "$ref": "#/definitions/JobPosition"
-            }
+            "description": "Job position retrieved successfully"
           },
           "404": {
-            "description": "职位未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Job position not found"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
+        }
+      }
+    },
+    "/api/admin/placement/job-positions/{id}/expire": {
+      "patch": {
+        "tags": [
+          "Placement"
+        ],
+        "summary": "Mark job position as expired",
+        "description": "标记职位为过期",
+        "operationId": "markJobPositionExpired",
         "security": [
           {
-            "bearerAuth": []
+            "Bearer": []
           }
-        ]
-      },
-      "patch": {
-        "tags": ["Placement"],
-        "summary": "更新职位",
-        "description": "更新职位信息",
-        "operationId": "updateJobPosition",
+        ],
         "parameters": [
           {
-            "name": "id",
             "in": "path",
+            "name": "id",
+            "description": "Job position ID",
             "required": true,
             "type": "string",
-            "format": "uuid",
-            "description": "职位ID"
+            "format": "uuid"
           },
           {
             "in": "body",
             "name": "body",
-            "description": "职位更新请求体",
+            "description": "Expiration reason",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/UpdateApplicationStatusDto"
+              "type": "object",
+              "properties": {
+                "reason": {
+                  "type": "string",
+                  "description": "Reason for expiration"
+                }
+              }
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "职位更新成功",
-            "schema": {
-              "$ref": "#/definitions/JobPosition"
-            }
+            "description": "Job position marked as expired successfully"
           },
           "404": {
-            "description": "职位未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Job position not found"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/placement/job-applications": {
       "get": {
-        "tags": ["Placement"],
-        "summary": "获取所有职位申请",
-        "description": "获取所有职位申请，支持分页和排序",
-        "operationId": "getAllJobApplications",
+        "tags": [
+          "Placement"
+        ],
+        "summary": "Get all job applications",
+        "description": "获取所有职位申请列表",
+        "operationId": "getJobApplications",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
+            "in": "query",
             "name": "page",
-            "in": "query",
+            "description": "Page number",
+            "required": false,
             "type": "integer",
-            "default": 1,
-            "description": "页码"
+            "default": 1
           },
           {
+            "in": "query",
             "name": "pageSize",
-            "in": "query",
+            "description": "Number of items per page",
+            "required": false,
             "type": "integer",
-            "default": 20,
-            "description": "每页数量"
+            "default": 20
           },
           {
+            "in": "query",
             "name": "field",
-            "in": "query",
-            "type": "string",
-            "default": "createdAt",
-            "description": "排序字段"
+            "description": "Field to order by",
+            "required": false,
+            "type": "string"
           },
           {
-            "name": "order",
             "in": "query",
+            "name": "direction",
+            "description": "Order direction",
+            "required": false,
             "type": "string",
-            "default": "desc",
-            "enum": ["asc", "desc"],
-            "description": "排序方向"
+            "enum": [
+              "asc",
+              "desc"
+            ]
           }
         ],
         "responses": {
           "200": {
-            "description": "职位申请列表获取成功",
+            "description": "Job applications retrieved successfully",
             "schema": {
-              "$ref": "#/definitions/PaginatedJobApplicationResponse"
+              "$ref": "#/definitions/PaginatedResult"
             }
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/placement/job-applications/{id}": {
       "get": {
-        "tags": ["Placement"],
-        "summary": "获取单个职位申请",
-        "description": "根据ID获取单个职位申请的详细信息",
+        "tags": [
+          "Placement"
+        ],
+        "summary": "Get job application by ID",
+        "description": "根据ID获取职位申请详情",
         "operationId": "getJobApplicationById",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
-            "name": "id",
             "in": "path",
+            "name": "id",
+            "description": "Job application ID",
             "required": true,
             "type": "string",
-            "format": "uuid",
-            "description": "职位申请ID"
+            "format": "uuid"
           }
         ],
         "responses": {
           "200": {
-            "description": "职位申请获取成功",
-            "schema": {
-              "$ref": "#/definitions/JobApplication"
-            }
+            "description": "Job application retrieved successfully"
           },
           "404": {
-            "description": "职位申请未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Job application not found"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/placement/job-applications/{id}/status": {
       "patch": {
-        "tags": ["Placement"],
-        "summary": "更新职位申请状态",
-        "description": "更新职位申请的状态",
+        "tags": [
+          "Placement"
+        ],
+        "summary": "Update job application status",
+        "description": "更新职位申请状态",
         "operationId": "updateJobApplicationStatus",
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
         "parameters": [
           {
             "in": "body",
             "name": "body",
-            "description": "职位申请状态更新请求体",
+            "description": "Status update object",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/UpdateApplicationStatusDto"
+              "$ref": "#/definitions/IUpdateApplicationStatusDto"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "职位申请状态更新成功",
-            "schema": {
-              "$ref": "#/definitions/JobApplication"
-            }
+            "description": "Job application status updated successfully"
           },
           "404": {
-            "description": "职位申请未找到",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "description": "Job application not found"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     }
   },
   "definitions": {
     "CreateProductDto": {
       "type": "object",
+      "required": [
+        "name",
+        "code",
+        "price"
+      ],
       "properties": {
         "name": {
           "type": "string",
-          "description": "产品名称"
+          "description": "Product name"
         },
         "code": {
           "type": "string",
-          "description": "产品编码"
+          "description": "Product code"
         },
         "description": {
           "type": "string",
-          "description": "产品描述"
+          "description": "Product description"
         },
         "coverImage": {
           "type": "string",
-          "description": "产品封面图片URL"
+          "description": "Product cover image URL"
+        },
+        "price": {
+          "type": "number",
+          "description": "Product price"
+        },
+        "currency": {
+          "type": "string",
+          "description": "Product currency",
+          "default": "USD"
         },
         "targetUserPersonas": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "目标用户画像"
-        },
-        "price": {
-          "type": "number",
-          "description": "产品价格"
-        },
-        "currency": {
-          "type": "string",
-          "default": "USD",
-          "description": "产品货币"
+          "description": "Target user personas"
         },
         "marketingLabels": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "营销标签"
-        },
-        "metadata": {
-          "type": "object",
-          "description": "产品元数据"
+          "description": "Marketing labels"
         },
         "items": {
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": {
-              "serviceTypeId": {
-                "type": "string",
-                "format": "uuid",
-                "description": "服务类型ID"
-              },
-              "quantity": {
-                "type": "integer",
-                "description": "服务数量"
-              },
-              "sortOrder": {
-                "type": "integer",
-                "description": "排序顺序"
-              }
-            },
-            "required": ["serviceTypeId", "quantity"]
+            "$ref": "#/definitions/ProductItemDto"
           },
-          "description": "产品项列表"
+          "description": "Product items"
         }
       },
-      "required": ["name", "code", "price"]
+      "example": {
+        "name": "Test Product",
+        "code": "TEST-PROD-001",
+        "description": "This is a test product",
+        "price": 100.00,
+        "currency": "USD",
+        "targetUserPersonas": [
+          "undergraduate",
+          "graduate"
+        ],
+        "marketingLabels": [
+          "hot",
+          "recommended"
+        ],
+        "items": [
+          {
+            "serviceTypeId": "123e4567-e89b-12d3-a456-426614174000",
+            "quantity": 5,
+            "sortOrder": 1
+          }
+        ]
+      }
     },
     "UpdateProductDto": {
       "type": "object",
       "properties": {
         "name": {
           "type": "string",
-          "description": "产品名称"
-        },
-        "code": {
-          "type": "string",
-          "description": "产品编码"
+          "description": "Product name"
         },
         "description": {
           "type": "string",
-          "description": "产品描述"
+          "description": "Product description"
         },
         "coverImage": {
           "type": "string",
-          "description": "产品封面图片URL"
+          "description": "Product cover image URL"
+        },
+        "price": {
+          "type": "number",
+          "description": "Product price"
+        },
+        "currency": {
+          "type": "string",
+          "description": "Product currency"
         },
         "targetUserPersonas": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "目标用户画像"
-        },
-        "price": {
-          "type": "number",
-          "description": "产品价格"
-        },
-        "currency": {
-          "type": "string",
-          "description": "产品货币"
+          "description": "Target user personas"
         },
         "marketingLabels": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "营销标签"
-        },
-        "metadata": {
-          "type": "object",
-          "description": "产品元数据"
+          "description": "Marketing labels"
         },
         "addItems": {
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": {
-              "serviceTypeId": {
-                "type": "string",
-                "format": "uuid",
-                "description": "服务类型ID"
-              },
-              "quantity": {
-                "type": "integer",
-                "description": "服务数量"
-              },
-              "sortOrder": {
-                "type": "integer",
-                "description": "排序顺序"
-              }
-            },
-            "required": ["serviceTypeId", "quantity"]
+            "$ref": "#/definitions/ProductItemDto"
           },
-          "description": "要添加的产品项列表"
-        },
-        "removeItems": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "description": "要移除的产品项ID列表"
-        },
-        "sortItems": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "itemId": {
-                "type": "string",
-                "format": "uuid",
-                "description": "产品项ID"
-              },
-              "sortOrder": {
-                "type": "integer",
-                "description": "排序顺序"
-              }
-            },
-            "required": ["itemId", "sortOrder"]
-          },
-          "description": "要排序的产品项列表"
+          "description": "Product items to add"
         }
+      },
+      "example": {
+        "name": "Updated Test Product",
+        "description": "This is an updated test product",
+        "price": 150.00,
+        "addItems": [
+          {
+            "serviceTypeId": "123e4567-e89b-12d3-a456-426614174001",
+            "quantity": 3,
+            "sortOrder": 2
+          }
+        ]
       }
     },
     "UpdateProductStatusDto": {
       "type": "object",
+      "required": [
+        "status"
+      ],
       "properties": {
         "status": {
           "type": "string",
-          "description": "目标状态",
-          "enum": ["ACTIVE", "INACTIVE", "DRAFT"]
+          "description": "Product status",
+          "enum": [
+            "ACTIVE",
+            "INACTIVE",
+            "DRAFT"
+          ]
         }
       },
-      "required": ["status"]
+      "example": {
+        "status": "ACTIVE"
+      }
+    },
+    "ProductItemDto": {
+      "type": "object",
+      "required": [
+        "serviceTypeId",
+        "quantity"
+      ],
+      "properties": {
+        "serviceTypeId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Service type ID"
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "Quantity"
+        },
+        "sortOrder": {
+          "type": "integer",
+          "description": "Sort order"
+        }
+      },
+      "example": {
+        "serviceTypeId": "123e4567-e89b-12d3-a456-426614174000",
+        "quantity": 5,
+        "sortOrder": 1
+      }
     },
     "Product": {
       "type": "object",
@@ -1652,79 +1449,85 @@
         "id": {
           "type": "string",
           "format": "uuid",
-          "description": "产品ID"
+          "description": "Product ID"
         },
         "name": {
           "type": "string",
-          "description": "产品名称"
+          "description": "Product name"
         },
         "code": {
           "type": "string",
-          "description": "产品编码"
+          "description": "Product code"
         },
         "description": {
           "type": "string",
-          "description": "产品描述"
+          "description": "Product description"
         },
         "coverImage": {
           "type": "string",
-          "description": "产品封面图片URL"
+          "description": "Product cover image URL"
+        },
+        "price": {
+          "type": "string",
+          "description": "Product price"
+        },
+        "currency": {
+          "type": "string",
+          "description": "Product currency"
         },
         "targetUserPersonas": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "目标用户画像"
-        },
-        "price": {
-          "type": "string",
-          "description": "产品价格"
-        },
-        "currency": {
-          "type": "string",
-          "description": "产品货币"
+          "description": "Target user personas"
         },
         "marketingLabels": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "营销标签"
+          "description": "Marketing labels"
         },
         "status": {
           "type": "string",
-          "description": "产品状态",
-          "enum": ["DRAFT", "ACTIVE", "INACTIVE", "DELETED"]
-        },
-        "metadata": {
-          "type": "object",
-          "description": "产品元数据"
+          "description": "Product status"
         },
         "publishedAt": {
           "type": "string",
           "format": "date-time",
-          "description": "发布时间"
+          "description": "Product published at"
         },
         "unpublishedAt": {
           "type": "string",
           "format": "date-time",
-          "description": "取消发布时间"
+          "description": "Product unpublished at"
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Product metadata"
         },
         "createdAt": {
           "type": "string",
           "format": "date-time",
-          "description": "创建时间"
+          "description": "Product created at"
         },
         "updatedAt": {
           "type": "string",
           "format": "date-time",
-          "description": "更新时间"
+          "description": "Product updated at"
         },
         "createdBy": {
           "type": "string",
           "format": "uuid",
-          "description": "创建人ID"
+          "description": "Product created by"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ProductItem"
+          },
+          "description": "Product items"
         }
       }
     },
@@ -1734,56 +1537,37 @@
         "id": {
           "type": "string",
           "format": "uuid",
-          "description": "产品项ID"
+          "description": "Product item ID"
         },
         "productId": {
           "type": "string",
           "format": "uuid",
-          "description": "产品ID"
+          "description": "Product ID"
         },
         "serviceTypeId": {
           "type": "string",
           "format": "uuid",
-          "description": "服务类型ID"
+          "description": "Service type ID"
         },
         "quantity": {
           "type": "integer",
-          "description": "服务数量"
+          "description": "Quantity"
         },
         "sortOrder": {
           "type": "integer",
-          "description": "排序顺序"
+          "description": "Sort order"
         },
         "createdAt": {
           "type": "string",
           "format": "date-time",
-          "description": "创建时间"
+          "description": "Created at"
         },
         "updatedAt": {
           "type": "string",
           "format": "date-time",
-          "description": "更新时间"
+          "description": "Updated at"
         }
       }
-    },
-    "ProductDetail": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/Product"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "items": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/ProductItem"
-              },
-              "description": "产品项列表"
-            }
-          }
-        }
-      ]
     },
     "ProductSnapshot": {
       "type": "object",
@@ -1791,92 +1575,350 @@
         "productId": {
           "type": "string",
           "format": "uuid",
-          "description": "产品ID"
+          "description": "Product ID"
         },
         "productName": {
           "type": "string",
-          "description": "产品名称"
+          "description": "Product name"
         },
         "productCode": {
           "type": "string",
-          "description": "产品编码"
+          "description": "Product code"
         },
         "price": {
           "type": "string",
-          "description": "产品价格"
+          "description": "Product price"
         },
         "currency": {
           "type": "string",
-          "description": "产品货币"
+          "description": "Product currency"
         },
         "items": {
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": {
-              "serviceTypeId": {
-                "type": "string",
-                "format": "uuid",
-                "description": "服务类型ID"
-              },
-              "serviceTypeCode": {
-                "type": "string",
-                "description": "服务类型编码"
-              },
-              "quantity": {
-                "type": "integer",
-                "description": "服务数量"
-              }
-            }
+            "$ref": "#/definitions/ProductSnapshotItem"
           },
-          "description": "产品项快照列表"
+          "description": "Product snapshot items"
         },
         "snapshotAt": {
           "type": "string",
           "format": "date-time",
-          "description": "快照时间"
+          "description": "Snapshot timestamp"
         }
       }
     },
-    "ServiceType": {
+    "ProductSnapshotItem": {
+      "type": "object",
+      "properties": {
+        "serviceTypeId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Service type ID"
+        },
+        "serviceTypeCode": {
+          "type": "string",
+          "description": "Service type code"
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "Quantity"
+        }
+      }
+    },
+    "CreateContractDto": {
+      "type": "object",
+      "required": [
+        "studentId",
+        "productId"
+      ],
+      "properties": {
+        "studentId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Student ID"
+        },
+        "productId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Product ID"
+        },
+        "startDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Contract start date"
+        },
+        "endDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Contract end date"
+        }
+      },
+      "example": {
+        "studentId": "123e4567-e89b-12d3-a456-426614174000",
+        "productId": "123e4567-e89b-12d3-a456-426614174001"
+      }
+    },
+    "UpdateContractDto": {
+      "type": "object",
+      "properties": {
+        "startDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Contract start date"
+        },
+        "endDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Contract end date"
+        }
+      },
+      "example": {
+        "endDate": "2025-12-31"
+      }
+    },
+    "UpdateContractStatusDto": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "Contract status"
+        }
+      },
+      "example": {
+        "status": "ACTIVE"
+      }
+    },
+    "ConsumeServiceDto": {
+      "type": "object",
+      "required": [
+        "studentId",
+        "serviceType",
+        "quantity"
+      ],
+      "properties": {
+        "studentId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Student ID"
+        },
+        "serviceType": {
+          "type": "string",
+          "description": "Service type"
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "Quantity"
+        }
+      },
+      "example": {
+        "studentId": "123e4567-e89b-12d3-a456-426614174000",
+        "serviceType": "mentoring",
+        "quantity": 1
+      }
+    },
+    "AddAmendmentLedgerDto": {
+      "type": "object",
+      "required": [
+        "contractId",
+        "studentId",
+        "serviceType"
+      ],
+      "properties": {
+        "contractId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract ID"
+        },
+        "studentId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Student ID"
+        },
+        "serviceType": {
+          "type": "string",
+          "description": "Service type"
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "Quantity"
+        }
+      },
+      "example": {
+        "contractId": "123e4567-e89b-12d3-a456-426614174000",
+        "studentId": "123e4567-e89b-12d3-a456-426614174001",
+        "serviceType": "mentoring",
+        "quantity": 5
+      }
+    },
+    "Contract": {
       "type": "object",
       "properties": {
         "id": {
           "type": "string",
           "format": "uuid",
-          "description": "服务类型ID"
+          "description": "Contract ID"
         },
-        "name": {
+        "studentId": {
           "type": "string",
-          "description": "服务类型名称"
+          "format": "uuid",
+          "description": "Student ID"
         },
-        "code": {
+        "productId": {
           "type": "string",
-          "description": "服务类型编码"
-        },
-        "description": {
-          "type": "string",
-          "description": "服务类型描述"
+          "format": "uuid",
+          "description": "Product ID"
         },
         "status": {
           "type": "string",
-          "description": "服务类型状态",
-          "enum": ["ACTIVE", "INACTIVE"]
+          "description": "Contract status"
         },
-        "metadata": {
-          "type": "object",
-          "description": "服务类型元数据"
+        "startDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Contract start date"
+        },
+        "endDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Contract end date"
         },
         "createdAt": {
           "type": "string",
           "format": "date-time",
-          "description": "创建时间"
+          "description": "Contract created at"
         },
         "updatedAt": {
           "type": "string",
           "format": "date-time",
-          "description": "更新时间"
+          "description": "Contract updated at"
         }
+      }
+    },
+    "CreateAppealDto": {
+      "type": "object",
+      "required": [
+        "mentorId",
+        "appealType",
+        "appealReason"
+      ],
+      "properties": {
+        "mentorId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Mentor ID"
+        },
+        "appealType": {
+          "type": "string",
+          "description": "Appeal type"
+        },
+        "appealReason": {
+          "type": "string",
+          "description": "Appeal reason"
+        },
+        "relatedId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Related ID"
+        }
+      },
+      "example": {
+        "mentorId": "123e4567-e89b-12d3-a456-426614174000",
+        "appealType": "payment",
+        "appealReason": "Payment discrepancy",
+        "relatedId": "123e4567-e89b-12d3-a456-426614174001"
+      }
+    },
+    "RejectAppealDto": {
+      "type": "object",
+      "required": [
+        "rejectionReason"
+      ],
+      "properties": {
+        "rejectionReason": {
+          "type": "string",
+          "description": "Rejection reason"
+        }
+      },
+      "example": {
+        "rejectionReason": "Insufficient evidence"
+      }
+    },
+    "ICreateJobPositionDto": {
+      "type": "object",
+      "required": [
+        "title",
+        "company",
+        "location"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Job title"
+        },
+        "company": {
+          "type": "string",
+          "description": "Company name"
+        },
+        "location": {
+          "type": "string",
+          "description": "Job location"
+        },
+        "description": {
+          "type": "string",
+          "description": "Job description"
+        },
+        "requirements": {
+          "type": "string",
+          "description": "Job requirements"
+        },
+        "salary": {
+          "type": "number",
+          "description": "Job salary"
+        },
+        "currency": {
+          "type": "string",
+          "description": "Salary currency",
+          "default": "USD"
+        }
+      },
+      "example": {
+        "title": "Software Engineer",
+        "company": "Tech Company",
+        "location": "New York",
+        "description": "This is a software engineering position",
+        "requirements": "Bachelor's degree in Computer Science",
+        "salary": 100000,
+        "currency": "USD"
+      }
+    },
+    "IUpdateApplicationStatusDto": {
+      "type": "object",
+      "required": [
+        "applicationId",
+        "status"
+      ],
+      "properties": {
+        "applicationId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Application ID"
+        },
+        "status": {
+          "type": "string",
+          "description": "New status"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Status change reason"
+        }
+      },
+      "example": {
+        "applicationId": "123e4567-e89b-12d3-a456-426614174000",
+        "status": "approved",
+        "reason": "Candidate meets all requirements"
       }
     },
     "PaginatedResult": {
@@ -1887,594 +1929,25 @@
           "items": {
             "type": "object"
           },
-          "description": "分页数据"
+          "description": "Result data"
         },
         "total": {
           "type": "integer",
-          "description": "总记录数"
+          "description": "Total number of items"
         },
         "page": {
           "type": "integer",
-          "description": "当前页码"
+          "description": "Current page number"
         },
         "pageSize": {
           "type": "integer",
-          "description": "每页数量"
+          "description": "Number of items per page"
         },
         "totalPages": {
           "type": "integer",
-          "description": "总页数"
+          "description": "Total number of pages"
         }
       }
-    },
-    "PaginatedProductResponse": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/PaginatedResult"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "data": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Product"
-              },
-              "description": "产品列表"
-            }
-          }
-        }
-      ]
-    },
-    "PaginatedServiceTypeResponse": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/PaginatedResult"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "data": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/ServiceType"
-              },
-              "description": "服务类型列表"
-            }
-          }
-        }
-      ]
-    },
-    "CreateContractDto": {
-      "type": "object",
-      "properties": {
-        "studentId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "学生ID"
-        },
-        "productId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "产品ID"
-        },
-        "startDate": {
-          "type": "string",
-          "format": "date-time",
-          "description": "合同开始时间"
-        },
-        "endDate": {
-          "type": "string",
-          "format": "date-time",
-          "description": "合同结束时间"
-        },
-        "metadata": {
-          "type": "object",
-          "description": "合同元数据"
-        }
-      },
-      "required": ["studentId", "productId"]
-    },
-    "UpdateContractDto": {
-      "type": "object",
-      "properties": {
-        "studentId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "学生ID"
-        },
-        "productId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "产品ID"
-        },
-        "startDate": {
-          "type": "string",
-          "format": "date-time",
-          "description": "合同开始时间"
-        },
-        "endDate": {
-          "type": "string",
-          "format": "date-time",
-          "description": "合同结束时间"
-        },
-        "metadata": {
-          "type": "object",
-          "description": "合同元数据"
-        }
-      }
-    },
-    "Contract": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "format": "uuid",
-          "description": "合同ID"
-        },
-        "studentId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "学生ID"
-        },
-        "productId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "产品ID"
-        },
-        "startDate": {
-          "type": "string",
-          "format": "date-time",
-          "description": "合同开始时间"
-        },
-        "endDate": {
-          "type": "string",
-          "format": "date-time",
-          "description": "合同结束时间"
-        },
-        "status": {
-          "type": "string",
-          "description": "合同状态"
-        },
-        "metadata": {
-          "type": "object",
-          "description": "合同元数据"
-        },
-        "signedAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "签署时间"
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "创建时间"
-        },
-        "updatedAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "更新时间"
-        }
-      }
-    },
-    "ContractDetail": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/Contract"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "items": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "serviceTypeId": {
-                    "type": "string",
-                    "format": "uuid",
-                    "description": "服务类型ID"
-                  },
-                  "quantity": {
-                    "type": "integer",
-                    "description": "服务数量"
-                  },
-                  "consumed": {
-                    "type": "integer",
-                    "description": "已消费数量"
-                  }
-                }
-              },
-              "description": "合同项列表"
-            }
-          }
-        }
-      ]
-    },
-    "ConsumeServiceDto": {
-      "type": "object",
-      "properties": {
-        "contractId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "合同ID"
-        },
-        "serviceTypeId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "服务类型ID"
-        },
-        "quantity": {
-          "type": "integer",
-          "description": "消费数量"
-        }
-      },
-      "required": ["contractId", "serviceTypeId", "quantity"]
-    },
-    "AddAmendmentLedgerDto": {
-      "type": "object",
-      "properties": {
-        "contractId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "合同ID"
-        },
-        "amendmentType": {
-          "type": "string",
-          "description": "修订类型"
-        },
-        "amendmentContent": {
-          "type": "object",
-          "description": "修订内容"
-        }
-      },
-      "required": ["contractId", "amendmentType", "amendmentContent"]
-    },
-    "PaginatedContractResponse": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/PaginatedResult"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "data": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Contract"
-              },
-              "description": "合同列表"
-            }
-          }
-        }
-      ]
-    },
-    "CreateAppealDto": {
-      "type": "object",
-      "properties": {
-        "mentorId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "导师ID"
-        },
-        "appealType": {
-          "type": "string",
-          "description": "申诉类型"
-        },
-        "appealReason": {
-          "type": "string",
-          "description": "申诉原因"
-        },
-        "appealContent": {
-          "type": "object",
-          "description": "申诉内容"
-        }
-      },
-      "required": ["mentorId", "appealType", "appealReason", "appealContent"]
-    },
-    "RejectAppealDto": {
-      "type": "object",
-      "properties": {
-        "rejectionReason": {
-          "type": "string",
-          "description": "拒绝原因"
-        }
-      },
-      "required": ["rejectionReason"]
-    },
-    "MentorAppeal": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "format": "uuid",
-          "description": "导师申诉ID"
-        },
-        "mentorId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "导师ID"
-        },
-        "appealType": {
-          "type": "string",
-          "description": "申诉类型"
-        },
-        "appealReason": {
-          "type": "string",
-          "description": "申诉原因"
-        },
-        "appealContent": {
-          "type": "object",
-          "description": "申诉内容"
-        },
-        "status": {
-          "type": "string",
-          "description": "申诉状态"
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "创建时间"
-        },
-        "updatedAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "更新时间"
-        }
-      }
-    },
-    "PaginatedMentorAppealResponse": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/PaginatedResult"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "data": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/MentorAppeal"
-              },
-              "description": "导师申诉列表"
-            }
-          }
-        }
-      ]
-    },
-    "Settlement": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "format": "uuid",
-          "description": "结算ID"
-        },
-        "mentorId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "导师ID"
-        },
-        "settlementPeriod": {
-          "type": "string",
-          "description": "结算周期"
-        },
-        "settlementAmount": {
-          "type": "string",
-          "description": "结算金额"
-        },
-        "status": {
-          "type": "string",
-          "description": "结算状态"
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "创建时间"
-        },
-        "updatedAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "更新时间"
-        }
-      }
-    },
-    "PaginatedSettlementResponse": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/PaginatedResult"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "data": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Settlement"
-              },
-              "description": "结算列表"
-            }
-          }
-        }
-      ]
-    },
-    "SubmitApplicationDto": {
-      "type": "object",
-      "properties": {
-        "studentId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "学生ID"
-        },
-        "positionId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "职位ID"
-        },
-        "applicationContent": {
-          "type": "object",
-          "description": "申请内容"
-        }
-      },
-      "required": ["studentId", "positionId", "applicationContent"]
-    },
-    "UpdateApplicationStatusDto": {
-      "type": "object",
-      "properties": {
-        "applicationId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "申请ID"
-        },
-        "status": {
-          "type": "string",
-          "description": "目标状态"
-        },
-        "statusReason": {
-          "type": "string",
-          "description": "状态变更原因"
-        }
-      },
-      "required": ["applicationId", "status"]
-    },
-    "JobPosition": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "format": "uuid",
-          "description": "职位ID"
-        },
-        "title": {
-          "type": "string",
-          "description": "职位标题"
-        },
-        "description": {
-          "type": "string",
-          "description": "职位描述"
-        },
-        "requirements": {
-          "type": "object",
-          "description": "职位要求"
-        },
-        "status": {
-          "type": "string",
-          "description": "职位状态"
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "创建时间"
-        },
-        "updatedAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "更新时间"
-        }
-      }
-    },
-    "JobApplication": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "format": "uuid",
-          "description": "职位申请ID"
-        },
-        "studentId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "学生ID"
-        },
-        "positionId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "职位ID"
-        },
-        "status": {
-          "type": "string",
-          "description": "申请状态"
-        },
-        "applicationContent": {
-          "type": "object",
-          "description": "申请内容"
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "创建时间"
-        },
-        "updatedAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "更新时间"
-        }
-      }
-    },
-    "PaginatedJobPositionResponse": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/PaginatedResult"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "data": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/JobPosition"
-              },
-              "description": "职位列表"
-            }
-          }
-        }
-      ]
-    },
-    "PaginatedJobApplicationResponse": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/PaginatedResult"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "data": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/JobApplication"
-              },
-              "description": "职位申请列表"
-            }
-          }
-        }
-      ]
-    },
-    "ErrorResponse": {
-      "type": "object",
-      "properties": {
-        "message": {
-          "type": "string",
-          "description": "错误信息"
-        },
-        "code": {
-          "type": "string",
-          "description": "错误代码"
-        },
-        "timestamp": {
-          "type": "string",
-          "format": "date-time",
-          "description": "错误时间"
-        }
-      },
-      "required": ["message"]
-    }
-  },
-  "securityDefinitions": {
-    "bearerAuth": {
-      "type": "apiKey",
-      "name": "Authorization",
-      "in": "header",
-      "description": "Bearer token for authentication"
     }
   }
 }

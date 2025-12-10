@@ -2,11 +2,11 @@
  * Contract status enum values from contracts.schema.ts
  */
 export type ContractStatusEnum =
-  | "signed"
-  | "active"
-  | "suspended"
-  | "completed"
-  | "terminated";
+  | "SIGNED"
+  | "ACTIVE"
+  | "SUSPENDED"
+  | "COMPLETED"
+  | "TERMINATED";
 
 /**
  * Currency enum values from products.schema.ts
@@ -34,9 +34,7 @@ export type LedgerTypeEnum =
 export type LedgerSourceEnum =
   | "booking_completed"
   | "booking_cancelled"
-  | "contract_signed"
-  | "manual_adjustment"
-  | "auto_expiration";
+  | "manual_adjustment";
 
 /**
  * Entitlement source enum values from contract-service-entitlements.schema.ts

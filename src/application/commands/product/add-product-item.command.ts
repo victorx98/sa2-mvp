@@ -1,14 +1,14 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
-import type { DrizzleDatabase } from '@shared/types/database.types';
-import { CommandBase } from '@application/core/command.base';
-import { ProductService } from '@domains/catalog/product/services/product.service';
-import { AddProductItemDto } from '@domains/catalog';
+import { Inject, Injectable } from "@nestjs/common";
+import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
+import type { DrizzleDatabase } from "@shared/types/database.types";
+import { CommandBase } from "@application/core/command.base";
+import { ProductService } from "@domains/catalog/product/services/product.service";
+import { AddProductItemDto } from "@domains/catalog";
 
 /**
  * Add Product Item Command (Application Layer)
  * [向产品添加项目命令]
- * 
+ *
  * 职责：
  * 1. 编排向产品添加项目用例
  * 2. 调用 Catalog Domain 的 Product Service
@@ -26,7 +26,7 @@ export class AddProductItemCommand extends CommandBase {
   /**
    * 执行向产品添加项目用例
    * [Execute add product item use case]
-   * 
+   *
    * @param productId - 产品ID
    * @param dto - 添加产品项目DTO
    * @returns 执行结果
@@ -37,7 +37,10 @@ export class AddProductItemCommand extends CommandBase {
       await this.productService.addItem(productId, dto);
       this.logger.debug(`Item added to product successfully: ${productId}`);
     } catch (error) {
-      this.logger.error(`Failed to add item to product: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to add item to product: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }

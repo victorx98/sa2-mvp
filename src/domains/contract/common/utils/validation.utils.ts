@@ -19,17 +19,23 @@ import { ContractException } from "../exceptions/contract.exception";
  */
 export function validatePrice(amount: number): boolean {
   if (amount < MIN_CONTRACT_AMOUNT_DOLLARS) {
-    throw new ContractException(`Price must be at least ${MIN_CONTRACT_AMOUNT_DOLLARS} dollars`);
+    throw new ContractException(
+      `Price must be at least ${MIN_CONTRACT_AMOUNT_DOLLARS} dollars`,
+    );
   }
 
   if (amount > MAX_CONTRACT_AMOUNT_DOLLARS) {
-    throw new ContractException(`Price cannot exceed ${MAX_CONTRACT_AMOUNT_DOLLARS} dollars`);
+    throw new ContractException(
+      `Price cannot exceed ${MAX_CONTRACT_AMOUNT_DOLLARS} dollars`,
+    );
   }
 
   // Allow 1 decimal place for dollar amounts
-  const decimalPlaces = amount.toString().split('.')[1]?.length || 0;
+  const decimalPlaces = amount.toString().split(".")[1]?.length || 0;
   if (decimalPlaces > 1) {
-    throw new ContractException("Price must have at most 1 decimal place (dollars)");
+    throw new ContractException(
+      "Price must have at most 1 decimal place (dollars)",
+    );
   }
 
   return true;
@@ -43,11 +49,15 @@ export function validatePrice(amount: number): boolean {
  */
 export function validateQuantity(quantity: number): boolean {
   if (quantity < MIN_SERVICE_QUANTITY) {
-    throw new ContractException(`Quantity must be at least ${MIN_SERVICE_QUANTITY}`);
+    throw new ContractException(
+      `Quantity must be at least ${MIN_SERVICE_QUANTITY}`,
+    );
   }
 
   if (quantity > MAX_SERVICE_QUANTITY) {
-    throw new ContractException(`Quantity cannot exceed ${MAX_SERVICE_QUANTITY}`);
+    throw new ContractException(
+      `Quantity cannot exceed ${MAX_SERVICE_QUANTITY}`,
+    );
   }
 
   if (!Number.isInteger(quantity)) {
@@ -101,7 +111,9 @@ export function validateBalanceConsistency(
   }
 
   if (consumedQuantity + heldQuantity > totalQuantity) {
-    throw new ContractException("Consumed + held quantity cannot exceed total quantity");
+    throw new ContractException(
+      "Consumed + held quantity cannot exceed total quantity",
+    );
   }
 
   const expectedAvailable = totalQuantity - consumedQuantity - heldQuantity;
@@ -111,7 +123,6 @@ export function validateBalanceConsistency(
 
   return true;
 }
-
 
 /**
  * Validate UUID format
@@ -242,7 +253,9 @@ export function validateProductSnapshot(snapshot: unknown): boolean {
 
   for (const field of requiredFields) {
     if (!(field in snap) || snap[field] === undefined || snap[field] === null) {
-      throw new ContractException(`Product snapshot missing required field: ${field}`);
+      throw new ContractException(
+        `Product snapshot missing required field: ${field}`,
+      );
     }
   }
 
@@ -254,23 +267,31 @@ export function validateProductSnapshot(snapshot: unknown): boolean {
     typeof snap.price !== "string" ||
     typeof snap.currency !== "string"
   ) {
-    throw new ContractException("Product snapshot string fields must be of type string");
+    throw new ContractException(
+      "Product snapshot string fields must be of type string",
+    );
   }
 
   // Validate UUID format
   if (!isValidUUID(snap.productId as string)) {
-    throw new ContractException("Product snapshot productId must be a valid UUID");
+    throw new ContractException(
+      "Product snapshot productId must be a valid UUID",
+    );
   }
 
   // Validate price format
   const price = parseFloat(snap.price as string);
   if (isNaN(price) || price < 0) {
-    throw new ContractException("Product snapshot price must be a valid positive number");
+    throw new ContractException(
+      "Product snapshot price must be a valid positive number",
+    );
   }
 
   // Validate currency
   if (!isValidCurrency(snap.currency as string)) {
-    throw new ContractException("Product snapshot currency must be a supported currency code");
+    throw new ContractException(
+      "Product snapshot currency must be a supported currency code",
+    );
   }
 
   // Validate items array
@@ -283,55 +304,117 @@ export function validateProductSnapshot(snapshot: unknown): boolean {
   }
 
   // Validate each item
-    for (const item of snap.items) {
-      if (!item || typeof item !== "object") {
-        throw new ContractException("Product snapshot item must be an object");
-      }
-
-      const itemObj = item as Record<string, unknown>;
-
-      // Validate required item fields
-      if (
-        !itemObj.productItemId ||
-        typeof itemObj.productItemId !== "string" ||
-        !isValidUUID(itemObj.productItemId as string)
-      ) {
-        throw new ContractException("Product snapshot item productItemId must be a valid UUID");
-      }
-
-      if (
-        !itemObj.serviceTypeCode ||
-        typeof itemObj.serviceTypeCode !== "string"
-      ) {
-        throw new ContractException("Product snapshot item serviceTypeCode must be a valid string");
-      }
-
-      if (
-        !itemObj.quantity ||
-        typeof itemObj.quantity !== "number" ||
-        itemObj.quantity <= 0 ||
-        !Number.isInteger(itemObj.quantity)
-      ) {
-        throw new ContractException("Product snapshot item quantity must be a positive integer");
-      }
-
-      if (
-        itemObj.sortOrder === undefined ||
-        typeof itemObj.sortOrder !== "number" ||
-        !Number.isInteger(itemObj.sortOrder)
-      ) {
-        throw new ContractException("Product snapshot item sortOrder must be an integer");
-      }
+  for (const item of snap.items) {
+    if (!item || typeof item !== "object") {
+      throw new ContractException("Product snapshot item must be an object");
     }
+
+    const itemObj = item as Record<string, unknown>;
+
+    // Validate required item fields
+    if (
+      !itemObj.productItemId ||
+      typeof itemObj.productItemId !== "string" ||
+      !isValidUUID(itemObj.productItemId as string)
+    ) {
+      throw new ContractException(
+        "Product snapshot item productItemId must be a valid UUID",
+      );
+    }
+
+    if (
+      !itemObj.serviceTypeCode ||
+      typeof itemObj.serviceTypeCode !== "string"
+    ) {
+      throw new ContractException(
+        "Product snapshot item serviceTypeCode must be a valid string",
+      );
+    }
+
+    if (
+      !itemObj.quantity ||
+      typeof itemObj.quantity !== "number" ||
+      itemObj.quantity <= 0 ||
+      !Number.isInteger(itemObj.quantity)
+    ) {
+      throw new ContractException(
+        "Product snapshot item quantity must be a positive integer",
+      );
+    }
+
+    if (
+      itemObj.sortOrder === undefined ||
+      typeof itemObj.sortOrder !== "number" ||
+      !Number.isInteger(itemObj.sortOrder)
+    ) {
+      throw new ContractException(
+        "Product snapshot item sortOrder must be an integer",
+      );
+    }
+  }
 
   // Validate snapshotAt is a valid date
   const snapshotAt = new Date(snap.snapshotAt as string | number | Date);
   if (isNaN(snapshotAt.getTime())) {
-    throw new ContractException("Product snapshot snapshotAt must be a valid date");
+    throw new ContractException(
+      "Product snapshot snapshotAt must be a valid date",
+    );
   }
 
   // Products and contracts never expire - v2.16.13
   // Removed validityDays validation
+
+  return true;
+}
+
+/**
+ * Validate product snapshot matches authoritative product data
+ * [验证产品快照与权威产品数据匹配]
+ * @param snapshot Product snapshot to validate
+ * @param productId Product ID from database
+ * @param productPrice Product price from database
+ * @param productCurrency Product currency from database
+ * @returns True if valid, throws ContractException otherwise
+ */
+export function validateProductSnapshotMatch(
+  snapshot: unknown,
+  productId: string,
+  productPrice: string | number,
+  productCurrency: string,
+): boolean {
+  if (!snapshot || typeof snapshot !== "object") {
+    throw new ContractException("Product snapshot must be an object");
+  }
+
+  const snap = snapshot as Record<string, unknown>;
+
+  // Validate productId matches [验证产品ID匹配]
+  if (snap.productId !== productId) {
+    throw new ContractException(
+      "SNAPSHOT_MISMATCH",
+      "Product snapshot productId does not match",
+    );
+  }
+
+  // Validate price matches [验证价格匹配]
+  const snapshotPrice =
+    typeof snap.price === "string" ? snap.price : String(snap.price);
+  const dbPrice =
+    typeof productPrice === "string" ? productPrice : String(productPrice);
+  if (snapshotPrice !== dbPrice) {
+    throw new ContractException(
+      "SNAPSHOT_MISMATCH",
+      `Product price mismatch. Provided: ${snapshotPrice}, Actual: ${dbPrice}`,
+    );
+  }
+
+  // Validate currency matches [验证货币匹配]
+  if (snap.currency !== productCurrency) {
+    throw new ContractException(
+      "SNAPSHOT_MISMATCH",
+      `Product currency mismatch. Provided: ${snap.currency}, Actual: ${productCurrency}`,
+    );
+  }
 
   return true;
 }

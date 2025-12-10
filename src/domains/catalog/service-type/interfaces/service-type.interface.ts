@@ -1,4 +1,4 @@
-import { ServiceType as DbServiceType } from '@infrastructure/database/schema/service-types.schema';
+import { ServiceType as DbServiceType } from "@infrastructure/database/schema/service-types.schema";
 
 /**
  * Service Type Interface [服务类型接口]

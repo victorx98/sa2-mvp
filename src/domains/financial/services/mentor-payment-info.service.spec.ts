@@ -91,9 +91,8 @@ describe("MentorPaymentInfoService", () => {
     it("should create new payment info when none exists", async () => {
       mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(null);
 
-      const result = await paymentInfoService.createOrUpdateMentorPaymentInfo(
-        mockRequest,
-      );
+      const result =
+        await paymentInfoService.createOrUpdateMentorPaymentInfo(mockRequest);
 
       expect(mockDb.query.mentorPaymentInfos.findFirst).toHaveBeenCalled();
       expect(mockDb.insert).toHaveBeenCalled();
@@ -122,9 +121,10 @@ describe("MentorPaymentInfoService", () => {
         },
       ]);
 
-      const result = await paymentInfoService.createOrUpdateMentorPaymentInfo(
-        updatedRequest,
-      );
+      const result =
+        await paymentInfoService.createOrUpdateMentorPaymentInfo(
+          updatedRequest,
+        );
 
       expect(mockDb.update).toHaveBeenCalled();
       expect(result.paymentDetails.bankName).toBe("Updated Bank");
@@ -165,9 +165,8 @@ describe("MentorPaymentInfoService", () => {
     it("should handle DOMESTIC_TRANSFER payment method", async () => {
       mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(null);
 
-      const result = await paymentInfoService.createOrUpdateMentorPaymentInfo(
-        mockRequest,
-      );
+      const result =
+        await paymentInfoService.createOrUpdateMentorPaymentInfo(mockRequest);
 
       expect(result.paymentMethod).toBe("DOMESTIC_TRANSFER");
     });
@@ -192,9 +191,8 @@ describe("MentorPaymentInfoService", () => {
 
       mockDb.insert().returning.mockResolvedValue([mockGustoInfo]);
 
-      const result = await paymentInfoService.createOrUpdateMentorPaymentInfo(
-        gustoRequest,
-      );
+      const result =
+        await paymentInfoService.createOrUpdateMentorPaymentInfo(gustoRequest);
 
       expect(result.paymentMethod).toBe("GUSTO");
       expect(result.paymentDetails.employeeId).toBe("EMP123");
@@ -220,9 +218,8 @@ describe("MentorPaymentInfoService", () => {
 
       mockDb.insert().returning.mockResolvedValue([mockCheckInfo]);
 
-      const result = await paymentInfoService.createOrUpdateMentorPaymentInfo(
-        checkRequest,
-      );
+      const result =
+        await paymentInfoService.createOrUpdateMentorPaymentInfo(checkRequest);
 
       expect(result.paymentMethod).toBe("CHECK");
       expect(result.paymentDetails.payee).toBe("John Doe");
@@ -248,9 +245,10 @@ describe("MentorPaymentInfoService", () => {
 
       mockDb.insert().returning.mockResolvedValue([mockChannelInfo]);
 
-      const result = await paymentInfoService.createOrUpdateMentorPaymentInfo(
-        channelRequest,
-      );
+      const result =
+        await paymentInfoService.createOrUpdateMentorPaymentInfo(
+          channelRequest,
+        );
 
       expect(result.paymentMethod).toBe("CHANNEL_BATCH_PAY");
       expect(result.paymentDetails.channelId).toBe("CH123");
@@ -276,9 +274,10 @@ describe("MentorPaymentInfoService", () => {
 
       mockDb.insert().returning.mockResolvedValue([mockGustoIntlInfo]);
 
-      const result = await paymentInfoService.createOrUpdateMentorPaymentInfo(
-        gustoIntlRequest,
-      );
+      const result =
+        await paymentInfoService.createOrUpdateMentorPaymentInfo(
+          gustoIntlRequest,
+        );
 
       expect(result.paymentMethod).toBe("GUSTO_INTERNATIONAL");
       expect(result.paymentDetails.employeeId).toBe("EMP789");
@@ -304,9 +303,12 @@ describe("MentorPaymentInfoService", () => {
     };
 
     it("should return payment info when found", async () => {
-      mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(mockPaymentInfo);
+      mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(
+        mockPaymentInfo,
+      );
 
-      const result = await paymentInfoService.getMentorPaymentInfo(testMentorId);
+      const result =
+        await paymentInfoService.getMentorPaymentInfo(testMentorId);
 
       expect(result).not.toBeNull();
       expect(result?.mentorId).toBe(testMentorId);
@@ -319,7 +321,8 @@ describe("MentorPaymentInfoService", () => {
     it("should return null when payment info not found", async () => {
       mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(null);
 
-      const result = await paymentInfoService.getMentorPaymentInfo(testMentorId);
+      const result =
+        await paymentInfoService.getMentorPaymentInfo(testMentorId);
 
       expect(result).toBeNull();
     });
@@ -397,7 +400,11 @@ describe("MentorPaymentInfoService", () => {
       mockDb.update().returning.mockResolvedValue([]);
 
       await expect(
-        paymentInfoService.updateStatus("non-existent-id", "INACTIVE", testMentorId),
+        paymentInfoService.updateStatus(
+          "non-existent-id",
+          "INACTIVE",
+          testMentorId,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -412,7 +419,8 @@ describe("MentorPaymentInfoService", () => {
     it("should return false if no payment info exists", async () => {
       mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(null);
 
-      const result = await paymentInfoService.validateMentorPaymentInfo(testMentorId);
+      const result =
+        await paymentInfoService.validateMentorPaymentInfo(testMentorId);
 
       expect(result).toBe(false);
     });
@@ -435,9 +443,12 @@ describe("MentorPaymentInfoService", () => {
         updatedBy: testMentorId,
       };
 
-      mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(mockPaymentInfo);
+      mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(
+        mockPaymentInfo,
+      );
 
-      const result = await paymentInfoService.validateMentorPaymentInfo(testMentorId);
+      const result =
+        await paymentInfoService.validateMentorPaymentInfo(testMentorId);
 
       expect(result).toBe(true);
     });
@@ -459,9 +470,12 @@ describe("MentorPaymentInfoService", () => {
         updatedBy: testMentorId,
       };
 
-      mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(mockPaymentInfo);
+      mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(
+        mockPaymentInfo,
+      );
 
-      const result = await paymentInfoService.validateMentorPaymentInfo(testMentorId);
+      const result =
+        await paymentInfoService.validateMentorPaymentInfo(testMentorId);
 
       expect(result).toBe(false);
     });
@@ -483,9 +497,12 @@ describe("MentorPaymentInfoService", () => {
         updatedBy: testMentorId,
       };
 
-      mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(mockPaymentInfo);
+      mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(
+        mockPaymentInfo,
+      );
 
-      const result = await paymentInfoService.validateMentorPaymentInfo(testMentorId);
+      const result =
+        await paymentInfoService.validateMentorPaymentInfo(testMentorId);
 
       expect(result).toBe(true);
     });
@@ -507,9 +524,12 @@ describe("MentorPaymentInfoService", () => {
         updatedBy: testMentorId,
       };
 
-      mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(mockPaymentInfo);
+      mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(
+        mockPaymentInfo,
+      );
 
-      const result = await paymentInfoService.validateMentorPaymentInfo(testMentorId);
+      const result =
+        await paymentInfoService.validateMentorPaymentInfo(testMentorId);
 
       expect(result).toBe(false);
     });
@@ -528,9 +548,12 @@ describe("MentorPaymentInfoService", () => {
         updatedBy: testMentorId,
       };
 
-      mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(mockPaymentInfo);
+      mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(
+        mockPaymentInfo,
+      );
 
-      const result = await paymentInfoService.validateMentorPaymentInfo(testMentorId);
+      const result =
+        await paymentInfoService.validateMentorPaymentInfo(testMentorId);
 
       expect(result).toBe(false);
     });
@@ -549,9 +572,12 @@ describe("MentorPaymentInfoService", () => {
         updatedBy: testMentorId,
       };
 
-      mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(mockPaymentInfo);
+      mockDb.query.mentorPaymentInfos.findFirst.mockResolvedValue(
+        mockPaymentInfo,
+      );
 
-      const result = await paymentInfoService.validateMentorPaymentInfo(testMentorId);
+      const result =
+        await paymentInfoService.validateMentorPaymentInfo(testMentorId);
 
       expect(result).toBe(false);
     });

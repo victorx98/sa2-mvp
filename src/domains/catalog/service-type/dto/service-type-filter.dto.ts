@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsBoolean } from 'class-validator';
+import { IsOptional, IsString, IsBoolean } from "class-validator";
 
 /**
  * Service Type Filter DTO [服务类型筛选DTO]

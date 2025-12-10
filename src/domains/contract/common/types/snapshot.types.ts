@@ -110,11 +110,11 @@ export type EntitlementSource =
  * Contract status type
  */
 export type ContractStatus =
-  | "signed"
-  | "active"
-  | "suspended"
-  | "completed"
-  | "terminated";
+  | "SIGNED"
+  | "ACTIVE"
+  | "SUSPENDED"
+  | "COMPLETED"
+  | "TERMINATED";
 
 /**
  * Hold status type

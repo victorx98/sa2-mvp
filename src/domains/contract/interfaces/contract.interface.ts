@@ -8,10 +8,13 @@ import {
   ContractServiceEntitlement,
 } from "@infrastructure/database/schema";
 import { IProductSnapshot } from "../common/types/snapshot.types";
-import { AmendmentLedgerType } from "@shared/types/contract-enums";
+import {
+  AmendmentLedgerType,
+  ContractStatus,
+} from "@shared/types/contract-enums";
 
 export interface IContractService {
-  // Contract Management (9 methods) (合约管理(9个方法))
+  // Contract Management (合约管理)
   create(dto: ICreateContractDto): Promise<Contract>;
   search(
     filter: IContractFilterDto,
@@ -24,11 +27,14 @@ export interface IContractService {
     dto: IUpdateContractDto,
     updatedBy?: string,
   ): Promise<Contract>;
-  activate(id: string): Promise<Contract>;
-  terminate(id: string, reason: string): Promise<Contract>;
-  complete(id: string): Promise<Contract>;
-  suspend(id: string, reason: string): Promise<Contract>;
-  resume(id: string): Promise<Contract>;
+  updateStatus(
+    id: string,
+    targetStatus: ContractStatus,
+    options?: {
+      reason?: string;
+      signedBy?: string;
+    },
+  ): Promise<Contract>;
 
   // Service Entitlement Management (3 methods) (服务权益管理(3个方法))
   getServiceBalance(query: IServiceBalanceQuery): Promise<IServiceBalance[]>;
@@ -43,18 +49,14 @@ export interface ICreateContractDto {
   studentId: string; // Student ID (学生ID)
   productId: string; // Product ID (产品ID)
   productSnapshot: IProductSnapshot; // Product snapshot (产品快照)
-  signedAt?: Date; // Contract signing date (合约签署日期)
+  status?: string; // Initial contract status, defaults to DRAFT (初始合同状态，默认为DRAFT)
   createdBy: string; // ID of creator (创建人ID)
   title?: string; // Contract title (合约标题)
 }
 
 export interface IUpdateContractDto {
-  suspendedAt?: Date; // Contract suspension date (合约暂停日期)
-  suspendedReason?: string; // Reason for suspension (暂停原因)
-  resumedAt?: Date; // Contract resumption date (合约恢复日期)
-  terminatedAt?: Date; // Contract termination date (合约终止日期)
-  terminatedReason?: string; // Reason for termination (终止原因)
-  completedAt?: Date; // Contract completion date (合约完成日期)
+  // Lifecycle date fields removed - now tracked in status history table
+  // [生命周期日期字段已移除 - 现在在状态历史表中跟踪]
   updatedBy?: string; // Updater ID (更新人ID)
 }
 
@@ -116,12 +118,12 @@ export interface IConsumeServiceDto {
 }
 
 export interface IAddAmendmentLedgerDto {
-  studentId: string; // Student ID (学生ID) - NEW in v2.16.12
+  studentId: string; // Student ID (学生ID)
   contractId?: string; // Contract ID (optional for reference) (合约ID - 仅作参考，可选)
   serviceType: string; // Service type (服务类型)
-  ledgerType: AmendmentLedgerType; // Renamed from source (v2.16.12) - 从source重命名
-  quantityChanged: number; // Renamed from quantity (v2.16.12) - 从quantity重命名
-  reason: string; // Renamed from addOnReason (v2.16.12) - 从addOnReason重命名
+  ledgerType: AmendmentLedgerType; // Ledger type (账本类型)
+  quantityChanged: number; // Quantity changed (变更数量)
+  reason: string; // Reason for amendment (调整原因)
   description?: string; // Optional detailed description (可选详细说明)
   attachments?: string[]; // Optional array of attachment URLs (可选附件URL数组)
   relatedBookingId?: string; // Associated booking ID (关联预约ID)

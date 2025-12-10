@@ -86,8 +86,12 @@ describe("PlacementApplicationStatusChangedListener", () => {
         mentorId: "mentor-id-123",
       };
 
-      (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(mockJobApplication);
-      (db.query.studentMentorTable.findFirst as jest.Mock).mockResolvedValue(mockStudentMentor);
+      (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(
+        mockJobApplication,
+      );
+      (db.query.studentMentorTable.findFirst as jest.Mock).mockResolvedValue(
+        mockStudentMentor,
+      );
       (mentorPayableService.isDuplicate as jest.Mock).mockResolvedValue(false);
       (mentorPayableService.getMentorPrice as jest.Mock).mockResolvedValue({
         id: "price-id-123",
@@ -97,10 +101,14 @@ describe("PlacementApplicationStatusChangedListener", () => {
         sessionTypeCode: "recommended",
         status: "active",
       });
-      (mentorPayableService.createPlacementBilling as jest.Mock).mockResolvedValue(undefined);
+      (
+        mentorPayableService.createPlacementBilling as jest.Mock
+      ).mockResolvedValue(undefined);
 
       // Act
-      await listener.handlePlacementApplicationStatusChangedEvent(mockEvent as any);
+      await listener.handlePlacementApplicationStatusChangedEvent(
+        mockEvent as any,
+      );
 
       // Assert
       expect(db.query.jobApplications.findFirst).toHaveBeenCalledWith({
@@ -109,8 +117,13 @@ describe("PlacementApplicationStatusChangedListener", () => {
       expect(db.query.studentMentorTable.findFirst).toHaveBeenCalledWith({
         where: eq(schema.studentMentorTable.studentId, "student-id-123"),
       });
-      expect(mentorPayableService.isDuplicate).toHaveBeenCalledWith("application-id-123");
-      expect(mentorPayableService.getMentorPrice).toHaveBeenCalledWith("mentor-id-123", "recommended");
+      expect(mentorPayableService.isDuplicate).toHaveBeenCalledWith(
+        "application-id-123",
+      );
+      expect(mentorPayableService.getMentorPrice).toHaveBeenCalledWith(
+        "mentor-id-123",
+        "recommended",
+      );
       expect(mentorPayableService.createPlacementBilling).toHaveBeenCalledWith({
         applicationId: "application-id-123",
         studentId: "student-id-123",
@@ -133,11 +146,15 @@ describe("PlacementApplicationStatusChangedListener", () => {
       };
 
       // Act
-      await listener.handlePlacementApplicationStatusChangedEvent(invalidEvent as any);
+      await listener.handlePlacementApplicationStatusChangedEvent(
+        invalidEvent as any,
+      );
 
       // Assert
       expect(db.query.jobApplications.findFirst).not.toHaveBeenCalled();
-      expect(mentorPayableService.createPlacementBilling).not.toHaveBeenCalled();
+      expect(
+        mentorPayableService.createPlacementBilling,
+      ).not.toHaveBeenCalled();
     });
 
     it("should skip processing if job application not found", async () => {
@@ -145,12 +162,16 @@ describe("PlacementApplicationStatusChangedListener", () => {
       (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(null);
 
       // Act
-      await listener.handlePlacementApplicationStatusChangedEvent(mockEvent as any);
+      await listener.handlePlacementApplicationStatusChangedEvent(
+        mockEvent as any,
+      );
 
       // Assert
       expect(db.query.jobApplications.findFirst).toHaveBeenCalled();
       expect(db.query.studentMentorTable.findFirst).not.toHaveBeenCalled();
-      expect(mentorPayableService.createPlacementBilling).not.toHaveBeenCalled();
+      expect(
+        mentorPayableService.createPlacementBilling,
+      ).not.toHaveBeenCalled();
     });
 
     it("should skip processing if student has no mentor", async () => {
@@ -163,16 +184,24 @@ describe("PlacementApplicationStatusChangedListener", () => {
         status: "recommended",
       };
 
-      (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(mockJobApplication);
-      (db.query.studentMentorTable.findFirst as jest.Mock).mockResolvedValue(null);
+      (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(
+        mockJobApplication,
+      );
+      (db.query.studentMentorTable.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       // Act
-      await listener.handlePlacementApplicationStatusChangedEvent(mockEvent as any);
+      await listener.handlePlacementApplicationStatusChangedEvent(
+        mockEvent as any,
+      );
 
       // Assert
       expect(db.query.jobApplications.findFirst).toHaveBeenCalled();
       expect(db.query.studentMentorTable.findFirst).toHaveBeenCalled();
-      expect(mentorPayableService.createPlacementBilling).not.toHaveBeenCalled();
+      expect(
+        mentorPayableService.createPlacementBilling,
+      ).not.toHaveBeenCalled();
     });
 
     it("should skip processing if status change is not billable", async () => {
@@ -199,17 +228,25 @@ describe("PlacementApplicationStatusChangedListener", () => {
         mentorId: "mentor-id-123",
       };
 
-      (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(mockJobApplication);
-      (db.query.studentMentorTable.findFirst as jest.Mock).mockResolvedValue(mockStudentMentor);
+      (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(
+        mockJobApplication,
+      );
+      (db.query.studentMentorTable.findFirst as jest.Mock).mockResolvedValue(
+        mockStudentMentor,
+      );
 
       // Act
-      await listener.handlePlacementApplicationStatusChangedEvent(nonBillableEvent as any);
+      await listener.handlePlacementApplicationStatusChangedEvent(
+        nonBillableEvent as any,
+      );
 
       // Assert
       expect(db.query.jobApplications.findFirst).toHaveBeenCalled();
       expect(db.query.studentMentorTable.findFirst).not.toHaveBeenCalled();
       expect(mentorPayableService.isDuplicate).not.toHaveBeenCalled();
-      expect(mentorPayableService.createPlacementBilling).not.toHaveBeenCalled();
+      expect(
+        mentorPayableService.createPlacementBilling,
+      ).not.toHaveBeenCalled();
     });
 
     it("should skip processing if duplicate event", async () => {
@@ -228,19 +265,27 @@ describe("PlacementApplicationStatusChangedListener", () => {
         mentorId: "mentor-id-123",
       };
 
-      (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(mockJobApplication);
-      (db.query.studentMentorTable.findFirst as jest.Mock).mockResolvedValue(mockStudentMentor);
+      (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(
+        mockJobApplication,
+      );
+      (db.query.studentMentorTable.findFirst as jest.Mock).mockResolvedValue(
+        mockStudentMentor,
+      );
       (mentorPayableService.isDuplicate as jest.Mock).mockResolvedValue(true);
 
       // Act
-      await listener.handlePlacementApplicationStatusChangedEvent(mockEvent as any);
+      await listener.handlePlacementApplicationStatusChangedEvent(
+        mockEvent as any,
+      );
 
       // Assert
       expect(db.query.jobApplications.findFirst).toHaveBeenCalled();
       expect(db.query.studentMentorTable.findFirst).toHaveBeenCalled();
       expect(mentorPayableService.isDuplicate).toHaveBeenCalled();
       expect(mentorPayableService.getMentorPrice).not.toHaveBeenCalled();
-      expect(mentorPayableService.createPlacementBilling).not.toHaveBeenCalled();
+      expect(
+        mentorPayableService.createPlacementBilling,
+      ).not.toHaveBeenCalled();
     });
 
     it("should skip processing if no mentor price found", async () => {
@@ -259,20 +304,30 @@ describe("PlacementApplicationStatusChangedListener", () => {
         mentorId: "mentor-id-123",
       };
 
-      (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(mockJobApplication);
-      (db.query.studentMentorTable.findFirst as jest.Mock).mockResolvedValue(mockStudentMentor);
+      (db.query.jobApplications.findFirst as jest.Mock).mockResolvedValue(
+        mockJobApplication,
+      );
+      (db.query.studentMentorTable.findFirst as jest.Mock).mockResolvedValue(
+        mockStudentMentor,
+      );
       (mentorPayableService.isDuplicate as jest.Mock).mockResolvedValue(false);
-      (mentorPayableService.getMentorPrice as jest.Mock).mockResolvedValue(null);
+      (mentorPayableService.getMentorPrice as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       // Act
-      await listener.handlePlacementApplicationStatusChangedEvent(mockEvent as any);
+      await listener.handlePlacementApplicationStatusChangedEvent(
+        mockEvent as any,
+      );
 
       // Assert
       expect(db.query.jobApplications.findFirst).toHaveBeenCalled();
       expect(db.query.studentMentorTable.findFirst).toHaveBeenCalled();
       expect(mentorPayableService.isDuplicate).toHaveBeenCalled();
       expect(mentorPayableService.getMentorPrice).toHaveBeenCalled();
-      expect(mentorPayableService.createPlacementBilling).not.toHaveBeenCalled();
+      expect(
+        mentorPayableService.createPlacementBilling,
+      ).not.toHaveBeenCalled();
     });
   });
 });

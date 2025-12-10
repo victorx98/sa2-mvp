@@ -290,7 +290,10 @@ export interface IMentorAppealService {
    * @param createdByUserId - ID of the mentor submitting the appeal (提交申诉的导师ID)
    * @returns Created appeal record (创建的申诉记录)
    */
-  createAppeal(dto: ICreateAppealDTO, createdByUserId: string): Promise<IMentorAppeal>;
+  createAppeal(
+    dto: ICreateAppealDTO,
+    createdByUserId: string,
+  ): Promise<IMentorAppeal>;
 
   /**
    * Find One Appeal (查询单个申诉)
@@ -300,7 +303,9 @@ export interface IMentorAppealService {
    * @param conditions - ID or filter conditions (ID或筛选条件)
    * @returns Appeal record or null (申诉记录或null)
    */
-  findOne(conditions: Partial<IMentorAppeal> | { id: string }): Promise<IMentorAppeal | null>;
+  findOne(
+    conditions: Partial<IMentorAppeal> | { id: string },
+  ): Promise<IMentorAppeal | null>;
 
   /**
    * Search Appeals (搜索申诉列表)

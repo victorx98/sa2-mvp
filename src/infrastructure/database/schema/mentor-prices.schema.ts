@@ -1,4 +1,11 @@
-import { pgTable, uuid, varchar, decimal, timestamp, index } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  uuid,
+  varchar,
+  decimal,
+  timestamp,
+  index,
+} from "drizzle-orm/pg-core";
 import { mentorTable } from "./mentor.schema";
 
 /**
@@ -85,18 +92,24 @@ export const mentorPrices = pgTable(
      * Nullable: Initial creation may not have an updater
      * (可为空：初始创建可能没有更新者)
      */
-    updatedBy: varchar("updated_by", { length: 32 }).references(() => mentorTable.id),
+    updatedBy: varchar("updated_by", { length: 32 }).references(
+      () => mentorTable.id,
+    ),
 
     // ========== Timestamps ==========
     /**
      * Creation timestamp (创建时间戳)
      */
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
 
     /**
      * Last update timestamp (最后更新时间戳)
      */
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (table) => ({
     // Composite index: Mentor ID + Session Type Code + Status
@@ -111,7 +124,9 @@ export const mentorPrices = pgTable(
     mentorIdx: index("idx_mentor_prices_mentor").on(table.mentorId),
 
     // Session type code index (会话类型代码索引)
-    sessionTypeIdx: index("idx_mentor_prices_session_type").on(table.sessionTypeCode),
+    sessionTypeIdx: index("idx_mentor_prices_session_type").on(
+      table.sessionTypeCode,
+    ),
 
     // Status index (状态索引)
     statusIdx: index("idx_mentor_prices_status").on(table.status),

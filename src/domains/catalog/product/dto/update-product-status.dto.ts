@@ -11,4 +11,3 @@ export class UpdateProductStatusDto {
   @IsEnum(ProductStatus)
   status: ProductStatus;
 }
-

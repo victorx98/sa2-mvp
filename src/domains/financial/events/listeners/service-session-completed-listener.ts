@@ -40,9 +40,7 @@ export class ServiceSessionCompletedListener {
     event: IServiceSessionCompletedEvent,
   ): Promise<void> {
     try {
-      this.logger.log(
-        `Received service session completed event: ${event.id}`,
-      );
+      this.logger.log(`Received service session completed event: ${event.id}`);
 
       const payload = event.payload;
 

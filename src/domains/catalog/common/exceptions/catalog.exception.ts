@@ -41,7 +41,8 @@ export const CATALOG_ERROR_MESSAGES: Record<string, string> = {
   PRODUCT_NOT_INACTIVE: "Product is not inactive",
   PRODUCT_NOT_DELETED: "Product is not deleted, cannot restore",
   PRODUCT_ALREADY_PUBLISHED: "Product has been published and cannot be edited",
-  PRODUCT_NOT_PUBLISHED: "Product must be published (ACTIVE status) to create snapshot",
+  PRODUCT_NOT_PUBLISHED:
+    "Product must be published (ACTIVE status) to create snapshot",
   PRODUCT_FIELD_IMMUTABLE: "Product field is immutable",
   PRODUCT_NO_ITEMS: "Product must contain at least one item",
   PRODUCT_MIN_ITEMS: "Product must contain at least one item",
@@ -49,7 +50,8 @@ export const CATALOG_ERROR_MESSAGES: Record<string, string> = {
   ITEM_ALREADY_IN_PRODUCT: "Item already exists in this product",
   PRODUCT_ITEM_NOT_FOUND: "Product item not found",
   PACKAGE_QUANTITY_MUST_BE_ONE: "Service package quantity must be 1",
-  INVALID_STATUS_TRANSITION: "Invalid product status transition. Product status does not allow this operation",
+  INVALID_STATUS_TRANSITION:
+    "Invalid product status transition. Product status does not allow this operation",
 
   // Common validation errors
   INVALID_INPUT: "Invalid input provided",
@@ -62,7 +64,8 @@ export const CATALOG_ERROR_MESSAGES: Record<string, string> = {
   REFERENCE_NOT_ACTIVE: "Referenced resource is not active",
   REASON_REQUIRED: "Reason is required",
   SERVICE_TYPE_NOT_FOUND: "Service type not found",
-  ITEMS_BELONG_TO_DIFFERENT_PRODUCTS: "All items must belong to the same product",
+  ITEMS_BELONG_TO_DIFFERENT_PRODUCTS:
+    "All items must belong to the same product",
 };
 
 // Custom exception base class

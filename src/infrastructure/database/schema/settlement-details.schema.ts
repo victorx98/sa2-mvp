@@ -1,8 +1,4 @@
-import {
-  pgTable,
-  uuid,
-  timestamp,
-} from "drizzle-orm/pg-core";
+import { pgTable, uuid, timestamp } from "drizzle-orm/pg-core";
 
 /**
  * Settlement Details Table (结算明细关联表)
@@ -58,7 +54,9 @@ export const settlementDetails = pgTable("settlement_details", {
    * Timestamp when the association was created
    * (关联记录创建时间戳)
    */
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 
   /**
    * Created By (创建人)

@@ -15,6 +15,7 @@ import { AdminProductsController } from "./controllers/admin/products.controller
 import { AdminContractsController } from "./controllers/admin/contracts.controller";
 import { AdminFinancialController } from "./controllers/admin/financial.controller";
 import { AdminPlacementController } from "./controllers/admin/placement.controller";
+import { AdminServiceTypesController } from "./controllers/admin/service-types.controller";
 import { SessionTypesController } from "./controllers/services/session-types.controller";
 import { ApplicationModule } from "@application/application.module";
 import { WebhookModule } from "@core/webhook/webhook.module";
@@ -29,39 +30,40 @@ import { WebhookModule } from "@core/webhook/webhook.module";
   imports: [
     // Application Layer for business logic
     ApplicationModule,
-    
+
     // Webhook Module for receiving webhook events from Feishu and Zoom
     WebhookModule,
   ],
   controllers: [
-        // Common Controllers
-        AuthController,
-        UserController,
-        SessionController,
-        ReferenceDataController,
+    // Common Controllers
+    AuthController,
+    UserController,
+    SessionController,
+    ReferenceDataController,
 
-        // Service Controllers
-        SessionTypesController,
+    // Service Controllers
+    SessionTypesController,
 
-        // Admin Controllers
-        AdminProductsController,
-        AdminContractsController,
-        AdminFinancialController,
-        AdminPlacementController,
+    // Admin Controllers
+    AdminProductsController,
+    AdminContractsController,
+    AdminFinancialController,
+    AdminPlacementController,
+    AdminServiceTypesController,
 
-        // Counselor Controllers
-        CounselorSessionsController,
-        CounselorStudentContractController,
-        CounselorProfileController,
-        CounselorsController,
+    // Counselor Controllers
+    CounselorSessionsController,
+    CounselorStudentContractController,
+    CounselorProfileController,
+    CounselorsController,
 
-        // Mentor Controllers
-        MentorsController,
-        MentorProfileController,
+    // Mentor Controllers
+    MentorsController,
+    MentorProfileController,
 
-        // Student Controllers
-        StudentsController,
-        StudentProfileController,
-      ],
+    // Student Controllers
+    StudentsController,
+    StudentProfileController,
+  ],
 })
 export class ApiModule {}

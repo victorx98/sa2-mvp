@@ -57,7 +57,7 @@ class ProductItemSortDto {
   @IsNotEmpty()
   @IsUUID()
   itemId: string;
-  
+
   @IsNotEmpty()
   @IsInt()
   @Min(0)
@@ -114,7 +114,7 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsArray()
-  @IsUUID('4', { each: true })
+  @IsUUID("4", { each: true })
   removeItems?: string[]; // Remove product items by ID [通过ID删除产品项]
 
   @IsOptional()

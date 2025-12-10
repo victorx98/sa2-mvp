@@ -5,6 +5,7 @@ import { SettlementService } from "./services/settlement.service";
 import { MentorPaymentInfoService } from "./services/mentor-payment-info.service";
 import { MentorPaymentParamService } from "./services/mentor-payment-param.service";
 import { MentorAppealService } from "./services/mentor-appeal.service";
+import { MentorPriceService } from "./services/mentor-price.service";
 import { ServiceSessionCompletedListener } from "./events/listeners/service-session-completed-listener";
 import { SettlementConfirmedListener } from "./events/listeners/settlement-confirmed.listener";
 import { PlacementApplicationStatusChangedListener } from "./events/listeners/placement-application-status-changed.listener";
@@ -36,6 +37,7 @@ import { PlacementApplicationStatusRolledBackListener } from "./events/listeners
     MentorPaymentInfoService,
     MentorPaymentParamService,
     MentorAppealService,
+    MentorPriceService,
     {
       provide: "IMentorPayableService",
       useClass: MentorPayableService,
@@ -56,6 +58,10 @@ import { PlacementApplicationStatusRolledBackListener } from "./events/listeners
       provide: "IMentorAppealService",
       useClass: MentorAppealService,
     },
+    {
+      provide: "IMentorPriceService",
+      useClass: MentorPriceService,
+    },
     // Event listeners
     ServiceSessionCompletedListener,
     SettlementConfirmedListener,
@@ -69,12 +75,14 @@ import { PlacementApplicationStatusRolledBackListener } from "./events/listeners
     "IMentorPaymentInfoService",
     "IMentorPaymentParamService",
     "IMentorAppealService",
+    "IMentorPriceService",
     // Export concrete service classes for direct injection in commands/queries
     MentorPayableService,
     SettlementService,
     MentorPaymentInfoService,
     MentorPaymentParamService,
     MentorAppealService,
+    MentorPriceService,
   ],
 })
 export class FinancialModule {}

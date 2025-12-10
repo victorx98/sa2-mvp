@@ -7,18 +7,17 @@ import {
   IsEnum,
   IsPositive,
   IsOptional,
+  ValidateIf,
 } from "class-validator";
 
 /**
- *
- * @change {v2.16.12} Primary key changed from contractId to studentId
- * @change {v2.16.12} Changed to insert into ledger table (trigger updates entitlement)
- * @change {v2.16.13} Renamed from entitlement to amendment ledger
+ * DTO for adding amendment ledger
+ * Used when adding additional entitlements (addon, promotion, compensation)
  */
 export class AddAmendmentLedgerDto {
   @IsNotEmpty()
   @IsString()
-  studentId: string; // Student ID (学生ID) - NEW in v2.16.12
+  studentId: string; // Student ID (学生ID)
 
   @IsOptional()
   @IsUUID()
@@ -30,15 +29,15 @@ export class AddAmendmentLedgerDto {
 
   @IsNotEmpty()
   @IsEnum(AmendmentLedgerType)
-  ledgerType: AmendmentLedgerType; // Renamed from source (v2.16.12) - 从source重命名
+  ledgerType: AmendmentLedgerType; // Ledger type (账本类型)
 
   @IsNotEmpty()
   @IsPositive()
-  quantityChanged: number; // Renamed from quantity (v2.16.12) - 从quantity重命名
+  quantityChanged: number; // Quantity changed (变更数量)
 
   @IsNotEmpty()
   @IsString()
-  reason: string; // Renamed from addOnReason (v2.16.12) - 从addOnReason重命名
+  reason: string; // Reason for amendment (调整原因)
 
   @IsOptional()
   description?: string; // Optional detailed description (可选详细说明)
@@ -49,6 +48,15 @@ export class AddAmendmentLedgerDto {
   @IsOptional()
   @IsUUID()
   relatedBookingId?: string; // Associated booking ID (关联预约ID)
+
+  @ValidateIf(
+    (o) => o.relatedBookingId !== undefined && o.relatedBookingId !== null,
+  )
+  @IsNotEmpty({
+    message: "bookingSource is required when relatedBookingId is provided",
+  })
+  @IsString()
+  bookingSource?: string; // Booking table name (e.g., 'regular_mentoring_sessions', 'job_applications') - required when relatedBookingId is provided [预约表名（如'regular_mentoring_sessions'、'job_applications'）- 当relatedBookingId存在时必填]
 
   @IsNotEmpty()
   @IsString()

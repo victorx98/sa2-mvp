@@ -25,20 +25,12 @@ export class ServiceHoldService {
   ) {}
 
   /**
-   * Create hold(v2.16.13 - 重新引入过期机制)
+   * Create hold
    * - Check available balance(检查可用余额)
    * - Create hold record (supports both automatic expiration and manual release)(创建预占记录(支持自动过期和手动释放))
    * - Trigger automatically updates held_quantity(触发器自动更新预占数量)
    *
-   * v2.16.11: relatedBookingId is always null on creation, updated via event (v2.16.11: relatedBookingId在创建时始终为null，通过事件更新)
-   * v2.16.12: Removed contractId, expiryHours, and expiryAt fields (v2.16.12: 移除contractId, expiryHours和expiryAt字段)
-   * v2.16.13: Re-introduced expiryAt field (v2.16.13: 重新引入expiryAt字段)
-   *
    * Supports optional transaction parameter(支持可选的事务参数)
-   *
-   * @change {v2.16.12} Now queries by studentId + serviceType (aggregates across contracts)
-   * @change {v2.16.12} Removed expiryAt (holds no longer expire automatically - manual release only)
-   * @change {v2.16.13} Re-introduced expiryAt - supports both automatic expiration and manual release
    */
   async createHold(
     dto: CreateHoldDto,
@@ -115,7 +107,7 @@ export class ServiceHoldService {
     }
 
     /* 2. Validate status(2. 验证状态) */
-    if (hold.status !== "active") {
+    if (hold.status !== HoldStatus.ACTIVE) {
       throw new ContractException("HOLD_NOT_ACTIVE");
     }
 
@@ -134,7 +126,7 @@ export class ServiceHoldService {
   }
 
   /**
-   * Get long-unreleased holds for manual review(v2.16.12 - 学生级权益累积制)
+   * Get long-unreleased holds for manual review
    * - Returns list of active holds created more than 24 hours ago(返回超过24小时前创建的活跃预占列表)
    * - No automatic update - manual review and release only(无自动更新 - 仅人工审核和释放)
    * - Caller should manually review and use releaseHold() to process(调用者应手动审核并使用releaseHold()处理)
@@ -161,10 +153,8 @@ export class ServiceHoldService {
   }
 
   /**
-   * Get active holds for student and service type(v2.16.12 - 学生级权益累积制)
+   * Get active holds for student and service type
    * - Returns all active holds across ALL contracts for the student and service type(返回学生和服务类型在所有合同中的活跃预占)
-   *
-   * @change {v2.16.12} Changed from contractId to studentId
    */
   async getActiveHolds(
     studentId: string,
@@ -208,7 +198,7 @@ export class ServiceHoldService {
       throw new ContractNotFoundException("HOLD_NOT_FOUND");
     }
 
-    if (hold.status !== "active") {
+    if (hold.status !== HoldStatus.ACTIVE) {
       throw new ContractException("HOLD_NOT_ACTIVE");
     }
 
@@ -235,17 +225,17 @@ export class ServiceHoldService {
    * @param sessionId - Optional session ID for tracking (可选的会话ID用于跟踪)
    * @returns Object with counts of processed holds (处理结果计数)
    */
-  async releaseExpiredHolds(
-    batchSize = 100,
-  ): Promise<{
+  async releaseExpiredHolds(batchSize = 100): Promise<{
     releasedCount: number;
     failedCount: number;
     skippedCount: number;
+    failedHoldIds?: string[]; // [修复] Include failed hold IDs for detailed error reporting [包含失败的hold ID以提供详细错误报告]
   }> {
     const now = new Date();
     let releasedCount = 0;
     let failedCount = 0;
     let skippedCount = 0;
+    const failedHoldIds: string[] = []; // [修复] Track failed hold IDs [跟踪失败的hold ID]
 
     try {
       // Find expired holds (查找过期的预占)
@@ -262,17 +252,20 @@ export class ServiceHoldService {
         .limit(batchSize);
 
       // Process each expired hold (处理每个过期预占)
+      // [修复] Process each hold individually to prevent partial failures from affecting others [单独处理每个hold以防止部分失败影响其他hold]
       for (const hold of expiredHolds) {
         try {
-          // Update status to expired (更新状态为过期)
-          await this.db
-            .update(schema.serviceHolds)
-            .set({
-              status: HoldStatus.EXPIRED,
-              releaseReason: "expired",
-              releasedAt: now,
-            })
-            .where(eq(schema.serviceHolds.id, hold.id));
+          // [修复] Use transaction for each hold to ensure atomicity [为每个hold使用事务以确保原子性]
+          await this.db.transaction(async (tx) => {
+            await tx
+              .update(schema.serviceHolds)
+              .set({
+                status: HoldStatus.EXPIRED,
+                releaseReason: "expired",
+                releasedAt: now,
+              })
+              .where(eq(schema.serviceHolds.id, hold.id));
+          });
 
           releasedCount++;
         } catch (error) {
@@ -283,6 +276,7 @@ export class ServiceHoldService {
             error instanceof Error ? error.stack : undefined,
           );
           failedCount++;
+          failedHoldIds.push(hold.id); // [修复] Track failed hold ID [跟踪失败的hold ID]
         }
       }
 
@@ -304,6 +298,7 @@ export class ServiceHoldService {
       releasedCount,
       failedCount,
       skippedCount,
+      ...(failedHoldIds.length > 0 && { failedHoldIds }), // [修复] Include failed hold IDs if any [如果有失败的hold ID则包含]
     };
   }
 

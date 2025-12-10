@@ -4,18 +4,17 @@ import {
   IsString,
   IsPositive,
   IsOptional,
+  ValidateIf,
 } from "class-validator";
 
 /**
- * DTO for consuming service (v2.16.12 - 学生级权益累积制)
+ * DTO for consuming service
  * Used when recording service consumption (from session completion)
- *
- * @change {v2.16.12} Primary key changed from contractId to studentId
  */
 export class ConsumeServiceDto {
   @IsNotEmpty()
   @IsString()
-  studentId: string; // Student ID (学生ID) - NEW in v2.16.12
+  studentId: string; // Student ID (学生ID)
 
   @IsOptional()
   @IsUUID()
@@ -37,7 +36,16 @@ export class ConsumeServiceDto {
   @IsUUID()
   relatedHoldId?: string; // Associated hold ID (关联预留ID)
 
-  @IsNotEmpty()
+  @ValidateIf(
+    (o) => o.relatedBookingId !== undefined && o.relatedBookingId !== null,
+  )
+  @IsNotEmpty({
+    message: "bookingSource is required when relatedBookingId is provided",
+  })
   @IsString()
-  createdBy: string; // ID of creator (创建人ID)
+  bookingSource?: string; // Booking table name (e.g., 'regular_mentoring_sessions', 'job_applications') [预约表名（如'regular_mentoring_sessions'、'job_applications'）]
+
+  @IsOptional()
+  @IsString()
+  createdBy?: string; // ID of creator (will be set from user context, not from request body) [创建人ID（将从用户上下文获取，不从请求体获取）]
 }

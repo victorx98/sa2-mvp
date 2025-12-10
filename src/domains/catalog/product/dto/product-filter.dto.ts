@@ -16,19 +16,21 @@ export class ProductFilterDto {
   code?: string; // Code fuzzy search
 
   @IsOptional()
-  @Transform(({ value }) => value === "" ? undefined : value, { toClassOnly: true })
+  @Transform(({ value }) => (value === "" ? undefined : value), {
+    toClassOnly: true,
+  })
   @IsEnum(ProductStatus)
   status?: ProductStatus; // Filter by status
 
   @IsOptional()
-  @Transform(({ value }) => value === "" ? undefined : value)
+  @Transform(({ value }) => (value === "" ? undefined : value))
   @IsEnum(UserPersona)
   userPersona?: UserPersona; // Filter by target user persona
 
   @IsOptional()
-  @Transform(({ value }) => value === "" ? undefined : value)
+  @Transform(({ value }) => (value === "" ? undefined : value))
   @IsString()
-  @IsIn(['hot', 'new', 'recommended'])
+  @IsIn(["hot", "new", "recommended"])
   marketingLabel?: MarketingLabel; // Filter by marketing label
 
   @IsOptional()

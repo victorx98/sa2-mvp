@@ -345,7 +345,10 @@ describe("MentorPaymentParamService", () => {
 
       mockDb.query.paymentParams.findFirst.mockResolvedValue(mockPaymentParams);
 
-      const result = await paymentParamService.getDefaultParams("USD", "2024-01");
+      const result = await paymentParamService.getDefaultParams(
+        "USD",
+        "2024-01",
+      );
 
       expect(result).not.toBeNull();
       expect(result?.currency).toBe("USD");
@@ -357,19 +360,28 @@ describe("MentorPaymentParamService", () => {
     it("should return null when parameters not found", async () => {
       mockDb.query.paymentParams.findFirst.mockResolvedValue(null);
 
-      const result = await paymentParamService.getDefaultParams("USD", "2024-01");
+      const result = await paymentParamService.getDefaultParams(
+        "USD",
+        "2024-01",
+      );
 
       expect(result).toBeNull();
     });
 
     it("should return null for invalid currency", async () => {
-      const result = await paymentParamService.getDefaultParams("INVALID", "2024-01");
+      const result = await paymentParamService.getDefaultParams(
+        "INVALID",
+        "2024-01",
+      );
 
       expect(result).toBeNull();
     });
 
     it("should return null for invalid month format", async () => {
-      const result = await paymentParamService.getDefaultParams("USD", "2024/01");
+      const result = await paymentParamService.getDefaultParams(
+        "USD",
+        "2024/01",
+      );
 
       expect(result).toBeNull();
     });
@@ -389,7 +401,10 @@ describe("MentorPaymentParamService", () => {
 
       mockDb.query.paymentParams.findFirst.mockResolvedValue(mockPaymentParams);
 
-      const result = await paymentParamService.getDefaultParams("CNY", "2024-01");
+      const result = await paymentParamService.getDefaultParams(
+        "CNY",
+        "2024-01",
+      );
 
       expect(result?.currency).toBe("CNY");
       expect(result?.defaultExchangeRate).toBe(1.0);

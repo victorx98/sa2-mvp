@@ -154,26 +154,24 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         ],
       };
 
-      await db
-        .insert(schema.contracts)
-        .values({
-          id: contractId,
-          studentId,
-          contractNumber: `${testPrefix}-001`,
-          productId: productSnapshot.productId,
-          productSnapshot: productSnapshot as any,
-          status: "active",
-          totalAmount: "1000.00",
-          currency: "CNY",
-          signedAt: new Date(),
-          activatedAt: new Date(),
-          createdBy: "test-system",
-        } as any);
+      await db.insert(schema.contracts).values({
+        id: contractId,
+        studentId,
+        contractNumber: `${testPrefix}-001`,
+        productId: productSnapshot.productId,
+        productSnapshot: productSnapshot as any,
+        status: "active",
+        totalAmount: "1000.00",
+        currency: "CNY",
+        signedAt: new Date(),
+        activatedAt: new Date(),
+        createdBy: "test-system",
+      } as any);
 
       // Create entitlement
       await db.insert(schema.contractServiceEntitlements).values({
         studentId,
-        serviceType: "session",
+        serviceType: "External", // Use valid service type code from service_types table
         totalQuantity: 10,
         consumedQuantity: 0,
         heldQuantity: 0,
@@ -185,7 +183,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         counselorId: uuidv4(),
         studentId,
         mentorId,
-        serviceType: "session",
+        serviceType: "External", // Use valid service type code from service_types table
         scheduledStartTime: new Date("2025-12-15T10:00:00Z").toISOString(),
         duration: 60,
         topic: `${testPrefix} - Happy Path Test`,
@@ -264,7 +262,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         .where(
           and(
             eq(schema.contractServiceEntitlements.studentId, studentId),
-            eq(schema.contractServiceEntitlements.serviceType, "session"),
+            eq(schema.contractServiceEntitlements.serviceType, "External"),
           ),
         );
 
@@ -321,7 +319,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       // Create entitlement with zero available balance
       await db.insert(schema.contractServiceEntitlements).values({
         studentId,
-        serviceType: "session",
+        serviceType: "External", // Use valid service type code from service_types table
         totalQuantity: 1,
         consumedQuantity: 1,
         heldQuantity: 0,
@@ -333,7 +331,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         counselorId: uuidv4(),
         studentId,
         mentorId,
-        serviceType: "session",
+        serviceType: "External", // Use valid service type code from service_types table
         scheduledStartTime: new Date("2025-12-16T10:00:00Z").toISOString(),
         duration: 60,
         topic: `${testPrefix} - Insufficient Balance Test`,
@@ -417,7 +415,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
 
       await db.insert(schema.contractServiceEntitlements).values({
         studentId: studentId1,
-        serviceType: "session",
+        serviceType: "External", // Use valid service type code from service_types table
         totalQuantity: 10,
         consumedQuantity: 0,
         heldQuantity: 0,
@@ -429,7 +427,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         counselorId: uuidv4(),
         studentId: studentId1,
         mentorId,
-        serviceType: "session",
+        serviceType: "External", // Use valid service type code from service_types table
         scheduledStartTime: new Date("2025-12-17T10:00:00Z").toISOString(),
         duration: 60,
         topic: `${testPrefix} - First Booking`,
@@ -458,7 +456,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
 
       await db.insert(schema.contractServiceEntitlements).values({
         studentId: studentId2,
-        serviceType: "session",
+        serviceType: "External", // Use valid service type code from service_types table
         totalQuantity: 10,
         consumedQuantity: 0,
         heldQuantity: 0,
@@ -471,7 +469,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         counselorId: uuidv4(),
         studentId: studentId2,
         mentorId, // Same mentor!
-        serviceType: "session",
+        serviceType: "External", // Use valid service type code from service_types table
         scheduledStartTime: new Date("2025-12-17T10:00:00Z").toISOString(), // Same time!
         duration: 60,
         topic: `${testPrefix} - Conflict Booking`,
@@ -541,7 +539,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
 
       await db.insert(schema.contractServiceEntitlements).values({
         studentId,
-        serviceType: "session",
+        serviceType: "External", // Use valid service type code from service_types table
         totalQuantity: 10,
         consumedQuantity: 0,
         heldQuantity: 0,
@@ -554,7 +552,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         counselorId: uuidv4(),
         studentId,
         mentorId,
-        serviceType: "session",
+        serviceType: "External", // Use valid service type code from service_types table
         scheduledStartTime: new Date("2025-12-18T10:00:00Z").toISOString(),
         duration: 60,
         topic: `${testPrefix} - Rollback Test`,
@@ -601,7 +599,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         .where(
           and(
             eq(schema.contractServiceEntitlements.studentId, studentId),
-            eq(schema.contractServiceEntitlements.serviceType, "session"),
+            eq(schema.contractServiceEntitlements.serviceType, "External"),
           ),
         );
 
@@ -657,7 +655,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
 
       await db.insert(schema.contractServiceEntitlements).values({
         studentId,
-        serviceType: "session",
+        serviceType: "External", // Use valid service type code from service_types table
         totalQuantity: 10,
         consumedQuantity: 0,
         heldQuantity: 0,
@@ -670,7 +668,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         counselorId: uuidv4(),
         studentId,
         mentorId,
-        serviceType: "session",
+        serviceType: "External", // Use valid service type code from service_types table
         scheduledStartTime: new Date("2025-12-20T10:00:00Z").toISOString(),
         duration: 60,
         topic: `${testPrefix} - Completion Test`,
@@ -690,14 +688,17 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
 
       // Act - Consume service
       console.log("\n📝 Consuming service...");
-      await contractService.consumeService({
-        studentId,
-        serviceType: "session",
-        quantity: 1,
-        relatedBookingId: bookingResult.sessionId,
-        relatedHoldId: bookingResult.serviceHoldId,
-        createdBy: "test-system",
-      });
+      await contractService.consumeService(
+        {
+          studentId,
+          serviceType: "External", // Use valid service type code from service_types table
+          quantity: 1,
+          relatedBookingId: bookingResult.sessionId,
+          bookingSource: "regular_mentoring_sessions", // Required when relatedBookingId is provided [当relatedBookingId存在时必填]
+          relatedHoldId: bookingResult.serviceHoldId,
+        },
+        "test-system", // createdBy from user context [创建人ID来自用户上下文]
+      );
       console.log("✓ Service consumed");
 
       // Assert - Verify ledger entry
@@ -734,7 +735,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         .where(
           and(
             eq(schema.contractServiceEntitlements.studentId, studentId),
-            eq(schema.contractServiceEntitlements.serviceType, "session"),
+            eq(schema.contractServiceEntitlements.serviceType, "External"),
           ),
         );
 
@@ -743,7 +744,9 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
       expect(entitlement.availableQuantity).toBe(9); // 10 - 1
       console.log("✓ Verified: Balance updated correctly");
 
-      console.log("\n🎉 SUCCESS: Session completion and balance deduction verified!");
+      console.log(
+        "\n🎉 SUCCESS: Session completion and balance deduction verified!",
+      );
     }, 30000);
   });
 
@@ -790,7 +793,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
 
       await db.insert(schema.contractServiceEntitlements).values({
         studentId,
-        serviceType: "session",
+        serviceType: "External", // Use valid service type code from service_types table
         totalQuantity: 10,
         consumedQuantity: 0,
         heldQuantity: 1, // Manually set to simulate hold
@@ -803,7 +806,7 @@ describe("Session Booking Flow - Complete E2E Tests", () => {
         .insert(schema.serviceHolds)
         .values({
           studentId,
-          serviceType: "session",
+          serviceType: "External", // Use valid service type code from service_types table
           quantity: 1,
           status: "active" as any,
           expiryAt: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago (expired!)

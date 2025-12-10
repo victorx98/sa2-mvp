@@ -1,36 +1,49 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, Query, HttpException, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { JwtAuthGuard as AuthGuard } from '@shared/guards/jwt-auth.guard';
-import { RolesGuard } from '@shared/guards/roles.guard';
-import { Roles } from '@shared/decorators/roles.decorator';
-import { UseGuards } from '@nestjs/common';
-import { CreateJobPositionCommand } from '@application/commands/placement/create-job-position.command';
-import { UpdateJobPositionCommand } from '@application/commands/placement/update-job-position.command';
-import { UpdateJobApplicationStatusCommand } from '@application/commands/placement/update-job-application-status.command';
-import { GetJobPositionsQuery } from '@application/queries/placement/get-job-positions.query';
-import { GetJobPositionQuery } from '@application/queries/placement/get-job-position.query';
-import { GetJobApplicationsQuery } from '@application/queries/placement/get-job-applications.query';
-import { GetJobApplicationQuery } from '@application/queries/placement/get-job-application.query';
-import { ICreateJobPositionDto, ISubmitApplicationDto, IUpdateApplicationStatusDto } from '@domains/placement/dto';
-import { IPaginationQuery, ISortQuery } from '@shared/types/pagination.types';
-import { CurrentUser } from '@shared/decorators/current-user.decorator';
-import type { IJwtUser } from '@shared/types/jwt-user.interface';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Patch,
+  Query,
+  HttpException,
+  HttpStatus,
+} from "@nestjs/common";
+import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
+import { JwtAuthGuard as AuthGuard } from "@shared/guards/jwt-auth.guard";
+import { RolesGuard } from "@shared/guards/roles.guard";
+import { Roles } from "@shared/decorators/roles.decorator";
+import { UseGuards } from "@nestjs/common";
+import { CreateJobPositionCommand } from "@application/commands/placement/create-job-position.command";
+import { UpdateJobPositionCommand } from "@application/commands/placement/update-job-position.command";
+import { UpdateJobApplicationStatusCommand } from "@application/commands/placement/update-job-application-status.command";
+import { GetJobPositionsQuery } from "@application/queries/placement/get-job-positions.query";
+import { GetJobPositionQuery } from "@application/queries/placement/get-job-position.query";
+import { GetJobApplicationsQuery } from "@application/queries/placement/get-job-applications.query";
+import { GetJobApplicationQuery } from "@application/queries/placement/get-job-application.query";
+import { GetJobApplicationHistoryQuery } from "@application/queries/placement/get-job-application-history.query";
+import { RollbackJobApplicationStatusCommand } from "@application/commands/placement/rollback-job-application-status.command";
+import {
+  ICreateJobPositionDto,
+  IUpdateApplicationStatusDto,
+  IRollbackApplicationStatusDto,
+} from "@domains/placement/dto";
+import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
+import { CurrentUser } from "@shared/decorators/current-user.decorator";
+import type { IJwtUser } from "@shared/types/jwt-user.interface";
 
 /**
  * Admin Placement Controller
  * [管理员配置控制器]
- * 
+ *
  * 提供配置相关的API端点，包括：
- * 1. 配置规则管理
- * 2. 服务匹配管理
- * 3. 资源分配管理
- * 4. 职位管理
- * 5. 职位申请管理
+ * 1. 职位管理
+ * 2. 职位申请管理
  */
-@Controller('api/admin/placement')
-@ApiTags('Admin Placement')
+@Controller("api/admin/placement")
+@ApiTags("Admin Placement")
 @UseGuards(AuthGuard, RolesGuard)
-@Roles('admin', 'manager')
+@Roles("admin", "manager")
 export class AdminPlacementController {
   constructor(
     // 职位管理相关
@@ -38,21 +51,26 @@ export class AdminPlacementController {
     private readonly updateJobPositionCommand: UpdateJobPositionCommand,
     private readonly getJobPositionsQuery: GetJobPositionsQuery,
     private readonly getJobPositionQuery: GetJobPositionQuery,
-    
+
     // 职位申请管理相关
     private readonly updateJobApplicationStatusCommand: UpdateJobApplicationStatusCommand,
+    private readonly rollbackJobApplicationStatusCommand: RollbackJobApplicationStatusCommand,
     private readonly getJobApplicationsQuery: GetJobApplicationsQuery,
     private readonly getJobApplicationQuery: GetJobApplicationQuery,
+    private readonly getJobApplicationHistoryQuery: GetJobApplicationHistoryQuery,
   ) {}
 
   // ----------------------
   // 职位管理
   // ----------------------
 
-  @Post('job-positions')
-  @ApiOperation({ summary: 'Create a new job position' })
-  @ApiResponse({ status: 201, description: 'Job position created successfully' })
-  @ApiResponse({ status: 400, description: 'Bad request' })
+  @Post("job-positions")
+  @ApiOperation({ summary: "Create a new job position" })
+  @ApiResponse({
+    status: 201,
+    description: "Job position created successfully",
+  })
+  @ApiResponse({ status: 400, description: "Bad request" })
   async createJobPosition(
     @Body() createJobPositionDto: ICreateJobPositionDto,
     @CurrentUser() user: IJwtUser,
@@ -68,30 +86,15 @@ export class AdminPlacementController {
     return result.data;
   }
 
-  @Get('job-positions')
-  @ApiOperation({ summary: 'Get all job positions' })
-  @ApiResponse({ status: 200, description: 'Job positions retrieved successfully' })
-  async getJobPositions(
-    @Query() pagination?: IPaginationQuery,
-    @Query() sort?: ISortQuery
-  ) {
-    return this.getJobPositionsQuery.execute({ pagination, sort });
-  }
-
-  @Get('job-positions/:id')
-  @ApiOperation({ summary: 'Get job position by ID' })
-  @ApiResponse({ status: 200, description: 'Job position retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Job position not found' })
-  async getJobPositionById(@Param('id') id: string) {
-    return this.getJobPositionQuery.execute({ id });
-  }
-
-  @Patch('job-positions/:id/expire')
-  @ApiOperation({ summary: 'Mark job position as expired' })
-  @ApiResponse({ status: 200, description: 'Job position marked as expired successfully' })
-  @ApiResponse({ status: 404, description: 'Job position not found' })
+  @Patch("job-positions/:id/expire")
+  @ApiOperation({ summary: "Mark job position as expired" })
+  @ApiResponse({
+    status: 200,
+    description: "Job position marked as expired successfully",
+  })
+  @ApiResponse({ status: 404, description: "Job position not found" })
   async markJobPositionExpired(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() markExpiredDto: { reason?: string },
     @CurrentUser() user: IJwtUser,
   ) {
@@ -99,135 +102,172 @@ export class AdminPlacementController {
     const result = await this.updateJobPositionCommand.execute({
       jobId: id,
       expiredBy: String((user as unknown as { id: string }).id),
-      expiredByType: 'bd' as const, // Admin users are treated as BD (business development) for job expiration tracking [管理员用户在职位过期跟踪中被视为BD]
+      expiredByType: "bd" as const, // Admin users are treated as BD (business development) for job expiration tracking [管理员用户在职位过期跟踪中被视为BD]
       reason: markExpiredDto.reason,
     });
     // IServiceResult structure: { data: T, event?: {...}, events?: [...] } [IServiceResult结构]
     return result.data;
   }
 
+  @Get("job-positions/:id")
+  @ApiOperation({ summary: "Get job position by ID" })
+  @ApiResponse({
+    status: 200,
+    description: "Job position retrieved successfully",
+  })
+  @ApiResponse({ status: 404, description: "Job position not found" })
+  async getJobPositionById(@Param("id") id: string) {
+    return this.getJobPositionQuery.execute({ id });
+  }
+
+  @Get("job-positions")
+  @ApiOperation({ summary: "Get all job positions" })
+  @ApiResponse({
+    status: 200,
+    description: "Job positions retrieved successfully",
+  })
+  async getJobPositions(@Query() query: any) {
+    // Extract pagination and sort parameters [提取分页和排序参数]
+    // Validate and provide defaults for pagination [验证分页参数并提供默认值]
+    const page =
+      query.page !== undefined &&
+      query.page !== null &&
+      !isNaN(Number(query.page))
+        ? Number(query.page)
+        : 1;
+    const pageSize =
+      query.pageSize !== undefined &&
+      query.pageSize !== null &&
+      !isNaN(Number(query.pageSize))
+        ? Number(query.pageSize)
+        : 10;
+
+    if (page < 1 || pageSize < 1) {
+      throw new HttpException(
+        "Invalid pagination parameters. Page and pageSize must be positive integers.",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const pagination: IPaginationQuery = {
+      page,
+      pageSize,
+    };
+    const sort: ISortQuery | undefined = query.field !== undefined || query.direction !== undefined
+      ? {
+          field: query.field || "createdAt",
+          direction: (query.direction || query.order || "desc") as "asc" | "desc",
+        }
+      : undefined;
+    return this.getJobPositionsQuery.execute({ pagination, sort });
+  }
+
   // ----------------------
   // 职位申请管理
   // ----------------------
 
-  @Get('job-applications')
-  @ApiOperation({ summary: 'Get all job applications' })
-  @ApiResponse({ status: 200, description: 'Job applications retrieved successfully' })
-  async getJobApplications(
-    @Query() pagination?: IPaginationQuery,
-    @Query() sort?: ISortQuery
-  ) {
-    return this.getJobApplicationsQuery.execute({ pagination, sort });
-  }
-
-  @Get('job-applications/:id')
-  @ApiOperation({ summary: 'Get job application by ID' })
-  @ApiResponse({ status: 200, description: 'Job application retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Job application not found' })
-  async getJobApplicationById(@Param('id') id: string) {
-    return this.getJobApplicationQuery.execute({ id });
-  }
-
-  @Patch('job-applications/:id/status')
-  @ApiOperation({ summary: 'Update job application status' })
-  @ApiResponse({ status: 200, description: 'Job application status updated successfully' })
-  @ApiResponse({ status: 404, description: 'Job application not found' })
+  @Patch("job-applications/:id/status")
+  @ApiOperation({ summary: "Update job application status" })
+  @ApiResponse({
+    status: 200,
+    description: "Job application status updated successfully",
+  })
+  @ApiResponse({ status: 404, description: "Job application not found" })
   async updateJobApplicationStatus(
-    @Body() updateStatusDto: IUpdateApplicationStatusDto
+    @Body() updateStatusDto: IUpdateApplicationStatusDto,
   ) {
-    return this.updateJobApplicationStatusCommand.execute({ 
-      updateStatusDto 
+    return this.updateJobApplicationStatusCommand.execute({
+      updateStatusDto,
     });
   }
 
-  // ----------------------
-  // 配置规则管理
-  // ----------------------
-
-  @Post('rules')
-  @ApiOperation({ summary: 'Create a new configuration rule' })
-  @ApiResponse({ status: 201, description: 'Configuration rule created successfully' })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  @ApiResponse({ status: 501, description: 'Not implemented' })
-  async createConfigurationRule() {
-    throw new HttpException(
-      'Configuration rule creation is not yet implemented',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+  @Get("job-applications/:id")
+  @ApiOperation({ summary: "Get job application by ID" })
+  @ApiResponse({
+    status: 200,
+    description: "Job application retrieved successfully",
+  })
+  @ApiResponse({ status: 404, description: "Job application not found" })
+  async getJobApplicationById(@Param("id") id: string) {
+    return this.getJobApplicationQuery.execute({ id });
   }
 
-  @Get('rules')
-  @ApiOperation({ summary: 'Get all configuration rules' })
-  @ApiResponse({ status: 200, description: 'Configuration rules retrieved successfully' })
-  @ApiResponse({ status: 501, description: 'Not implemented' })
-  async getConfigurationRules() {
-    throw new HttpException(
-      'Configuration rules retrieval is not yet implemented',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
-  }
+  @Get("job-applications")
+  @ApiOperation({ summary: "Get all job applications" })
+  @ApiResponse({
+    status: 200,
+    description: "Job applications retrieved successfully",
+  })
+  async getJobApplications(@Query() query: any) {
+    // Extract pagination and sort parameters [提取分页和排序参数]
+    // Validate and provide defaults for pagination [验证分页参数并提供默认值]
+    const page =
+      query.page !== undefined &&
+      query.page !== null &&
+      !isNaN(Number(query.page))
+        ? Number(query.page)
+        : 1;
+    const pageSize =
+      query.pageSize !== undefined &&
+      query.pageSize !== null &&
+      !isNaN(Number(query.pageSize))
+        ? Number(query.pageSize)
+        : 10;
 
-  @Get('rules/:id')
-  @ApiOperation({ summary: 'Get configuration rule by ID' })
-  @ApiResponse({ status: 200, description: 'Configuration rule retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Configuration rule not found' })
-  @ApiResponse({ status: 501, description: 'Not implemented' })
-  async getConfigurationRuleById() {
-    throw new HttpException(
-      'Configuration rule retrieval by ID is not yet implemented',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
-  }
+    if (page < 1 || pageSize < 1) {
+      throw new HttpException(
+        "Invalid pagination parameters. Page and pageSize must be positive integers.",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
-  @Patch('rules/:id')
-  @ApiOperation({ summary: 'Update configuration rule' })
-  @ApiResponse({ status: 200, description: 'Configuration rule updated successfully' })
-  @ApiResponse({ status: 404, description: 'Configuration rule not found' })
-  @ApiResponse({ status: 501, description: 'Not implemented' })
-  async updateConfigurationRule() {
-    throw new HttpException(
-      'Configuration rule update is not yet implemented',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
-  }
-
-  @Delete('rules/:id')
-  @ApiOperation({ summary: 'Delete configuration rule' })
-  @ApiResponse({ status: 204, description: 'Configuration rule deleted successfully' })
-  @ApiResponse({ status: 404, description: 'Configuration rule not found' })
-  @ApiResponse({ status: 501, description: 'Not implemented' })
-  async deleteConfigurationRule() {
-    throw new HttpException(
-      'Configuration rule deletion is not yet implemented',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+    const pagination: IPaginationQuery = {
+      page,
+      pageSize,
+    };
+    const sort: ISortQuery | undefined = query.field !== undefined || query.direction !== undefined
+      ? {
+          field: query.field || "createdAt",
+          direction: (query.direction || query.order || "desc") as "asc" | "desc",
+        }
+      : undefined;
+    return this.getJobApplicationsQuery.execute({ pagination, sort });
   }
 
   // ----------------------
   // 职位申请历史管理
   // ----------------------
 
-  @Get('job-applications/:id/history')
-  @ApiOperation({ summary: 'Get job application status history' })
-  @ApiResponse({ status: 200, description: 'Job application status history retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Job application not found' })
-  @ApiResponse({ status: 501, description: 'Not implemented' })
-  async getJobApplicationHistory() {
-    throw new HttpException(
-      'Job application history retrieval is not yet implemented',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+  @Get("job-applications/:id/history")
+  @ApiOperation({ summary: "Get job application status history" })
+  @ApiResponse({
+    status: 200,
+    description: "Job application status history retrieved successfully",
+  })
+  @ApiResponse({ status: 404, description: "Job application not found" })
+  async getJobApplicationHistory(@Param("id") id: string) {
+    return this.getJobApplicationHistoryQuery.execute({ applicationId: id });
   }
 
-  @Patch('job-applications/:id/rollback')
-  @ApiOperation({ summary: 'Rollback job application status' })
-  @ApiResponse({ status: 200, description: 'Job application status rolled back successfully' })
-  @ApiResponse({ status: 404, description: 'Job application not found' })
-  @ApiResponse({ status: 501, description: 'Not implemented' })
-  async rollbackJobApplicationStatus() {
-    throw new HttpException(
-      'Job application status rollback is not yet implemented',
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+  @Patch("job-applications/:id/rollback")
+  @ApiOperation({ summary: "Rollback job application status" })
+  @ApiResponse({
+    status: 200,
+    description: "Job application status rolled back successfully",
+  })
+  @ApiResponse({ status: 404, description: "Job application not found" })
+  @ApiResponse({ status: 400, description: "Bad request - insufficient history or invalid transition" })
+  async rollbackJobApplicationStatus(
+    @Param("id") id: string,
+    @Body() rollbackDto: Omit<IRollbackApplicationStatusDto, "applicationId">,
+    @CurrentUser() user: IJwtUser,
+  ) {
+    return this.rollbackJobApplicationStatusCommand.execute({
+      rollbackDto: {
+        ...rollbackDto,
+        applicationId: id,
+        changedBy: rollbackDto.changedBy || String((user as unknown as { id: string }).id),
+      },
+    });
   }
 }
