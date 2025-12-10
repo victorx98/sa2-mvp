@@ -441,9 +441,21 @@ export class CommSessionController {
    * Cancel a communication session
    * POST /api/services/comm-session/:id/cancel
    *
+   * Sync Flow (returns immediately):
+   * 1. Update session status to CANCELLED
+   * 2. Release calendar slots (update to cancelled)
+   * 3. Return response with CANCELLED status
+   *
+   * Async Flow (runs in background):
+   * 1. Cancel meeting via third-party API (Feishu/Zoom) with retry (max 3 times)
+   * 2. Update meetings table status to CANCELLED
+   * 3. Publish success/failed event for notifications:
+   *    - Success: Notify counselor + mentor + student
+   *    - Failed: Notify counselor only (requires manual retry from frontend)
+   *
    * @param sessionId Session ID
    * @param body Cancel request with reason
-   * @returns Cancellation result
+   * @returns Cancelled session details
    */
   @Post(':id/cancel')
   @HttpCode(HttpStatus.OK)
@@ -451,7 +463,19 @@ export class CommSessionController {
   @Roles('counselor')
   @ApiOperation({
     summary: 'Cancel a communication session',
-    description: 'Cancel an existing communication session with an optional reason',
+    description: `
+      Cancel an existing communication session with optional reason.
+      
+      Sync Flow (immediate response):
+      - Update session status to CANCELLED
+      - Release calendar slots
+      - Return cancelled session details
+      
+      Async Flow (background):
+      - Cancel meeting via third-party API (max 3 retries)
+      - Update meetings table
+      - Send notifications based on result (success: all parties, failed: counselor only)
+    `,
   })
   @ApiParam({
     name: 'id',
@@ -459,7 +483,12 @@ export class CommSessionController {
     type: String,
   })
   @ApiOkResponse({
-    description: 'Session cancelled successfully',
+    description: 'Session cancelled successfully (meeting cancellation in progress)',
+    type: CommSessionResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid session status (only SCHEDULED/PENDING_MEETING can be cancelled)',
   })
   @ApiResponse({
     status: 404,
@@ -468,11 +497,14 @@ export class CommSessionController {
   async cancelSession(
     @Param('id') sessionId: string,
     @Body() body?: { reason?: string },
-  ) {
-    return this.commSessionService.cancelSession(
+  ): Promise<CommSessionResponseDto> {
+    const cancelledSession = await this.commSessionService.cancelSession(
       sessionId,
       body?.reason || 'Cancelled by counselor',
     );
+    
+    // Return cancelled session with meeting info
+    return CommSessionMapper.toResponseDto(cancelledSession);
   }
 
   /**

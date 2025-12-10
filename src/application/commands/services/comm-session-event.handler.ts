@@ -6,8 +6,12 @@ import { CalendarService } from '@core/calendar';
 import {
   COMM_SESSION_CREATED_EVENT,
   COMM_SESSION_UPDATED_EVENT,
+  COMM_SESSION_CANCELLED_EVENT,
+  COMM_SESSION_OPERATION_RESULT_EVENT,
   SESSION_BOOKED_EVENT,
+  SESSION_RESCHEDULED_COMPLETED,
 } from '@shared/events/event-constants';
+import { retryWithBackoff } from '@shared/utils/retry.util';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase } from '@shared/types/database.types';
 import { FEISHU_DEFAULT_HOST_USER_ID } from 'src/constants';
@@ -102,31 +106,65 @@ export class CommSessionCreatedEventHandler {
       });
 
       this.logger.log(`SESSION_BOOKED_EVENT published: sessionId=${event.sessionId}`);
+
+      // Step 4: Publish unified result event (success)
+      this.eventEmitter.emit(COMM_SESSION_OPERATION_RESULT_EVENT, {
+        operation: 'create',
+        status: 'success',
+        sessionId: event.sessionId,
+        studentId: event.studentId,
+        mentorId: event.mentorId,
+        counselorId: event.counselorId,
+        scheduledAt: event.scheduledStartTime,
+        meetingUrl: meeting.meetingUrl,
+        notifyRoles: ['counselor', 'mentor', 'student'],
+      });
+
+      this.logger.log(
+        `OPERATION_RESULT_EVENT published: operation=create, status=success, sessionId=${event.sessionId}`,
+      );
     } catch (error) {
       this.logger.error(`Failed to create meeting for session ${event.sessionId}: ${error.message}`, error.stack);
+
+      // Publish unified result event (failed)
+      this.eventEmitter.emit(COMM_SESSION_OPERATION_RESULT_EVENT, {
+        operation: 'create',
+        status: 'failed',
+        sessionId: event.sessionId,
+        studentId: event.studentId,
+        mentorId: event.mentorId,
+        counselorId: event.counselorId,
+        scheduledAt: event.scheduledStartTime,
+        errorMessage: error.message,
+        notifyRoles: ['counselor'],
+        requireManualIntervention: true,
+      });
+
+      this.logger.warn(
+        `OPERATION_RESULT_EVENT published: operation=create, status=failed, sessionId=${event.sessionId}`,
+      );
     }
   }
 
   @OnEvent(COMM_SESSION_UPDATED_EVENT)
   async handleSessionUpdated(event: any): Promise<void> {
     this.logger.log(
-      `Handling COMM_SESSION_UPDATED_EVENT: sessionId=${event.sessionId}, ` +
-      `timeChanged=${event.oldScheduledAt !== event.newScheduledAt}`,
+      `Handling COMM_SESSION_UPDATED_EVENT: sessionId=${event.sessionId}`,
     );
+
+    let updateSuccess = false;
+    let errorMessage = '';
 
     try {
       // Step 1: Check if meeting is updatable
       const isMeetingUpdatable = await this.isMeetingUpdatable(event.meetingId);
       if (!isMeetingUpdatable) {
-        this.logger.warn(
-          `Meeting is in a non-updatable state. Update skipped. meetingId=${event.meetingId}`,
-        );
-        return;
-      }
-
-      // Step 2: Update external meeting platform with retry mechanism
-      try {
-        await this.retryWithBackoff(
+        updateSuccess = false;
+        errorMessage = 'Meeting is in a non-updatable state (cancelled/ended). Update skipped.';
+        this.logger.warn(`${errorMessage} meetingId=${event.meetingId}`);
+      } else {
+        // Step 2: Update external meeting platform with retry mechanism (max 3 retries)
+        await retryWithBackoff(
           async () => {
             return await this.meetingManagerService.updateMeeting(
               event.meetingId,
@@ -137,15 +175,12 @@ export class CommSessionCreatedEventHandler {
               },
             );
           },
-          3, // Max retries
+          3,
+          1000,
+          this.logger,
         );
-      } catch (error) {
-        this.logger.error(`Failed to update meeting ${event.meetingId}: ${error.message}`);
-        // Continue to update DB even if external update fails
-      }
 
-      // Step 3: Update meetings table with new schedule info
-      if (event.meetingId) {
+        // Step 3: Update meetings table with new schedule info
         const startTime = new Date(event.newScheduledAt);
         await this.db.execute(sql`
           UPDATE meetings 
@@ -156,15 +191,156 @@ export class CommSessionCreatedEventHandler {
             updated_at = NOW()
           WHERE id = ${event.meetingId}
         `);
-        this.logger.debug(
-          `Meetings table updated for comm session: meetingId=${event.meetingId}`,
-        );
+        this.logger.debug(`Meetings table updated: meetingId=${event.meetingId}`);
+
+        updateSuccess = true;
+        this.logger.debug(`Meeting ${event.meetingId} updated successfully`);
       }
     } catch (error) {
+      updateSuccess = false;
+      errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
       this.logger.error(
-        `Failed to handle COMM_SESSION_UPDATED_EVENT: ${error.message}`,
-        error.stack,
+        `Failed to update meeting ${event.meetingId}: ${errorMessage}`,
+        error instanceof Error ? error.stack : '',
       );
+    }
+
+    // Step 4: Publish unified result event
+    this.eventEmitter.emit(COMM_SESSION_OPERATION_RESULT_EVENT, {
+      operation: 'update',
+      status: updateSuccess ? 'success' : 'failed',
+      sessionId: event.sessionId,
+      meetingId: event.meetingId,
+      studentId: event.studentId,
+      mentorId: event.mentorId,
+      counselorId: event.counselorId,
+      newScheduledAt: event.newScheduledAt,
+      newDuration: event.newDuration,
+      errorMessage: updateSuccess ? undefined : errorMessage,
+      notifyRoles: updateSuccess ? ['counselor', 'mentor', 'student'] : ['counselor'],
+      requireManualIntervention: !updateSuccess,
+    });
+
+    this.logger.log(
+      `OPERATION_RESULT_EVENT published: operation=update, status=${updateSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
+    );
+
+    // Step 5: Emit legacy notification event (for backward compatibility)
+    this.eventEmitter.emit(SESSION_RESCHEDULED_COMPLETED, {
+      sessionId: event.sessionId,
+      meetingUpdateSuccess: updateSuccess,
+      errorMessage,
+      mentorId: event.mentorId,
+      studentId: event.studentId,
+      counselorId: event.counselorId,
+      newScheduledAt: event.newScheduledAt,
+      newDuration: event.newDuration,
+    });
+  }
+
+  /**
+   * Handle COMM_SESSION_CANCELLED_EVENT
+   * Executes the async meeting cancellation flow
+   * 
+   * @param event - Session cancellation event
+   */
+  @OnEvent(COMM_SESSION_CANCELLED_EVENT)
+  async handleSessionCancelled(event: any): Promise<void> {
+    this.logger.log(
+      `Handling COMM_SESSION_CANCELLED_EVENT: sessionId=${event.sessionId}`,
+    );
+
+    let cancelSuccess = false;
+    let errorMessage = '';
+
+    try {
+      // Step 1: Check if meeting exists and is cancellable
+      if (!event.meetingId) {
+        cancelSuccess = false;
+        errorMessage = 'No meeting ID found, session was in PENDING_MEETING state';
+        this.logger.warn(`${errorMessage} sessionId=${event.sessionId}`);
+      } else {
+        const canCancel = await this.isMeetingCancellable(event.meetingId);
+
+        if (!canCancel) {
+          cancelSuccess = false;
+          errorMessage = 'Meeting is already cancelled or ended';
+          this.logger.warn(`${errorMessage} meetingId=${event.meetingId}`);
+        } else {
+          // Step 2: Cancel meeting with retry (max 3 times)
+          await retryWithBackoff(
+            async () => {
+              await this.meetingManagerService.cancelMeeting(event.meetingId);
+            },
+            3,
+            1000,
+            this.logger,
+          );
+
+          // Step 3: Update meetings table status
+          await this.db.execute(sql`
+            UPDATE meetings 
+            SET status = 'cancelled', updated_at = NOW()
+            WHERE id = ${event.meetingId}
+          `);
+
+          cancelSuccess = true;
+          this.logger.debug(`Meeting ${event.meetingId} cancelled successfully`);
+        }
+      }
+    } catch (error) {
+      cancelSuccess = false;
+      errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      this.logger.error(
+        `Failed to cancel meeting ${event.meetingId}: ${errorMessage}`,
+        error instanceof Error ? error.stack : '',
+      );
+    }
+
+    // Step 4: Publish unified result event
+    this.eventEmitter.emit(COMM_SESSION_OPERATION_RESULT_EVENT, {
+      operation: 'cancel',
+      status: cancelSuccess ? 'success' : 'failed',
+      sessionId: event.sessionId,
+      meetingId: event.meetingId,
+      studentId: event.studentId,
+      mentorId: event.mentorId,
+      counselorId: event.counselorId,
+      cancelledAt: event.cancelledAt,
+      cancelReason: event.cancelReason,
+      errorMessage: cancelSuccess ? undefined : errorMessage,
+      notifyRoles: cancelSuccess ? ['counselor', 'mentor', 'student'] : ['counselor'],
+      requireManualIntervention: !cancelSuccess,
+    });
+
+    this.logger.log(
+      `OPERATION_RESULT_EVENT published: operation=cancel, status=${cancelSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
+    );
+  }
+
+  /**
+   * Check if meeting is cancellable
+   * 
+   * @param meetingId - Meeting ID
+   * @returns True if meeting can be cancelled, false otherwise
+   */
+  private async isMeetingCancellable(meetingId: string): Promise<boolean> {
+    try {
+      const result = await this.db.execute(sql`
+        SELECT status FROM meetings WHERE id = ${meetingId}
+      `);
+
+      if (result.rows.length === 0) {
+        return false;
+      }
+
+      const status = (result.rows[0] as any).status;
+      return status === 'scheduled' || status === 'active';
+    } catch (error) {
+      this.logger.warn(`Failed to check meeting cancellable status: ${error}`);
+      return false;
     }
   }
 
@@ -183,22 +359,6 @@ export class CommSessionCreatedEventHandler {
     } catch (error) {
       this.logger.error(`Error checking meeting status: ${error.message}`);
       return false;
-    }
-  }
-
-  private async retryWithBackoff<T>(
-    fn: () => Promise<T>,
-    maxRetries: number,
-    initialDelayMs: number = 1000,
-  ): Promise<T> {
-    for (let i = 0; i < maxRetries; i++) {
-      try {
-        return await fn();
-      } catch (error) {
-        if (i === maxRetries - 1) throw error;
-        const delayMs = initialDelayMs * Math.pow(2, i);
-        await new Promise(resolve => setTimeout(resolve, delayMs));
-      }
     }
   }
 

@@ -8,6 +8,8 @@ import { RegularMentoringService as DomainRegularMentoringService } from '@domai
 import {
   REGULAR_MENTORING_SESSION_CREATED_EVENT,
   REGULAR_MENTORING_SESSION_UPDATED_EVENT,
+  REGULAR_MENTORING_SESSION_CANCELLED_EVENT,
+  REGULAR_MENTORING_SESSION_OPERATION_RESULT_EVENT,
   SESSION_BOOKED_EVENT,
   SESSION_RESCHEDULED_COMPLETED,
 } from '@shared/events/event-constants';
@@ -131,16 +133,47 @@ export class RegularMentoringCreatedEventHandler {
       this.logger.log(
         `SESSION_BOOKED_EVENT published: sessionId=${event.sessionId}, meetingUrl=${meeting.meetingUrl}`,
       );
+
+      // Step 4: Publish unified result event (success - notify all parties)
+      this.eventEmitter.emit(REGULAR_MENTORING_SESSION_OPERATION_RESULT_EVENT, {
+        operation: 'create',
+        status: 'success',
+        sessionId: event.sessionId,
+        studentId: event.studentId,
+        mentorId: event.mentorId,
+        counselorId: event.counselorId,
+        scheduledAt: event.scheduledStartTime,
+        meetingUrl: meeting.meetingUrl,
+        notifyRoles: ['counselor', 'mentor', 'student'],
+      });
+
+      this.logger.log(
+        `OPERATION_RESULT_EVENT published: operation=create, status=success, sessionId=${event.sessionId}`,
+      );
     } catch (error) {
-      // Error handling: Log error and update session status to MEETING_FAILED
+      // Error handling: Log error and publish failed result event
       this.logger.error(
         `Failed to create meeting for session ${event.sessionId}: ${error.message}`,
         error.stack,
       );
 
-      // Note: We're not calling updateStatus() method as per requirements
-      // The session will remain in PENDING_MEETING status or need manual intervention
-      // In future, consider implementing a retry mechanism or manual retry endpoint
+      // Publish unified result event (failed - notify counselor only)
+      this.eventEmitter.emit(REGULAR_MENTORING_SESSION_OPERATION_RESULT_EVENT, {
+        operation: 'create',
+        status: 'failed',
+        sessionId: event.sessionId,
+        studentId: event.studentId,
+        mentorId: event.mentorId,
+        counselorId: event.counselorId,
+        scheduledAt: event.scheduledStartTime,
+        errorMessage: error.message,
+        notifyRoles: ['counselor'],
+        requireManualIntervention: true,
+      });
+
+      this.logger.warn(
+        `OPERATION_RESULT_EVENT published: operation=create, status=failed, sessionId=${event.sessionId}`,
+      );
     }
   }
 
@@ -219,7 +252,27 @@ export class RegularMentoringCreatedEventHandler {
       );
     }
 
-    // Step 2: Emit notification event (whether meeting update succeeded or failed)
+    // Step 4: Publish unified result event based on result
+    this.eventEmitter.emit(REGULAR_MENTORING_SESSION_OPERATION_RESULT_EVENT, {
+      operation: 'update',
+      status: updateSuccess ? 'success' : 'failed',
+      sessionId: event.sessionId,
+      meetingId: event.meetingId,
+      studentId: event.studentId,
+      mentorId: event.mentorId,
+      counselorId: event.counselorId,
+      newScheduledAt: event.newScheduledAt,
+      newDuration: event.newDuration,
+      errorMessage: updateSuccess ? undefined : errorMessage,
+      notifyRoles: updateSuccess ? ['counselor', 'mentor', 'student'] : ['counselor'],
+      requireManualIntervention: !updateSuccess,
+    });
+
+    this.logger.log(
+      `OPERATION_RESULT_EVENT published: operation=update, status=${updateSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
+    );
+
+    // Step 5: Emit legacy notification event (for backward compatibility)
     this.eventEmitter.emit(SESSION_RESCHEDULED_COMPLETED, {
       sessionId: event.sessionId,
       meetingUpdateSuccess: updateSuccess,
@@ -234,6 +287,123 @@ export class RegularMentoringCreatedEventHandler {
     this.logger.log(
       `SESSION_RESCHEDULED_COMPLETED published for session ${event.sessionId}, updateSuccess=${updateSuccess}`,
     );
+  }
+
+  /**
+   * Handle REGULAR_MENTORING_SESSION_CANCELLED_EVENT
+   * Executes the async meeting cancellation flow
+   * 
+   * Responsibilities:
+   * 1. Cancel meeting on third-party platform (Feishu/Zoom) with retry logic (max 3 times)
+   * 2. Update meetings table status to CANCELLED
+   * 3. Publish success/failed event based on result:
+   *    - Success: Notify counselor + mentor + student
+   *    - Failed: Notify counselor only (requires manual retry)
+   * 
+   * @param event - Session cancellation event
+   */
+  @OnEvent(REGULAR_MENTORING_SESSION_CANCELLED_EVENT)
+  async handleSessionCancelled(event: any): Promise<void> {
+    this.logger.log(
+      `Handling REGULAR_MENTORING_SESSION_CANCELLED_EVENT: sessionId=${event.sessionId}`,
+    );
+
+    let cancelSuccess = false;
+    let errorMessage = '';
+
+    try {
+      // Step 1: Check if meeting exists and is cancellable
+      if (!event.meetingId) {
+        cancelSuccess = false;
+        errorMessage = 'No meeting ID found, session was in PENDING_MEETING state';
+        this.logger.warn(`${errorMessage} sessionId=${event.sessionId}`);
+      } else {
+        const canCancel = await this.isMeetingCancellable(event.meetingId);
+
+        if (!canCancel) {
+          cancelSuccess = false;
+          errorMessage = 'Meeting is already cancelled or ended';
+          this.logger.warn(`${errorMessage} meetingId=${event.meetingId}`);
+        } else {
+          // Step 2: Cancel meeting on third-party platform with retry (max 3 times)
+          await retryWithBackoff(
+            async () => {
+              await this.meetingManagerService.cancelMeeting(event.meetingId);
+            },
+            3, // Max retries
+            1000, // Initial delay
+            this.logger,
+          );
+
+          // Step 3: Update meetings table status to CANCELLED
+          await this.db.execute(sql`
+            UPDATE meetings 
+            SET 
+              status = 'cancelled',
+              updated_at = NOW()
+            WHERE id = ${event.meetingId}
+          `);
+
+          cancelSuccess = true;
+          this.logger.debug(`Meeting ${event.meetingId} cancelled successfully`);
+        }
+      }
+    } catch (error) {
+      cancelSuccess = false;
+      errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      this.logger.error(
+        `Failed to cancel meeting ${event.meetingId}: ${errorMessage}`,
+        error instanceof Error ? error.stack : '',
+      );
+    }
+
+    // Step 4: Publish unified result event based on result
+    this.eventEmitter.emit(REGULAR_MENTORING_SESSION_OPERATION_RESULT_EVENT, {
+      operation: 'cancel',
+      status: cancelSuccess ? 'success' : 'failed',
+      sessionId: event.sessionId,
+      meetingId: event.meetingId,
+      studentId: event.studentId,
+      mentorId: event.mentorId,
+      counselorId: event.counselorId,
+      cancelledAt: event.cancelledAt,
+      cancelReason: event.cancelReason,
+      errorMessage: cancelSuccess ? undefined : errorMessage,
+      notifyRoles: cancelSuccess ? ['counselor', 'mentor', 'student'] : ['counselor'],
+      requireManualIntervention: !cancelSuccess,
+    });
+
+    this.logger.log(
+      `OPERATION_RESULT_EVENT published: operation=cancel, status=${cancelSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
+    );
+  }
+
+  /**
+   * Check if meeting is cancellable
+   * Prevents trying to cancel already cancelled or ended meetings
+   * 
+   * @param meetingId - Meeting ID
+   * @returns true if meeting can be cancelled, false otherwise
+   */
+  private async isMeetingCancellable(meetingId: string): Promise<boolean> {
+    try {
+      const result = await this.db.execute(sql`
+        SELECT status FROM meetings WHERE id = ${meetingId}
+      `);
+
+      if (result.rows.length === 0) {
+        return false; // Meeting not found
+      }
+
+      const status = (result.rows[0] as any).status;
+
+      // Only allow cancellation if status is 'scheduled' or 'active'
+      return status === 'scheduled' || status === 'active';
+    } catch (error) {
+      this.logger.warn(`Failed to check meeting cancellable status: ${error}`);
+      return false; // Safe to fail-closed
+    }
   }
 
   /**
