@@ -1,26 +1,27 @@
+import { IsOptional, IsString, IsDateString, IsInt, Min } from 'class-validator';
+
+/**
+ * DTO for updating a class
+ */
 export class UpdateClassDto {
+  @IsOptional()
+  @IsString()
   name?: string;
-  startDate?: Date;
-  endDate?: Date;
+
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
   totalSessions?: number;
-
-  constructor(data: Partial<UpdateClassDto>) {
-    Object.assign(this, data);
-  }
-
-  validate(): void {
-    if (this.name !== undefined && (!this.name || this.name.trim().length === 0)) {
-      throw new Error('Class name cannot be empty');
-    }
-
-    if (this.startDate && this.endDate && this.endDate <= this.startDate) {
-      throw new Error('End date must be after start date');
-    }
-
-    if (this.totalSessions !== undefined && this.totalSessions <= 0) {
-      throw new Error('Total sessions must be greater than 0');
-    }
-  }
 }
-

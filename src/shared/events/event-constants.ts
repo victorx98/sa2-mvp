@@ -8,7 +8,19 @@
 
 // Session Events (会话事件)
 export const SESSION_BOOKED_EVENT = "session.booked";
-export const SESSION_CREATED_EVENT = "session.created";
+export const SESSION_CREATED_EVENT = "session.created"; // Legacy - 遗留事件，用于 Contract Domain
+
+// Session Type-specific Created Events (会话类型特定创建事件 - v2.0)
+export const REGULAR_MENTORING_SESSION_CREATED_EVENT = "regular_mentoring.session.created";
+export const REGULAR_MENTORING_SESSION_UPDATED_EVENT = "regular_mentoring.session.updated";
+export const SESSION_RESCHEDULED_COMPLETED = "session.rescheduled.completed";
+export const GAP_ANALYSIS_SESSION_CREATED_EVENT = "gap_analysis.session.created";
+export const GAP_ANALYSIS_SESSION_UPDATED_EVENT = "gap_analysis.session.updated";
+export const AI_CAREER_SESSION_CREATED_EVENT = "ai_career.session.created";
+export const AI_CAREER_SESSION_UPDATED_EVENT = "ai_career.session.updated"; // NEW: AI career update event
+export const COMM_SESSION_CREATED_EVENT = "comm_session.session.created";
+export const COMM_SESSION_UPDATED_EVENT = "comm_session.session.updated";
+export const CLASS_SESSION_CREATED_EVENT = "class_session.created";
 
 // Service Session Events (服务会话事件)
 export const SERVICE_SESSION_COMPLETED_EVENT = "services.session.completed";

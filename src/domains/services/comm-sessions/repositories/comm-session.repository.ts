@@ -1,8 +1,8 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, and, desc, ne } from 'drizzle-orm';
-import type { DrizzleDatabase } from '@shared/types/database.types';
+import { eq, and, desc, ne, inArray } from 'drizzle-orm';
+import type { DrizzleDatabase, DrizzleTransaction } from '@shared/types/database.types';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
-import { commSessions } from '@infrastructure/database/schema';
+import { commSessions, meetings } from '@infrastructure/database/schema';
 import { CommSessionEntity, CommSessionStatus } from '../entities/comm-session.entity';
 import { CommSessionNotFoundException } from '../exceptions/comm-session-not-found.exception';
 
@@ -38,7 +38,7 @@ export class CommSessionRepository {
       } as any)
       .returning();
 
-    return this.mapToEntity(result);
+    return this.mapToEntity(result); // Wrap in Entity class to get methods
   }
 
   /**
@@ -103,7 +103,7 @@ export class CommSessionRepository {
       orderBy: desc(commSessions.scheduledAt),
     });
 
-    return results.map((row) => this.mapToEntity(row));
+    return results.map(row => this.mapToEntity(row));
   }
 
   /**
@@ -135,13 +135,63 @@ export class CommSessionRepository {
       orderBy: desc(commSessions.scheduledAt),
     });
 
-    return results.map((row) => this.mapToEntity(row));
+    return results.map(row => this.mapToEntity(row));
+  }
+
+  /**
+   * Find sessions by multiple student IDs with meeting details
+   * Used to retrieve all sessions for a counselor's students
+   */
+  async findByStudentIds(
+    studentIds: string[],
+    filters?: {
+      status?: CommSessionStatus;
+      excludeDeleted?: boolean;
+    },
+  ): Promise<any[]> {
+    if (studentIds.length === 0) {
+      return [];
+    }
+
+    const whereConditions: any[] = [inArray(commSessions.studentUserId, studentIds as any)];
+
+    if (filters?.excludeDeleted ?? true) {
+      whereConditions.push(ne(commSessions.status, CommSessionStatus.DELETED));
+    }
+
+    if (filters?.status) {
+      whereConditions.push(eq(commSessions.status, filters.status));
+    }
+
+    // Manual LEFT JOIN with meetings table to include meeting details
+    const results = await this.db
+      .select({
+        session: commSessions,
+        meeting: meetings,
+      })
+      .from(commSessions)
+      .leftJoin(meetings, eq(commSessions.meetingId, meetings.id))
+      .where(and(...whereConditions))
+      .orderBy(desc(commSessions.scheduledAt));
+
+    // Map results to include meeting data
+    return results.map(row => ({
+      ...this.mapToEntity(row.session),
+      meeting: row.meeting || undefined,
+    })) as any;
   }
 
   /**
    * Update comm session record
+   * @param id - Session ID
+   * @param entity - Partial entity with fields to update
+   * @param tx - Optional transaction for atomicity
    */
-  async update(id: string, entity: Partial<CommSessionEntity>): Promise<CommSessionEntity> {
+  async update(
+    id: string,
+    entity: Partial<CommSessionEntity>,
+    tx?: DrizzleTransaction,
+  ): Promise<CommSessionEntity> {
     const updates: any = { updatedAt: new Date() };
 
     if (entity.title !== undefined) updates.title = entity.title;
@@ -151,39 +201,24 @@ export class CommSessionRepository {
     if (entity.completedAt !== undefined) updates.completedAt = entity.completedAt;
     if (entity.cancelledAt !== undefined) updates.cancelledAt = entity.cancelledAt;
     if (entity.deletedAt !== undefined) updates.deletedAt = entity.deletedAt;
+    if (entity.meetingId !== undefined) updates.meetingId = entity.meetingId; // Fix: use camelCase
 
-    const [result] = await this.db
+    const db = tx || this.db;
+    const [result] = await db
       .update(commSessions)
       .set(updates)
       .where(eq(commSessions.id, id as any))
       .returning();
 
-    return this.mapToEntity(result);
+    return this.mapToEntity(result); // Wrap in Entity class to get methods
   }
 
   /**
-   * Map database row to entity
+   * Map database row to CommSessionEntity instance
+   * Drizzle handles date conversion automatically for both query() and returning()
    */
   private mapToEntity(row: any): CommSessionEntity {
-    return new CommSessionEntity({
-      id: row.id,
-      meetingId: row.meeting_id,
-      sessionType: row.session_type,
-      studentUserId: row.student_user_id,
-      mentorUserId: row.mentor_user_id,
-      counselorUserId: row.counselor_user_id,
-      createdByCounselorId: row.created_by_counselor_id,
-      title: row.title,
-      description: row.description,
-      status: row.status,
-      scheduledAt: row.scheduled_at,
-      completedAt: row.completed_at,
-      cancelledAt: row.cancelled_at,
-      deletedAt: row.deleted_at,
-      aiSummaries: row.ai_summaries,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    });
+    return new CommSessionEntity(row);
   }
 }
 

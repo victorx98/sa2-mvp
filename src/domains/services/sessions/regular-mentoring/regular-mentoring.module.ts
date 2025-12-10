@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { RegularMentoringRepository } from './regular-mentoring.repository';
+import { RegularMentoringRepository } from './repositories/regular-mentoring.repository';
 import { RegularMentoringService } from './services/regular-mentoring.service';
 import { RegularMentoringQueryService } from './services/regular-mentoring-query.service';
 import { RegularMentoringEventListener } from './listeners/regular-mentoring-event.listener';

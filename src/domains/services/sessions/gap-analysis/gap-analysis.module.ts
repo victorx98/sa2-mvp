@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { GapAnalysisRepository } from './gap-analysis.repository';
+import { GapAnalysisRepository } from './repositories/gap-analysis.repository';
 import { GapAnalysisService } from './services/gap-analysis.service';
 import { GapAnalysisQueryService } from './services/gap-analysis-query.service';
 import { GapAnalysisEventListener } from './listeners/gap-analysis-event.listener';

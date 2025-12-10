@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { AiCareerRepository } from '../ai-career.repository';
+import { AiCareerRepository } from '../repositories/ai-career.repository';
 import { SessionTypesRepository } from '@domains/services/session-types/session-types.repository';
 import { ServiceRegistryService } from '@domains/services/service-registry/services/service-registry.service';
 import { CreateAiCareerDto } from '../dto/create-ai-career.dto';
@@ -9,6 +9,7 @@ import { AiCareerSessionEntity } from '../entities/ai-career-session.entity';
 import { SessionStatus } from '../../shared/enums/session-type.enum';
 import { SessionNotFoundException, SessionTypeNotFoundException } from '../../shared/exceptions/session-not-found.exception';
 import { MeetingLifecycleCompletedPayload, SERVICE_SESSION_COMPLETED_EVENT } from '@shared/events';
+import type { DrizzleTransaction } from '@shared/types/database.types';
 
 /**
  * AI Career Service
@@ -30,7 +31,7 @@ export class AiCareerService {
     this.logger.log(`Creating AI career session for meeting ${dto.meetingId}`);
 
     const session = await this.repository.create({
-      meetingId: dto.meetingId,
+      meetingId: dto.meetingId || null, // Nullable for async meeting creation flow
       sessionType: dto.sessionType,
       sessionTypeId: dto.sessionTypeId,
       studentUserId: dto.studentUserId,
@@ -38,7 +39,7 @@ export class AiCareerService {
       createdByCounselorId: dto.createdByCounselorId || null,
       title: dto.title,
       description: dto.description || null,
-      status: SessionStatus.SCHEDULED,
+      status: SessionStatus.PENDING_MEETING, // Start in PENDING_MEETING status during async flow
       scheduledAt: new Date(dto.scheduledAt),
       aiSummaries: [],
     }, tx);
@@ -47,9 +48,38 @@ export class AiCareerService {
     return session;
   }
 
+  /**
+   * Complete the meeting setup for a session
+   * Called during the async meeting creation flow after MeetingManagerService creates the meeting
+   * Updates meeting_id and transitions status from PENDING_MEETING to SCHEDULED
+   * 
+   * @param sessionId - Session ID to update
+   * @param meetingId - Meeting ID from MeetingManagerService.createMeeting()
+   * @param tx - Optional transaction for atomicity
+   */
+  async completeMeetingSetup(
+    sessionId: string,
+    meetingId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<void> {
+    this.logger.log(`Completing meeting setup for session ${sessionId} with meeting ${meetingId}`);
+
+    await this.repository.update(
+      sessionId,
+      {
+        meetingId: meetingId,
+        status: SessionStatus.SCHEDULED,
+      },
+      tx,
+    );
+
+    this.logger.debug(`Meeting setup completed for session ${sessionId}`);
+  }
+
   async updateSession(
     id: string,
     dto: UpdateAiCareerDto,
+    tx?: DrizzleTransaction, // NEW: Added transaction parameter
   ): Promise<AiCareerSessionEntity> {
     const session = await this.repository.findOne(id);
     if (!session) {
@@ -60,8 +90,9 @@ export class AiCareerService {
     if (dto.title) updateData.title = dto.title;
     if (dto.description) updateData.description = dto.description;
     if (dto.scheduledAt) updateData.scheduledAt = new Date(dto.scheduledAt);
+    // NOTE: Status is intentionally not updated here
 
-    await this.repository.update(id, updateData);
+    await this.repository.update(id, updateData, tx);
 
     this.logger.log(`Updated AI career session ${id}`);
     return this.repository.findOne(id);

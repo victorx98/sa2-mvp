@@ -1,10 +1,11 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, and, desc, ne } from 'drizzle-orm';
-import type { DrizzleDatabase } from '@shared/types/database.types';
+import { eq, and, desc, ne, inArray } from 'drizzle-orm';
+import type { DrizzleDatabase, DrizzleTransaction } from '@shared/types/database.types';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import { gapAnalysisSessions } from '@infrastructure/database/schema/gap-analysis-sessions.schema';
-import { SessionStatus } from '../shared/enums/session-type.enum';
-import type { GapAnalysisSessionEntity } from './entities/gap-analysis-session.entity';
+import { meetings } from '@infrastructure/database/schema/meetings.schema';
+import { SessionStatus } from '../../shared/enums/session-type.enum';
+import type { GapAnalysisSessionEntity } from '../entities/gap-analysis-session.entity';
 
 @Injectable()
 export class GapAnalysisRepository {
@@ -36,8 +37,13 @@ export class GapAnalysisRepository {
     return result;
   }
 
-  async update(id: string, data: Partial<GapAnalysisSessionEntity>): Promise<void> {
-    await this.db
+  async update(
+    id: string,
+    data: Partial<GapAnalysisSessionEntity>,
+    tx?: DrizzleTransaction,
+  ): Promise<void> {
+    const db = tx || this.db;
+    await db
       .update(gapAnalysisSessions)
       .set(data)
       .where(eq(gapAnalysisSessions.id, id));
@@ -76,4 +82,38 @@ export class GapAnalysisRepository {
       orderBy: desc(gapAnalysisSessions.scheduledAt),
     });
   }
+
+  async findByStudentIds(
+    studentIds: string[],
+    excludeDeleted: boolean = true,
+  ): Promise<(GapAnalysisSessionEntity & { meeting?: any })[]> {
+    if (studentIds.length === 0) {
+      return [];
+    }
+
+    const whereConditions = excludeDeleted
+      ? and(
+          inArray(gapAnalysisSessions.studentUserId, studentIds),
+          ne(gapAnalysisSessions.status, SessionStatus.DELETED),
+        )
+      : inArray(gapAnalysisSessions.studentUserId, studentIds);
+
+    // Manual LEFT JOIN with meetings table to include meeting details
+    const results = await this.db
+      .select({
+        session: gapAnalysisSessions,
+        meeting: meetings,
+      })
+      .from(gapAnalysisSessions)
+      .leftJoin(meetings, eq(gapAnalysisSessions.meetingId, meetings.id))
+      .where(whereConditions)
+      .orderBy(desc(gapAnalysisSessions.scheduledAt));
+
+    // Map results to include meeting data
+    return results.map(row => ({
+      ...row.session,
+      meeting: row.meeting || undefined,
+    }));
+  }
 }
+

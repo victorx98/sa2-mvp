@@ -1,54 +1,50 @@
-import { CommSessionType } from '../entities/comm-session.entity';
+import { IsNotEmpty, IsUUID, IsString, IsOptional, IsEnum, IsDateString } from 'class-validator';
+import { CommSessionType, CommSessionStatus } from '../entities/comm-session.entity';
 
 /**
  * Create Comm Session DTO
  *
  * Passed from Application layer to Domain layer
+ * meetingId can be null for async meeting creation flow
  */
 export class CreateCommSessionDto {
-  meetingId: string;
-  sessionType: CommSessionType;
+  @IsOptional()
+  @IsUUID()
+  meetingId?: string; // Optional - filled in async flow after meeting creation
+
+  @IsNotEmpty()
+  @IsEnum(CommSessionType)
+  sessionType: CommSessionType = CommSessionType.COMM_SESSION;
+
+  @IsNotEmpty()
+  @IsUUID()
   studentUserId: string;
+
+  @IsOptional()
+  @IsUUID()
   mentorUserId?: string;
+
+  @IsOptional()
+  @IsUUID()
   counselorUserId?: string;
+
+  @IsNotEmpty()
+  @IsUUID()
   createdByCounselorId: string;
+
+  @IsNotEmpty()
+  @IsString()
   title: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
-  scheduledAt: Date;
 
-  constructor(data: CreateCommSessionDto) {
-    Object.assign(this, data);
-  }
+  @IsNotEmpty()
+  @IsDateString()
+  scheduledAt: string; // ISO string format
 
-  validate(): void {
-    if (!this.meetingId) {
-      throw new Error('Meeting ID is required');
-    }
-
-    if (this.sessionType !== CommSessionType.COMM_SESSION) {
-      throw new Error(`Invalid session type: ${this.sessionType}`);
-    }
-
-    if (!this.studentUserId) {
-      throw new Error('Student ID is required');
-    }
-
-    if (!this.createdByCounselorId) {
-      throw new Error('Created by Counselor ID is required');
-    }
-
-    if (!this.title || this.title.trim().length === 0) {
-      throw new Error('Title is required');
-    }
-
-    if (!this.scheduledAt) {
-      throw new Error('Scheduled at is required');
-    }
-
-    // Ensure either mentorUserId or counselorUserId is provided
-    if (!this.mentorUserId && !this.counselorUserId) {
-      throw new Error('Either mentorUserId or counselorUserId must be provided');
-    }
-  }
+  @IsOptional()
+  @IsEnum(CommSessionStatus)
+  status?: CommSessionStatus; // Optional, defaults to PENDING_MEETING
 }
-

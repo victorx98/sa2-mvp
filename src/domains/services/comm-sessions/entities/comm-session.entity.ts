@@ -8,10 +8,12 @@
  * - Simplified workflow
  */
 export enum CommSessionStatus {
+  PENDING_MEETING = 'pending_meeting',
   SCHEDULED = 'scheduled',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
   DELETED = 'deleted',
+  MEETING_FAILED = 'meeting_failed',
 }
 
 export enum CommSessionType {
@@ -20,7 +22,7 @@ export enum CommSessionType {
 
 export class CommSessionEntity {
   id: string;
-  meetingId: string;
+  meetingId: string | null; // Nullable for async meeting creation
   sessionType: CommSessionType;
   studentUserId: string;
   mentorUserId?: string;

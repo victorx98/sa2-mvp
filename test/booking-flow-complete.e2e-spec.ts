@@ -7,7 +7,7 @@ import { CalendarModule } from "../src/core/calendar/calendar.module";
 import { ContractService } from "../src/domains/contract/services/contract.service";
 import { ServiceHoldService } from "../src/domains/contract/services/service-hold.service";
 import { RegularMentoringService } from "../src/domains/services/sessions/regular-mentoring/services/regular-mentoring.service";
-import { RegularMentoringRepository } from "../src/domains/services/sessions/regular-mentoring/regular-mentoring.repository";
+import { RegularMentoringRepository } from "../src/domains/services/sessions/regular-mentoring/repositories/regular-mentoring.repository";
 import { SessionTypesRepository } from "../src/domains/services/session-types/session-types.repository";
 import { ServiceRegistryService } from "../src/domains/services/service-registry/services/service-registry.service";
 import { ServiceReferenceRepository } from "../src/domains/services/service-registry/service-reference.repository";

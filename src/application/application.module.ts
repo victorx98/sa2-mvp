@@ -16,6 +16,10 @@ import { CounselorListQuery } from "./queries/counselor/counselor-list.query";
 import { SchoolListQuery } from "./queries/school/school-list.query";
 import { MajorListQuery } from "./queries/major/major-list.query";
 import { ServiceBalanceQuery } from "./queries/contract/service-balance.query";
+import { RegularMentoringQueryService } from "./queries/services/regular-mentoring-query.service";
+import { ClassQueryService } from "./queries/services/class.query.service";
+import { ClassSessionQueryService } from "./queries/services/class-session.query.service";
+import { CommSessionQueryService } from "./queries/services/comm-session.query.service";
 
 // Application Layer - Commands
 import { RegisterCommand } from "./commands/auth/register.command";
@@ -24,6 +28,17 @@ import { BookSessionCommand } from "./commands/booking/book-session.command";
 import { UpdateStudentProfileCommand } from "./commands/profile/update-student-profile.command";
 import { UpdateMentorProfileCommand } from "./commands/profile/update-mentor-profile.command";
 import { UpdateCounselorProfileCommand } from "./commands/profile/update-counselor-profile.command";
+import { RegularMentoringService } from "./commands/services/regular-mentoring.service";
+import { RegularMentoringCreatedEventHandler } from "./commands/services/regular-mentoring-event.handler";
+import { GapAnalysisService } from "./commands/services/gap-analysis.service";
+import { GapAnalysisCreatedEventHandler } from "./commands/services/gap-analysis-event.handler";
+import { AiCareerService } from "./commands/services/ai-career.service";
+import { AiCareerCreatedEventHandler } from "./commands/services/ai-career-event.handler";
+import { CommSessionService } from "./commands/services/comm-session.service";
+import { CommSessionCreatedEventHandler } from "./commands/services/comm-session-event.handler";
+import { ClassService } from "./commands/services/class.service";
+import { ClassSessionService } from "./commands/services/class-session.service";
+import { ClassSessionCreatedEventHandler } from "./commands/services/class-session-event.handler";
 
 // Application Layer - Commands (兼容层)
 import { AuthCommandService } from "./commands/auth-command/auth-command.service";
@@ -69,6 +84,10 @@ import { QueryModule } from "@domains/query/query.module";
     SchoolListQuery,
     MajorListQuery,
     ServiceBalanceQuery,
+    RegularMentoringQueryService,
+    ClassQueryService,
+    ClassSessionQueryService,
+    CommSessionQueryService,
 
     // Commands
     RegisterCommand,
@@ -77,6 +96,19 @@ import { QueryModule } from "@domains/query/query.module";
     UpdateStudentProfileCommand,
     UpdateMentorProfileCommand,
     UpdateCounselorProfileCommand,
+    RegularMentoringService,
+    GapAnalysisService,
+    AiCareerService,
+    CommSessionService,
+    ClassService,
+    ClassSessionService,
+
+    // Event Handlers
+    RegularMentoringCreatedEventHandler,
+    GapAnalysisCreatedEventHandler,
+    AiCareerCreatedEventHandler,
+    CommSessionCreatedEventHandler,
+    ClassSessionCreatedEventHandler,
 
     // Commands (兼容层)
     AuthCommandService,
@@ -101,6 +133,10 @@ import { QueryModule } from "@domains/query/query.module";
     SchoolListQuery,
     MajorListQuery,
     ServiceBalanceQuery,
+    RegularMentoringQueryService,
+    ClassQueryService,
+    ClassSessionQueryService,
+    CommSessionQueryService,
 
     // Commands
     RegisterCommand,
@@ -109,6 +145,19 @@ import { QueryModule } from "@domains/query/query.module";
     UpdateStudentProfileCommand,
     UpdateMentorProfileCommand,
     UpdateCounselorProfileCommand,
+    RegularMentoringService,
+    GapAnalysisService,
+    AiCareerService,
+    CommSessionService,
+    ClassService,
+    ClassSessionService,
+
+    // Event Handlers
+    RegularMentoringCreatedEventHandler,
+    GapAnalysisCreatedEventHandler,
+    AiCareerCreatedEventHandler,
+    CommSessionCreatedEventHandler,
+    ClassSessionCreatedEventHandler,
 
     // Commands (兼容层 - 保持向后兼容)
     AuthCommandService,

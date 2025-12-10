@@ -21,8 +21,6 @@ export class ClassService {
    * Mentors, students, and counselors insertion orchestrated by Application layer
    */
   async createClass(dto: CreateClassDto): Promise<ClassEntity> {
-    dto.validate();
-
     this.logger.log(`Creating class: ${dto.name}, type: ${dto.type}`);
 
     const entity = new ClassEntity({
@@ -30,8 +28,8 @@ export class ClassService {
       name: dto.name,
       type: dto.type,
       status: ClassStatus.ACTIVE,
-      startDate: dto.startDate,
-      endDate: dto.endDate,
+      startDate: new Date(dto.startDate),
+      endDate: new Date(dto.endDate),
       description: dto.description,
       totalSessions: dto.totalSessions,
       createdAt: new Date(),
@@ -48,8 +46,6 @@ export class ClassService {
    * Update class information
    */
   async updateClass(id: string, dto: UpdateClassDto): Promise<ClassEntity> {
-    dto.validate();
-
     this.logger.log(`Updating class: ${id}`);
 
     // Verify class exists
@@ -57,8 +53,8 @@ export class ClassService {
 
     const updates: Partial<ClassEntity> = {};
     if (dto.name) updates.name = dto.name;
-    if (dto.startDate) updates.startDate = dto.startDate;
-    if (dto.endDate) updates.endDate = dto.endDate;
+    if (dto.startDate) updates.startDate = new Date(dto.startDate);
+    if (dto.endDate) updates.endDate = new Date(dto.endDate);
     if (dto.description !== undefined) updates.description = dto.description;
     if (dto.totalSessions) updates.totalSessions = dto.totalSessions;
 

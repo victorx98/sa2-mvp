@@ -5,9 +5,9 @@ import { SessionType } from '../../shared/enums/session-type.enum';
  * DTO for creating an AI career session
  */
 export class CreateAiCareerDto {
-  @IsNotEmpty()
+  @IsOptional()
   @IsUUID()
-  meetingId: string;
+  meetingId?: string; // Optional - filled in async flow after meeting creation
 
   @IsNotEmpty()
   @IsEnum(SessionType)

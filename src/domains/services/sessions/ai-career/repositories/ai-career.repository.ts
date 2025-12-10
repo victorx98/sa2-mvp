@@ -1,10 +1,11 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, and, desc, ne } from 'drizzle-orm';
-import type { DrizzleDatabase } from '@shared/types/database.types';
+import { eq, and, desc, ne, inArray } from 'drizzle-orm';
+import type { DrizzleDatabase, DrizzleTransaction } from '@shared/types/database.types';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import { aiCareerSessions } from '@infrastructure/database/schema/ai-career-sessions.schema';
-import { SessionStatus } from '../shared/enums/session-type.enum';
-import type { AiCareerSessionEntity } from './entities/ai-career-session.entity';
+import { meetings } from '@infrastructure/database/schema/meetings.schema';
+import { SessionStatus } from '../../shared/enums/session-type.enum';
+import type { AiCareerSessionEntity } from '../entities/ai-career-session.entity';
 
 @Injectable()
 export class AiCareerRepository {
@@ -36,8 +37,13 @@ export class AiCareerRepository {
     return result;
   }
 
-  async update(id: string, data: Partial<AiCareerSessionEntity>): Promise<void> {
-    await this.db
+  async update(
+    id: string,
+    data: Partial<AiCareerSessionEntity>,
+    tx?: DrizzleTransaction,
+  ): Promise<void> {
+    const db = tx || this.db;
+    await db
       .update(aiCareerSessions)
       .set(data)
       .where(eq(aiCareerSessions.id, id));
@@ -76,4 +82,38 @@ export class AiCareerRepository {
       orderBy: desc(aiCareerSessions.scheduledAt),
     });
   }
+
+  async findByStudentIds(
+    studentIds: string[],
+    excludeDeleted: boolean = true,
+  ): Promise<(AiCareerSessionEntity & { meeting?: any })[]> {
+    if (studentIds.length === 0) {
+      return [];
+    }
+
+    const whereConditions = excludeDeleted
+      ? and(
+          inArray(aiCareerSessions.studentUserId, studentIds),
+          ne(aiCareerSessions.status, SessionStatus.DELETED),
+        )
+      : inArray(aiCareerSessions.studentUserId, studentIds);
+
+    // Manual LEFT JOIN with meetings table to include meeting details
+    const results = await this.db
+      .select({
+        session: aiCareerSessions,
+        meeting: meetings,
+      })
+      .from(aiCareerSessions)
+      .leftJoin(meetings, eq(aiCareerSessions.meetingId, meetings.id))
+      .where(whereConditions)
+      .orderBy(desc(aiCareerSessions.scheduledAt));
+
+    // Map results to include meeting data
+    return results.map(row => ({
+      ...row.session,
+      meeting: row.meeting || undefined,
+    }));
+  }
 }
+

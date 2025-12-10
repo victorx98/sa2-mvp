@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
@@ -586,5 +586,119 @@ export class CalendarService {
       createdAt: record.created_at,
       updatedAt: record.updated_at,
     };
+  }
+
+  /**
+   * Update calendar slots with session ID, meeting ID, and meeting URL
+   * Used during async meeting creation flow to link session and meeting info to calendar slots
+   *
+   * @param sessionId - Session ID to link
+   * @param meetingId - Meeting ID from MeetingManagerService.createMeeting()
+   * @param meetingUrl - Meeting URL from the created meeting
+   * @param mentorSlotId - Mentor's calendar slot ID
+   * @param studentSlotId - Student's calendar slot ID
+   * @param tx - Optional transaction for atomicity
+   */
+  async updateSlotWithSessionAndMeeting(
+    sessionId: string,
+    meetingId: string,
+    meetingUrl: string,
+    mentorSlotId: string,
+    studentSlotId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<void> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    try {
+      // Update mentor slot
+      const mentorSlot = await this.getSlotById(mentorSlotId, tx);
+      if (!mentorSlot) {
+        throw new Error(`Mentor slot not found: ${mentorSlotId}`);
+      }
+
+      const mentorMetadata = { ...mentorSlot.metadata, meetingUrl };
+      const mentorMetadataJson = JSON.stringify(mentorMetadata);
+
+      await executor.execute(sql`
+        UPDATE calendar
+        SET 
+          session_id = ${sessionId},
+          meeting_id = ${meetingId},
+          metadata = ${mentorMetadataJson}::jsonb,
+          updated_at = NOW()
+        WHERE id = ${mentorSlotId}
+      `);
+
+      // Update student slot
+      const studentSlot = await this.getSlotById(studentSlotId, tx);
+      if (!studentSlot) {
+        throw new Error(`Student slot not found: ${studentSlotId}`);
+      }
+
+      const studentMetadata = { ...studentSlot.metadata, meetingUrl };
+      const studentMetadataJson = JSON.stringify(studentMetadata);
+
+      await executor.execute(sql`
+        UPDATE calendar
+        SET 
+          session_id = ${sessionId},
+          meeting_id = ${meetingId},
+          metadata = ${studentMetadataJson}::jsonb,
+          updated_at = NOW()
+        WHERE id = ${studentSlotId}
+      `);
+    } catch (error) {
+      throw new Error(
+        `Failed to update slots with session and meeting: ${error}`,
+      );
+    }
+  }
+
+  /**
+   * Generic update method for calendar slots
+   * Supports partial updates - only provided fields will be updated
+   *
+   * @param sessionId - Session ID to identify slots
+   * @param updates - Partial object with fields to update (title, status, etc.)
+   * @param tx - Optional transaction for atomicity
+   */
+  async updateSlots(
+    sessionId: string,
+    updates: Partial<{
+      title: string;
+      status: SlotStatus;
+      metadata: ICalendarMetadata;
+    }>,
+    tx?: DrizzleTransaction,
+  ): Promise<void> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    // Build update data object (Drizzle ORM style)
+    const updateData: any = {};
+
+    if (updates.title !== undefined) {
+      updateData.title = updates.title;
+    }
+
+    if (updates.status !== undefined) {
+      updateData.status = updates.status;
+    }
+
+    if (updates.metadata !== undefined) {
+      updateData.metadata = JSON.stringify(updates.metadata);
+    }
+
+    // Ensure updated_at is always set
+    updateData.updated_at = new Date();
+
+    if (Object.keys(updateData).length === 0) {
+      return;
+    }
+
+    // Use Drizzle ORM update syntax (works with transactions)
+    await executor
+      .update(schema.calendarSlots)
+      .set(updateData)
+      .where(eq(schema.calendarSlots.sessionId, sessionId));
   }
 }

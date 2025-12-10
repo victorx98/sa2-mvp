@@ -9,6 +9,7 @@ import { UpdateClassSessionDto } from '../dto/update-class-session.dto';
 import { MeetingLifecycleCompletedPayload } from '@shared/events';
 import { ServiceRegistryService } from '../../../service-registry/services/service-registry.service';
 import { RegisterServiceDto } from '../../../service-registry/dto/register-service.dto';
+import type { DrizzleTransaction } from '@shared/types/database.types';
 
 @Injectable()
 export class ClassSessionService {
@@ -28,8 +29,6 @@ export class ClassSessionService {
    * 3. Create class_sessions record
    */
   async createSession(dto: CreateClassSessionDto): Promise<ClassSessionEntity> {
-    dto.validate();
-
     this.logger.log(`Creating class session: classId=${dto.classId}, meetingId=${dto.meetingId}`);
 
     // Verify class exists
@@ -49,8 +48,8 @@ export class ClassSessionService {
       mentorUserId: dto.mentorUserId,
       title: dto.title,
       description: dto.description,
-      status: ClassSessionStatus.SCHEDULED,
-      scheduledAt: dto.scheduledAt,
+      status: dto.status || (dto.meetingId ? ClassSessionStatus.SCHEDULED : ClassSessionStatus.PENDING_MEETING),
+      scheduledAt: new Date(dto.scheduledAt),
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -65,8 +64,6 @@ export class ClassSessionService {
    * Update session information
    */
   async updateSession(id: string, dto: UpdateClassSessionDto): Promise<ClassSessionEntity> {
-    dto.validate();
-
     this.logger.log(`Updating class session: ${id}`);
 
     const session = await this.classSessionRepository.findByIdOrThrow(id);
@@ -84,13 +81,40 @@ export class ClassSessionService {
     const updates: Partial<ClassSessionEntity> = {};
     if (dto.title) updates.title = dto.title;
     if (dto.description !== undefined) updates.description = dto.description;
-    if (dto.scheduledAt) updates.scheduledAt = dto.scheduledAt;
+    if (dto.scheduledAt) updates.scheduledAt = new Date(dto.scheduledAt);
     if (dto.mentorUserId) updates.mentorUserId = dto.mentorUserId;
 
     const result = await this.classSessionRepository.update(id, updates);
     this.logger.log(`Class session updated successfully: ${id}`);
 
     return result;
+  }
+
+  /**
+   * Update meeting setup for async flow
+   * Called after async meeting creation to update meeting_id and status
+   *
+   * @param sessionId - Session ID
+   * @param meetingId - Meeting ID from MeetingManagerService.createMeeting()
+   * @param tx - Optional transaction for atomicity
+   */
+  async updateMeetingSetup(
+    sessionId: string,
+    meetingId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<void> {
+    this.logger.log(`Updating meeting setup for session ${sessionId} with meeting ${meetingId}`);
+
+    await this.classSessionRepository.update(
+      sessionId,
+      {
+        meetingId: meetingId,
+        status: ClassSessionStatus.SCHEDULED,
+      },
+      tx,
+    );
+
+    this.logger.debug(`Meeting setup updated for session ${sessionId}`);
   }
 
   /**

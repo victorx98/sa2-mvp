@@ -13,7 +13,7 @@ export const commSessions = pgTable(
   'comm_sessions',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    meetingId: uuid('meeting_id').notNull().unique(),
+    meetingId: uuid('meeting_id').unique(),
     sessionType: varchar('session_type', { length: 50 }).notNull().default('comm_session'),
     studentUserId: uuid('student_user_id').notNull(),
     mentorUserId: uuid('mentor_user_id'),

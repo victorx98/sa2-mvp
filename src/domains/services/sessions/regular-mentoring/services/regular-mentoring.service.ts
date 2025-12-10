@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { RegularMentoringRepository } from '../regular-mentoring.repository';
+import { RegularMentoringRepository } from '../repositories/regular-mentoring.repository';
 import { SessionTypesRepository } from '@domains/services/session-types/session-types.repository';
 import { ServiceRegistryService } from '@domains/services/service-registry/services/service-registry.service';
 import { CreateRegularMentoringDto } from '../dto/create-regular-mentoring.dto';
@@ -9,6 +9,7 @@ import { RegularMentoringSessionEntity } from '../entities/regular-mentoring-ses
 import { SessionStatus } from '../../shared/enums/session-type.enum';
 import { SessionNotFoundException, SessionTypeNotFoundException } from '../../shared/exceptions/session-not-found.exception';
 import { MeetingLifecycleCompletedPayload, SERVICE_SESSION_COMPLETED_EVENT } from '@shared/events';
+import type { DrizzleTransaction } from '@shared/types/database.types';
 
 /**
  * Regular Mentoring Service
@@ -30,7 +31,7 @@ export class RegularMentoringService {
     this.logger.log(`Creating regular mentoring session for meeting ${dto.meetingId}`);
 
     const session = await this.repository.create({
-      meetingId: dto.meetingId,
+      meetingId: dto.meetingId || null, // Nullable for async meeting creation flow
       sessionType: dto.sessionType,
       sessionTypeId: dto.sessionTypeId || null, // Nullable until session_types lookup is implemented
       studentUserId: dto.studentUserId,
@@ -38,7 +39,7 @@ export class RegularMentoringService {
       createdByCounselorId: dto.createdByCounselorId || null,
       title: dto.title,
       description: dto.description || null,
-      status: SessionStatus.SCHEDULED,
+      status: SessionStatus.PENDING_MEETING, // Start in PENDING_MEETING status during async flow
       scheduledAt: new Date(dto.scheduledAt),
       aiSummaries: [],
     }, tx);
@@ -47,9 +48,38 @@ export class RegularMentoringService {
     return session;
   }
 
+  /**
+   * Complete the meeting setup for a session
+   * Called during the async meeting creation flow after MeetingManagerService creates the meeting
+   * Updates meeting_id and transitions status from PENDING_MEETING to SCHEDULED
+   * 
+   * @param sessionId - Session ID to update
+   * @param meetingId - Meeting ID from MeetingManagerService.createMeeting()
+   * @param tx - Optional transaction for atomicity
+   */
+  async completeMeetingSetup(
+    sessionId: string,
+    meetingId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<void> {
+    this.logger.log(`Completing meeting setup for session ${sessionId} with meeting ${meetingId}`);
+
+    await this.repository.update(
+      sessionId,
+      {
+        meetingId: meetingId,
+        status: SessionStatus.SCHEDULED,
+      },
+      tx,
+    );
+
+    this.logger.debug(`Meeting setup completed for session ${sessionId}`);
+  }
+
   async updateSession(
     id: string,
     dto: UpdateRegularMentoringDto,
+    tx?: DrizzleTransaction,
   ): Promise<RegularMentoringSessionEntity> {
     const session = await this.repository.findOne(id);
     if (!session) {
@@ -61,7 +91,7 @@ export class RegularMentoringService {
     if (dto.description) updateData.description = dto.description;
     if (dto.scheduledAt) updateData.scheduledAt = new Date(dto.scheduledAt);
 
-    await this.repository.update(id, updateData);
+    await this.repository.update(id, updateData, tx);
 
     this.logger.log(`Updated regular mentoring session ${id}`);
     return this.repository.findOne(id);

@@ -13,7 +13,6 @@ export const aiCareerSessions = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     meetingId: uuid('meeting_id')
-      .notNull()
       .unique()
       .references(() => meetings.id, { onDelete: 'cascade' }),
     sessionType: varchar('session_type', { length: 50 })

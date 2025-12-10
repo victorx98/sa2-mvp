@@ -13,6 +13,10 @@ import { MentorProfileController } from "./controllers/identity/mentor-profile.c
 import { CounselorProfileController } from "./controllers/identity/counselor-profile.controller";
 import { ApplicationModule } from "@application/application.module";
 import { WebhookModule } from "@core/webhook/webhook.module";
+import { RegularMentoringController } from "./controllers/services/regular-mentoring.controller";
+import { GapAnalysisController } from "./controllers/services/gap-analysis.controller";
+import { AiCareerController } from "./controllers/services/ai-career.controller";
+import { CommSessionController } from "./controllers/services/comm-session.controller";
 
 /**
  * API Layer - Root Module
@@ -42,7 +46,10 @@ import { WebhookModule } from "@core/webhook/webhook.module";
     CounselorStudentContractController,
     CounselorProfileController,
     CounselorsController,
-
+    RegularMentoringController,
+    GapAnalysisController,
+    AiCareerController,
+    CommSessionController,
     // Mentor Controllers
     MentorsController,
     MentorProfileController,
