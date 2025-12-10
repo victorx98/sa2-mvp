@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { GetSessionTypesQuery } from '@application/queries/services/get-session-types.query';
 import { SessionTypesQueryService } from '@domains/services/session-types/services/session-types-query.service';
 import { GetSessionTypesDto, SessionTypeDto } from '@domains/services/session-types/dto/get-session-types.dto';
+import { ApiPrefix } from '@api/api.constants';
 
 /**
  * Session Types Controller
@@ -11,7 +12,7 @@ import { GetSessionTypesDto, SessionTypeDto } from '@domains/services/session-ty
  * Provides API endpoints for querying session types
  */
 @ApiTags("Session Types")
-@Controller('api/services/session-types')
+@Controller(`${ApiPrefix}/services/session-types`)
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class SessionTypesController {

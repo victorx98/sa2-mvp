@@ -23,8 +23,28 @@ let sdk: NodeSDK | null = null;
 let sdkStarting = false;
 let startupError: Error | null = null;
 
+/**
+ * 从 OTEL_RESOURCE_ATTRIBUTES 解析服务名
+ * 格式: "service.name=mentorxsa2,key2=value2"
+ */
+function parseServiceNameFromResourceAttributes(): string | undefined {
+  const resourceAttrs = process.env.OTEL_RESOURCE_ATTRIBUTES;
+  if (resourceAttrs) {
+    const pairs = resourceAttrs.split(',');
+    for (const pair of pairs) {
+      const [key, value] = pair.split('=').map(s => s.trim());
+      if (key === 'service.name' && value) {
+        return value;
+      }
+    }
+  }
+  return undefined;
+}
+
 const serviceName =
+  parseServiceNameFromResourceAttributes() ??
   process.env.SERVICE_NAME ??
+  process.env.OTEL_SERVICE_NAME ??
   process.env.npm_package_name ??
   "sa2-mvp";
 
@@ -40,10 +60,44 @@ const resource = resourceFromAttributes({
     "development",
 });
 
+/**
+ * 解析认证头
+ * 支持两种格式：
+ * 1. OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic ..." (完整格式)
+ * 2. OTEL_EXPORTER_OTLP_AUTH_TOKEN="..." (仅token，需要添加 Basic 前缀)
+ * 3. OTEL_EXPORTER_OTLP_HEADERS_AUTH="..." (备用token)
+ */
+function parseAuthHeaders(): Record<string, string> | undefined {
+  // 优先使用 OTEL_EXPORTER_OTLP_HEADERS (完整格式)
+  if (process.env.OTEL_EXPORTER_OTLP_HEADERS) {
+    const headers: Record<string, string> = {};
+    const pairs = process.env.OTEL_EXPORTER_OTLP_HEADERS.split(',');
+    for (const pair of pairs) {
+      const [key, value] = pair.split('=').map(s => s.trim());
+      if (key && value) {
+        headers[key] = value;
+      }
+    }
+    if (Object.keys(headers).length > 0) {
+      return headers;
+    }
+  }
+
+  // 回退到 OTEL_EXPORTER_OTLP_AUTH_TOKEN
+  if (process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN) {
+    return { Authorization: `Basic ${process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN}` };
+  }
+
+  // 最后尝试 OTEL_EXPORTER_OTLP_HEADERS_AUTH
+  if (process.env.OTEL_EXPORTER_OTLP_HEADERS_AUTH) {
+    return { Authorization: `Basic ${process.env.OTEL_EXPORTER_OTLP_HEADERS_AUTH}` };
+  }
+
+  return undefined;
+}
+
 function buildSdk(): NodeSDK {
-  const authHeaders = process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN
-    ? { Authorization: `Basic ${process.env.OTEL_EXPORTER_OTLP_AUTH_TOKEN}` }
-    : undefined;
+  const authHeaders = parseAuthHeaders();
 
   const traceExporter = new OTLPTraceExporter({
     url:
@@ -81,8 +135,10 @@ function buildSdk(): NodeSDK {
     "@opentelemetry/instrumentation-express": {
       enabled: true,
     },
+    // 禁用 pg instrumentation，因为使用 @kubiks/otel-drizzle 在 Drizzle ORM 层面追踪
+    // otelDrizzle 提供更详细的追踪信息（SQL 语句、表名、操作类型等）
     "@opentelemetry/instrumentation-pg": {
-      enabled: true,
+      enabled: false,
     },
   });
 

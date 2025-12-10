@@ -30,7 +30,6 @@ import {
   isNotNull,
   asc,
   desc,
-  sql,
   SQL,
   getTableColumns,
   getTableName,
@@ -49,7 +48,6 @@ import {
   DateTimeFilter,
   BoolFilter,
   SortOrder,
-  RelationLoadStrategy,
   ParsedFieldSelection,
   QueryResult,
   RelationDefinition,
@@ -464,7 +462,6 @@ export class OrderByParser {
     }
 
     const columns = getTableColumns(table);
-    const tableName = getTableName(table);
     const results: SQL[] = [];
 
     // 处理数组格式
@@ -1141,8 +1138,8 @@ export class QueryExecutor<TSchema extends Record<string, unknown>> {
    * 获取关系定义
    */
   private getRelationDefinition(
-    relationName: string,
-    fieldSelection: ParsedFieldSelection,
+    _relationName: string,
+    _fieldSelection: ParsedFieldSelection,
   ): RelationDefinition | undefined {
     // 这里需要从 registry 获取，但我们没有 tableName
     // 所以暂时返回 undefined，让调用方处理
@@ -1163,7 +1160,6 @@ export class QueryExecutor<TSchema extends Record<string, unknown>> {
     distinct: string[] | undefined,
     primaryKey: string | string[],
   ): Promise<QueryResult<Record<string, unknown>>> {
-    const tableName = getTableName(table);
     const columns = getTableColumns(table);
 
     // 构建选择的字段

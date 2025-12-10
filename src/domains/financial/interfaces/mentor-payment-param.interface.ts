@@ -1,4 +1,4 @@
-import { PaymentParamUpdate } from "../dto/settlement";
+import { IPaymentParamUpdate } from "../dto/settlement";
 
 /**
  * Mentor Payment Parameter Service Interface (导师支付参数服务接口)
@@ -35,7 +35,7 @@ export interface IMentorPaymentParamService {
   updateOrCreateDefaultParams(
     currency: string,
     settlementMonth: string,
-    params: PaymentParamUpdate,
+    params: IPaymentParamUpdate,
     updatedBy: string,
   ): Promise<void>;
 
@@ -58,7 +58,7 @@ export interface IMentorPaymentParamService {
   modifyDefaultParams(
     currency: string,
     settlementMonth: string,
-    params: Partial<PaymentParamUpdate>,
+    params: Partial<IPaymentParamUpdate>,
     updatedBy: string,
   ): Promise<void>;
 
@@ -95,5 +95,5 @@ export interface IMentorPaymentParamService {
    * @param params - Parameters to validate [待验证的参数]
    * @returns True if parameters are valid, false otherwise [有效返回true，否则false]
    */
-  validateParams(params: PaymentParamUpdate): boolean;
+  validateParams(params: IPaymentParamUpdate): boolean;
 }

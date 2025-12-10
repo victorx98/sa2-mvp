@@ -166,7 +166,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BookSessionDto"
+                "$ref": "#/components/schemas/BookSessionRequestDto"
               }
             }
           }
@@ -200,9 +200,9 @@
         ]
       }
     },
-    "/api/reference/schools": {
+    "/api/schools": {
       "get": {
-        "operationId": "ReferenceDataController_getSchools",
+        "operationId": "SchoolsController_getSchools",
         "parameters": [
           {
             "name": "text",
@@ -236,13 +236,13 @@
         ],
         "summary": "Search schools by Chinese or English name",
         "tags": [
-          "Reference Data"
+          "Schools"
         ]
       }
     },
-    "/api/reference/majors": {
+    "/api/majors": {
       "get": {
-        "operationId": "ReferenceDataController_getMajors",
+        "operationId": "MajorsController_getMajors",
         "parameters": [
           {
             "name": "text",
@@ -276,68 +276,20 @@
         ],
         "summary": "Search majors by Chinese or English name",
         "tags": [
-          "Reference Data"
+          "Majors"
         ]
       }
     },
-    "/api/counselor/sessions": {
-      "post": {
-        "description": "\n      Counselors book a one-on-one coaching session for their assigned students.\n\n      Flow:\n      1. Validate counselor permissions\n      2. Check student service balance\n      3. Verify mentor availability\n      4. Create the session booking\n      5. Reserve the calendar slot\n      6. Create the meeting link\n      7. Send notifications\n    ",
-        "operationId": "CounselorSessionsController_bookSession",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BookSessionRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Booking created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BookSessionResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request parameters or insufficient balance"
-          },
-          "403": {
-            "description": "Not authorized to book for this student"
-          },
-          "409": {
-            "description": "Timeslot conflict (mentor already scheduled)"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Counselor books a session for a student",
-        "tags": [
-          "Counselor Portal - Sessions"
-        ]
-      }
-    },
-    "/api/student/contract/getServiceBalance": {
+    "/api/students/{studentId}/contracts": {
       "get": {
         "operationId": "CounselorStudentContractController_getServiceBalance",
         "parameters": [
           {
             "name": "studentId",
             "required": true,
-            "in": "query",
+            "in": "path",
             "description": "Student ID",
             "schema": {
-              "example": "123e4567-e89b-12d3-a456-426614174000",
               "type": "string"
             }
           },
@@ -347,7 +299,6 @@
             "in": "query",
             "description": "Service type (optional)",
             "schema": {
-              "example": "one_on_one_session",
               "type": "string"
             }
           }
@@ -378,7 +329,7 @@
         ]
       }
     },
-    "/api/counselor/profile": {
+    "/api/counselors/profile": {
       "put": {
         "operationId": "CounselorProfileController_updateProfile",
         "parameters": [],
@@ -527,7 +478,7 @@
         ]
       }
     },
-    "/api/mentor/profile": {
+    "/api/mentors/profile": {
       "get": {
         "operationId": "MentorProfileController_getProfile",
         "parameters": [],
@@ -615,7 +566,73 @@
         ]
       }
     },
-    "/api/student/profile": {
+    "/api/students/listOfCounselorView": {
+      "get": {
+        "operationId": "StudentsController_listOfCounselorView",
+        "parameters": [
+          {
+            "name": "text",
+            "required": false,
+            "in": "query",
+            "description": "Search keyword (searches in both Chinese and English names)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "studentId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by specific student ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (starting from 1)",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Number of items per page (max 100)",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated student list for counselor view retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedStudentCounselorViewResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get paginated student list for counselor view with school and major names",
+        "tags": [
+          "Students"
+        ]
+      }
+    },
+    "/api/students/profile": {
       "get": {
         "operationId": "StudentProfileController_getProfile",
         "parameters": [],
@@ -907,52 +924,52 @@
           "id"
         ]
       },
-      "BookSessionDto": {
+      "BookSessionRequestDto": {
         "type": "object",
         "properties": {
           "studentId": {
             "type": "string",
-            "description": "Student ID"
+            "description": "Student ID",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
           },
           "mentorId": {
             "type": "string",
-            "description": "Mentor ID"
+            "description": "Mentor ID",
+            "example": "123e4567-e89b-12d3-a456-426614174001"
           },
-          "startTime": {
+          "scheduledStartTime": {
             "type": "string",
-            "description": "Start time (ISO 8601 format)",
-            "example": "2024-01-20T10:00:00Z"
+            "description": "Session start time (ISO 8601 format)",
+            "example": "2025-11-10T14:00:00Z"
           },
           "duration": {
             "type": "number",
-            "description": "Duration (minutes)",
+            "description": "Session duration (minutes)",
             "example": 60
-          },
-          "name": {
-            "type": "string",
-            "description": "Session name"
           },
           "serviceType": {
             "type": "string",
-            "description": "Service type (e.g., gap_analysis, individual_session, mock_interview)"
+            "description": "Service type",
+            "example": "external"
           },
-          "provider": {
+          "topic": {
             "type": "string",
-            "description": "Meeting provider (optional, defaults to zoom)",
-            "enum": [
-              "zoom",
-              "teams",
-              "google_meet",
-              "feishu"
-            ]
+            "description": "Session topic",
+            "example": "Resume review guidance"
+          },
+          "meetingProvider": {
+            "type": "string",
+            "description": "Meeting provider",
+            "example": "zoom"
           }
         },
         "required": [
           "studentId",
           "mentorId",
-          "startTime",
+          "scheduledStartTime",
           "duration",
-          "name"
+          "serviceType",
+          "topic"
         ]
       },
       "BookSessionResponseDto": {
@@ -1108,54 +1125,6 @@
           "nameEn",
           "createdAt",
           "modifiedAt"
-        ]
-      },
-      "BookSessionRequestDto": {
-        "type": "object",
-        "properties": {
-          "studentId": {
-            "type": "string",
-            "description": "Student ID",
-            "example": "123e4567-e89b-12d3-a456-426614174000"
-          },
-          "mentorId": {
-            "type": "string",
-            "description": "Mentor ID",
-            "example": "123e4567-e89b-12d3-a456-426614174001"
-          },
-          "scheduledStartTime": {
-            "type": "string",
-            "description": "Session start time (ISO 8601 format)",
-            "example": "2025-11-10T14:00:00Z"
-          },
-          "duration": {
-            "type": "number",
-            "description": "Session duration (minutes)",
-            "example": 60
-          },
-          "serviceType": {
-            "type": "string",
-            "description": "Service type",
-            "example": "external"
-          },
-          "topic": {
-            "type": "string",
-            "description": "Session topic",
-            "example": "Resume review guidance"
-          },
-          "meetingProvider": {
-            "type": "string",
-            "description": "Meeting provider",
-            "example": "zoom"
-          }
-        },
-        "required": [
-          "studentId",
-          "mentorId",
-          "scheduledStartTime",
-          "duration",
-          "serviceType",
-          "topic"
         ]
       },
       "ServiceBalanceResponseDto": {
@@ -1566,6 +1535,195 @@
           "graduationDate",
           "createdAt",
           "modifiedAt"
+        ]
+      },
+      "StudentCounselorViewResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Student record ID"
+          },
+          "status": {
+            "type": "string",
+            "description": "Student status"
+          },
+          "underMajor": {
+            "type": "string",
+            "description": "Undergraduate major ID"
+          },
+          "underCollege": {
+            "type": "string",
+            "description": "Undergraduate college ID"
+          },
+          "graduateMajor": {
+            "type": "string",
+            "description": "Graduate major ID"
+          },
+          "graduateCollege": {
+            "type": "string",
+            "description": "Graduate college ID"
+          },
+          "highSchool": {
+            "type": "string",
+            "description": "High school ID"
+          },
+          "aiResumeSummary": {
+            "type": "string",
+            "description": "AI generated resume summary"
+          },
+          "customerImportance": {
+            "type": "string",
+            "description": "Customer importance label"
+          },
+          "graduationDate": {
+            "type": "string",
+            "description": "Graduation date",
+            "format": "date-time",
+            "nullable": true
+          },
+          "backgroundInfo": {
+            "type": "string",
+            "description": "Background information"
+          },
+          "grades": {
+            "type": "string",
+            "description": "Grades information"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Record creation time",
+            "format": "date-time"
+          },
+          "modifiedAt": {
+            "type": "string",
+            "description": "Record last modification time",
+            "format": "date-time"
+          },
+          "email": {
+            "type": "string",
+            "description": "Student email"
+          },
+          "nameEn": {
+            "type": "string",
+            "description": "Student English name"
+          },
+          "nameZh": {
+            "type": "string",
+            "description": "Student Chinese name"
+          },
+          "country": {
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2 country code (US, CN, GB, CA)",
+            "enum": [
+              "US",
+              "CN",
+              "GB",
+              "CA"
+            ]
+          },
+          "gender": {
+            "type": "string",
+            "description": "Gender",
+            "enum": [
+              "male",
+              "female"
+            ]
+          },
+          "underCollegeNameZh": {
+            "type": "string",
+            "description": "Undergraduate college Chinese name"
+          },
+          "underCollegeNameEn": {
+            "type": "string",
+            "description": "Undergraduate college English name"
+          },
+          "graduateCollegeNameZh": {
+            "type": "string",
+            "description": "Graduate college Chinese name"
+          },
+          "graduateCollegeNameEn": {
+            "type": "string",
+            "description": "Graduate college English name"
+          },
+          "highSchoolNameZh": {
+            "type": "string",
+            "description": "High school Chinese name"
+          },
+          "highSchoolNameEn": {
+            "type": "string",
+            "description": "High school English name"
+          },
+          "underMajorNameZh": {
+            "type": "string",
+            "description": "Undergraduate major Chinese name"
+          },
+          "underMajorNameEn": {
+            "type": "string",
+            "description": "Undergraduate major English name"
+          },
+          "graduateMajorNameZh": {
+            "type": "string",
+            "description": "Graduate major Chinese name"
+          },
+          "graduateMajorNameEn": {
+            "type": "string",
+            "description": "Graduate major English name"
+          },
+          "counselorStatus": {
+            "type": "string",
+            "description": "Counselor assignment status"
+          },
+          "counselorType": {
+            "type": "string",
+            "description": "Counselor assignment type"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "graduationDate",
+          "createdAt",
+          "modifiedAt"
+        ]
+      },
+      "PaginatedStudentCounselorViewResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Student list data",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentCounselorViewResponseDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "Total number of records",
+            "example": 100
+          },
+          "page": {
+            "type": "number",
+            "description": "Current page number",
+            "example": 1
+          },
+          "pageSize": {
+            "type": "number",
+            "description": "Number of items per page",
+            "example": 20
+          },
+          "totalPages": {
+            "type": "number",
+            "description": "Total number of pages",
+            "example": 5
+          }
+        },
+        "required": [
+          "data",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
         ]
       },
       "UpdateStudentProfileDto": {

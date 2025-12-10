@@ -5,8 +5,7 @@
  * (该DTO定义搜索导师申诉的筛选条件)
  */
 
-import { IsString, IsOptional, IsUUID, IsDateString, IsNumber, Min } from "class-validator";
-import { Type } from "class-transformer";
+import { IsString, IsOptional, IsUUID, IsDateString } from "class-validator";
 
 export class AppealSearchDto {
   @IsUUID()

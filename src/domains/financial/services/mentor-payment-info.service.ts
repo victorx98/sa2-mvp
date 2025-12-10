@@ -11,9 +11,10 @@ import * as schema from "@infrastructure/database/schema";
 import type { DrizzleDatabase } from "@shared/types/database.types";
 import type { IMentorPaymentInfoService } from "../interfaces/mentor-payment-info.interface";
 import type {
-  CreateOrUpdateMentorPaymentInfoRequest,
-  MentorPaymentInfoResponse,
-} from "../dto/settlement";
+  ICreateOrUpdateMentorPaymentInfoRequest,
+  IMentorPaymentInfoResponse,
+} from "../dto/settlement/mentor-payment-info.dtos";
+import { SettlementMethod } from "../dto/settlement/settlement.enums";
 
 /**
  * Mentor Payment Info Service Implementation (导师支付信息服务实现)
@@ -47,8 +48,8 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
    * @returns Payment info response (支付信息响应)
    */
   public async createOrUpdateMentorPaymentInfo(
-    request: CreateOrUpdateMentorPaymentInfoRequest,
-  ): Promise<MentorPaymentInfoResponse> {
+    request: ICreateOrUpdateMentorPaymentInfoRequest,
+  ): Promise<IMentorPaymentInfoResponse> {
     try {
       const { mentorId, paymentCurrency, paymentMethod, paymentDetails } =
         request;
@@ -101,8 +102,8 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
           id: updated.id,
           mentorId: updated.mentorId,
           paymentCurrency: updated.paymentCurrency,
-          paymentMethod: updated.paymentMethod as any,
-          paymentDetails: updated.paymentDetails as Record<string, any>,
+          paymentMethod: updated.paymentMethod as SettlementMethod,
+          paymentDetails: updated.paymentDetails as Record<string, unknown>,
           status: updated.status,
           createdAt: updated.createdAt,
           updatedAt: updated.updatedAt,
@@ -132,8 +133,8 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
           id: created.id,
           mentorId: created.mentorId,
           paymentCurrency: created.paymentCurrency,
-          paymentMethod: created.paymentMethod as any,
-          paymentDetails: created.paymentDetails as Record<string, any>,
+          paymentMethod: created.paymentMethod as SettlementMethod,
+          paymentDetails: created.paymentDetails as Record<string, unknown>,
           status: created.status,
           createdAt: created.createdAt,
           updatedAt: created.updatedAt,
@@ -160,7 +161,7 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
    */
   public async getMentorPaymentInfo(
     mentorId: string,
-  ): Promise<MentorPaymentInfoResponse | null> {
+  ): Promise<IMentorPaymentInfoResponse | null> {
     try {
       if (!mentorId) {
         throw new BadRequestException("Mentor ID is required");
@@ -182,8 +183,8 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
         id: paymentInfo.id,
         mentorId: paymentInfo.mentorId,
         paymentCurrency: paymentInfo.paymentCurrency,
-        paymentMethod: paymentInfo.paymentMethod as any,
-        paymentDetails: paymentInfo.paymentDetails as Record<string, any>,
+        paymentMethod: paymentInfo.paymentMethod as SettlementMethod,
+        paymentDetails: paymentInfo.paymentDetails as Record<string, unknown>,
         status: paymentInfo.status,
         createdAt: paymentInfo.createdAt,
         updatedAt: paymentInfo.updatedAt,
@@ -213,7 +214,7 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
     id: string,
     status: "ACTIVE" | "INACTIVE",
     updatedBy: string,
-  ): Promise<MentorPaymentInfoResponse> {
+  ): Promise<IMentorPaymentInfoResponse> {
     try {
       if (!id) {
         throw new BadRequestException("Payment info ID is required");
@@ -247,8 +248,8 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
         id: updated.id,
         mentorId: updated.mentorId,
         paymentCurrency: updated.paymentCurrency,
-        paymentMethod: updated.paymentMethod as any,
-        paymentDetails: updated.paymentDetails as Record<string, any>,
+        paymentMethod: updated.paymentMethod as SettlementMethod,
+        paymentDetails: updated.paymentDetails as Record<string, unknown>,
         status: updated.status,
         createdAt: updated.createdAt,
         updatedAt: updated.updatedAt,

@@ -22,7 +22,7 @@ trigger: always_on
 - **命名规范**: 事件名称必须遵循 `domain.entity.action` 格式（如：`contract.session.completed`）
 - **类型定义**: 每个事件必须明确定义其数据载荷(payload)的TypeScript类型
 
-# Contract Domain 职责范围
+# 合同领域（Contract Domain）职责范围
 
 ## 明确职责
 
@@ -41,14 +41,14 @@ trigger: always_on
 ## 职责边界
 
 - **权益范围**: 仅管理 `contract_service_entitlements` 表中的学生服务权益
-- **数据交互**: 仅通过事件与其他domain进行数据交互
+- **数据交互**: 仅通过事件与其他领域（domain）进行数据交互
 - **权益计算**: 仅通过数据库触发器自动计算权益，不提供手动调整接口
 - **事件处理**: 仅处理与学生服务权益相关的事件
 
 ## 集成原则
 
-- **事件驱动**: 与其他domain通过事件进行集成
-- **数据隔离**: 不直接访问其他domain的数据库表
+- **事件驱动**: 与其他领域（domain）通过事件进行集成
+- **数据隔离**: 不直接访问其他领域（domain）的数据库表
 - **职责清晰**: 严格遵循职责边界，避免职责交叉
 - **接口明确**: 提供明确的API接口，不暴露内部实现细节
 
@@ -217,6 +217,7 @@ trigger: always_on
 - **@core/\***: 映射到 `src/core/*` - 核心功能模块（邮件、通知、日历等）
 - **@domains/\***: 映射到 `src/domains/*` - 业务领域模块（财务、合同、目录等）
 - **@application/\***: 映射到 `src/application/*` - 应用层模块（命令、查询等）
+- **@operations/\***: 映射到 `src/operations/*` - 运营编排与跨领域任务模块（批处理、调度、同步等）
 - **@infrastructure/\***: 映射到 `src/infrastructure/*` - 基础设施模块（数据库、认证等）
 - **@api/\***: 映射到 `src/api/*` - API层模块（控制器、DTO等）
 - **@shared/\***: 映射到 `src/shared/*` - 共享模块（事件、异常、类型等）
@@ -265,18 +266,20 @@ trigger: always_on
 - **命令格式**: 使用以下命令格式执行单个测试文件：
   ```bash
   # 单元测试
-  npm run test:unit -- --testPathPattern=<测试文件路径>
+  npm run test -- --testPathPatterns=<src目录下的测试文件路径>
   
   # 集成测试
-  npm run test:e2e -- --testPathPattern=<测试文件路径>
+  npm run test -- --testPathPatterns=<test目录下的测试文件路径>
   
   # 示例
-  npm run test:unit -- --testPathPattern=src/domains/financial/services/mentor-appeal.service.spec.ts
+  npm run test -- --testPathPatterns=src/domains/financial/services/mentor-appeal.service.spec.ts
+  npm run test -- --testPathPatterns=test/contract/contract-flow.e2e-spec.ts
   ```
 - **参数说明**:
-  - `--testPathPattern`: 指定要运行的测试文件路径，支持相对路径和绝对路径
-  - 支持通配符匹配，如 `--testPathPattern=**/*.service.spec.ts`
-- **禁止操作**: 禁止使用不带 `--testPathPattern` 参数的测试命令，避免同时运行多个测试文件
+  - `--testPathPatterns`: 指定要运行的测试文件路径，支持相对路径和绝对路径
+  - 支持通配符匹配，如 `--testPathPatterns=**/*.service.spec.ts`
+- **命令说明**: `npm run test` 默认会执行全部测试，必须通过 `npm run test -- --testPathPatterns=...`（双连字符将参数传递给脚本）来限制执行范围；单元测试与集成测试统一使用此命令，只需指定对应的测试文件路径即可。
+- **禁止操作**: 禁止使用不带 `--testPathPatterns` 参数的测试命令，避免同时运行多个测试文件
 
 ## 自动识别修改文件测试规则
 
@@ -284,13 +287,13 @@ trigger: always_on
 - **执行命令**: 使用以下命令自动运行最近修改的测试文件：
   ```bash
   # 运行最近修改的单个测试文件
-  npm run test:unit -- --testPathPattern=$(git diff --name-only HEAD~1 | grep '\.spec\.ts$' | head -1)
+  npm run test -- --testPathPatterns=$(git diff --name-only HEAD~1 | grep '\.spec\.ts$' | head -1)
   
   # 运行最近修改的测试文件（单元测试）
-  npm run test:unit -- --testPathPattern=$(git diff --name-only HEAD~1 | grep 'src/.*\.spec\.ts$' | head -1)
+  npm run test -- --testPathPatterns=$(git diff --name-only HEAD~1 | grep 'src/.*\.spec\.ts$' | head -1)
   
   # 运行最近修改的测试文件（集成测试）
-  npm run test:e2e -- --testPathPattern=$(git diff --name-only HEAD~1 | grep 'test/.*\.e2e-spec\.ts$' | head -1)
+  npm run test -- --testPathPatterns=$(git diff --name-only HEAD~1 | grep 'test/.*\.e2e-spec\.ts$' | head -1)
   
   # 使用便捷脚本运行最近修改的测试文件（默认单元测试）
   npm run test:recent
@@ -321,7 +324,7 @@ trigger: always_on
 - **覆盖率报告**: 使用 `npm run test:cov` 生成覆盖率报告，确保测试覆盖率达到80%以上
 - **详细输出**: 使用 `--verbose` 参数获取详细测试输出：
   ```bash
-  npm run test:unit -- --testPathPattern=<测试文件路径> --verbose
+  npm run test -- --testPathPatterns=<测试文件路径> --verbose
   ```
 
 # 禁止事项

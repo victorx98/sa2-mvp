@@ -1,9 +1,9 @@
 import {
-  CreateSettlementRequest,
-  SettlementQuery,
-  SettlementDetailResponse,
-  SettlementResponse,
-  SettlementDetailItem,
+  ICreateSettlementRequest,
+  ISettlementQuery,
+  ISettlementDetailResponse,
+  ISettlementResponse,
+  ISettlementDetailItem,
 } from "../dto/settlement";
 
 /**
@@ -42,9 +42,9 @@ export interface ISettlementService {
    * @returns Settlement record details (结算记录详情)
    */
   generateSettlement(
-    request: CreateSettlementRequest,
+    request: ICreateSettlementRequest,
     createdBy: string,
-  ): Promise<SettlementDetailResponse>;
+  ): Promise<ISettlementDetailResponse>;
 
   /**
    * Get settlement by ID (根据ID获取结算记录)
@@ -57,7 +57,7 @@ export interface ISettlementService {
    * @param id - Settlement ID (结算ID)
    * @returns Settlement record details or null if not found (结算记录详情，未找到返回null)
    */
-  getSettlementById(id: string): Promise<SettlementDetailResponse | null>;
+  getSettlementById(id: string): Promise<ISettlementDetailResponse | null>;
 
   /**
    * Get settlement by mentor and month (根据导师ID和月份获取结算记录)
@@ -74,7 +74,7 @@ export interface ISettlementService {
   getSettlementByMentorAndMonth(
     mentorId: string,
     settlementMonth: string,
-  ): Promise<SettlementDetailResponse | null>;
+  ): Promise<ISettlementDetailResponse | null>;
 
   /**
    * Find settlements with pagination (分页查询结算记录)
@@ -88,8 +88,8 @@ export interface ISettlementService {
    * @returns Paginated settlement records (分页的结算记录)
    */
   findSettlements(
-    query: SettlementQuery,
-  ): Promise<{ data: SettlementResponse[]; total: number }>;
+    query: ISettlementQuery,
+  ): Promise<{ data: ISettlementResponse[]; total: number }>;
 
   /**
    * Get settlement details (获取结算明细列表)
@@ -102,5 +102,5 @@ export interface ISettlementService {
    * @param settlementId - Settlement record ID (结算记录ID)
    * @returns Array of settlement detail records (结算明细记录数组)
    */
-  getSettlementDetails(settlementId: string): Promise<SettlementDetailItem[]>;
+  getSettlementDetails(settlementId: string): Promise<ISettlementDetailItem[]>;
 }

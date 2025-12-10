@@ -32,13 +32,13 @@ export class JobPositionService {
    */
   async createJobPosition(
     dto: ICreateJobPositionDto,
-  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>> {
+  ): Promise<IServiceResult<typeof recommendedJobs.$inferSelect, Record<string, unknown>>> {
     this.logger.log(
       `Creating job position: ${dto.title} at ${dto.companyName}`,
     );
 
     // Create job position record [创建岗位记录]
-    const values: any = {
+    const values: Partial<typeof recommendedJobs.$inferInsert> = {
       title: dto.title,
       companyName: dto.companyName,
       companyNameNormalized: dto.companyName.toLowerCase(), // Normalize company name [标准化公司名称]
@@ -80,10 +80,12 @@ export class JobPositionService {
     if (dto.requirements) {
       // Extract skills array if available, otherwise use empty array
       values.requirements = Array.isArray(dto.requirements)
-        ? dto.requirements
+        ? dto.requirements as string[]
         : dto.requirements.skills
-          ? dto.requirements.skills
+          ? dto.requirements.skills as string[]
           : [];
+    } else {
+      values.requirements = [];
     }
     // Initialize empty arrays for array fields to avoid null errors
     values.benefits = [];
@@ -91,7 +93,7 @@ export class JobPositionService {
 
     const [job] = await this.db
       .insert(recommendedJobs)
-      .values(values)
+      .values(values as typeof recommendedJobs.$inferInsert)
       .returning();
 
     this.logger.log(`Job position created: ${job.id}`);
@@ -112,8 +114,8 @@ export class JobPositionService {
     title?: string;
     companyName?: string;
     status?: string;
-    [key: string]: any;
-  }) {
+    [key: string]: unknown;
+  }): Promise<Record<string, unknown>> {
     // Build conditions based on provided params
     const conditions = [];
 
@@ -129,7 +131,7 @@ export class JobPositionService {
     }
     if (params.status) {
       // Use type assertion for enum column to avoid TypeScript error
-      conditions.push(eq(recommendedJobs.status, params.status as any));
+      conditions.push(eq(recommendedJobs.status, params.status));
     }
     // Add more known columns as needed
 
@@ -160,7 +162,7 @@ export class JobPositionService {
     pagination?: IPaginationQuery,
     sort?: ISortQuery,
   ): Promise<{
-    items: Record<string, any>[];
+    items: Record<string, unknown>[];
     total: number;
     offset: number;
     limit: number;
@@ -206,9 +208,11 @@ export class JobPositionService {
     }
 
     // Build query with dynamic conditions [构建动态条件查询]
-    let query: any = this.db.select().from(recommendedJobs);
+    let query = this.db.select().from(recommendedJobs);
+    
+    // Apply conditions if any
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      query = query.where(and(...conditions)) as typeof query;
     }
 
     // Apply sorting if provided
@@ -220,7 +224,7 @@ export class JobPositionService {
       const direction = sort.direction === "desc" ? sql`desc` : sql`asc`;
       query = query.orderBy(
         sql`${recommendedJobs[sort.field as keyof typeof recommendedJobs]} ${direction}`,
-      );
+      ) as typeof query;
     }
 
     // Pagination [分页]
@@ -228,7 +232,7 @@ export class JobPositionService {
     const pageSize = pagination?.pageSize || 20;
     const offset = (page - 1) * pageSize;
     const limit = pageSize;
-    query = query.limit(limit).offset(offset);
+    query = query.limit(limit).offset(offset) as typeof query;
 
     const jobs = await query;
 
@@ -257,7 +261,7 @@ export class JobPositionService {
    */
   async markJobExpired(
     dto: IMarkJobExpiredDto,
-  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>> {
+  ): Promise<IServiceResult<Record<string, unknown>, Record<string, unknown>>> {
     this.logger.log(`Marking job position as expired: ${dto.jobId}`);
 
     // Check if job exists [检查岗位是否存在]

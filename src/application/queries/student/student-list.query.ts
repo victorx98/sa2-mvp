@@ -1,7 +1,8 @@
 import { Injectable, BadRequestException } from "@nestjs/common";
-import { StudentQueryService } from "@domains/query/services/student-query.service";
+import { StudentQueryService, StudentCounselorViewItem } from "@domains/query/services/student-query.service";
 import { StudentListItem } from "@domains/query/services/student-query.service";
 import { User } from "@domains/identity/user/user-interface";
+import { IPaginatedResult } from "@shared/types/paginated-result";
 
 /**
  * Student List Query (Application Layer)
@@ -60,6 +61,27 @@ export class StudentListQuery {
     return this.studentQueryService.findStudentsByCounselorId(
       counselorId,
       search,
+    );
+  }
+
+  /**
+   * 获取顾问视图的学生列表（带分页）
+   * 关联查询 students、user、schools、majors 表
+   * 返回包含学校名称和专业名称的完整信息，支持分页
+   */
+  async listOfCounselorView(
+    counselorId?: string,
+    search?: string,
+    page: number = 1,
+    pageSize: number = 20,
+    studentId?: string,
+  ): Promise<IPaginatedResult<StudentCounselorViewItem>> {
+    return this.studentQueryService.listOfCounselorView(
+      counselorId,
+      search,
+      page,
+      pageSize,
+      studentId,
     );
   }
 }

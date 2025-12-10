@@ -9,7 +9,7 @@ import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider"
 import * as schema from "@infrastructure/database/schema";
 import type { DrizzleDatabase } from "@shared/types/database.types";
 import type { IMentorPaymentParamService } from "../interfaces/mentor-payment-param.interface";
-import type { PaymentParamUpdate } from "../dto/settlement";
+import type { IPaymentParamUpdate } from "../dto/settlement";
 
 /**
  * Mentor Payment Parameter Service Implementation (导师支付参数服务实现)
@@ -49,7 +49,7 @@ export class MentorPaymentParamService implements IMentorPaymentParamService {
   public async updateOrCreateDefaultParams(
     currency: string,
     settlementMonth: string,
-    params: PaymentParamUpdate,
+    params: IPaymentParamUpdate,
     createdBy: string,
   ): Promise<void> {
     try {
@@ -144,7 +144,7 @@ export class MentorPaymentParamService implements IMentorPaymentParamService {
   public async modifyDefaultParams(
     currency: string,
     settlementMonth: string,
-    params: Partial<PaymentParamUpdate>,
+    params: Partial<IPaymentParamUpdate>,
     updatedBy: string,
   ): Promise<void> {
     try {
@@ -183,7 +183,7 @@ export class MentorPaymentParamService implements IMentorPaymentParamService {
       );
 
       // 3. Update parameters (更新参数)
-      const updates: Record<string, any> = {
+      const updates: Record<string, string | Date | number> = {
         updatedAt: new Date(),
         updatedBy,
       };
@@ -283,7 +283,7 @@ export class MentorPaymentParamService implements IMentorPaymentParamService {
    * @param params - Parameters to validate [待验证的参数]
    * @returns True if parameters are valid, false otherwise [有效返回true，否则false]
    */
-  public validateParams(params: PaymentParamUpdate): boolean {
+  public validateParams(params: IPaymentParamUpdate): boolean {
     try {
       const { defaultExchangeRate, defaultDeductionRate } = params;
 

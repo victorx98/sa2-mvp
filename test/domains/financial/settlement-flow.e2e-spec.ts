@@ -20,11 +20,11 @@ import { v4 as uuidv4 } from "uuid";
 describe("Settlement Flow (e2e)", () => {
   let app: INestApplication;
   let eventEmitter: EventEmitter2;
-  let settlementService: SettlementService;
+  let _settlementService: SettlementService;
   let paymentInfoService: MentorPaymentInfoService;
-  let paymentParamService: MentorPaymentParamService;
-  let eventListener: SettlementConfirmedListener;
-  let db: NodePgDatabase;
+  let _paymentParamService: MentorPaymentParamService;
+  let _eventListener: SettlementConfirmedListener;
+  let _db: NodePgDatabase;
 
   const testMentorId = uuidv4();
 
@@ -44,20 +44,20 @@ describe("Settlement Flow (e2e)", () => {
       ],
     }).compile();
 
-    settlementService = moduleFixture.get<SettlementService>(
+    _settlementService = moduleFixture.get<SettlementService>(
       "ISettlementService",
     );
     paymentInfoService = moduleFixture.get<MentorPaymentInfoService>(
       "IMentorPaymentInfoService",
     );
-    paymentParamService = moduleFixture.get<MentorPaymentParamService>(
+    _paymentParamService = moduleFixture.get<MentorPaymentParamService>(
       "IMentorPaymentParamService",
     );
     eventEmitter = moduleFixture.get<EventEmitter2>(EventEmitter2);
-    eventListener = moduleFixture.get<SettlementConfirmedListener>(
+    _eventListener = moduleFixture.get<SettlementConfirmedListener>(
       SettlementConfirmedListener,
     );
-    db = moduleFixture.get<NodePgDatabase>(DATABASE_CONNECTION);
+    _db = moduleFixture.get<NodePgDatabase>(DATABASE_CONNECTION);
 
     app = moduleFixture.createNestApplication();
     await app.init();
@@ -187,8 +187,8 @@ describe("Settlement Flow (e2e)", () => {
 
   describe("Event-Driven Integration", () => {
     it("should publish settlement confirmed event", async () => {
-      const eventSpy = jest.spyOn(eventEmitter, "emit");
-       
+      const _eventSpy = jest.spyOn(eventEmitter, "emit");
+
     }, 20000);
 
     it("should update payment parameters on settlement confirmation", async () => {

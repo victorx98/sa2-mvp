@@ -1,8 +1,8 @@
 import {
   ISubmitApplicationDto,
-  ISubmitMentorScreeningDto,
   IUpdateApplicationStatusDto,
   IJobApplicationSearchFilter,
+  IRollbackApplicationStatusDto,
 } from "../dto";
 import { IPaginatedResult, IServiceResult } from "./job-position.interface";
 import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
@@ -20,17 +20,7 @@ export interface IJobApplicationService {
    */
   submitApplication(
     dto: ISubmitApplicationDto,
-  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>>;
-
-  /**
-   * Submit mentor screening [提交内推导师评估]
-   *
-   * @param dto - Mentor screening DTO [导师评估DTO]
-   * @returns Service result with updated application and events [带更新申请和事件的服务结果]
-   */
-  submitMentorScreening(
-    dto: ISubmitMentorScreeningDto,
-  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>>;
+  ): Promise<IServiceResult<Record<string, unknown>, Record<string, unknown>>>;
 
   /**
    * Update application status [更新投递状态]
@@ -40,7 +30,7 @@ export interface IJobApplicationService {
    */
   updateApplicationStatus(
     dto: IUpdateApplicationStatusDto,
-  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>>;
+  ): Promise<IServiceResult<Record<string, unknown>, Record<string, unknown>>>;
 
   /**
    * Search applications [搜索投递申请]
@@ -54,7 +44,7 @@ export interface IJobApplicationService {
     filter?: IJobApplicationSearchFilter,
     pagination?: IPaginationQuery,
     sort?: ISortQuery,
-  ): Promise<IPaginatedResult<Record<string, any>>>;
+  ): Promise<IPaginatedResult<IJobApplicationSearchFilter>>;
 
   /**
    * Get application [获取投递申请]
@@ -64,8 +54,8 @@ export interface IJobApplicationService {
    */
   findOne(params: {
     id?: string;
-    [key: string]: any;
-  }): Promise<Record<string, any>>;
+    [key: string]: unknown;
+  }): Promise<Record<string, unknown>>;
 
   /**
    * Get application status history [获取投递状态历史]
@@ -73,17 +63,15 @@ export interface IJobApplicationService {
    * @param applicationId - Application ID [申请ID]
    * @returns Status history [状态历史]
    */
-  getStatusHistory(applicationId: string): Promise<Array<Record<string, any>>>;
+  getStatusHistory(applicationId: string): Promise<Record<string, unknown>[]>;
 
   /**
    * Rollback application status to previous state [回撤申请状态到上一个状态]
    *
-   * @param applicationId - Application ID [申请ID]
-   * @param changedBy - User ID who initiated the rollback [发起回撤的用户ID]
+   * @param dto - Rollback application status DTO [回撤状态DTO]
    * @returns Service result with updated application and events [带更新申请和事件的服务结果]
    */
   rollbackApplicationStatus(
-    applicationId: string,
-    changedBy: string,
-  ): Promise<IServiceResult<Record<string, any>, Record<string, any>>>;
+    dto: IRollbackApplicationStatusDto,
+  ): Promise<IServiceResult<Record<string, unknown>, Record<string, unknown>>>;
 }

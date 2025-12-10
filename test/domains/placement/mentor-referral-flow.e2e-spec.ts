@@ -7,7 +7,7 @@ import { JobApplicationService } from "@domains/placement/services/job-applicati
 import { JobPositionService } from "@domains/placement/services/job-position.service";
 import {
   ISubmitApplicationDto,
-  ISubmitMentorScreeningDto,
+  IUpdateApplicationStatusDto,
 } from "@domains/placement/dto/job-application.dto";
 import { DatabaseModule } from "@infrastructure/database/database.module";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
@@ -110,7 +110,7 @@ describe("Mentor Referral Flow (e2e)", () => {
       // Submit mentor referral application
       const dto: ISubmitApplicationDto = {
         studentId: testStudentId,
-        jobId: jobResult.data.id,
+        jobId: jobResult.data.id as string,
         applicationType: ApplicationType.REFERRAL,
         coverLetter: "Test cover letter for mentor referral",
         customAnswers: {
@@ -152,7 +152,7 @@ describe("Mentor Referral Flow (e2e)", () => {
       // Submit mentor referral application
       const submitDto: ISubmitApplicationDto = {
         studentId: testStudentId,
-        jobId: jobResult.data.id,
+        jobId: jobResult.data.id as string,
         applicationType: ApplicationType.REFERRAL,
         coverLetter: "Test cover letter",
         customAnswers: { referralMentor: testMentorId },
@@ -160,7 +160,7 @@ describe("Mentor Referral Flow (e2e)", () => {
 
       const submitResult =
         await jobApplicationService.submitApplication(submitDto);
-      testApplicationId = submitResult.data.id;
+      testApplicationId = submitResult.data.id as string;
 
       // Update status to interested first
       await jobApplicationService.updateApplicationStatus({
@@ -179,19 +179,26 @@ describe("Mentor Referral Flow (e2e)", () => {
       });
 
       // Submit mentor screening
-      const screeningDto: ISubmitMentorScreeningDto = {
+      const screeningDto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        mentorId: testMentorId,
-        technicalSkills: 5,
-        experienceMatch: 4,
-        culturalFit: 5,
-        overallRecommendation: "strongly_recommend",
-        screeningNotes:
-          "Excellent candidate with strong technical skills and cultural fit",
+        newStatus: "submitted",
+        changedBy: testMentorId,
+        changeReason: "Mentor screening completed",
+        changeMetadata: {
+          mentorId: testMentorId,
+          screeningResult: {
+            technicalSkills: 5,
+            experienceMatch: 4,
+            culturalFit: 5,
+            overallRecommendation: "strongly_recommend",
+            screeningNotes:
+              "Excellent candidate with strong technical skills and cultural fit",
+          },
+        },
       };
 
       const screeningResult =
-        await jobApplicationService.submitMentorScreening(screeningDto);
+        await jobApplicationService.updateApplicationStatus(screeningDto);
 
       // Verify screening was submitted successfully
       expect(screeningResult.data).toBeDefined();
@@ -214,7 +221,7 @@ describe("Mentor Referral Flow (e2e)", () => {
         title: "Software Engineer",
         companyName: "Test Company",
         description: "Test job description",
-        requirements: ["Technical skills"],
+        requirements: { skills: ["Technical skills"] },
         locations: [{ name: "Remote" }],
         salaryMin: 100000,
         salaryMax: 130000,
@@ -227,7 +234,7 @@ describe("Mentor Referral Flow (e2e)", () => {
       // Submit direct application (not mentor referral)
       const submitDto: ISubmitApplicationDto = {
         studentId: testStudentId,
-        jobId: jobResult.data.id,
+        jobId: jobResult.data.id as string,
         applicationType: ApplicationType.DIRECT,
         coverLetter: "Test cover letter",
         customAnswers: {},
@@ -235,21 +242,28 @@ describe("Mentor Referral Flow (e2e)", () => {
 
       const submitResult =
         await jobApplicationService.submitApplication(submitDto);
-      testApplicationId = submitResult.data.id;
+      testApplicationId = submitResult.data.id as string;
 
       // Try to submit mentor screening for non-referral application
-      const screeningDto: ISubmitMentorScreeningDto = {
+      const screeningDto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        mentorId: testMentorId,
-        technicalSkills: 4,
-        experienceMatch: 4,
-        culturalFit: 4,
-        overallRecommendation: "recommend",
-        screeningNotes: "Good candidate",
+        newStatus: "submitted",
+        changedBy: testMentorId,
+        changeReason: "Mentor screening completed",
+        changeMetadata: {
+          mentorId: testMentorId,
+          screeningResult: {
+            technicalSkills: 4,
+            experienceMatch: 4,
+            culturalFit: 4,
+            overallRecommendation: "recommend",
+            screeningNotes: "Good candidate",
+          },
+        },
       };
 
       await expect(
-        jobApplicationService.submitMentorScreening(screeningDto),
+        jobApplicationService.updateApplicationStatus(screeningDto),
       ).rejects.toThrow();
     }, 25000);
 
@@ -259,7 +273,7 @@ describe("Mentor Referral Flow (e2e)", () => {
         title: "Software Engineer",
         companyName: "Test Company",
         description: "Test job description",
-        requirements: ["Technical skills"],
+        requirements: { skills: ["Technical skills"] },
         locations: [{ name: "Remote" }],
         salaryMin: 100000,
         salaryMax: 130000,
@@ -283,18 +297,25 @@ describe("Mentor Referral Flow (e2e)", () => {
       testApplicationId = submitResult.data.id;
 
       // Try to submit mentor screening for recommended application (should fail)
-      const screeningDto: ISubmitMentorScreeningDto = {
+      const screeningDto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        mentorId: testMentorId,
-        technicalSkills: 4,
-        experienceMatch: 4,
-        culturalFit: 4,
-        overallRecommendation: "recommend",
-        screeningNotes: "Good candidate",
+        newStatus: "submitted",
+        changedBy: testMentorId,
+        changeReason: "Mentor screening completed",
+        changeMetadata: {
+          mentorId: testMentorId,
+          screeningResult: {
+            technicalSkills: 4,
+            experienceMatch: 4,
+            culturalFit: 4,
+            overallRecommendation: "recommend",
+            screeningNotes: "Good candidate",
+          },
+        },
       };
 
       await expect(
-        jobApplicationService.submitMentorScreening(screeningDto),
+        jobApplicationService.updateApplicationStatus(screeningDto),
       ).rejects.toThrow();
     }, 30000);
 
@@ -344,17 +365,24 @@ describe("Mentor Referral Flow (e2e)", () => {
       });
 
       // Submit mentor screening
-      const screeningDto: ISubmitMentorScreeningDto = {
+      const screeningDto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        mentorId: testMentorId,
-        technicalSkills: 5,
-        experienceMatch: 5,
-        culturalFit: 5,
-        overallRecommendation: "strongly_recommend",
-        screeningNotes: "Excellent candidate",
+        newStatus: "submitted",
+        changedBy: testMentorId,
+        changeReason: "Mentor screening completed",
+        changeMetadata: {
+          mentorId: testMentorId,
+          screeningResult: {
+            technicalSkills: 5,
+            experienceMatch: 5,
+            culturalFit: 5,
+            overallRecommendation: "strongly_recommend",
+            screeningNotes: "Excellent candidate",
+          },
+        },
       };
 
-      await jobApplicationService.submitMentorScreening(screeningDto);
+      await jobApplicationService.updateApplicationStatus(screeningDto);
 
       // Update status to interviewed based on positive screening
       const updateResult = await jobApplicationService.updateApplicationStatus({
@@ -419,17 +447,24 @@ describe("Mentor Referral Flow (e2e)", () => {
       });
 
       // Submit mentor screening
-      const screeningDto: ISubmitMentorScreeningDto = {
+      const screeningDto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        mentorId: testMentorId,
-        technicalSkills: 4,
-        experienceMatch: 5,
-        culturalFit: 4,
-        overallRecommendation: "recommend",
-        screeningNotes: "Strong candidate with relevant experience",
+        newStatus: "submitted",
+        changedBy: testMentorId,
+        changeReason: "Mentor screening completed",
+        changeMetadata: {
+          mentorId: testMentorId,
+          screeningResult: {
+            technicalSkills: 4,
+            experienceMatch: 5,
+            culturalFit: 4,
+            overallRecommendation: "recommend",
+            screeningNotes: "Strong candidate with relevant experience",
+          },
+        },
       };
 
-      await jobApplicationService.submitMentorScreening(screeningDto);
+      await jobApplicationService.updateApplicationStatus(screeningDto);
 
       // Retrieve application by ID
       const retrievedApplication = await jobApplicationService.findOne({
@@ -495,17 +530,24 @@ describe("Mentor Referral Flow (e2e)", () => {
       });
 
       // Submit mentor screening
-      const screeningDto: ISubmitMentorScreeningDto = {
+      const screeningDto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        mentorId: testMentorId,
-        technicalSkills: 5,
-        experienceMatch: 5,
-        culturalFit: 5,
-        overallRecommendation: "strongly_recommend",
-        screeningNotes: "Exceptional candidate",
+        newStatus: "submitted",
+        changedBy: testMentorId,
+        changeReason: "Mentor screening completed",
+        changeMetadata: {
+          mentorId: testMentorId,
+          screeningResult: {
+            technicalSkills: 5,
+            experienceMatch: 5,
+            culturalFit: 5,
+            overallRecommendation: "strongly_recommend",
+            screeningNotes: "Exceptional candidate",
+          },
+        },
       };
 
-      await jobApplicationService.submitMentorScreening(screeningDto);
+      await jobApplicationService.updateApplicationStatus(screeningDto);
 
       // Update status through full lifecycle
       await jobApplicationService.updateApplicationStatus({
@@ -547,7 +589,7 @@ describe("Mentor Referral Flow (e2e)", () => {
         title: "Software Developer",
         companyName: "Tech Startup",
         description: "Software developer position",
-        requirements: ["Coding skills", "Teamwork"],
+        requirements: { skills: ["Coding skills", "Teamwork"] },
         locations: [{ name: "On-site" }],
         salaryMin: 110000,
         salaryMax: 140000,
@@ -623,17 +665,24 @@ describe("Mentor Referral Flow (e2e)", () => {
       });
 
       // Submit mentor screening
-      const screeningDto: ISubmitMentorScreeningDto = {
+      const screeningDto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        mentorId: testMentorId,
-        technicalSkills: 5,
-        experienceMatch: 5,
-        culturalFit: 5,
-        overallRecommendation: "strongly_recommend",
-        screeningNotes: "Excellent candidate",
+        newStatus: "submitted",
+        changedBy: testMentorId,
+        changeReason: "Mentor screening completed",
+        changeMetadata: {
+          mentorId: testMentorId,
+          screeningResult: {
+            technicalSkills: 5,
+            experienceMatch: 5,
+            culturalFit: 5,
+            overallRecommendation: "strongly_recommend",
+            screeningNotes: "Excellent candidate",
+          },
+        },
       };
 
-      await jobApplicationService.submitMentorScreening(screeningDto);
+      await jobApplicationService.updateApplicationStatus(screeningDto);
 
       // Verify status changed event was emitted
       expect(eventSpy).toHaveBeenCalledWith(

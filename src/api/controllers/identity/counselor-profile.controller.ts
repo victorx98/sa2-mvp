@@ -23,7 +23,7 @@ import { UpdateCounselorProfileCommand } from "@application/commands/profile/upd
  * ❌ 不包含业务逻辑
  */
 @ApiTags("Counselor Profile")
-@Controller(`${ApiPrefix}/counselor/profile`)
+@Controller(`${ApiPrefix}/counselors/profile`)
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles("counselor")
 @ApiBearerAuth()

@@ -37,7 +37,7 @@
 import { Inject, Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { PgTable } from 'drizzle-orm/pg-core';
-import { getTableName, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import * as schema from '@infrastructure/database/schema';
 import {
@@ -46,7 +46,6 @@ import {
   SelectConfig,
   IncludeConfig,
   OmitConfig,
-  QueryResult,
 } from './types';
 import { SchemaRegistry } from './schema-registry';
 import { QueryExecutor, WhereParser } from './query-builder';

@@ -1,7 +1,7 @@
 import { ProductService } from "@domains/catalog/product/services/product.service";
 import { TestDatabaseHelper, createTestDatabaseHelper } from "../../../test/utils/test-database.helper";
 import * as schema from "@infrastructure/database/schema";
-import { CatalogException, CatalogNotFoundException } from "@domains/catalog/common/exceptions/catalog.exception";
+import { CatalogException } from "@domains/catalog/common/exceptions/catalog.exception";
 import { Currency } from "@shared/types/catalog-enums";
 import { randomUUID } from "crypto";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
@@ -179,8 +179,6 @@ describe("ProductService Integration Tests [ProductService集成测试]", () => 
       const createdProductId = (await productService.create(createProductDto, userId)).id;
       console.log("Product created for add item test:", createdProductId);
 
-      const createdProduct = await productService.findOne({ id: createdProductId }) as IProductDetail;
-
       const addItemDto = {
         serviceTypeId: testServiceTypeId1,
         quantity: 7,
@@ -253,7 +251,6 @@ describe("ProductService Integration Tests [ProductService集成测试]", () => 
       };
 
       const createdProductId = (await productService.create(createProductDto, userId)).id;
-      const createdProduct = await productService.findOne({ id: createdProductId }) as IProductDetail;
       console.log("Product created with item:", createdProductId);
 
       const duplicateItem = {

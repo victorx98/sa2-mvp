@@ -1,6 +1,6 @@
 import {
-  CreateOrUpdateMentorPaymentInfoRequest,
-  MentorPaymentInfoResponse,
+  ICreateOrUpdateMentorPaymentInfoRequest,
+  IMentorPaymentInfoResponse,
 } from "../dto/settlement";
 
 /**
@@ -33,8 +33,8 @@ export interface IMentorPaymentInfoService {
    * @returns Payment info response (支付信息响应)
    */
   createOrUpdateMentorPaymentInfo(
-    request: CreateOrUpdateMentorPaymentInfoRequest,
-  ): Promise<MentorPaymentInfoResponse>;
+    request: ICreateOrUpdateMentorPaymentInfoRequest,
+  ): Promise<IMentorPaymentInfoResponse>;
 
   /**
    * Get mentor payment info by mentor ID (根据导师ID获取支付信息)
@@ -49,7 +49,7 @@ export interface IMentorPaymentInfoService {
    */
   getMentorPaymentInfo(
     mentorId: string,
-  ): Promise<MentorPaymentInfoResponse | null>;
+  ): Promise<IMentorPaymentInfoResponse | null>;
 
   /**
    * Update payment info status (启用/禁用导师支付信息)
@@ -68,7 +68,7 @@ export interface IMentorPaymentInfoService {
     id: string,
     status: "ACTIVE" | "INACTIVE",
     updatedBy: string,
-  ): Promise<MentorPaymentInfoResponse>;
+  ): Promise<IMentorPaymentInfoResponse>;
 
   /**
    * Validate mentor payment info (验证导师支付信息)

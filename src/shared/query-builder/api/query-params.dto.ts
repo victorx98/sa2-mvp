@@ -19,9 +19,6 @@ import {
   IsInt,
   Min,
   Max,
-  IsObject,
-  IsArray,
-  ValidateNested,
   IsEnum,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
