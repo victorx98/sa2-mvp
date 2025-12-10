@@ -5,8 +5,8 @@ import {
   integer,
   timestamp,
   text,
-  json,
   pgEnum,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { userTable } from "./user.schema";
 import { serviceTypes } from "./service-types.schema";
@@ -36,7 +36,7 @@ export const serviceLedgerSourceEnum = pgEnum("service_ledger_source", [
 ]);
 
 /**
- * Service Ledgers Table (v2.16.12 - 服务消费流水表)
+ * Service Ledgers Table (服务消费流水表)
  *
  * Core Architecture: Append-only tracking of service consumption
  *
@@ -50,11 +50,6 @@ export const serviceLedgerSourceEnum = pgEnum("service_ledger_source", [
  * 1. Service completed → INSERT into service_ledgers (quantity = -1)
  * 2. Trigger automatically executes → UPDATE contract_service_entitlements.consumed_quantity += 1
  * 3. Both operations in same transaction (atomic guarantee)
- *
- * Key Changes (v2.16.12):
- * - ❌ Removed contract_id field (decoupled from contracts)
- * - ✅ Only student_id association (student-level tracking)
- * - ✅ Trigger updates contract_service_entitlements.consumed_quantity
  */
 export const serviceLedgers = pgTable("service_ledgers", {
   // Primary key
@@ -96,12 +91,16 @@ export const serviceLedgers = pgTable("service_ledgers", {
     .references(() => userTable.id),
 
   // 元数据 (Metadata)
-  metadata: json("metadata").$type<{
-    originalBalance?: number; // 操作前余额[Original balance before operation]
-    operationIp?: string; // 操作IP[Operation IP]
-    device?: string; // 设备[Device]
-  }>(),
+  metadata: jsonb("metadata").$type<ServiceLedgerMetadata>().default({}), // Metadata for booking source and other extended information [用于预约来源和其他扩展信息的元数据]
 });
+
+/**
+ * Service Ledger Metadata Interface [服务流水元数据接口]
+ * Stores extended information about the ledger entry [存储流水条目的扩展信息]
+ */
+export interface ServiceLedgerMetadata {
+  bookingSource?: string; // Booking table name (e.g., 'regular_mentoring_sessions', 'job_applications') [预约表名（如'regular_mentoring_sessions'、'job_applications'）]
+}
 
 export type ServiceLedger = typeof serviceLedgers.$inferSelect;
 export type InsertServiceLedger = typeof serviceLedgers.$inferInsert;

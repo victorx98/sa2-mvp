@@ -1,64 +1,59 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { ConfigService } from '@nestjs/config';
-import { MentorAppealService } from './mentor-appeal.service';
-import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
-import { mentorAppeals } from '@infrastructure/database/schema';
+import { Test, TestingModule } from "@nestjs/testing";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { MentorAppealService } from "./mentor-appeal.service";
+import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
+import { mentorAppeals } from "@infrastructure/database/schema";
 import {
   MENTOR_APPEAL_CREATED_EVENT,
   MENTOR_APPEAL_APPROVED_EVENT,
-  MENTOR_APPEAL_REJECTED_EVENT
-} from '@shared/events/event-constants';
+  MENTOR_APPEAL_REJECTED_EVENT,
+} from "@shared/events/event-constants";
 import {
   IAppealSearchDTO,
-  ICreateAppealDTO
-} from '@domains/financial/interfaces/mentor-appeal.interface';
-import {
-  IPaginationQuery,
-  ISortQuery
-} from '@shared/types/pagination.types';
-import { eq } from 'drizzle-orm';
-import * as schema from '@infrastructure/database/schema';
+  ICreateAppealDTO,
+} from "@domains/financial/interfaces/mentor-appeal.interface";
+import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
+import { eq } from "drizzle-orm";
+import * as schema from "@infrastructure/database/schema";
 
 // Mock the schema module
-jest.mock('@infrastructure/database/schema/mentor-appeals.schema', () => ({
+jest.mock("@infrastructure/database/schema/mentor-appeals.schema", () => ({
   MentorAppealSchema: {
     mentorAppeals: {},
   },
 }));
 
 // Mock the schema module
-jest.mock('@infrastructure/database/schema', () => ({
+jest.mock("@infrastructure/database/schema", () => ({
   mentorAppeals: {
-    id: 'id',
-    mentorId: 'mentorId',
-    counselorId: 'counselorId',
-    mentorPayableId: 'mentorPayableId',
-    settlementId: 'settlementId',
-    appealType: 'appealType',
-    appealAmount: 'appealAmount',
-    currency: 'currency',
-    reason: 'reason',
-    status: 'status',
-    approvedBy: 'approvedBy',
-    approvedAt: 'approvedAt',
-    rejectionReason: 'rejectionReason',
-    rejectedBy: 'rejectedBy',
-    rejectedAt: 'rejectedAt',
-    createdBy: 'createdBy',
-    createdAt: 'createdAt',
-    updatedAt: 'updatedAt',
+    id: "id",
+    mentorId: "mentorId",
+    counselorId: "counselorId",
+    mentorPayableId: "mentorPayableId",
+    settlementId: "settlementId",
+    appealType: "appealType",
+    appealAmount: "appealAmount",
+    currency: "currency",
+    reason: "reason",
+    status: "status",
+    approvedBy: "approvedBy",
+    approvedAt: "approvedAt",
+    rejectionReason: "rejectionReason",
+    rejectedBy: "rejectedBy",
+    rejectedAt: "rejectedAt",
+    createdBy: "createdBy",
+    createdAt: "createdAt",
+    updatedAt: "updatedAt",
   },
 }));
 
 // Mock the database helper
 // jest.mock('@infrastructure/database/test-database.helper');
 
-describe('MentorAppealService', () => {
+describe("MentorAppealService", () => {
   let service: MentorAppealService;
   let _mockDb: any;
   let _mockEventEmitter: any;
-  let _mockConfigService: any;
 
   beforeEach(async () => {
     // Create mock database
@@ -83,11 +78,6 @@ describe('MentorAppealService', () => {
       emit: jest.fn(),
     };
 
-    // Create mock config service
-    _mockConfigService = {
-      get: jest.fn(),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MentorAppealService,
@@ -99,46 +89,44 @@ describe('MentorAppealService', () => {
           provide: EventEmitter2,
           useValue: _mockEventEmitter,
         },
-        {
-          provide: ConfigService,
-          useValue: _mockConfigService,
-        },
       ],
     }).compile();
 
     service = module.get<MentorAppealService>(MentorAppealService);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
-  describe('createAppeal', () => {
-    it('should create an appeal successfully', async () => {
+  describe("createAppeal", () => {
+    it("should create an appeal successfully", async () => {
       // Arrange
       const createAppealDto: ICreateAppealDTO = {
-        mentorId: '550e8400-e29b-41d4-a716-446655440001',
-        counselorId: '550e8400-e29b-41d4-a716-446655440002',
-        appealType: 'billing_error',
-        appealAmount: '100.00',
-        currency: 'USD',
-        reason: 'Billing calculation error',
-        mentorPayableId: '550e8400-e29b-41d4-a716-446655440003',
-        settlementId: '550e8400-e29b-41d4-a716-446655440004',
+        mentorId: "550e8400-e29b-41d4-a716-446655440001",
+        counselorId: "550e8400-e29b-41d4-a716-446655440002",
+        appealType: "billing_error",
+        appealAmount: "100.00",
+        currency: "USD",
+        reason: "Billing calculation error",
+        mentorPayableId: "550e8400-e29b-41d4-a716-446655440003",
+        settlementId: "550e8400-e29b-41d4-a716-446655440004",
       };
 
-      const userId = '550e8400-e29b-41d4-a716-446655440001'; // Must match mentorId
-      const expectedAppealId = '550e8400-e29b-41d4-a716-446655440005';
-      
+      const userId = "550e8400-e29b-41d4-a716-446655440001"; // Must match mentorId
+      const expectedAppealId = "550e8400-e29b-41d4-a716-446655440005";
+
       const mockInsert = {
         values: jest.fn().mockReturnThis(),
-        returning: jest.fn().mockResolvedValue([{
-          id: expectedAppealId,
-          ...createAppealDto,
-          status: 'PENDING',
-          createdAt: new Date(),
-          createdBy: userId,
-        }]),
+        returning: jest.fn().mockResolvedValue([
+          {
+            id: expectedAppealId,
+            ...createAppealDto,
+            status: "PENDING",
+            createdAt: new Date(),
+            createdBy: userId,
+          },
+        ]),
       };
 
       _mockDb.insert.mockReturnValue(mockInsert);
@@ -150,7 +138,7 @@ describe('MentorAppealService', () => {
       expect(_mockDb.insert).toHaveBeenCalledWith(mentorAppeals);
       expect(mockInsert.values).toHaveBeenCalledWith({
         ...createAppealDto,
-        status: 'PENDING',
+        status: "PENDING",
         createdBy: userId,
       });
       expect(mockInsert.returning).toHaveBeenCalled();
@@ -161,52 +149,52 @@ describe('MentorAppealService', () => {
           mentorId: createAppealDto.mentorId,
           appealType: createAppealDto.appealType,
           appealAmount: createAppealDto.appealAmount,
-        })
+        }),
       );
       expect(result).toEqual({
         id: expectedAppealId,
         ...createAppealDto,
-        status: 'PENDING',
+        status: "PENDING",
         createdAt: expect.any(Date),
         createdBy: userId,
       });
     });
 
-    it('should throw an error when mentorId does not match createdByUserId', async () => {
+    it("should throw an error when mentorId does not match createdByUserId", async () => {
       // Arrange
       const createAppealDto: ICreateAppealDTO = {
-        mentorId: '550e8400-e29b-41d4-a716-446655440001',
-        counselorId: '550e8400-e29b-41d4-a716-446655440002',
-        appealType: 'billing_error',
-        appealAmount: '100.00',
-        currency: 'USD',
-        reason: 'Billing calculation error',
+        mentorId: "550e8400-e29b-41d4-a716-446655440001",
+        counselorId: "550e8400-e29b-41d4-a716-446655440002",
+        appealType: "billing_error",
+        appealAmount: "100.00",
+        currency: "USD",
+        reason: "Billing calculation error",
       };
 
-      const userId = '550e8400-e29b-41d4-a716-446655440099'; // Does not match mentorId
+      const userId = "550e8400-e29b-41d4-a716-446655440099"; // Does not match mentorId
 
       // Act & Assert
-      await expect(service.createAppeal(createAppealDto, userId)).rejects.toThrow(
-        'Mentor ID must match the creator\'s user ID'
-      );
+      await expect(
+        service.createAppeal(createAppealDto, userId),
+      ).rejects.toThrow("Mentor ID must match the creator's user ID");
       expect(_mockDb.insert).not.toHaveBeenCalled();
       expect(_mockEventEmitter.emit).not.toHaveBeenCalled();
     });
 
-    it('should throw an error when database operation fails', async () => {
+    it("should throw an error when database operation fails", async () => {
       // Arrange
       const createAppealDto: ICreateAppealDTO = {
-        mentorId: '550e8400-e29b-41d4-a716-446655440001',
-        counselorId: '550e8400-e29b-41d4-a716-446655440002',
-        appealType: 'billing_error',
-        appealAmount: '100.00',
-        currency: 'USD',
-        reason: 'Billing calculation error',
+        mentorId: "550e8400-e29b-41d4-a716-446655440001",
+        counselorId: "550e8400-e29b-41d4-a716-446655440002",
+        appealType: "billing_error",
+        appealAmount: "100.00",
+        currency: "USD",
+        reason: "Billing calculation error",
       };
 
-      const userId = '550e8400-e29b-41d4-a716-446655440001'; // Matches mentorId
-      const errorMessage = 'Database error';
-      
+      const userId = "550e8400-e29b-41d4-a716-446655440001"; // Matches mentorId
+      const errorMessage = "Database error";
+
       const mockInsert = {
         values: jest.fn().mockReturnThis(),
         returning: jest.fn().mockRejectedValue(new Error(errorMessage)),
@@ -215,11 +203,13 @@ describe('MentorAppealService', () => {
       _mockDb.insert.mockReturnValue(mockInsert);
 
       // Act & Assert
-      await expect(service.createAppeal(createAppealDto, userId)).rejects.toThrow(errorMessage);
+      await expect(
+        service.createAppeal(createAppealDto, userId),
+      ).rejects.toThrow(errorMessage);
       expect(_mockDb.insert).toHaveBeenCalledWith(mentorAppeals);
       expect(mockInsert.values).toHaveBeenCalledWith({
         ...createAppealDto,
-        status: 'PENDING',
+        status: "PENDING",
         createdBy: userId,
       });
       expect(mockInsert.returning).toHaveBeenCalled();
@@ -227,21 +217,21 @@ describe('MentorAppealService', () => {
     });
   });
 
-  describe('findOne', () => {
-    it('should find an appeal by ID successfully', async () => {
+  describe("findOne", () => {
+    it("should find an appeal by ID successfully", async () => {
       // Arrange
-      const appealId = '550e8400-e29b-41d4-a716-446655440001';
+      const appealId = "550e8400-e29b-41d4-a716-446655440001";
       const expectedAppeal = {
         id: appealId,
-        mentorId: '550e8400-e29b-41d4-a716-446655440002',
-        counselorId: '550e8400-e29b-41d4-a716-446655440003',
-        appealType: 'billing_error',
-        appealAmount: '100.00',
-        currency: 'USD',
-        reason: 'Billing calculation error',
-        status: 'PENDING',
+        mentorId: "550e8400-e29b-41d4-a716-446655440002",
+        counselorId: "550e8400-e29b-41d4-a716-446655440003",
+        appealType: "billing_error",
+        appealAmount: "100.00",
+        currency: "USD",
+        reason: "Billing calculation error",
+        status: "PENDING",
         createdAt: new Date(),
-        createdBy: '550e8400-e29b-41d4-a716-446655440004',
+        createdBy: "550e8400-e29b-41d4-a716-446655440004",
       };
 
       const mockQuery = {
@@ -262,21 +252,21 @@ describe('MentorAppealService', () => {
       expect(result).toEqual(expectedAppeal);
     });
 
-    it('should find an appeal by conditions successfully', async () => {
+    it("should find an appeal by conditions successfully", async () => {
       // Arrange
-      const appealId = '550e8400-e29b-41d4-a716-446655440002';
-      
+      const appealId = "550e8400-e29b-41d4-a716-446655440002";
+
       const expectedAppeal = {
         id: appealId,
-        mentorId: '550e8400-e29b-41d4-a716-446655440001',
-        counselorId: '550e8400-e29b-41d4-a716-446655440003',
-        appealType: 'billing_error',
-        appealAmount: '100.00',
-        currency: 'USD',
-        reason: 'Billing calculation error',
-        status: 'PENDING',
+        mentorId: "550e8400-e29b-41d4-a716-446655440001",
+        counselorId: "550e8400-e29b-41d4-a716-446655440003",
+        appealType: "billing_error",
+        appealAmount: "100.00",
+        currency: "USD",
+        reason: "Billing calculation error",
+        status: "PENDING",
         createdAt: new Date(),
-        createdBy: '550e8400-e29b-41d4-a716-446655440004',
+        createdBy: "550e8400-e29b-41d4-a716-446655440004",
       };
 
       const mockQuery = {
@@ -297,9 +287,9 @@ describe('MentorAppealService', () => {
       expect(result).toEqual(expectedAppeal);
     });
 
-    it('should return null when appeal is not found', async () => {
+    it("should return null when appeal is not found", async () => {
       // Arrange
-      const appealId = '550e8400-e29b-41d4-a716-446655440099';
+      const appealId = "550e8400-e29b-41d4-a716-446655440099";
 
       const mockQuery = {
         mentorAppeals: {
@@ -319,10 +309,10 @@ describe('MentorAppealService', () => {
       expect(result).toBeNull();
     });
 
-    it('should throw an error when database operation fails', async () => {
+    it("should throw an error when database operation fails", async () => {
       // Arrange
-      const appealId = '550e8400-e29b-41d4-a716-446655440001';
-      const errorMessage = 'Database error';
+      const appealId = "550e8400-e29b-41d4-a716-446655440001";
+      const errorMessage = "Database error";
 
       const mockQuery = {
         mentorAppeals: {
@@ -333,19 +323,21 @@ describe('MentorAppealService', () => {
       _mockDb.query = mockQuery;
 
       // Act & Assert
-      await expect(service.findOne({ id: appealId })).rejects.toThrow(errorMessage);
+      await expect(service.findOne({ id: appealId })).rejects.toThrow(
+        errorMessage,
+      );
       expect(_mockDb.query.mentorAppeals.findFirst).toHaveBeenCalledWith({
         where: expect.anything(),
       });
     });
   });
 
-  describe('search', () => {
-    it('should search appeals successfully', async () => {
+  describe("search", () => {
+    it("should search appeals successfully", async () => {
       // Arrange
       const searchDto: IAppealSearchDTO = {
-        mentorId: '550e8400-e29b-41d4-a716-446655440001',
-        status: 'PENDING',
+        mentorId: "550e8400-e29b-41d4-a716-446655440001",
+        status: "PENDING",
       };
 
       const pagination: IPaginationQuery = {
@@ -354,34 +346,34 @@ describe('MentorAppealService', () => {
       };
 
       const sort: ISortQuery = {
-        field: 'createdAt',
-        direction: 'desc',
+        field: "createdAt",
+        direction: "desc",
       };
 
       const expectedAppeals = [
         {
-          id: '550e8400-e29b-41d4-a716-446655440002',
-          mentorId: '550e8400-e29b-41d4-a716-446655440001',
-          counselorId: '550e8400-e29b-41d4-a716-446655440003',
-          appealType: 'billing_error',
-          appealAmount: '100.00',
-          currency: 'USD',
-          reason: 'Billing calculation error',
-          status: 'PENDING',
+          id: "550e8400-e29b-41d4-a716-446655440002",
+          mentorId: "550e8400-e29b-41d4-a716-446655440001",
+          counselorId: "550e8400-e29b-41d4-a716-446655440003",
+          appealType: "billing_error",
+          appealAmount: "100.00",
+          currency: "USD",
+          reason: "Billing calculation error",
+          status: "PENDING",
           createdAt: new Date(),
-          createdBy: '550e8400-e29b-41d4-a716-446655440004',
+          createdBy: "550e8400-e29b-41d4-a716-446655440004",
         },
         {
-          id: '550e8400-e29b-41d4-a716-446655440005',
-          mentorId: '550e8400-e29b-41d4-a716-446655440001',
-          counselorId: '550e8400-e29b-41d4-a716-446655440003',
-          appealType: 'payment_issue',
-          appealAmount: '50.00',
-          currency: 'USD',
-          reason: 'Payment processing issue',
-          status: 'PENDING',
+          id: "550e8400-e29b-41d4-a716-446655440005",
+          mentorId: "550e8400-e29b-41d4-a716-446655440001",
+          counselorId: "550e8400-e29b-41d4-a716-446655440003",
+          appealType: "payment_issue",
+          appealAmount: "50.00",
+          currency: "USD",
+          reason: "Payment processing issue",
+          status: "PENDING",
           createdAt: new Date(),
-          createdBy: '550e8400-e29b-41d4-a716-446655440004',
+          createdBy: "550e8400-e29b-41d4-a716-446655440004",
         },
       ];
 
@@ -395,7 +387,7 @@ describe('MentorAppealService', () => {
 
       const mockSelect = {
         from: jest.fn().mockReturnThis(),
-        where: jest.fn().mockResolvedValue([{ id: '1' }, { id: '2' }]), // Mock count result
+        where: jest.fn().mockResolvedValue([{ id: "1" }, { id: "2" }]), // Mock count result
       };
 
       _mockDb.query = mockQuery;
@@ -415,7 +407,7 @@ describe('MentorAppealService', () => {
       });
     });
 
-    it('should search appeals without filters', async () => {
+    it("should search appeals without filters", async () => {
       // Arrange
       const searchDto: IAppealSearchDTO = {};
 
@@ -425,22 +417,22 @@ describe('MentorAppealService', () => {
       };
 
       const sort: ISortQuery = {
-        field: 'status',
-        direction: 'asc',
+        field: "status",
+        direction: "asc",
       };
 
       const expectedAppeals = [
         {
-          id: '550e8400-e29b-41d4-a716-446655440006',
-          mentorId: '550e8400-e29b-41d4-a716-446655440007',
-          counselorId: '550e8400-e29b-41d4-a716-446655440008',
-          appealType: 'billing_error',
-          appealAmount: '75.00',
-          currency: 'USD',
-          reason: 'Another billing error',
-          status: 'APPROVED',
+          id: "550e8400-e29b-41d4-a716-446655440006",
+          mentorId: "550e8400-e29b-41d4-a716-446655440007",
+          counselorId: "550e8400-e29b-41d4-a716-446655440008",
+          appealType: "billing_error",
+          appealAmount: "75.00",
+          currency: "USD",
+          reason: "Another billing error",
+          status: "APPROVED",
           createdAt: new Date(),
-          createdBy: '550e8400-e29b-41d4-a716-446655440009',
+          createdBy: "550e8400-e29b-41d4-a716-446655440009",
         },
       ];
 
@@ -454,7 +446,7 @@ describe('MentorAppealService', () => {
 
       const mockSelect = {
         from: jest.fn().mockReturnThis(),
-        where: jest.fn().mockResolvedValue([{ id: '1' }]), // Mock count result
+        where: jest.fn().mockResolvedValue([{ id: "1" }]), // Mock count result
       };
 
       _mockDb.query = mockQuery;
@@ -474,10 +466,10 @@ describe('MentorAppealService', () => {
       });
     });
 
-    it('should throw an error when database operation fails', async () => {
+    it("should throw an error when database operation fails", async () => {
       // Arrange
       const searchDto: IAppealSearchDTO = {
-        mentorId: '550e8400-e29b-41d4-a716-446655440001',
+        mentorId: "550e8400-e29b-41d4-a716-446655440001",
       };
 
       const pagination: IPaginationQuery = {
@@ -486,11 +478,11 @@ describe('MentorAppealService', () => {
       };
 
       const sort: ISortQuery = {
-        field: 'createdAt',
-        direction: 'desc',
+        field: "createdAt",
+        direction: "desc",
       };
 
-      const errorMessage = 'Database error';
+      const errorMessage = "Database error";
 
       const mockQuery = {
         mentorAppeals: {
@@ -501,7 +493,9 @@ describe('MentorAppealService', () => {
       _mockDb.query = mockQuery;
 
       // Act & Assert
-      await expect(service.search(searchDto, pagination, sort)).rejects.toThrow(errorMessage);
+      await expect(service.search(searchDto, pagination, sort)).rejects.toThrow(
+        errorMessage,
+      );
       expect(_mockDb.query.mentorAppeals.findMany).toHaveBeenCalledWith({
         where: expect.anything(),
         orderBy: expect.anything(),
@@ -511,27 +505,27 @@ describe('MentorAppealService', () => {
     });
   });
 
-  describe('approveAppeal', () => {
-    it('should approve an appeal successfully', async () => {
+  describe("approveAppeal", () => {
+    it("should approve an appeal successfully", async () => {
       // Arrange
-      const appealId = '550e8400-e29b-41d4-a716-446655440001';
-      const approvedByUserId = '550e8400-e29b-41d4-a716-446655440002';
+      const appealId = "550e8400-e29b-41d4-a716-446655440001";
+      const approvedByUserId = "550e8400-e29b-41d4-a716-446655440002";
       const expectedAppeal = {
         id: appealId,
-        mentorId: '550e8400-e29b-41d4-a716-446655440003',
+        mentorId: "550e8400-e29b-41d4-a716-446655440003",
         counselorId: approvedByUserId, // Must match the approver
-        appealType: 'billing_error',
-        appealAmount: '100.00',
-        currency: 'USD',
-        reason: 'Billing calculation error',
-        status: 'PENDING',
+        appealType: "billing_error",
+        appealAmount: "100.00",
+        currency: "USD",
+        reason: "Billing calculation error",
+        status: "PENDING",
         createdAt: new Date(),
-        createdBy: '550e8400-e29b-41d4-a716-446655440004',
+        createdBy: "550e8400-e29b-41d4-a716-446655440004",
       };
 
       const updatedAppeal = {
         ...expectedAppeal,
-        status: 'APPROVED',
+        status: "APPROVED",
         approvedAt: new Date(),
         approvedBy: approvedByUserId,
       };
@@ -563,7 +557,7 @@ describe('MentorAppealService', () => {
       });
       expect(_mockDb.update).toHaveBeenCalledWith(mentorAppeals);
       expect(mockUpdate.set).toHaveBeenCalledWith({
-        status: 'APPROVED',
+        status: "APPROVED",
         approvedAt: expect.any(Date),
         approvedBy: approvedByUserId,
       });
@@ -577,15 +571,15 @@ describe('MentorAppealService', () => {
           counselorId: expectedAppeal.counselorId,
           appealAmount: expectedAppeal.appealAmount,
           approvedBy: approvedByUserId,
-        })
+        }),
       );
       expect(result).toEqual(updatedAppeal);
     });
 
-    it('should throw an error when appeal is not found', async () => {
+    it("should throw an error when appeal is not found", async () => {
       // Arrange
-      const appealId = '550e8400-e29b-41d4-a716-446655440099';
-      const approvedByUserId = '550e8400-e29b-41d4-a716-446655440002';
+      const appealId = "550e8400-e29b-41d4-a716-446655440099";
+      const approvedByUserId = "550e8400-e29b-41d4-a716-446655440002";
 
       const mockQuery = {
         mentorAppeals: {
@@ -596,28 +590,28 @@ describe('MentorAppealService', () => {
       _mockDb.query = mockQuery;
 
       // Act & Assert
-      await expect(service.approveAppeal(appealId, approvedByUserId)).rejects.toThrow(
-        'Appeal not found'
-      );
+      await expect(
+        service.approveAppeal(appealId, approvedByUserId),
+      ).rejects.toThrow("Appeal not found");
       expect(_mockDb.update).not.toHaveBeenCalled();
       expect(_mockEventEmitter.emit).not.toHaveBeenCalled();
     });
 
-    it('should throw an error when appeal is not in PENDING status', async () => {
+    it("should throw an error when appeal is not in PENDING status", async () => {
       // Arrange
-      const appealId = '550e8400-e29b-41d4-a716-446655440001';
-      const approvedByUserId = '550e8400-e29b-41d4-a716-446655440002';
+      const appealId = "550e8400-e29b-41d4-a716-446655440001";
+      const approvedByUserId = "550e8400-e29b-41d4-a716-446655440002";
       const expectedAppeal = {
         id: appealId,
-        mentorId: '550e8400-e29b-41d4-a716-446655440003',
+        mentorId: "550e8400-e29b-41d4-a716-446655440003",
         counselorId: approvedByUserId, // Must match the approver
-        appealType: 'billing_error',
-        appealAmount: '100.00',
-        currency: 'USD',
-        reason: 'Billing calculation error',
-        status: 'APPROVED', // Already approved
+        appealType: "billing_error",
+        appealAmount: "100.00",
+        currency: "USD",
+        reason: "Billing calculation error",
+        status: "APPROVED", // Already approved
         createdAt: new Date(),
-        createdBy: '550e8400-e29b-41d4-a716-446655440004',
+        createdBy: "550e8400-e29b-41d4-a716-446655440004",
       };
 
       const mockQuery = {
@@ -629,38 +623,40 @@ describe('MentorAppealService', () => {
       _mockDb.query = mockQuery;
 
       // Act & Assert
-      await expect(service.approveAppeal(appealId, approvedByUserId)).rejects.toThrow(
-        'Cannot approve appeal with status: APPROVED. Only PENDING appeals can be approved.'
+      await expect(
+        service.approveAppeal(appealId, approvedByUserId),
+      ).rejects.toThrow(
+        "Cannot approve appeal with status: APPROVED. Only PENDING appeals can be approved.",
       );
       expect(_mockDb.update).not.toHaveBeenCalled();
       expect(_mockEventEmitter.emit).not.toHaveBeenCalled();
     });
   });
 
-  describe('rejectAppeal', () => {
-    it('should reject an appeal successfully', async () => {
+  describe("rejectAppeal", () => {
+    it("should reject an appeal successfully", async () => {
       // Arrange
-      const appealId = '550e8400-e29b-41d4-a716-446655440001';
+      const appealId = "550e8400-e29b-41d4-a716-446655440001";
       const rejectDto = {
-        rejectionReason: 'Invalid claim',
+        rejectionReason: "Invalid claim",
       };
-      const rejectedByUserId = '550e8400-e29b-41d4-a716-446655440002';
+      const rejectedByUserId = "550e8400-e29b-41d4-a716-446655440002";
       const expectedAppeal = {
         id: appealId,
-        mentorId: '550e8400-e29b-41d4-a716-446655440003',
+        mentorId: "550e8400-e29b-41d4-a716-446655440003",
         counselorId: rejectedByUserId, // Must match the rejector
-        appealType: 'billing_error',
-        appealAmount: '100.00',
-        currency: 'USD',
-        reason: 'Billing calculation error',
-        status: 'PENDING',
+        appealType: "billing_error",
+        appealAmount: "100.00",
+        currency: "USD",
+        reason: "Billing calculation error",
+        status: "PENDING",
         createdAt: new Date(),
-        createdBy: '550e8400-e29b-41d4-a716-446655440004',
+        createdBy: "550e8400-e29b-41d4-a716-446655440004",
       };
 
       const updatedAppeal = {
         ...expectedAppeal,
-        status: 'REJECTED',
+        status: "REJECTED",
         rejectionReason: rejectDto.rejectionReason,
         rejectedAt: new Date(),
         rejectedBy: rejectedByUserId,
@@ -685,7 +681,11 @@ describe('MentorAppealService', () => {
       _mockDb.update = jest.fn().mockReturnValue(mockUpdate);
 
       // Act
-      const result = await service.rejectAppeal(appealId, rejectDto, rejectedByUserId);
+      const result = await service.rejectAppeal(
+        appealId,
+        rejectDto,
+        rejectedByUserId,
+      );
 
       // Assert
       expect(_mockDb.query.mentorAppeals.findFirst).toHaveBeenCalledWith({
@@ -693,7 +693,7 @@ describe('MentorAppealService', () => {
       });
       expect(_mockDb.update).toHaveBeenCalledWith(mentorAppeals);
       expect(mockUpdate.set).toHaveBeenCalledWith({
-        status: 'REJECTED',
+        status: "REJECTED",
         rejectionReason: rejectDto.rejectionReason,
         rejectedAt: expect.any(Date),
         rejectedBy: rejectedByUserId,
@@ -707,18 +707,18 @@ describe('MentorAppealService', () => {
           mentorId: expectedAppeal.mentorId,
           counselorId: expectedAppeal.counselorId,
           rejectedBy: rejectedByUserId,
-        })
+        }),
       );
       expect(result).toEqual(updatedAppeal);
     });
 
-    it('should throw an error when appeal is not found', async () => {
+    it("should throw an error when appeal is not found", async () => {
       // Arrange
-      const appealId = '550e8400-e29b-41d4-a716-446655440099';
+      const appealId = "550e8400-e29b-41d4-a716-446655440099";
       const rejectDto = {
-        rejectionReason: 'Invalid claim',
+        rejectionReason: "Invalid claim",
       };
-      const rejectedByUserId = '550e8400-e29b-41d4-a716-446655440002';
+      const rejectedByUserId = "550e8400-e29b-41d4-a716-446655440002";
 
       const mockQuery = {
         mentorAppeals: {
@@ -729,31 +729,31 @@ describe('MentorAppealService', () => {
       _mockDb.query = mockQuery;
 
       // Act & Assert
-      await expect(service.rejectAppeal(appealId, rejectDto, rejectedByUserId)).rejects.toThrow(
-        'Appeal not found'
-      );
+      await expect(
+        service.rejectAppeal(appealId, rejectDto, rejectedByUserId),
+      ).rejects.toThrow("Appeal not found");
       expect(_mockDb.update).not.toHaveBeenCalled();
       expect(_mockEventEmitter.emit).not.toHaveBeenCalled();
     });
 
-    it('should throw an error when appeal is not in PENDING status', async () => {
+    it("should throw an error when appeal is not in PENDING status", async () => {
       // Arrange
-      const appealId = '550e8400-e29b-41d4-a716-446655440001';
+      const appealId = "550e8400-e29b-41d4-a716-446655440001";
       const rejectDto = {
-        rejectionReason: 'Invalid claim',
+        rejectionReason: "Invalid claim",
       };
-      const rejectedByUserId = '550e8400-e29b-41d4-a716-446655440002';
+      const rejectedByUserId = "550e8400-e29b-41d4-a716-446655440002";
       const expectedAppeal = {
         id: appealId,
-        mentorId: '550e8400-e29b-41d4-a716-446655440003',
+        mentorId: "550e8400-e29b-41d4-a716-446655440003",
         counselorId: rejectedByUserId, // Must match the rejector
-        appealType: 'billing_error',
-        appealAmount: '100.00',
-        currency: 'USD',
-        reason: 'Billing calculation error',
-        status: 'REJECTED', // Already rejected
+        appealType: "billing_error",
+        appealAmount: "100.00",
+        currency: "USD",
+        reason: "Billing calculation error",
+        status: "REJECTED", // Already rejected
         createdAt: new Date(),
-        createdBy: '550e8400-e29b-41d4-a716-446655440004',
+        createdBy: "550e8400-e29b-41d4-a716-446655440004",
       };
 
       const mockQuery = {
@@ -765,8 +765,10 @@ describe('MentorAppealService', () => {
       _mockDb.query = mockQuery;
 
       // Act & Assert
-      await expect(service.rejectAppeal(appealId, rejectDto, rejectedByUserId)).rejects.toThrow(
-        'Cannot reject appeal with status: REJECTED. Only PENDING appeals can be rejected.'
+      await expect(
+        service.rejectAppeal(appealId, rejectDto, rejectedByUserId),
+      ).rejects.toThrow(
+        "Cannot reject appeal with status: REJECTED. Only PENDING appeals can be rejected.",
       );
       expect(_mockDb.update).not.toHaveBeenCalled();
       expect(_mockEventEmitter.emit).not.toHaveBeenCalled();

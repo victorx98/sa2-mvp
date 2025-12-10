@@ -164,14 +164,18 @@ export class MentorPaymentParamService implements IMentorPaymentParamService {
       }
 
       // 2. Validate provided parameters (验证提供的参数)
-      if (params.defaultExchangeRate !== undefined && params.defaultExchangeRate <= 0) {
-        throw new BadRequestException(
-          "Exchange rate must be greater than 0",
-        );
+      if (
+        params.defaultExchangeRate !== undefined &&
+        params.defaultExchangeRate <= 0
+      ) {
+        throw new BadRequestException("Exchange rate must be greater than 0");
       }
 
       if (params.defaultDeductionRate !== undefined) {
-        if (params.defaultDeductionRate < 0 || params.defaultDeductionRate > 1) {
+        if (
+          params.defaultDeductionRate < 0 ||
+          params.defaultDeductionRate > 1
+        ) {
           throw new BadRequestException(
             "Deduction rate must be between 0 and 1",
           );

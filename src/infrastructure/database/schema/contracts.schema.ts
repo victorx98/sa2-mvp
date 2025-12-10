@@ -54,9 +54,8 @@ export const contracts = pgTable("contracts", {
   // Contract status (using ContractStatus enum values)
   status: varchar("status", { length: 20 })
     .notNull()
-    .default("draft")
+    .default("DRAFT")
     .$type<ContractStatus>(),
-
 
   // Pricing information
   totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).notNull(), // Contract total amount (from snapshot)
@@ -64,19 +63,6 @@ export const contracts = pgTable("contracts", {
     .notNull()
     .default("USD")
     .$type<Currency>(),
-
-  // Validity period
-  signedAt: timestamp("signed_at", { withTimezone: true }).notNull(), // Contract signing time
-  activatedAt: timestamp("activated_at", { withTimezone: true }), // Contract activation time
-
-  // Contract lifecycle timestamps
-  suspendedAt: timestamp("suspended_at", { withTimezone: true }), // Last suspension time
-  resumedAt: timestamp("resumed_at", { withTimezone: true }), // Last resumption time
-  completedAt: timestamp("completed_at", { withTimezone: true }), // Completion time
-  terminatedAt: timestamp("terminated_at", { withTimezone: true }), // Termination time
-
-  // Suspension tracking
-  suspensionCount: integer("suspension_count").notNull().default(0), // Number of suspensions
 
   // Audit fields
   createdAt: timestamp("created_at", { withTimezone: true })

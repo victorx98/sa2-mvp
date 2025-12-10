@@ -86,6 +86,13 @@ export interface ISettlementQuery {
    * (每页记录数)
    */
   pageSize: number;
+
+  /**
+   * Limit (限制数量)
+   * Maximum number of records to return
+   * (返回的最大记录数)
+   */
+  limit?: number;
 }
 
 /**

@@ -35,7 +35,7 @@ export class PlacementEventListener {
     private readonly serviceLedgerService: ServiceLedgerService,
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-  ) { }
+  ) {}
 
   /**
    * 监听投递状态变更事件
@@ -48,12 +48,8 @@ export class PlacementEventListener {
     event: IJobApplicationStatusChangedEvent,
   ): Promise<void> {
     try {
-      const {
-        applicationId,
-        previousStatus,
-        newStatus,
-        changedBy,
-      } = event.payload || {};
+      const { applicationId, previousStatus, newStatus, changedBy } =
+        event.payload || {};
 
       this.logger.log(
         `Processing job application status changed event: ${event.id}, applicationId: ${applicationId}, previousStatus: ${previousStatus}, newStatus: ${newStatus}`,
@@ -86,7 +82,7 @@ export class PlacementEventListener {
       // 2. Record entitlement consumption based on application type and status change
       // 仅在状态变为submitted时消耗权益
       // Only consume entitlement when status changes to submitted
-      if (newStatus === 'submitted') {
+      if (newStatus === "submitted") {
         this.logger.log(
           `Recording consumption for student: ${studentId}, applicationType: ${applicationType}, applicationId: ${applicationId}`,
         );
@@ -106,7 +102,8 @@ export class PlacementEventListener {
           serviceType, // 服务类型：从投递类型映射获取
           quantity: 1, // 消耗数量：1个权益
           relatedBookingId: applicationId, // 关联ID：投递申请ID
-          createdBy: changedBy || 'system', // 创建人：事件发起者或系统
+          bookingSource: "job_applications", // Booking table name for job application consumption [投递申请消费的预约表名]
+          createdBy: changedBy || "system", // 创建人：事件发起者或系统
         });
 
         this.logger.log(
@@ -176,7 +173,7 @@ export class PlacementEventListener {
       // 2. Record entitlement refund based on application status rollback
       // 仅在状态从submitted回撤时退款
       // Only refund entitlement when status rolls back from submitted
-      if (previousStatus === 'submitted') {
+      if (previousStatus === "submitted") {
         this.logger.log(
           `Recording refund for student: ${studentId}, applicationId: ${applicationId}, reason: ${rollbackReason}`,
         );
@@ -189,22 +186,24 @@ export class PlacementEventListener {
           where: eq(schema.jobApplications.id, applicationId),
           columns: { applicationType: true },
         });
-        
+
         if (!jobApplication) {
           this.logger.error(
             `Job application not found: applicationId=${applicationId}`,
           );
           return;
         }
-        
-        const serviceType = getServiceTypeFromApplicationType(jobApplication.applicationType);
-        
+
+        const serviceType = getServiceTypeFromApplicationType(
+          jobApplication.applicationType,
+        );
+
         await this.serviceLedgerService.recordAdjustment({
           studentId,
           serviceType, // 服务类型：从投递类型映射获取
           quantity: 1, // 退款数量：1个权益（正数表示增加）
           reason: `Job application status rolled back: ${rollbackReason}`, // 调整原因：包含回滚原因
-          createdBy: changedBy || 'system', // 创建人：事件发起者或系统
+          createdBy: changedBy || "system", // 创建人：事件发起者或系统
         });
 
         this.logger.log(

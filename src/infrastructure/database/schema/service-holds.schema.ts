@@ -57,7 +57,7 @@ export const serviceHolds = pgTable("service_holds", {
   // Primary key
   id: uuid("id").defaultRandom().primaryKey(),
 
-  // 关联学生（移除 contract_id，只关联学生）[Associated student (removed contract_id, only associate with student)]
+  // 关联学生 (Associated student)
   studentId: uuid("student_id")
     .notNull()
     .references(() => userTable.id),

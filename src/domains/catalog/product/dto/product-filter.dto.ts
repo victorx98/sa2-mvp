@@ -1,5 +1,5 @@
-import { IsOptional, IsEnum, IsString, IsBoolean } from "class-validator";
-import { Type } from "class-transformer";
+import { IsOptional, IsEnum, IsString, IsBoolean, IsIn } from "class-validator";
+import { Type, Transform } from "class-transformer";
 import {
   MarketingLabel,
   ProductStatus,
@@ -9,18 +9,28 @@ import {
 export class ProductFilterDto {
   @IsOptional()
   @IsString()
-  keyword?: string; // Keyword search (name, code, description)
+  name?: string; // Name fuzzy search
 
   @IsOptional()
+  @IsString()
+  code?: string; // Code fuzzy search
+
+  @IsOptional()
+  @Transform(({ value }) => (value === "" ? undefined : value), {
+    toClassOnly: true,
+  })
   @IsEnum(ProductStatus)
   status?: ProductStatus; // Filter by status
 
   @IsOptional()
+  @Transform(({ value }) => (value === "" ? undefined : value))
   @IsEnum(UserPersona)
-  userType?: UserPersona; // Filter by education level
+  userPersona?: UserPersona; // Filter by target user persona
 
   @IsOptional()
+  @Transform(({ value }) => (value === "" ? undefined : value))
   @IsString()
+  @IsIn(["hot", "new", "recommended"])
   marketingLabel?: MarketingLabel; // Filter by marketing label
 
   @IsOptional()

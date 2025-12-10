@@ -56,7 +56,9 @@ export class JobApplicationService implements IJobApplicationService {
    */
   async submitApplication(
     dto: ISubmitApplicationDto,
-  ): Promise<IServiceResult<typeof jobApplications.$inferSelect, Record<string, unknown>>> {
+  ): Promise<
+    IServiceResult<typeof jobApplications.$inferSelect, Record<string, unknown>>
+  > {
     this.logger.log(
       `Submitting job application: student=${dto.studentId}, job=${dto.jobId}`,
     );
@@ -121,7 +123,10 @@ export class JobApplicationService implements IJobApplicationService {
 
     return {
       data: application,
-      event: { type: JOB_APPLICATION_STATUS_CHANGED_EVENT, payload: eventPayload },
+      event: {
+        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
+        payload: eventPayload,
+      },
     };
   }
 
@@ -285,7 +290,7 @@ export class JobApplicationService implements IJobApplicationService {
           ? sort.direction === "asc"
             ? sql`${jobApplications[sort.field as keyof typeof jobApplications]} ASC`
             : sql`${jobApplications[sort.field as keyof typeof jobApplications]} DESC`
-          : sql`${jobApplications.submittedAt} DESC`
+          : sql`${jobApplications.submittedAt} DESC`,
       )
       .limit(limit)
       .offset(offset);
@@ -335,7 +340,9 @@ export class JobApplicationService implements IJobApplicationService {
     }
     if (params.status) {
       // Use type assertion for enum column to avoid TypeScript error
-      conditions.push(eq(jobApplications.status, params.status as ApplicationStatus));
+      conditions.push(
+        eq(jobApplications.status, params.status as ApplicationStatus),
+      );
     }
     if (params.applicationType) {
       // Use enum type directly without type assertion
@@ -422,7 +429,9 @@ export class JobApplicationService implements IJobApplicationService {
   async rollbackApplicationStatus(
     dto: IRollbackApplicationStatusDto,
   ): Promise<IServiceResult<Record<string, unknown>, Record<string, unknown>>> {
-    this.logger.log(`Rolling back status for application: ${dto.applicationId}`);
+    this.logger.log(
+      `Rolling back status for application: ${dto.applicationId}`,
+    );
 
     // Get current application [获取当前申请]
     const [application] = await this.db
@@ -431,7 +440,9 @@ export class JobApplicationService implements IJobApplicationService {
       .where(eq(jobApplications.id, dto.applicationId));
 
     if (!application) {
-      throw new NotFoundException(`Application not found: ${dto.applicationId}`);
+      throw new NotFoundException(
+        `Application not found: ${dto.applicationId}`,
+      );
     }
 
     // Get status history [获取状态历史]
@@ -505,7 +516,10 @@ export class JobApplicationService implements IJobApplicationService {
       // [新增] Include mentor assignment in event payload [在事件payload中包含导师分配]
       ...(dto.mentorId && { assignedMentorId: dto.mentorId }),
     };
-    this.eventEmitter.emit(JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT, eventPayload);
+    this.eventEmitter.emit(
+      JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
+      eventPayload,
+    );
 
     return {
       data: updatedApplication,

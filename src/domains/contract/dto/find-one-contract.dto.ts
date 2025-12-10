@@ -21,7 +21,7 @@ export class FindOneContractDto {
   studentId?: string; // Student ID (学生ID)
 
   @IsOptional()
-  @IsEnum(["signed", "active", "suspended", "completed", "terminated"])
+  @IsEnum(["SIGNED", "ACTIVE", "SUSPENDED", "COMPLETED", "TERMINATED"])
   status?: string; // Contract status (合约状态)
 
   @IsOptional()

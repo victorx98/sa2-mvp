@@ -1,6 +1,6 @@
 /**
  * Placement Application Events (投递申请事件)
- * 
+ *
  * Defines domain events for job application lifecycle management
  * (定义投递申请生命周期管理的领域事件)
  */
@@ -15,7 +15,7 @@ import {
 /**
  * Payload for job application status changed event
  * 投递状态变更事件载荷
- * 
+ *
  * Contains information about a job application status transition
  * 包含投递申请状态转换的信息
  */
@@ -53,7 +53,7 @@ export interface IJobApplicationStatusChangedPayload {
 /**
  * Job Application Status Changed Event
  * 投递状态变更事件
- * 
+ *
  * Published when a job application status transitions to a new state
  * 当投递申请状态转换为新状态时发布
  */
@@ -68,7 +68,7 @@ export interface IJobApplicationStatusChangedEvent
 /**
  * Payload for job application status rolled back event
  * 投递状态回撤事件载荷
- * 
+ *
  * Contains information about a job application status rollback operation
  * 包含投递申请状态回撤操作的信息
  */
@@ -112,7 +112,7 @@ export interface IJobApplicationStatusRolledBackPayload {
 /**
  * Job Application Status Rolled Back Event
  * 投递状态回撤事件
- * 
+ *
  * Published when a job application status is rolled back to a previous state
  * 当投递申请状态回撤到上一个状态时发布
  */
@@ -123,5 +123,3 @@ export interface IJobApplicationStatusRolledBackEvent
    */
   type: typeof JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT;
 }
-
-

@@ -46,7 +46,9 @@ export class SettlementConfirmedListener {
    * @param event - Settlement confirmed event (结算确认事件)
    */
   @OnEvent(SETTLEMENT_CONFIRMED_EVENT, { async: true })
-  public async handleSettlementConfirmed(event: ISettlementConfirmedEvent): Promise<void> {
+  public async handleSettlementConfirmed(
+    event: ISettlementConfirmedEvent,
+  ): Promise<void> {
     try {
       const { payload } = event;
 

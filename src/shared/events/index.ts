@@ -47,5 +47,3 @@ export type {
   IJobApplicationStatusRolledBackPayload,
   IJobApplicationStatusRolledBackEvent,
 } from "./placement-application.events";
-
-

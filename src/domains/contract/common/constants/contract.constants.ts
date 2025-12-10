@@ -104,10 +104,10 @@ export const MAX_RETRY_ATTEMPTS = parseInt(
 // ============================================================================
 
 // Minimum contract amount (in USD dollars, default: $1.00)
-export const MIN_CONTRACT_AMOUNT_DOLLARS = 1.00;
+export const MIN_CONTRACT_AMOUNT_DOLLARS = 1.0;
 
 // Maximum contract amount (in USD dollars, default: $1,000,000.00)
-export const MAX_CONTRACT_AMOUNT_DOLLARS = 1000000.00;
+export const MAX_CONTRACT_AMOUNT_DOLLARS = 1000000.0;
 
 // Minimum service quantity
 export const MIN_SERVICE_QUANTITY = 1;

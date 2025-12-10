@@ -1,5 +1,5 @@
-import { Injectable, Inject } from "@nestjs/common";
-import { eq, and, or, like, ne, count, sql, inArray } from "drizzle-orm";
+import { Injectable, Inject, Logger } from "@nestjs/common";
+import { eq, and, like, ne, count, sql, inArray } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
@@ -32,6 +32,7 @@ import { IProductDetail, IProductItem } from "../interfaces";
 
 @Injectable()
 export class ProductService {
+  private readonly logger = new Logger(ProductService.name);
   private readonly DEFAULT_PAGE_SIZE = 20; // Default page size for pagination [分页的默认页面大小]
   private readonly DEFAULT_SORT_FIELD = "createdAt"; // Default sort field [默认排序字段]
   private readonly DEFAULT_SORT_ORDER = "desc"; // Default sort order [默认排序顺序]
@@ -59,6 +60,22 @@ export class ProductService {
     // 2. Validate price and validity days
     if (dto.price <= 0) {
       throw new CatalogException("INVALID_PRICE");
+    }
+
+    // 3. Validate coverImage format - ensure it doesn't contain unexpected data like price or currency
+    if (dto.coverImage) {
+      // Check if coverImage contains problematic characters that could cause parameter parsing issues
+      const problematicChars = [",", "`", '"', "'", ";", "\n", "\r"];
+      const containsProblematicChars = problematicChars.some((char) =>
+        dto.coverImage!.includes(char),
+      );
+
+      if (containsProblematicChars) {
+        throw new CatalogException(
+          "INVALID_COVER_IMAGE_FORMAT",
+          "Cover image URL should not contain commas, backticks, quotes, semicolons, or newlines",
+        );
+      }
     }
 
     // 3. Validate item references if provided
@@ -112,51 +129,252 @@ export class ProductService {
    * Update unpublished draft product [更新未发布的草稿产品]
    * Only draft products can be updated [仅草稿状态的产品可以更新]
    */
-  async update(productId: string, dto: UpdateProductDto): Promise<IProduct> {
-    // 1. Check if product exists [检查产品是否存在]
-    const existing = await this.db
-      .select()
-      .from(schema.products)
-      .where(eq(schema.products.id, productId))
-      .limit(1);
+  async update(
+    productId: string,
+    dto: UpdateProductDto,
+    userId: string,
+  ): Promise<IProduct> {
+    // Use transaction to ensure atomicity for all operations [使用事务确保所有操作的原子性]
+    const updatedProduct = await this.db.transaction(async (tx) => {
+      // 1. Check if product exists and is draft [检查产品是否存在且为草稿状态]
+      const [existing] = await tx
+        .select()
+        .from(schema.products)
+        .where(eq(schema.products.id, productId))
+        .limit(1);
 
-    if (existing.length === 0) {
-      throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
-    }
+      if (!existing) {
+        throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
+      }
 
-    const product = existing[0];
+      if (existing.status === ProductStatus.DELETED) {
+        throw new CatalogGoneException("PRODUCT_DELETED");
+      }
 
-    if (product.status === ProductStatus.DELETED) {
-      throw new CatalogGoneException("PRODUCT_DELETED");
-    }
+      // 2. Can only update draft products [只能更新草稿状态的产品]
+      if (existing.status !== ProductStatus.DRAFT) {
+        throw new CatalogException("PRODUCT_NOT_DRAFT");
+      }
 
-    // 2. Can only update draft products [只能更新草稿状态的产品]
-    if (product.status !== ProductStatus.DRAFT) {
-      throw new CatalogException("PRODUCT_NOT_DRAFT");
-    }
+      // 3. Validate price [验证价格]
+      if (dto.price !== undefined && dto.price <= 0) {
+        throw new CatalogException("INVALID_PRICE");
+      }
 
-    // 3. Validate price [验证价格]
-    if (dto.price !== undefined && dto.price <= 0) {
-      throw new CatalogException("INVALID_PRICE");
-    }
+      // 4. Validate coverImage format if provided - ensure it doesn't contain unexpected data like price or currency
+      if (dto.coverImage) {
+        // Check if coverImage contains problematic characters that could cause parameter parsing issues
+        const problematicChars = [",", "`", '"', "'", ";", "\n", "\r"];
+        const containsProblematicChars = problematicChars.some((char) =>
+          dto.coverImage!.includes(char),
+        );
 
-    // 4. Update product [更新产品]
-    const [updated] = await this.db
-      .update(schema.products)
-      .set({
-        ...dto,
-        price: dto.price !== undefined ? dto.price.toString() : undefined,
-        targetUserPersona: dto.targetUserPersonas
-          ? dto.targetUserPersonas
-          : undefined,
-        marketingLabels: dto.marketingLabels ? dto.marketingLabels : undefined,
-        metadata: dto.metadata ? dto.metadata : undefined,
+        if (containsProblematicChars) {
+          throw new CatalogException(
+            "INVALID_COVER_IMAGE_FORMAT",
+            "Cover image URL should not contain commas, backticks, quotes, semicolons, or newlines",
+          );
+        }
+      }
+
+      // 5. Update product basic information [更新产品基本信息]
+      // Only update allowed fields [只更新允许的字段]
+      const updateData: Partial<typeof schema.products.$inferInsert> = {
         updatedAt: new Date(),
-      })
-      .where(eq(schema.products.id, productId))
-      .returning();
+      };
 
-    return this.mapToProductInterface(updated);
+      if (dto.name !== undefined) updateData.name = dto.name;
+      if (dto.description !== undefined)
+        updateData.description = dto.description;
+      if (dto.coverImage !== undefined) updateData.coverImage = dto.coverImage;
+      if (dto.price !== undefined) updateData.price = dto.price.toString();
+      if (dto.currency !== undefined) updateData.currency = dto.currency;
+      if (dto.targetUserPersonas !== undefined) {
+        updateData.targetUserPersona = dto.targetUserPersonas;
+      }
+      if (dto.marketingLabels !== undefined) {
+        updateData.marketingLabels = dto.marketingLabels;
+      }
+      if (dto.metadata !== undefined) updateData.metadata = dto.metadata;
+
+      const [updated] = await tx
+        .update(schema.products)
+        .set(updateData)
+        .where(eq(schema.products.id, productId))
+        .returning();
+
+      // 6. Handle product item operations [处理产品项操作]
+
+      // 6.1 Add new items if provided [如果提供了新项则添加]
+      if (dto.addItems && dto.addItems.length > 0) {
+        // Validate new items [验证新项]
+        await this.validateProductItemReferences(dto.addItems, tx);
+        await this.validateProductItemQuantities(dto.addItems);
+
+        // Check for duplicate items [检查重复项]
+        for (const item of dto.addItems) {
+          const existingItem = await tx
+            .select()
+            .from(schema.productItems)
+            .where(
+              and(
+                eq(schema.productItems.productId, productId),
+                eq(schema.productItems.serviceTypeId, item.serviceTypeId),
+              ),
+            )
+            .limit(1);
+
+          if (existingItem.length > 0) {
+            throw new CatalogException("ITEM_ALREADY_IN_PRODUCT");
+          }
+        }
+
+        // Get current max sortOrder [获取当前最大排序]
+        const [maxSortOrder] = await tx
+          .select({
+            max: sql<number>`COALESCE(MAX(${schema.productItems.sortOrder}), -1)`,
+          })
+          .from(schema.productItems)
+          .where(eq(schema.productItems.productId, productId));
+
+        // Insert new items with correct sortOrder [插入带有正确排序的新项]
+        await tx.insert(schema.productItems).values(
+          dto.addItems.map((item, index) => ({
+            productId: productId,
+            serviceTypeId: item.serviceTypeId,
+            quantity: item.quantity,
+            sortOrder: item.sortOrder ?? maxSortOrder.max + 1 + index,
+            createdBy: userId,
+            updatedBy: userId,
+          })),
+        );
+      }
+
+      // 6.2 Remove items if provided [如果提供了要移除的项则移除]
+      if (dto.removeItems && dto.removeItems.length > 0) {
+        // Check if product has at least 1 item after removal [检查移除后产品至少有1个项]
+        const [currentCount] = await tx
+          .select({ count: count() })
+          .from(schema.productItems)
+          .where(eq(schema.productItems.productId, productId));
+
+        if (Number(currentCount.count) <= dto.removeItems.length) {
+          throw new CatalogException("PRODUCT_MIN_ITEMS");
+        }
+
+        // Delete items [删除项]
+        await tx
+          .delete(schema.productItems)
+          .where(inArray(schema.productItems.id, dto.removeItems));
+      }
+
+      // 6.3 Sort items if provided [如果提供了排序则排序]
+      if (dto.sortItems && dto.sortItems.length > 0) {
+        const itemIds = dto.sortItems.map((item) => item.itemId);
+
+        // 1. Validate itemId array has no duplicates [验证 itemId 数组没有重复]
+        const uniqueItemIds = [...new Set(itemIds)];
+        if (uniqueItemIds.length !== itemIds.length) {
+          throw new CatalogException(
+            "DUPLICATE_ITEM_ID",
+            "Item IDs must be unique in sortItems array",
+          );
+        }
+
+        // 2. Validate sortOrder values are non-negative integers [验证 sortOrder 值都是非负整数]
+        for (const item of dto.sortItems) {
+          if (!Number.isInteger(item.sortOrder) || item.sortOrder < 0) {
+            throw new CatalogException(
+              "INVALID_SORT_ORDER",
+              `Sort order must be a non-negative integer, got: ${item.sortOrder}`,
+            );
+          }
+        }
+
+        // 3. Validate sortOrder values are unique [验证 sortOrder 值唯一]
+        const sortOrders = dto.sortItems.map((item) => item.sortOrder);
+        const uniqueSortOrders = [...new Set(sortOrders)];
+        if (uniqueSortOrders.length !== sortOrders.length) {
+          throw new CatalogException(
+            "DUPLICATE_SORT_ORDER",
+            "Sort order values must be unique within the same product",
+          );
+        }
+
+        // 4. Query all product items to get total count [查询所有产品项以获取总数]
+        const allProductItems = await tx
+          .select({
+            id: schema.productItems.id,
+            productId: schema.productItems.productId,
+          })
+          .from(schema.productItems)
+          .where(eq(schema.productItems.productId, productId));
+
+        // 5. Validate all items belong to this product [验证所有传入的项属于该产品]
+        const productItems = await tx
+          .select({
+            id: schema.productItems.id,
+            productId: schema.productItems.productId,
+          })
+          .from(schema.productItems)
+          .where(inArray(schema.productItems.id, itemIds));
+
+        // Check all items exist [检查所有项都存在]
+        if (productItems.length !== itemIds.length) {
+          throw new CatalogNotFoundException("PRODUCT_ITEM_NOT_FOUND");
+        }
+
+        // Check all items belong to the same product [检查所有项属于同一个产品]
+        const productIds = [...new Set(productItems.map((pi) => pi.productId))];
+        if (productIds.length !== 1 || productIds[0] !== productId) {
+          throw new CatalogException(
+            "ITEMS_BELONG_TO_DIFFERENT_PRODUCTS",
+            "All items must belong to the same product",
+          );
+        }
+
+        // 6. Validate must provide sort order for ALL product items [验证必须传入所有产品项的排序]
+        if (allProductItems.length !== itemIds.length) {
+          throw new CatalogException(
+            "INCOMPLETE_SORT_ITEMS",
+            `Must provide sort order for all product items. Expected ${allProductItems.length} items, got ${itemIds.length}`,
+          );
+        }
+
+        // 7. Optimize: Batch update using Promise.all [优化：使用 Promise.all 批量更新]
+        await Promise.all(
+          dto.sortItems.map((item) =>
+            tx
+              .update(schema.productItems)
+              .set({ sortOrder: item.sortOrder })
+              .where(eq(schema.productItems.id, item.itemId)),
+          ),
+        );
+      }
+
+      return updated;
+    });
+
+    // Get product items to include in response [获取产品项以包含在响应中]
+    const items = await this.db
+      .select()
+      .from(schema.productItems)
+      .where(eq(schema.productItems.productId, productId))
+      .orderBy(schema.productItems.sortOrder, schema.productItems.createdAt);
+
+    // Return product with items [返回包含产品项的产品]
+    return {
+      ...this.mapToProductInterface(updatedProduct),
+      items: items.map((item) => ({
+        id: item.id,
+        productId: item.productId,
+        serviceTypeId: item.serviceTypeId,
+        quantity: item.quantity,
+        sortOrder: item.sortOrder,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      })),
+    };
   }
 
   /**
@@ -164,64 +382,110 @@ export class ProductService {
    */
   async addItem(productId: string, dto: AddProductItemDto): Promise<void> {
     // Wrap operations in transaction to ensure atomicity [将操作包裹在事务中以确保原子性]
-    await this.db.transaction(async (tx) => {
-      // 1. Check if product exists and is draft with row lock [检查产品是否存在且为草稿状态，并加行锁]
-      const [existing] = await tx
-        .select()
-        .from(schema.products)
-        .where(eq(schema.products.id, productId))
-        .for("update") // Row-level lock to prevent concurrent modifications [行级锁防止并发修改]
-        .limit(1);
+    try {
+      await this.db.transaction(async (tx) => {
+        // 1. Check if product exists and is draft with row lock [检查产品是否存在且为草稿状态，并加行锁]
+        const [existing] = await tx
+          .select()
+          .from(schema.products)
+          .where(eq(schema.products.id, productId))
+          .for("update") // Row-level lock to prevent concurrent modifications [行级锁防止并发修改]
+          .limit(1);
 
-      if (!existing) {
-        throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
-      }
+        if (!existing) {
+          throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
+        }
 
-      if (existing.status !== ProductStatus.DRAFT) {
-        throw new CatalogException("PRODUCT_NOT_DRAFT");
-      }
+        if (existing.status !== ProductStatus.DRAFT) {
+          throw new CatalogException("PRODUCT_NOT_DRAFT");
+        }
 
-      // 2. Validate reference exists and is active [验证引用存在且处于激活状态]
-      await this.validateProductItemReferences([
-        { serviceTypeId: dto.serviceTypeId },
-      ], tx); // Pass transaction context [传递事务上下文]
-      await this.validateProductItemQuantities([
-        { serviceTypeId: dto.serviceTypeId, quantity: dto.quantity },
-      ]);
+        // 2. Validate reference exists and is active [验证引用存在且处于激活状态]
+        await this.validateProductItemReferences(
+          [{ serviceTypeId: dto.serviceTypeId }],
+          tx,
+        ); // Pass transaction context [传递事务上下文]
+        await this.validateProductItemQuantities([
+          { serviceTypeId: dto.serviceTypeId, quantity: dto.quantity },
+        ]);
 
-      // 3. Check if item already exists in product [检查产品项是否已存在于产品中]
-      const existingItem = await tx
-        .select()
-        .from(schema.productItems)
-        .where(
-          and(
-            eq(schema.productItems.productId, productId),
-            eq(schema.productItems.serviceTypeId, dto.serviceTypeId),
-          ),
-        )
-        .limit(1);
+        // 3. Check if item already exists in product [检查产品项是否已存在于产品中]
+        const existingItem = await tx
+          .select()
+          .from(schema.productItems)
+          .where(
+            and(
+              eq(schema.productItems.productId, productId),
+              eq(schema.productItems.serviceTypeId, dto.serviceTypeId),
+            ),
+          )
+          .limit(1);
 
-      if (existingItem.length > 0) {
-        throw new CatalogException("ITEM_ALREADY_IN_PRODUCT");
-      }
+        if (existingItem.length > 0) {
+          throw new CatalogException("ITEM_ALREADY_IN_PRODUCT");
+        }
 
-      // 4. Add product item [添加产品项]
-      await tx.insert(schema.productItems).values({
-        productId,
-        serviceTypeId: dto.serviceTypeId,
-        quantity: dto.quantity,
-        sortOrder: dto.sortOrder ?? 0, // Use provided sortOrder or default to 0 [使用提供的sortOrder或默认为0]
+        // 4. Add product item [添加产品项]
+        await tx.insert(schema.productItems).values({
+          productId,
+          serviceTypeId: dto.serviceTypeId,
+          quantity: dto.quantity,
+          sortOrder: dto.sortOrder ?? 0, // Use provided sortOrder or default to 0 [使用提供的sortOrder或默认为0]
+        });
       });
-    });
+    } catch (error) {
+      // Enhanced error logging with full error details [增强错误日志，包含完整错误详情]
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      const errorCause = (error as { cause?: unknown })?.cause;
+
+      // Extract PostgreSQL error details if available [提取PostgreSQL错误详情（如果可用）]
+      const pgError =
+        errorCause && typeof errorCause === "object" && "code" in errorCause
+          ? {
+              code: (errorCause as { code?: string }).code,
+              message: (errorCause as { message?: string }).message,
+              detail: (errorCause as { detail?: string }).detail,
+            }
+          : null;
+
+      // Log full error details for debugging [记录完整错误详情以便调试]
+      this.logger.error(
+        `Failed to add product item. ProductId: ${productId}, ServiceTypeId: ${dto.serviceTypeId}`,
+        {
+          error: errorMessage,
+          stack: errorStack,
+          pgError,
+          cause: errorCause,
+        },
+      );
+
+      // Re-throw original error to preserve error type [重新抛出原始错误以保留错误类型]
+      throw error;
+    }
   }
 
   /**
    * Remove service or service package from product (从产品中删除服务或服务项目) [从产品移除服务或服务包]
    */
-  async removeItem(productId: string, itemId: string): Promise<void> {
+  async removeItem(itemId: string): Promise<void> {
     // Wrap operations in transaction to ensure atomicity [将操作包裹在事务中以确保原子性]
     await this.db.transaction(async (tx) => {
-      // 1. Check if product exists and is draft with row lock [检查产品是否存在且为草稿状态，并加行锁]
+      // 1. Query product item to get productId [查询产品项以获取产品ID]
+      const [productItem] = await tx
+        .select({ productId: schema.productItems.productId })
+        .from(schema.productItems)
+        .where(eq(schema.productItems.id, itemId))
+        .limit(1);
+
+      if (!productItem) {
+        throw new CatalogNotFoundException("PRODUCT_ITEM_NOT_FOUND");
+      }
+
+      const productId = productItem.productId;
+
+      // 2. Check if product exists and is draft with row lock [检查产品是否存在且为草稿状态，并加行锁]
       const [product] = await tx
         .select()
         .from(schema.products)
@@ -230,14 +494,14 @@ export class ProductService {
         .limit(1);
 
       if (!product) {
-        throw new CatalogException("PRODUCT_NOT_FOUND");
+        throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
       }
 
       if (product.status !== ProductStatus.DRAFT) {
         throw new CatalogException("PRODUCT_NOT_DRAFT");
       }
 
-      // 2. Product must contain at least 1 item [产品必须至少包含一个项目]
+      // 3. Product must contain at least 1 item [产品必须至少包含一个项目]
       const items = await tx
         .select()
         .from(schema.productItems)
@@ -247,55 +511,10 @@ export class ProductService {
         throw new CatalogException("PRODUCT_MIN_ITEMS");
       }
 
-      // 3. Delete product item [删除产品项]
+      // 4. Delete product item [删除产品项]
       await tx
         .delete(schema.productItems)
-        .where(
-          and(
-            eq(schema.productItems.id, itemId),
-            eq(schema.productItems.productId, productId),
-          ),
-        );
-    });
-  }
-
-  /**
-   * Update product item sort order (更新产品项排序顺序) [更新产品项排序]
-   */
-  async updateItemSortOrder(
-    productId: string,
-    items: Array<{ itemId: string; sortOrder: number }>,
-  ): Promise<void> {
-    // Wrap operations in transaction to ensure atomicity [将操作包裹在事务中以确保原子性]
-    await this.db.transaction(async (tx) => {
-      // 1. Check if product exists and is draft with row lock [检查产品是否存在且为草稿状态，并加行锁]
-      const [product] = await tx
-        .select()
-        .from(schema.products)
-        .where(eq(schema.products.id, productId))
-        .for("update") // Row-level lock to prevent concurrent modifications [行级锁防止并发修改]
-        .limit(1);
-
-      if (!product) {
-        throw new CatalogException("PRODUCT_NOT_FOUND");
-      }
-
-      if (product.status !== ProductStatus.DRAFT) {
-        throw new CatalogException("PRODUCT_NOT_DRAFT");
-      }
-
-      // 2. Update sortOrder for each item [为每个项目更新排序]
-      for (const item of items) {
-        await tx
-          .update(schema.productItems)
-          .set({ sortOrder: item.sortOrder })
-          .where(
-            and(
-              eq(schema.productItems.id, item.itemId),
-              eq(schema.productItems.productId, productId),
-            ),
-          );
-      }
+        .where(eq(schema.productItems.id, itemId));
     });
   }
 
@@ -319,10 +538,10 @@ export class ProductService {
       conditions.push(eq(schema.products.status, filter.status));
     }
 
-    if (filter.userType) {
+    if (filter.userPersona) {
       // JSON array contains check
       conditions.push(
-        sql`${schema.products.targetUserPersona}::jsonb @> ${JSON.stringify([filter.userType])}`,
+        sql`${schema.products.targetUserPersona}::jsonb @> ${JSON.stringify([filter.userPersona])}`,
       );
     }
 
@@ -333,15 +552,14 @@ export class ProductService {
       );
     }
 
-    if (filter.keyword) {
-      const safeKeyword = buildLikePattern(filter.keyword);
-      conditions.push(
-        or(
-          like(schema.products.name, safeKeyword),
-          like(schema.products.code, safeKeyword),
-          like(schema.products.description, safeKeyword),
-        ),
-      );
+    if (filter.name) {
+      const safeName = buildLikePattern(filter.name);
+      conditions.push(like(schema.products.name, safeName));
+    }
+
+    if (filter.code) {
+      const safeCode = buildLikePattern(filter.code);
+      conditions.push(like(schema.products.code, safeCode));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -360,8 +578,36 @@ export class ProductService {
         .where(whereClause)
         .orderBy(this.getOrderBy(sort));
 
+      // Get items for all products using Promise.all for better performance
+      const productsWithItems = await Promise.all(
+        allData.map(async (product) => {
+          const items = await this.db
+            .select()
+            .from(schema.productItems)
+            .where(eq(schema.productItems.productId, product.id))
+            .orderBy(
+              schema.productItems.sortOrder,
+              schema.productItems.createdAt,
+            );
+
+          const productInterface = this.mapToProductInterface(product);
+          return {
+            ...productInterface,
+            items: items.map((item) => ({
+              id: item.id,
+              productId: item.productId,
+              serviceTypeId: item.serviceTypeId,
+              quantity: item.quantity,
+              sortOrder: item.sortOrder,
+              createdAt: item.createdAt,
+              updatedAt: item.updatedAt,
+            })),
+          };
+        }),
+      );
+
       return {
-        data: allData.map(this.mapToProductInterface.bind(this)),
+        data: productsWithItems,
         total: Number(total),
         page: 1,
         pageSize: Number(total),
@@ -381,8 +627,36 @@ export class ProductService {
       .limit(pageSize)
       .offset(offset);
 
+    // Get items for paginated products using Promise.all for better performance
+    const productsWithItems = await Promise.all(
+      data.map(async (product) => {
+        const items = await this.db
+          .select()
+          .from(schema.productItems)
+          .where(eq(schema.productItems.productId, product.id))
+          .orderBy(
+            schema.productItems.sortOrder,
+            schema.productItems.createdAt,
+          );
+
+        const productInterface = this.mapToProductInterface(product);
+        return {
+          ...productInterface,
+          items: items.map((item) => ({
+            id: item.id,
+            productId: item.productId,
+            serviceTypeId: item.serviceTypeId,
+            quantity: item.quantity,
+            sortOrder: item.sortOrder,
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt,
+          })),
+        };
+      }),
+    );
+
     return {
-      data: data.map(this.mapToProductInterface.bind(this)),
+      data: productsWithItems,
       total: Number(total),
       page,
       pageSize,
@@ -448,14 +722,20 @@ export class ProductService {
   }
 
   /**
-   * Publish product [发布产品]
-   * - [修复] Enforces at least one product item before publishing [发布前强制要求至少一个产品项]
-   * - Uses FOR UPDATE lock to prevent concurrent modifications [使用FOR UPDATE锁防止并发修改]
+   * Update product status [更新产品状态]
+   * Handles state transitions:
+   * - DRAFT -> ACTIVE (publish)
+   * - ACTIVE -> INACTIVE (unpublish)
+   * - INACTIVE -> DRAFT (revert to draft)
    *
    * @param id - Product ID [产品ID]
-   * @returns Published product [发布的产品]
+   * @param targetStatus - Target status [目标状态]
+   * @returns Updated product [更新后的产品]
    */
-  async publish(id: string): Promise<IProduct> {
+  async updateStatus(
+    id: string,
+    targetStatus: ProductStatus,
+  ): Promise<IProduct> {
     // Wrap in transaction with row lock to ensure atomicity [使用事务和行锁确保原子性]
     const updatedProduct = await this.db.transaction(async (tx) => {
       // Retrieve product with row lock [检索产品并加行锁]
@@ -470,103 +750,122 @@ export class ProductService {
         throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
       }
 
-      if (product.status !== ProductStatus.DRAFT) {
-        throw new CatalogException("INVALID_STATUS_TRANSITION");
+      // Handle state transitions [处理状态转换]
+      switch (targetStatus) {
+        case ProductStatus.ACTIVE: {
+          // Publish logic (DRAFT -> ACTIVE) [发布逻辑]
+          if (product.status !== ProductStatus.DRAFT) {
+            throw new CatalogException(
+              "INVALID_STATUS_TRANSITION",
+              `Cannot publish product. Product must be in DRAFT status, but current status is ${product.status}`,
+            );
+          }
+
+          // Verify product has at least one item [验证产品至少有一个项目]
+          const items = await tx
+            .select({ id: schema.productItems.id })
+            .from(schema.productItems)
+            .where(eq(schema.productItems.productId, id))
+            .limit(1);
+
+          if (items.length === 0) {
+            throw new CatalogException(
+              "PRODUCT_MIN_ITEMS",
+              "Product must have at least one item to be published",
+            );
+          }
+
+          // Validate product item references within transaction [在事务中验证产品项引用]
+          const allItems = await tx
+            .select()
+            .from(schema.productItems)
+            .where(eq(schema.productItems.productId, id));
+
+          await this.validateProductItemReferences(allItems, tx);
+
+          // Update product status [更新产品状态]
+          const [published] = await tx
+            .update(schema.products)
+            .set({
+              status: ProductStatus.ACTIVE,
+              publishedAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(schema.products.id, id))
+            .returning();
+          return published;
+        }
+
+        case ProductStatus.INACTIVE: {
+          // Unpublish logic (ACTIVE -> INACTIVE) [取消发布逻辑]
+          if (product.status !== ProductStatus.ACTIVE) {
+            throw new CatalogException(
+              "INVALID_STATUS_TRANSITION",
+              `Cannot unpublish product. Product must be in ACTIVE status, but current status is ${product.status}`,
+            );
+          }
+
+          const [unpublished] = await tx
+            .update(schema.products)
+            .set({
+              status: ProductStatus.INACTIVE,
+              unpublishedAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(schema.products.id, id))
+            .returning();
+          return unpublished;
+        }
+
+        case ProductStatus.DRAFT: {
+          // Revert to draft logic (INACTIVE -> DRAFT) [恢复草稿逻辑]
+          if (product.status !== ProductStatus.INACTIVE) {
+            throw new CatalogException(
+              "INVALID_STATUS_TRANSITION",
+              `Cannot revert product to draft. Product must be in INACTIVE status, but current status is ${product.status}`,
+            );
+          }
+
+          const [reverted] = await tx
+            .update(schema.products)
+            .set({
+              status: ProductStatus.DRAFT,
+              unpublishedAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(schema.products.id, id))
+            .returning();
+          return reverted;
+        }
+
+        default:
+          throw new CatalogException(
+            "INVALID_STATUS_TRANSITION",
+            `Invalid target status: ${targetStatus}`,
+          );
       }
-
-      // [修复] Verify product has at least one item [验证产品至少有一个项目]
-      const items = await tx
-        .select({ id: schema.productItems.id })
-        .from(schema.productItems)
-        .where(eq(schema.productItems.productId, id))
-        .limit(1);
-
-      if (items.length === 0) {
-        throw new CatalogException(
-          "PRODUCT_MIN_ITEMS",
-          "Product must have at least one item to be published",
-        );
-      }
-
-      // Validate product item references within transaction [在事务中验证产品项引用]
-      const allItems = await tx
-        .select()
-        .from(schema.productItems)
-        .where(eq(schema.productItems.productId, id));
-
-      await this.validateProductItemReferences(allItems, tx);
-
-      // Update product status [更新产品状态]
-      const [updated] = await tx
-        .update(schema.products)
-        .set({
-          status: ProductStatus.ACTIVE,
-          publishedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.products.id, id))
-        .returning();
-
-      return updated;
     });
 
-    return this.mapToProductInterface(updatedProduct);
-  }
+    // Get product items to include in response [获取产品项以包含在响应中]
+    const items = await this.db
+      .select()
+      .from(schema.productItems)
+      .where(eq(schema.productItems.productId, id))
+      .orderBy(schema.productItems.sortOrder, schema.productItems.createdAt);
 
-  /**
-   * Unpublish product [取消发布产品]
-   */
-  async unpublish(id: string): Promise<IProduct> {
-    const product = await this.findOne({ id });
-
-    if (!product) {
-      throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
-    }
-
-    if (product.status !== ProductStatus.ACTIVE) {
-      throw new CatalogException("INVALID_STATUS_TRANSITION");
-    }
-
-    // Update product status [更新产品状态]
-    const updatedProduct = await this.db
-      .update(schema.products)
-      .set({
-        status: ProductStatus.INACTIVE,
-        unpublishedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.products.id, id))
-      .returning();
-
-    return this.mapToProductInterface(updatedProduct[0]);
-  }
-
-  /**
-   * Revert product to draft [将产品恢复为草稿]
-   */
-  async revertToDraft(id: string): Promise<IProduct> {
-    const product = await this.findOne({ id });
-
-    if (!product) {
-      throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
-    }
-
-    if (product.status !== ProductStatus.INACTIVE) {
-      throw new CatalogException("INVALID_STATUS_TRANSITION");
-    }
-
-    // Update product status [更新产品状态]
-    const updatedProduct = await this.db
-      .update(schema.products)
-      .set({
-        status: ProductStatus.DRAFT,
-        unpublishedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.products.id, id))
-      .returning();
-
-    return this.mapToProductInterface(updatedProduct[0]);
+    // Return product with items [返回包含产品项的产品]
+    return {
+      ...this.mapToProductInterface(updatedProduct),
+      items: items.map((item) => ({
+        id: item.id,
+        productId: item.productId,
+        serviceTypeId: item.serviceTypeId,
+        quantity: item.quantity,
+        sortOrder: item.sortOrder,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      })),
+    };
   }
 
   /**
@@ -580,18 +879,45 @@ export class ProductService {
     }
 
     if (product.status !== ProductStatus.ACTIVE) {
-      throw new CatalogException("PRODUCT_NOT_PUBLISHED");
+      throw new CatalogException(
+        "PRODUCT_NOT_PUBLISHED",
+        `Cannot create snapshot. Product must be in ACTIVE status, but current status is ${product.status}`,
+      );
     }
 
     // Create snapshot items [创建快照项]
-    const items = await Promise.all(
-      product.items.map(async (item) => {
-        return {
-          serviceTypeId: item.serviceTypeId,
-          quantity: item.quantity,
-        };
-      }),
+    // 1. Collect all service type IDs [收集所有服务类型ID]
+    const serviceTypeIds = product.items.map((item) => item.serviceTypeId);
+
+    // 2. Batch query service types to get codes [批量查询服务类型以获取编码]
+    const serviceTypes = await this.db
+      .select({
+        id: schema.serviceTypes.id,
+        code: schema.serviceTypes.code,
+      })
+      .from(schema.serviceTypes)
+      .where(inArray(schema.serviceTypes.id, serviceTypeIds));
+
+    // 3. Create mapping: serviceTypeId -> code [创建映射：serviceTypeId -> code]
+    const serviceTypeCodeMap = new Map(
+      serviceTypes.map((st) => [st.id, st.code]),
     );
+
+    // 4. Build snapshot items with serviceTypeCode [构建包含 serviceTypeCode 的快照项]
+    const items = product.items.map((item) => {
+      const serviceTypeCode = serviceTypeCodeMap.get(item.serviceTypeId);
+      if (!serviceTypeCode) {
+        throw new CatalogException(
+          "SERVICE_TYPE_NOT_FOUND",
+          `Service type not found for ID: ${item.serviceTypeId}`,
+        );
+      }
+      return {
+        serviceTypeId: item.serviceTypeId,
+        serviceTypeCode,
+        quantity: item.quantity,
+      };
+    });
 
     return {
       productId: product.id,
@@ -617,6 +943,11 @@ export class ProductService {
     items: Array<{ serviceTypeId: string } | IProductItem>,
     tx?: typeof this.db,
   ): Promise<void> {
+    // Early return if no items to validate [如果没有要验证的项则提前返回]
+    if (!items || items.length === 0) {
+      return;
+    }
+
     // Use transaction context if provided, otherwise use default db [如果提供了事务上下文则使用它，否则使用默认数据库]
     const dbContext = tx || this.db;
 
@@ -625,16 +956,25 @@ export class ProductService {
 
     for (const serviceTypeId of serviceTypeIds) {
       if (!serviceTypeId || serviceTypeId.trim() === "") {
-        throw new CatalogNotFoundException("REFERENCE_NOT_FOUND");
+        throw new CatalogNotFoundException(
+          "REFERENCE_NOT_FOUND",
+          "Service type ID is required and cannot be empty",
+        );
       }
 
       // Basic UUID validation [基本UUID验证]
       const uuidRegex =
         /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(serviceTypeId)) {
-        throw new CatalogNotFoundException("INVALID_REFERENCE_ID");
+        throw new CatalogNotFoundException(
+          "INVALID_REFERENCE_ID",
+          `Invalid service type ID format: ${serviceTypeId}`,
+        );
       }
     }
+
+    // Get unique service type IDs [获取唯一的服务类型ID]
+    const uniqueServiceTypeIds = Array.from(new Set(serviceTypeIds));
 
     // Batch query service types [批量查询服务类型]
     const serviceTypes = await dbContext
@@ -643,17 +983,39 @@ export class ProductService {
         status: schema.serviceTypes.status,
       })
       .from(schema.serviceTypes)
-      .where(inArray(schema.serviceTypes.id, serviceTypeIds));
+      .where(inArray(schema.serviceTypes.id, uniqueServiceTypeIds))
+      .limit(uniqueServiceTypeIds.length); // Add limit for safety [添加限制以确保安全]
 
-    // Check all service types exist and are ACTIVE [检查所有服务类型存在且为ACTIVE状态]
-    if (serviceTypes.length !== serviceTypeIds.length) {
-      throw new CatalogException("SERVICE_TYPE_NOT_FOUND");
+    // Check all unique service types exist [检查所有唯一服务类型存在]
+    if (serviceTypes.length !== uniqueServiceTypeIds.length) {
+      // Find missing service type IDs [查找缺失的服务类型ID]
+      const foundIds = new Set(serviceTypes.map((st) => st.id));
+      const missingIds = uniqueServiceTypeIds.filter((id) => !foundIds.has(id));
+
+      this.logger.error(`Service types not found: ${missingIds.join(", ")}`, {
+        uniqueServiceTypeIds,
+        missingIds,
+      });
+
+      throw new CatalogNotFoundException(
+        "SERVICE_TYPE_NOT_FOUND",
+        `Service types not found: ${missingIds.join(", ")}`,
+      );
     }
 
-    for (const serviceType of serviceTypes) {
-      if (serviceType.status !== "ACTIVE") {
-        throw new CatalogException("SERVICE_TYPE_NOT_ACTIVE");
-      }
+    // Check all service types are ACTIVE [检查所有服务类型为ACTIVE状态]
+    const inactiveTypes = serviceTypes.filter((st) => st.status !== "ACTIVE");
+    if (inactiveTypes.length > 0) {
+      const inactiveIds = inactiveTypes.map((st) => st.id);
+
+      this.logger.error(`Service types not active: ${inactiveIds.join(", ")}`, {
+        inactiveTypes: inactiveIds,
+      });
+
+      throw new CatalogException(
+        "SERVICE_TYPE_NOT_ACTIVE",
+        `Service types not active: ${inactiveIds.join(", ")}`,
+      );
     }
   }
 
@@ -674,12 +1036,12 @@ export class ProductService {
    * Get order by clause [获取排序子句]
    */
   private getOrderBy(sort?: SortDto) {
-    const field = sort?.field || this.DEFAULT_SORT_FIELD; // Use default sort field if not provided [如果未提供则使用默认排序字段]
-    const order = sort?.order || this.DEFAULT_SORT_ORDER; // Use default sort order if not provided [如果未提供则使用默认排序顺序]
+    const orderField = sort?.orderField || this.DEFAULT_SORT_FIELD; // Use default sort field if not provided [如果未提供则使用默认排序字段]
+    const orderDirection = sort?.orderDirection || this.DEFAULT_SORT_ORDER; // Use default sort order if not provided [如果未提供则使用默认排序顺序]
 
     const column =
-      schema.products[field] || schema.products[this.DEFAULT_SORT_FIELD];
-    return order === "asc" ? column : sql`${column} DESC`;
+      schema.products[orderField] || schema.products[this.DEFAULT_SORT_FIELD];
+    return orderDirection === "asc" ? column : sql`${column} DESC`;
   }
 
   /**

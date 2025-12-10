@@ -1,16 +1,15 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { PlacementEventListener } from './placement-event.listener';
-import { ServiceLedgerService } from '@domains/contract/services/service-ledger.service';
-import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
+import { Test, TestingModule } from "@nestjs/testing";
+import { PlacementEventListener } from "./placement-event.listener";
+import { ServiceLedgerService } from "@domains/contract/services/service-ledger.service";
+import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import {
   IJobApplicationStatusChangedEvent,
-  IJobApplicationStatusRolledBackEvent
-} from '@shared/events/placement-application.events';
+  IJobApplicationStatusRolledBackEvent,
+} from "@shared/events/placement-application.events";
 import {
   JOB_APPLICATION_STATUS_CHANGED_EVENT,
-  JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT
-} from '@shared/events/event-constants';
-
+  JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
+} from "@shared/events/event-constants";
 
 // Mock dependencies
 const mockServiceLedgerService = {
@@ -26,7 +25,7 @@ const mockDatabase = {
   },
 };
 
-describe('PlacementEventListener', () => {
+describe("PlacementEventListener", () => {
   let listener: PlacementEventListener;
 
   beforeEach(async () => {
@@ -50,21 +49,21 @@ describe('PlacementEventListener', () => {
     jest.clearAllMocks();
   });
 
-  describe('handleApplicationStatusChangedEvent', () => {
-    it('should record consumption when status changes to submitted', async () => {
+  describe("handleApplicationStatusChangedEvent", () => {
+    it("should record consumption when status changes to submitted", async () => {
       // Arrange
-      const applicationId = 'test-application-id';
-      const studentId = 'test-student-id';
-      const applicationType = 'direct';
+      const applicationId = "test-application-id";
+      const studentId = "test-student-id";
+      const applicationType = "direct";
       const event: IJobApplicationStatusChangedEvent = {
-        id: 'event-123',
+        id: "event-123",
         type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
         timestamp: Date.now(),
         payload: {
           applicationId,
-          previousStatus: 'mentor_assigned',
-          newStatus: 'submitted',
-          changedBy: 'user-123',
+          previousStatus: "mentor_assigned",
+          newStatus: "submitted",
+          changedBy: "user-123",
           changedAt: new Date().toISOString(),
         },
       };
@@ -83,27 +82,28 @@ describe('PlacementEventListener', () => {
 
       expect(mockServiceLedgerService.recordConsumption).toHaveBeenCalledWith({
         studentId,
-        serviceType: 'job_application',
+        serviceType: "job_application",
         quantity: 1,
         relatedBookingId: applicationId,
-        createdBy: 'user-123',
+        bookingSource: "job_applications", // Verify bookingSource is passed [验证bookingSource已传递]
+        createdBy: "user-123",
       });
     });
 
-    it('should not record consumption when status is not submitted', async () => {
+    it("should not record consumption when status is not submitted", async () => {
       // Arrange
-      const applicationId = 'test-application-id';
-      const studentId = 'test-student-id';
-      const applicationType = 'direct';
+      const applicationId = "test-application-id";
+      const studentId = "test-student-id";
+      const applicationType = "direct";
       const event: IJobApplicationStatusChangedEvent = {
-        id: 'event-123',
+        id: "event-123",
         type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
         timestamp: Date.now(),
         payload: {
           applicationId,
-          previousStatus: 'mentor_assigned',
-          newStatus: 'interviewed',
-          changedBy: 'user-123',
+          previousStatus: "mentor_assigned",
+          newStatus: "interviewed",
+          changedBy: "user-123",
           changedAt: new Date().toISOString(),
         },
       };
@@ -122,18 +122,18 @@ describe('PlacementEventListener', () => {
       expect(mockServiceLedgerService.recordConsumption).not.toHaveBeenCalled();
     });
 
-    it('should return early if job application not found', async () => {
+    it("should return early if job application not found", async () => {
       // Arrange
-      const applicationId = 'test-application-id';
+      const applicationId = "test-application-id";
       const event: IJobApplicationStatusChangedEvent = {
-        id: 'event-123',
+        id: "event-123",
         type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
         timestamp: Date.now(),
         payload: {
           applicationId,
-          previousStatus: 'mentor_assigned',
-          newStatus: 'submitted',
-          changedBy: 'user-123',
+          previousStatus: "mentor_assigned",
+          newStatus: "submitted",
+          changedBy: "user-123",
           changedAt: new Date().toISOString(),
         },
       };
@@ -149,19 +149,19 @@ describe('PlacementEventListener', () => {
       expect(mockServiceLedgerService.recordConsumption).not.toHaveBeenCalled();
     });
 
-    it('should use system as createdBy when changedBy is undefined', async () => {
+    it("should use system as createdBy when changedBy is undefined", async () => {
       // Arrange
-      const applicationId = 'test-application-id';
-      const studentId = 'test-student-id';
-      const applicationType = 'direct';
+      const applicationId = "test-application-id";
+      const studentId = "test-student-id";
+      const applicationType = "direct";
       const event: IJobApplicationStatusChangedEvent = {
-        id: 'event-123',
+        id: "event-123",
         type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
         timestamp: Date.now(),
         payload: {
           applicationId,
-          previousStatus: 'mentor_assigned',
-          newStatus: 'submitted',
+          previousStatus: "mentor_assigned",
+          newStatus: "submitted",
           changedBy: undefined,
           changedAt: new Date().toISOString(),
         },
@@ -180,32 +180,33 @@ describe('PlacementEventListener', () => {
       expect(mockDatabase.query.jobApplications.findFirst).toHaveBeenCalled();
       expect(mockServiceLedgerService.recordConsumption).toHaveBeenCalledWith({
         studentId,
-        serviceType: 'job_application',
+        serviceType: "job_application",
         quantity: 1,
         relatedBookingId: applicationId,
-        createdBy: 'system',
+        bookingSource: "job_applications", // Verify bookingSource is passed [验证bookingSource已传递]
+        createdBy: "system",
       });
     });
 
-    it('should handle different application types', async () => {
+    it("should handle different application types", async () => {
       // Arrange
-      const applicationId = 'test-application-id';
-      const studentId = 'test-student-id';
-      const applicationTypes = ['direct', 'proxy', 'referral', 'bd'];
-      
+      const applicationId = "test-application-id";
+      const studentId = "test-student-id";
+      const applicationTypes = ["direct", "proxy", "referral", "bd"];
+
       for (const applicationType of applicationTypes) {
         // Clear mocks for each iteration
         jest.clearAllMocks();
-        
+
         const event: IJobApplicationStatusChangedEvent = {
           id: `event-123-${applicationType}`,
           type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
           timestamp: Date.now(),
           payload: {
             applicationId,
-            previousStatus: 'mentor_assigned',
-            newStatus: 'submitted',
-            changedBy: 'user-123',
+            previousStatus: "mentor_assigned",
+            newStatus: "submitted",
+            changedBy: "user-123",
             changedAt: new Date().toISOString(),
           },
         };
@@ -221,30 +222,33 @@ describe('PlacementEventListener', () => {
 
         // Assert
         expect(mockDatabase.query.jobApplications.findFirst).toHaveBeenCalled();
-        expect(mockServiceLedgerService.recordConsumption).toHaveBeenCalledWith({
-          studentId,
-          serviceType: 'job_application',
-          quantity: 1,
-          relatedBookingId: applicationId,
-          createdBy: 'user-123',
-        });
+        expect(mockServiceLedgerService.recordConsumption).toHaveBeenCalledWith(
+          {
+            studentId,
+            serviceType: "job_application",
+            quantity: 1,
+            relatedBookingId: applicationId,
+            bookingSource: "job_applications", // Verify bookingSource is passed [验证bookingSource已传递]
+            createdBy: "user-123",
+          },
+        );
       }
     });
 
-    it('should handle recordConsumption exception', async () => {
+    it("should handle recordConsumption exception", async () => {
       // Arrange
-      const applicationId = 'test-application-id';
-      const studentId = 'test-student-id';
-      const applicationType = 'direct';
+      const applicationId = "test-application-id";
+      const studentId = "test-student-id";
+      const applicationType = "direct";
       const event: IJobApplicationStatusChangedEvent = {
-        id: 'event-123',
+        id: "event-123",
         type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
         timestamp: Date.now(),
         payload: {
           applicationId,
-          previousStatus: 'mentor_assigned',
-          newStatus: 'submitted',
-          changedBy: 'user-123',
+          previousStatus: "mentor_assigned",
+          newStatus: "submitted",
+          changedBy: "user-123",
           changedAt: new Date().toISOString(),
         },
       };
@@ -256,31 +260,33 @@ describe('PlacementEventListener', () => {
       });
 
       // Mock exception
-      const mockError = new Error('Test error');
+      const mockError = new Error("Test error");
       mockServiceLedgerService.recordConsumption.mockRejectedValue(mockError);
 
       // Act & Assert
-      await expect(listener.handleApplicationStatusChangedEvent(event)).rejects.toThrow(mockError);
+      await expect(
+        listener.handleApplicationStatusChangedEvent(event),
+      ).rejects.toThrow(mockError);
       expect(mockDatabase.query.jobApplications.findFirst).toHaveBeenCalled();
       expect(mockServiceLedgerService.recordConsumption).toHaveBeenCalled();
     });
   });
 
-  describe('handleApplicationStatusRolledBackEvent', () => {
-    it('should record refund when status rolls back from submitted', async () => {
+  describe("handleApplicationStatusRolledBackEvent", () => {
+    it("should record refund when status rolls back from submitted", async () => {
       // Arrange
-      const applicationId = 'test-application-id';
-      const studentId = 'test-student-id';
-      const rollbackReason = 'Test rollback reason';
+      const applicationId = "test-application-id";
+      const studentId = "test-student-id";
+      const rollbackReason = "Test rollback reason";
       const event: IJobApplicationStatusRolledBackEvent = {
-        id: 'event-456',
+        id: "event-456",
         type: JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
         timestamp: Date.now(),
         payload: {
           applicationId,
-          previousStatus: 'submitted',
-          newStatus: 'mentor_assigned',
-          changedBy: 'user-123',
+          previousStatus: "submitted",
+          newStatus: "mentor_assigned",
+          changedBy: "user-123",
           changedAt: new Date().toISOString(),
           rollbackReason,
         },
@@ -299,27 +305,27 @@ describe('PlacementEventListener', () => {
 
       expect(mockServiceLedgerService.recordAdjustment).toHaveBeenCalledWith({
         studentId,
-        serviceType: 'job_application',
+        serviceType: "job_application",
         quantity: 1,
         reason: `Job application status rolled back: ${rollbackReason}`,
-        createdBy: 'user-123',
+        createdBy: "user-123",
       });
     });
 
-    it('should not record refund when status does not roll back from submitted', async () => {
+    it("should not record refund when status does not roll back from submitted", async () => {
       // Arrange
-      const applicationId = 'test-application-id';
-      const studentId = 'test-student-id';
-      const rollbackReason = 'Test rollback reason';
+      const applicationId = "test-application-id";
+      const studentId = "test-student-id";
+      const rollbackReason = "Test rollback reason";
       const event: IJobApplicationStatusRolledBackEvent = {
-        id: 'event-456',
+        id: "event-456",
         type: JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
         timestamp: Date.now(),
         payload: {
           applicationId,
-          previousStatus: 'interviewed',
-          newStatus: 'submitted',
-          changedBy: 'user-123',
+          previousStatus: "interviewed",
+          newStatus: "submitted",
+          changedBy: "user-123",
           changedAt: new Date().toISOString(),
           rollbackReason,
         },
@@ -338,19 +344,19 @@ describe('PlacementEventListener', () => {
       expect(mockServiceLedgerService.recordAdjustment).not.toHaveBeenCalled();
     });
 
-    it('should return early if job application not found', async () => {
+    it("should return early if job application not found", async () => {
       // Arrange
-      const applicationId = 'test-application-id';
-      const rollbackReason = 'Test rollback reason';
+      const applicationId = "test-application-id";
+      const rollbackReason = "Test rollback reason";
       const event: IJobApplicationStatusRolledBackEvent = {
-        id: 'event-456',
+        id: "event-456",
         type: JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
         timestamp: Date.now(),
         payload: {
           applicationId,
-          previousStatus: 'submitted',
-          newStatus: 'mentor_assigned',
-          changedBy: 'user-123',
+          previousStatus: "submitted",
+          newStatus: "mentor_assigned",
+          changedBy: "user-123",
           changedAt: new Date().toISOString(),
           rollbackReason,
         },
@@ -367,19 +373,19 @@ describe('PlacementEventListener', () => {
       expect(mockServiceLedgerService.recordAdjustment).not.toHaveBeenCalled();
     });
 
-    it('should use system as createdBy when changedBy is undefined', async () => {
+    it("should use system as createdBy when changedBy is undefined", async () => {
       // Arrange
-      const applicationId = 'test-application-id';
-      const studentId = 'test-student-id';
-      const rollbackReason = 'Test rollback reason';
+      const applicationId = "test-application-id";
+      const studentId = "test-student-id";
+      const rollbackReason = "Test rollback reason";
       const event: IJobApplicationStatusRolledBackEvent = {
-        id: 'event-456',
+        id: "event-456",
         type: JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
         timestamp: Date.now(),
         payload: {
           applicationId,
-          previousStatus: 'submitted',
-          newStatus: 'mentor_assigned',
+          previousStatus: "submitted",
+          newStatus: "mentor_assigned",
           changedBy: undefined,
           changedAt: new Date().toISOString(),
           rollbackReason,
@@ -399,27 +405,27 @@ describe('PlacementEventListener', () => {
 
       expect(mockServiceLedgerService.recordAdjustment).toHaveBeenCalledWith({
         studentId,
-        serviceType: 'job_application',
+        serviceType: "job_application",
         quantity: 1,
         reason: `Job application status rolled back: ${rollbackReason}`,
-        createdBy: 'system',
+        createdBy: "system",
       });
     });
 
-    it('should handle recordAdjustment exception', async () => {
+    it("should handle recordAdjustment exception", async () => {
       // Arrange
-      const applicationId = 'test-application-id';
-      const studentId = 'test-student-id';
-      const rollbackReason = 'Test rollback reason';
+      const applicationId = "test-application-id";
+      const studentId = "test-student-id";
+      const rollbackReason = "Test rollback reason";
       const event: IJobApplicationStatusRolledBackEvent = {
-        id: 'event-456',
+        id: "event-456",
         type: JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
         timestamp: Date.now(),
         payload: {
           applicationId,
-          previousStatus: 'submitted',
-          newStatus: 'mentor_assigned',
-          changedBy: 'user-123',
+          previousStatus: "submitted",
+          newStatus: "mentor_assigned",
+          changedBy: "user-123",
           changedAt: new Date().toISOString(),
           rollbackReason,
         },
@@ -431,43 +437,45 @@ describe('PlacementEventListener', () => {
       });
 
       // Mock exception
-      const mockError = new Error('Test error');
+      const mockError = new Error("Test error");
       mockServiceLedgerService.recordAdjustment.mockRejectedValue(mockError);
 
       // Act & Assert
-      await expect(listener.handleApplicationStatusRolledBackEvent(event)).rejects.toThrow(mockError);
+      await expect(
+        listener.handleApplicationStatusRolledBackEvent(event),
+      ).rejects.toThrow(mockError);
       expect(mockDatabase.query.jobApplications.findFirst).toHaveBeenCalled();
       expect(mockServiceLedgerService.recordAdjustment).toHaveBeenCalled();
     });
 
-    it('should handle different rollback reasons', async () => {
+    it("should handle different rollback reasons", async () => {
       // Arrange
-      const applicationId = 'test-application-id';
-      const studentId = 'test-student-id';
+      const applicationId = "test-application-id";
+      const studentId = "test-student-id";
       const rollbackReasons = [
-        'Application withdrawn by student',
-        'Incorrect application details',
-        'Position no longer available',
-        'Student decided to pursue other opportunities',
+        "Application withdrawn by student",
+        "Incorrect application details",
+        "Position no longer available",
+        "Student decided to pursue other opportunities",
       ];
-      
+
       for (const rollbackReason of rollbackReasons) {
         // Clear all mocks for each iteration
         jest.clearAllMocks();
-        
+
         // Reset mock implementations
         mockServiceLedgerService.recordAdjustment = jest.fn();
         mockDatabase.query.jobApplications.findFirst = jest.fn();
-        
+
         const event: IJobApplicationStatusRolledBackEvent = {
           id: `event-456-${rollbackReason.slice(0, 10)}`,
           type: JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
           timestamp: Date.now(),
           payload: {
             applicationId,
-            previousStatus: 'submitted',
-            newStatus: 'mentor_assigned',
-            changedBy: 'user-123',
+            previousStatus: "submitted",
+            newStatus: "mentor_assigned",
+            changedBy: "user-123",
             changedAt: new Date().toISOString(),
             rollbackReason,
           },
@@ -485,10 +493,10 @@ describe('PlacementEventListener', () => {
         expect(mockDatabase.query.jobApplications.findFirst).toHaveBeenCalled();
         expect(mockServiceLedgerService.recordAdjustment).toHaveBeenCalledWith({
           studentId,
-          serviceType: 'job_application',
+          serviceType: "job_application",
           quantity: 1,
           reason: `Job application status rolled back: ${rollbackReason}`,
-          createdBy: 'user-123',
+          createdBy: "user-123",
         });
       }
     });

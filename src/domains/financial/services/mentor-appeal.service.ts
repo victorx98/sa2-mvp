@@ -135,7 +135,10 @@ export class MentorAppealService implements IMentorAppealService {
   ): Promise<IMentorAppeal | null> {
     // Use ID if provided, otherwise convert conditions to where clause
     // This is a simplified implementation
-    const whereClause = "id" in conditions ? eq(schema.mentorAppeals.id, conditions.id) : undefined;
+    const whereClause =
+      "id" in conditions
+        ? eq(schema.mentorAppeals.id, conditions.id)
+        : undefined;
 
     if (!whereClause) {
       throw new BadRequestException("ID is required for findOne operation");
@@ -195,16 +198,16 @@ export class MentorAppealService implements IMentorAppealService {
     if (filter.status) {
       whereConditions.push(eq(schema.mentorAppeals.status, filter.status));
     }
-    
+
     // Add amount range filters
     if (filter.minAmount) {
       whereConditions.push(
-        gte(schema.mentorAppeals.appealAmount, filter.minAmount)
+        gte(schema.mentorAppeals.appealAmount, filter.minAmount),
       );
     }
     if (filter.maxAmount) {
       whereConditions.push(
-        lte(schema.mentorAppeals.appealAmount, filter.maxAmount)
+        lte(schema.mentorAppeals.appealAmount, filter.maxAmount),
       );
     }
 
@@ -224,9 +227,9 @@ export class MentorAppealService implements IMentorAppealService {
       limit: pageSize,
       offset,
       orderBy: sort
-        ? (sort.direction === "asc"
-            ? schema.mentorAppeals[sort.field]
-            : schema.mentorAppeals[sort.field])
+        ? sort.direction === "asc"
+          ? schema.mentorAppeals[sort.field]
+          : schema.mentorAppeals[sort.field]
         : undefined,
     });
 

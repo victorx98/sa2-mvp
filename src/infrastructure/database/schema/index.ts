@@ -24,6 +24,7 @@ export * from "./product-items.schema";
 
 // Contract domain
 export * from "./contracts.schema";
+export * from "./contract-status-history.schema";
 export * from "./contract-service-entitlements.schema";
 export * from "./contract-amendment-ledgers.schema";
 export * from "./service-holds.schema";

@@ -1,10 +1,4 @@
-import {
-  pgTable,
-  uuid,
-  varchar,
-  jsonb,
-  timestamp,
-} from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, jsonb, timestamp } from "drizzle-orm/pg-core";
 
 /**
  * Mentor Payment Infos Table (导师支付信息表)
@@ -79,12 +73,16 @@ export const mentorPaymentInfos = pgTable("mentor_payment_infos", {
   /**
    * Created At (创建时间)
    */
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 
   /**
    * Updated At (更新时间)
    */
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 
   /**
    * Created By (创建人)
