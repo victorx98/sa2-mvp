@@ -6,7 +6,6 @@ import { UpdateMeetingDto } from "../dto/update-meeting.dto";
 import { MeetingInfoDto } from "../dto/meeting-info.dto";
 import { MeetingStatus } from "../entities/meeting.entity";
 import {
-  DuplicateMeetingException,
   InvalidMeetingStateException,
 } from "../exceptions/meeting.exception";
 import type { Meeting } from "@infrastructure/database/schema/meetings.schema";
@@ -35,8 +34,9 @@ export class MeetingManagerService {
    *
    * Flow:
    * 1. Call provider to create meeting on third-party platform (Feishu/Zoom)
-   * 2. Deduplication check (7-day window)
-   * 3. Store meeting in database (within transaction if provided)
+   * 2. Store meeting in database (within transaction if provided)
+   *
+   * Note: No deduplication needed since meetingId (reserve.id) is globally unique
    *
    * @param dto - Create meeting DTO
    * @param tx - Optional transaction context (for Application Layer orchestration)
@@ -48,11 +48,7 @@ export class MeetingManagerService {
     const startTime = new Date(dto.startTime);
     const provider = dto.provider || this.providerFactory.getDefaultProviderType();
 
-    // Step 1: Deduplication check
-    // We check if a meeting with same meeting_no exists within 7-day window
-    // Note: meeting_no is only known after creation, so this is done after provider call
-
-    // Step 2: Call provider to create meeting
+    // Step 1: Call provider to create meeting
     const providerInstance = this.providerFactory.getProvider(provider);
 
     const meetingInfo = await providerInstance.createMeeting({
@@ -69,35 +65,8 @@ export class MeetingManagerService {
       `Meeting created on ${provider}: ${meetingInfo.meetingId} (${meetingInfo.meetingNo})`,
     );
 
-    // Step 2.5: Now check for duplicates using meeting_no
-    if (meetingInfo.meetingNo) {
-      const isDuplicate = await this.meetingRepo.existsWithinTimeWindow(
-        meetingInfo.meetingNo,
-        startTime,
-        provider,
-      );
-
-      if (isDuplicate) {
-        // Attempt to cancel the just-created meeting
-        try {
-          await providerInstance.cancelMeeting(meetingInfo.meetingId);
-          this.logger.warn(
-            `Cancelled duplicate meeting ${meetingInfo.meetingNo}`,
-          );
-        } catch (error) {
-          this.logger.error(
-            `Failed to cancel duplicate meeting: ${error instanceof Error ? error.message : String(error)}`,
-          );
-        }
-
-        throw new DuplicateMeetingException(
-          meetingInfo.meetingNo,
-          "within 7 days",
-        );
-      }
-    }
-
-    // Step 3: Store in database (use transaction if provided)
+    // Step 2: Store in database (use transaction if provided)
+    // meetingId is globally unique, no deduplication check needed
     const meeting = await this.meetingRepo.create({
       meetingNo: meetingInfo.meetingNo || "",
       meetingProvider: provider,

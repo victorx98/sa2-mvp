@@ -1,21 +1,22 @@
+import { IsOptional, IsString, IsDateString, IsUUID } from 'class-validator';
+
+/**
+ * DTO for updating a class session
+ */
 export class UpdateClassSessionDto {
+  @IsOptional()
+  @IsString()
   title?: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
-  scheduledAt?: Date;
+
+  @IsOptional()
+  @IsDateString()
+  scheduledAt?: string;
+
+  @IsOptional()
+  @IsUUID()
   mentorUserId?: string;
-
-  constructor(data: Partial<UpdateClassSessionDto>) {
-    Object.assign(this, data);
-  }
-
-  validate(): void {
-    if (this.title !== undefined && (!this.title || this.title.trim().length === 0)) {
-      throw new Error('Title cannot be empty');
-    }
-
-    if (this.scheduledAt !== undefined && !this.scheduledAt) {
-      throw new Error('Invalid scheduled at date');
-    }
-  }
 }
-

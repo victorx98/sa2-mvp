@@ -20,6 +20,11 @@ export type {
 export type { SessionBookedEvent } from "./session-booked.event";
 export type { SessionCreatedEvent } from "./session-created.event";
 
+// Session type-specific created events (v2.0)
+export type { RegularMentoringSessionCreatedEvent } from "./regular-mentoring-session-created.event";
+export type { GapAnalysisSessionCreatedEvent } from "./gap-analysis-session-created.event";
+export type { AiCareerSessionCreatedEvent } from "./ai-career-session-created.event";
+
 // Meeting Events (v4.1)
 export type {
   MeetingLifecycleCompletedPayload,

@@ -5,6 +5,7 @@ import { USER_SERVICE } from "./user-interface";
 import { StudentProfileService } from "@domains/identity/student/student-profile.service";
 import { MentorProfileService } from "@domains/identity/mentor/mentor-profile.service";
 import { CounselorProfileService } from "@domains/identity/counselor/counselor-profile.service";
+import { StudentCounselorService } from "@domains/identity/student/student-counselor.service";
 
 /**
  * User Domain Module
@@ -42,6 +43,8 @@ import { CounselorProfileService } from "@domains/identity/counselor/counselor-p
     StudentProfileService,
     MentorProfileService,
     CounselorProfileService,
+    // Student-Counselor Relationship Service
+    StudentCounselorService,
   ],
   exports: [
     // Export UserService for use in other modules
@@ -51,6 +54,8 @@ import { CounselorProfileService } from "@domains/identity/counselor/counselor-p
     StudentProfileService,
     MentorProfileService,
     CounselorProfileService,
+    // Export StudentCounselorService for use in other modules
+    StudentCounselorService,
   ],
 })
 export class UserModule {}

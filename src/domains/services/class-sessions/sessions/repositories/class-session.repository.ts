@@ -1,6 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { eq, and, desc, ne } from 'drizzle-orm';
-import type { DrizzleDatabase } from '@shared/types/database.types';
+import type { DrizzleDatabase, DrizzleTransaction } from '@shared/types/database.types';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import { classSessions } from '@infrastructure/database/schema';
 import { ClassSessionEntity, ClassSessionStatus } from '../entities/class-session.entity';
@@ -113,7 +113,11 @@ export class ClassSessionRepository {
     return results.map((row) => this.mapToEntity(row));
   }
 
-  async update(id: string, entity: Partial<ClassSessionEntity>): Promise<ClassSessionEntity> {
+  async update(
+    id: string,
+    entity: Partial<ClassSessionEntity>,
+    tx?: DrizzleTransaction,
+  ): Promise<ClassSessionEntity> {
     const updates: any = { updatedAt: new Date() };
 
     if (entity.title !== undefined) updates.title = entity.title;
@@ -124,8 +128,10 @@ export class ClassSessionRepository {
     if (entity.completedAt !== undefined) updates.completedAt = entity.completedAt;
     if (entity.cancelledAt !== undefined) updates.cancelledAt = entity.cancelledAt;
     if (entity.deletedAt !== undefined) updates.deletedAt = entity.deletedAt;
+    if (entity.meetingId !== undefined) updates.meeting_id = entity.meetingId;
 
-    const [result] = await this.db
+    const db = tx || this.db;
+    const [result] = await db
       .update(classSessions)
       .set(updates)
       .where(eq(classSessions.id, id as any))

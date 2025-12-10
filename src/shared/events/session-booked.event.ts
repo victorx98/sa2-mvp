@@ -19,5 +19,5 @@ export interface SessionBookedEvent {
   duration: number;
   meetingProvider?: string;
   meetingPassword?: string;
-  meetingUrl?: string;
+  meetingUrl: string; // Must have a value when event is published (after async meeting creation completes)
 }

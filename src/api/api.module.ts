@@ -5,10 +5,16 @@ import { SessionController } from "./controllers/session.controller";
 import { CounselorSessionsController } from "./controllers/counselor/counselor-sessions.controller";
 import { CounselorStudentContractController } from "./controllers/counselor/counselor-student-contract.controller";
 import { CounselorsController } from "./controllers/counselor/counselors.controller";
+import { RegularMentoringController } from "./controllers/services/regular-mentoring.controller";
+import { GapAnalysisController } from "./controllers/services/gap-analysis.controller";
+import { AiCareerController } from "./controllers/services/ai-career.controller";
+import { CommSessionController } from "./controllers/services/comm-session.controller";
 import { MentorsController } from "./controllers/mentor/mentors.controller";
+import { MentorSessionsController } from "./controllers/mentor/mentor-sessions.controller";
 import { ReferenceDataController } from "./controllers/reference-data.controller";
 import { StudentsController } from "./controllers/student/students.controller";
 import { StudentProfileController } from "./controllers/student/student-profile.controller";
+import { StudentSessionsController } from "./controllers/student/student-sessions.controller";
 import { MentorProfileController } from "./controllers/mentor/mentor-profile.controller";
 import { CounselorProfileController } from "./controllers/counselor/counselor-profile.controller";
 import { ApplicationModule } from "@application/application.module";
@@ -40,14 +46,19 @@ import { WebhookModule } from "@core/webhook/webhook.module";
     CounselorStudentContractController,
     CounselorProfileController,
     CounselorsController,
-
+    RegularMentoringController,
+    GapAnalysisController,
+    AiCareerController,
+    CommSessionController,
     // Mentor Controllers
     MentorsController,
     MentorProfileController,
+    MentorSessionsController,
 
     // Student Controllers
     StudentsController,
     StudentProfileController,
+    StudentSessionsController,
   ],
 })
 export class ApiModule {}
