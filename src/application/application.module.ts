@@ -39,6 +39,7 @@ import { CommSessionCreatedEventHandler } from "./commands/services/comm-session
 import { ClassService } from "./commands/services/class.service";
 import { ClassSessionService } from "./commands/services/class-session.service";
 import { ClassSessionCreatedEventHandler } from "./commands/services/class-session-event.handler";
+import { SessionOrchestratorService } from "./commands/services/session-orchestrator.service";
 
 // Application Layer - Commands (兼容层)
 import { AuthCommandService } from "./commands/auth-command/auth-command.service";
@@ -102,6 +103,7 @@ import { QueryModule } from "@domains/query/query.module";
     CommSessionService,
     ClassService,
     ClassSessionService,
+    SessionOrchestratorService,
 
     // Event Handlers
     RegularMentoringCreatedEventHandler,
@@ -151,6 +153,7 @@ import { QueryModule } from "@domains/query/query.module";
     CommSessionService,
     ClassService,
     ClassSessionService,
+    SessionOrchestratorService,
 
     // Event Handlers
     RegularMentoringCreatedEventHandler,

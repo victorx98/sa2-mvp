@@ -13,6 +13,9 @@ export const SESSION_CREATED_EVENT = "session.created"; // Legacy - 遗留事件
 // Session Type-specific Created Events (会话类型特定创建事件 - v2.0)
 export const REGULAR_MENTORING_SESSION_CREATED_EVENT = "regular_mentoring.session.created";
 export const REGULAR_MENTORING_SESSION_UPDATED_EVENT = "regular_mentoring.session.updated";
+export const REGULAR_MENTORING_SESSION_CANCELLED_EVENT = "regular_mentoring.session.cancelled";
+export const REGULAR_MENTORING_SESSION_CANCEL_SUCCESS_EVENT = "regular_mentoring.session.cancel.success";
+export const REGULAR_MENTORING_SESSION_CANCEL_FAILED_EVENT = "regular_mentoring.session.cancel.failed";
 export const SESSION_RESCHEDULED_COMPLETED = "session.rescheduled.completed";
 export const GAP_ANALYSIS_SESSION_CREATED_EVENT = "gap_analysis.session.created";
 export const GAP_ANALYSIS_SESSION_UPDATED_EVENT = "gap_analysis.session.updated";
