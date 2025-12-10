@@ -23,6 +23,7 @@ import { RegularMentoringController } from "./controllers/services/regular-mento
 import { GapAnalysisController } from "./controllers/services/gap-analysis.controller";
 import { AiCareerController } from "./controllers/services/ai-career.controller";
 import { CommSessionController } from "./controllers/services/comm-session.controller";
+import { SessionController as UnifiedSessionController } from "./controllers/services/session.controller";
 
 /**
  * API Layer - Root Module
@@ -52,9 +53,12 @@ import { CommSessionController } from "./controllers/services/comm-session.contr
     CounselorStudentContractController,
     CounselorProfileController,
     CounselorsController,
-    RegularMentoringController,
-    GapAnalysisController,
-    AiCareerController,
+    
+    // Service Controllers (Unified + Legacy)
+    UnifiedSessionController, // New unified API endpoint
+    RegularMentoringController, // Legacy - kept for backward compatibility
+    GapAnalysisController, // Legacy - kept for backward compatibility
+    AiCareerController, // Legacy - kept for backward compatibility
     CommSessionController,
     // Mentor Controllers
     MentorsController,
