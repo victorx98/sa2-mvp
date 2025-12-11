@@ -6,6 +6,7 @@ import { MentorPaymentInfoService } from "./services/mentor-payment-info.service
 import { MentorPaymentParamService } from "./services/mentor-payment-param.service";
 import { MentorAppealService } from "./services/mentor-appeal.service";
 import { MentorPriceService } from "./services/mentor-price.service";
+import { ClassMentorPriceService } from "./services/class-mentor-price.service";
 import { ServiceSessionCompletedListener } from "./events/listeners/service-session-completed-listener";
 import { SettlementConfirmedListener } from "./events/listeners/settlement-confirmed.listener";
 import { PlacementApplicationStatusChangedListener } from "./events/listeners/placement-application-status-changed.listener";
@@ -21,6 +22,7 @@ import { PlacementApplicationStatusRolledBackListener } from "./events/listeners
  * - Payment information management(支付信息管理)
  * - Payment parameter management(支付参数管理)
  * - Mentor appeal management(导师申诉管理)
+ * - Class mentor price management(班级导师价格管理)
  * - Financial event handling(财务事件处理)
  *
  * Design Patterns(设计模式):
@@ -38,6 +40,7 @@ import { PlacementApplicationStatusRolledBackListener } from "./events/listeners
     MentorPaymentParamService,
     MentorAppealService,
     MentorPriceService,
+    ClassMentorPriceService,
     {
       provide: "IMentorPayableService",
       useClass: MentorPayableService,
@@ -62,6 +65,10 @@ import { PlacementApplicationStatusRolledBackListener } from "./events/listeners
       provide: "IMentorPriceService",
       useClass: MentorPriceService,
     },
+    {
+      provide: "IClassMentorPriceService",
+      useClass: ClassMentorPriceService,
+    },
     // Event listeners
     ServiceSessionCompletedListener,
     SettlementConfirmedListener,
@@ -76,6 +83,7 @@ import { PlacementApplicationStatusRolledBackListener } from "./events/listeners
     "IMentorPaymentParamService",
     "IMentorAppealService",
     "IMentorPriceService",
+    "IClassMentorPriceService",
     // Export concrete service classes for direct injection in commands/queries
     MentorPayableService,
     SettlementService,
@@ -83,6 +91,7 @@ import { PlacementApplicationStatusRolledBackListener } from "./events/listeners
     MentorPaymentParamService,
     MentorAppealService,
     MentorPriceService,
+    ClassMentorPriceService,
   ],
 })
 export class FinancialModule {}

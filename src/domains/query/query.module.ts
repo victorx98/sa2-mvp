@@ -11,6 +11,7 @@ import { AiCareerQueryService } from "./services/ai-career-query.service";
 import { CommSessionQueryService } from "./services/comm-session-query.service";
 import { ClassSessionQueryService } from "./services/class-session-query.service";
 import { ClassQueryService } from "./services/class-query.service";
+import { ClassMentorPriceQueryService } from "./financial/class-mentor-price-query.service";
 import { RegularMentoringModule } from "@domains/services/sessions/regular-mentoring/regular-mentoring.module";
 import { GapAnalysisModule } from "@domains/services/sessions/gap-analysis/gap-analysis.module";
 import { AiCareerModule } from "@domains/services/sessions/ai-career/ai-career.module";
@@ -39,6 +40,7 @@ import { ClassModule } from "@domains/services/class/class.module";
     CounselorQueryService,
     SchoolQueryService,
     MajorQueryService,
+    ClassMentorPriceQueryService,
     RegularMentoringQueryService,
     GapAnalysisQueryService,
     AiCareerQueryService,
@@ -52,6 +54,7 @@ import { ClassModule } from "@domains/services/class/class.module";
     CounselorQueryService,
     SchoolQueryService,
     MajorQueryService,
+    ClassMentorPriceQueryService,
     RegularMentoringQueryService,
     GapAnalysisQueryService,
     AiCareerQueryService,

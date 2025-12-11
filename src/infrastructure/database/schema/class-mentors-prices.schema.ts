@@ -1,5 +1,6 @@
-import { pgTable, uuid, integer, timestamp, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, integer, timestamp, uniqueIndex, index, varchar } from 'drizzle-orm/pg-core';
 import { classes } from './classes.schema';
+import { ClassMentorPriceStatus } from '@shared/types/financial-enums';
 
 export const classMentorsPrices = pgTable(
   'class_mentors_prices',
@@ -10,13 +11,15 @@ export const classMentorsPrices = pgTable(
       .references(() => classes.id, { onDelete: 'cascade' }),
     mentorUserId: uuid('mentor_user_id').notNull(),
     pricePerSession: integer('price_per_session').notNull(),
+    status: varchar('status', { length: 20 }).notNull().default(ClassMentorPriceStatus.ACTIVE),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => [
     index('idx_class_mentors_class').on(table.classId),
     index('idx_class_mentors_mentor').on(table.mentorUserId),
-    uniqueIndex('unique_class_mentor').on(table.classId, table.mentorUserId),
+    index('idx_class_mentors_status').on(table.status),
+    uniqueIndex('unique_class_mentor').on(table.classId, table.mentorUserId, table.status),
   ],
 );
 

@@ -9,7 +9,7 @@ import { IsString, IsNotEmpty, IsNumber, IsOptional } from "class-validator";
 export class CreateMentorPriceDto {
   @IsString()
   @IsNotEmpty()
-  mentorId: string; // Mentor ID[导师ID] (varchar(32) in schema)
+  mentorUserId: string; // Mentor user ID[导师用户ID] (uuid in schema)
 
   @IsString()
   @IsNotEmpty()

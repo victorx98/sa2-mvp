@@ -71,7 +71,7 @@ export class MentorPayableService {
 
       // Get mentor price using sessionTypeCode
       const mentorPrice = await this.mentorPriceService.getMentorPrice(
-        mentorId,
+        mentorId, // Note: mentorId in payload should be mentorUserId
         sessionTypeCode,
       );
 
@@ -150,15 +150,15 @@ export class MentorPayableService {
    *
    * Proxy method to MentorPriceService
    *
-   * @param mentorId - Mentor ID
+   * @param mentorUserId - Mentor user ID
    * @param sessionTypeCode - Session type code
    * @returns Mentor price or null
    */
   public async getMentorPrice(
-    mentorId: string,
+    mentorUserId: string,
     sessionTypeCode: string,
   ): Promise<typeof schema.mentorPrices.$inferSelect | null> {
-    return this.mentorPriceService.getMentorPrice(mentorId, sessionTypeCode);
+    return this.mentorPriceService.getMentorPrice(mentorUserId, sessionTypeCode);
   }
 
   /**

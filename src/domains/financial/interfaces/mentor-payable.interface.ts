@@ -211,7 +211,7 @@ export interface IMentorPayableService {
    * @returns 导师价格或null
    */
   getMentorPrice(
-    mentorId: string,
+    mentorUserId: string,
     serviceTypeCode: string,
   ): Promise<IMentorPrice | null>;
 
