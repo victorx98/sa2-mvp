@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { RegularMentoringQueryService as DomainQueryService } from '@domains/services/sessions/regular-mentoring/services/regular-mentoring-query.service';
+import { RegularMentoringQueryService as DomainQueryService } from '@domains/query/services/regular-mentoring-query.service';
 
 /**
  * Application Layer - Regular Mentoring Query Service

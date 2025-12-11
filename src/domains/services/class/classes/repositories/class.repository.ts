@@ -102,7 +102,7 @@ export class ClassRepository {
       .values({
         classId: classId,
         mentorUserId: mentorId,
-        pricePerSession: pricePerSession.toString(),
+        pricePerSession: pricePerSession,
         createdAt: new Date(),
         updatedAt: new Date(),
       } as any)
@@ -126,7 +126,7 @@ export class ClassRepository {
     await this.db
       .update(classMentorsPrices)
       .set({
-        pricePerSession: pricePerSession.toString(),
+        pricePerSession: pricePerSession,
         updatedAt: new Date(),
       })
       .where(
@@ -224,12 +224,12 @@ export class ClassRepository {
       name: row.name,
       type: row.type,
       status: row.status,
-      startDate: row.start_date,
-      endDate: row.end_date,
+      startDate: row.startDate || row.start_date,
+      endDate: row.endDate || row.end_date,
       description: row.description,
-      totalSessions: row.total_sessions,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      totalSessions: row.totalSessions || row.total_sessions,
+      createdAt: row.createdAt || row.created_at,
+      updatedAt: row.updatedAt || row.updated_at,
     });
   }
 
@@ -238,7 +238,7 @@ export class ClassRepository {
       id: row.id,
       classId: row.class_id,
       mentorUserId: row.mentor_user_id,
-      pricePerSession: parseFloat(row.price_per_session),
+      pricePerSession: parseInt(row.price_per_session, 10),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     });

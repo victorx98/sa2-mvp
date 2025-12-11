@@ -4,7 +4,6 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 
 // Comm Sessions Module
 import { CommSessionService } from './services/comm-session.service';
-import { CommSessionQueryService } from './services/comm-session-query.service';
 import { CommSessionRepository } from './repositories/comm-session.repository';
 import { CommSessionEventListener } from './listeners/comm-session-event.listener';
 
@@ -21,11 +20,10 @@ import { CommSessionEventListener } from './listeners/comm-session-event.listene
   imports: [DatabaseModule, EventEmitterModule],
   providers: [
     CommSessionService,
-    CommSessionQueryService,
     CommSessionRepository,
     CommSessionEventListener,
   ],
-  exports: [CommSessionService, CommSessionQueryService, CommSessionRepository],
+  exports: [CommSessionService, CommSessionRepository],
 })
 export class CommSessionsModule {}
 

@@ -1,4 +1,5 @@
-import { pgTable, uuid, varchar, text, timestamp, jsonb, uniqueIndex, index, foreignKey } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, jsonb, uniqueIndex, index, foreignKey, check } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { classes } from './classes.schema';
 import { classMentorsPrices } from './class-mentors-prices.schema';
 
@@ -33,6 +34,9 @@ export const classSessions = pgTable(
       columns: [table.classId, table.mentorUserId],
       foreignColumns: [classMentorsPrices.classId, classMentorsPrices.mentorUserId],
     }),
+    check('class_sessions_status_check', 
+      sql`status IN ('pending_meeting', 'scheduled', 'completed', 'cancelled', 'deleted', 'meeting_failed')`
+    ),
   ],
 );
 

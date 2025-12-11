@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ClassQueryService as DomainClassQueryService } from '@domains/services/class-sessions/classes/services/class-query.service';
-import { ClassStatus, ClassType } from '@domains/services/class-sessions/classes/entities/class.entity';
+import { ClassQueryService as DomainClassQueryService } from '@domains/services/class/classes/services/class-query.service';
+import { ClassStatus, ClassType } from '@domains/services/class/classes/entities/class.entity';
 
 /**
  * Application Layer - Class Query Service

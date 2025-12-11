@@ -10,7 +10,7 @@ import {
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase } from '@shared/types/database.types';
 import { FEISHU_DEFAULT_HOST_USER_ID } from 'src/constants';
-import { ClassSessionService } from '@domains/services/class-sessions/sessions/services/class-session.service';
+import { ClassSessionService } from '@domains/services/class/class-sessions/services/class-session.service';
 
 /**
  * Class Session Created Event Handler

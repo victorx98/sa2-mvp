@@ -5,8 +5,8 @@ import type {
   DrizzleTransaction,
 } from '@shared/types/database.types';
 import { Trace, addSpanAttributes, addSpanEvent } from '@shared/decorators/trace.decorator';
-import { ClassService as DomainClassService } from '@domains/services/class-sessions/classes/services/class.service';
-import { ClassStatus, ClassType } from '@domains/services/class-sessions/classes/entities/class.entity';
+import { ClassService as DomainClassService } from '@domains/services/class/classes/services/class.service';
+import { ClassStatus, ClassType } from '@domains/services/class/classes/entities/class.entity';
 
 // DTOs
 export interface CreateClassDto {
