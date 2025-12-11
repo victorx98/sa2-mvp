@@ -24,6 +24,8 @@ import { GapAnalysisController } from "./controllers/services/gap-analysis.contr
 import { AiCareerController } from "./controllers/services/ai-career.controller";
 import { CommSessionController } from "./controllers/services/comm-session.controller";
 import { SessionController as UnifiedSessionController } from "./controllers/services/session.controller";
+import { ClassController } from "./controllers/services/class.controller";
+import { ClassSessionController } from "./controllers/services/class-session.controller";
 
 /**
  * API Layer - Root Module
@@ -60,6 +62,8 @@ import { SessionController as UnifiedSessionController } from "./controllers/ser
     GapAnalysisController, // Legacy - kept for backward compatibility
     AiCareerController, // Legacy - kept for backward compatibility
     CommSessionController,
+    ClassController, // Class management
+    ClassSessionController, // Class session management
     // Mentor Controllers
     MentorsController,
     MentorProfileController,

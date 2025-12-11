@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { SessionsModule } from './sessions/sessions.module';
 import { SessionTypesModule } from './session-types/session-types.module';
 import { ServiceRegistryModule } from './service-registry/service-registry.module';
-import { ClassSessionsModule } from './class-sessions/class-sessions.module';
+import { ClassModule } from './class/class.module';
 import { CommSessionsModule } from './comm-sessions/comm-sessions.module';
 
 /**
@@ -15,14 +15,14 @@ import { CommSessionsModule } from './comm-sessions/comm-sessions.module';
     SessionsModule,
     SessionTypesModule,
     ServiceRegistryModule,
-    ClassSessionsModule,
+    ClassModule,
     CommSessionsModule,
   ],
   exports: [
     SessionsModule,
     SessionTypesModule,
     ServiceRegistryModule,
-    ClassSessionsModule,
+    ClassModule,
     CommSessionsModule,
   ],
 })

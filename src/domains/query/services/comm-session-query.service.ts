@@ -1,18 +1,19 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
-import { CommSessionRepository } from '../repositories/comm-session.repository';
-import { CommSessionEntity, CommSessionStatus } from '../entities/comm-session.entity';
+import { CommSessionRepository } from '@domains/services/comm-sessions/repositories/comm-session.repository';
+import { CommSessionEntity, CommSessionStatus } from '@domains/services/comm-sessions/entities/comm-session.entity';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import { commSessions } from '@infrastructure/database/schema/comm-sessions.schema';
 import { meetings } from '@infrastructure/database/schema/meetings.schema';
 import type { DrizzleDatabase } from '@shared/types/database.types';
-import { CommSessionNotFoundException } from '../exceptions/comm-session-not-found.exception';
+import { CommSessionNotFoundException } from '@domains/services/comm-sessions/exceptions/comm-session-not-found.exception';
 
 /**
- * Comm Session Query Service
+ * Comm Session Query Service (CQRS - Query)
  *
- * Single-module query service for comm_sessions table
- * Provides query operations with built-in filtering
+ * Cross-domain Read Model aggregation layer
+ * Handles read operations for comm sessions with joins across domains
+ * Joins: comm_sessions + meetings + user (for mentor/student names)
  */
 @Injectable()
 export class CommSessionQueryService {

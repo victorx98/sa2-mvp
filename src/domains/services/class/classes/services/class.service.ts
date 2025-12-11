@@ -185,5 +185,13 @@ export class ClassService {
     this.logger.log(`Getting class by ID: ${id}`);
     return this.classRepository.findByIdOrThrow(id);
   }
+
+  /**
+   * Check if mentor is assigned to class
+   */
+  async hasMentor(classId: string, mentorId: string): Promise<boolean> {
+    this.logger.log(`Checking if mentor ${mentorId} is in class ${classId}`);
+    return this.classRepository.hasMentor(classId, mentorId);
+  }
 }
 

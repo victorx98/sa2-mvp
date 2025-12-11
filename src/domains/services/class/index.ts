@@ -10,13 +10,13 @@ export { UpdateClassDto } from './classes/dto/update-class.dto';
 export { ClassRepository } from './classes/repositories/class.repository';
 
 // Class Sessions
-export { ClassSessionEntity, ClassSessionStatus, SessionType } from './sessions/entities/class-session.entity';
-export { ClassSessionService } from './sessions/services/class-session.service';
-export { ClassSessionQueryService, type SessionFiltersDto } from './sessions/services/class-session-query.service';
-export { CreateClassSessionDto } from './sessions/dto/create-class-session.dto';
-export { UpdateClassSessionDto } from './sessions/dto/update-class-session.dto';
-export { ClassSessionRepository } from './sessions/repositories/class-session.repository';
-export { ClassSessionEventListener } from './sessions/listeners/class-session-event.listener';
+export { ClassSessionEntity, ClassSessionStatus, SessionType } from './class-sessions/entities/class-session.entity';
+export { ClassSessionService } from './class-sessions/services/class-session.service';
+
+export { CreateClassSessionDto } from './class-sessions/dto/create-class-session.dto';
+export { UpdateClassSessionDto } from './class-sessions/dto/update-class-session.dto';
+export { ClassSessionRepository } from './class-sessions/repositories/class-session.repository';
+export { ClassSessionEventListener } from './class-sessions/listeners/class-session-event.listener';
 
 // Service Registry (re-exported from shared module)
 export { ServiceReferenceEntity } from '../service-registry/entities/service-reference.entity';
@@ -29,5 +29,5 @@ export { ClassNotFoundException } from './shared/exceptions/class-not-found.exce
 export { ClassSessionNotFoundException } from './shared/exceptions/class-session-not-found.exception';
 
 // Module
-export { ClassSessionsModule } from './class-sessions.module';
+export { ClassModule } from './class.module';
 

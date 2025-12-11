@@ -1,4 +1,5 @@
-import { pgTable, uuid, varchar, text, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, jsonb, index, check } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 /**
  * Comm Sessions Schema
@@ -37,6 +38,9 @@ export const commSessions = pgTable(
     index('idx_comm_session_student_scheduled').on(table.studentUserId, table.scheduledAt),
     index('idx_comm_session_status').on(table.status),
     index('idx_comm_session_created_by_counselor').on(table.createdByCounselorId),
+    check('comm_sessions_status_check',
+      sql`status IN ('pending_meeting', 'scheduled', 'completed', 'cancelled', 'deleted', 'meeting_failed')`
+    ),
   ],
 );
 

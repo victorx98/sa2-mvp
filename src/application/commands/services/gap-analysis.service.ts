@@ -7,7 +7,7 @@ import {
 } from '@core/calendar/interfaces/calendar-slot.interface';
 import { MeetingProviderType } from '@core/meeting';
 import { GapAnalysisService as DomainGapAnalysisService } from '@domains/services/sessions/gap-analysis/services/gap-analysis.service';
-import { GapAnalysisQueryService } from '@domains/services/sessions/gap-analysis/services/gap-analysis-query.service';
+import { GapAnalysisQueryService } from '@domains/query/services/gap-analysis-query.service';
 import { SessionType } from '@domains/services/sessions/shared/enums/session-type.enum';
 import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
 import { StudentCounselorService } from '@domains/identity/student/student-counselor.service';

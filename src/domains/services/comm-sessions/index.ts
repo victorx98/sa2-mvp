@@ -13,7 +13,6 @@ export { UpdateCommSessionDto } from './dto/update-comm-session.dto';
 
 // Services
 export { CommSessionService } from './services/comm-session.service';
-export { CommSessionQueryService } from './services/comm-session-query.service';
 
 // Repository
 export { CommSessionRepository } from './repositories/comm-session.repository';
