@@ -69,6 +69,9 @@ import { UpdateMentorPriceCommand } from "./commands/financial/update-mentor-pri
 import { UpdateMentorPriceStatusCommand } from "./commands/financial/update-mentor-price-status.command";
 import { BatchCreateMentorPricesCommand } from "./commands/financial/batch-create-mentor-prices.command";
 import { BatchUpdateMentorPricesCommand } from "./commands/financial/batch-update-mentor-prices.command";
+import { CreateClassMentorPriceCommand } from "./commands/financial/create-class-mentor-price.command";
+import { UpdateClassMentorPriceCommand } from "./commands/financial/update-class-mentor-price.command";
+import { UpdateClassMentorPriceStatusCommand } from "./commands/financial/update-class-mentor-price-status.command";
 import { AdjustPayableLedgerCommand } from "./commands/financial/adjust-payable-ledger.command";
 import { GenerateSettlementCommand } from "./commands/financial/generate-settlement.command";
 import { UpdateOrCreatePaymentParamsCommand } from "./commands/financial/update-or-create-payment-params.command";
@@ -178,6 +181,9 @@ import { QueryModule } from "@domains/query/query.module";
     UpdateMentorPriceStatusCommand,
     BatchCreateMentorPricesCommand,
     BatchUpdateMentorPricesCommand,
+    CreateClassMentorPriceCommand,
+    UpdateClassMentorPriceCommand,
+    UpdateClassMentorPriceStatusCommand,
     AdjustPayableLedgerCommand,
     GenerateSettlementCommand,
     UpdateOrCreatePaymentParamsCommand,
@@ -268,6 +274,9 @@ import { QueryModule } from "@domains/query/query.module";
     UpdateMentorPriceStatusCommand,
     BatchCreateMentorPricesCommand,
     BatchUpdateMentorPricesCommand,
+    CreateClassMentorPriceCommand,
+    UpdateClassMentorPriceCommand,
+    UpdateClassMentorPriceStatusCommand,
     AdjustPayableLedgerCommand,
     GenerateSettlementCommand,
     UpdateOrCreatePaymentParamsCommand,

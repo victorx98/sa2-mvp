@@ -59,15 +59,16 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
       }
 
       // Create class mentor price record
+      const insertValues = {
+        classId: dto.classId,
+        mentorUserId: dto.mentorUserId,
+        pricePerSession: dto.pricePerSession.toString(),
+        status: "active",
+        updatedAt: new Date(),
+      };
       const [createdPrice] = await this.db
         .insert(schema.classMentorsPrices)
-        .values({
-          classId: dto.classId,
-          mentorUserId: dto.mentorUserId,
-          pricePerSession: dto.pricePerSession.toString(),
-          status: "active",
-          updatedAt: new Date(),
-        })
+        .values(insertValues)
         .returning();
 
       this.logger.log(`Created class mentor price: ${createdPrice.id}`);
@@ -308,7 +309,7 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
     page: number;
     pageSize: number;
     totalPages: number;
-  }> {
+    }> {
     try {
       // Build filter conditions
       const conditions = [];
@@ -328,11 +329,11 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
       const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
       // Calculate total count
-      const total = await this.db
+      const selectQuery = this.db
         .select({ count: sql<number>`count(*)` })
         .from(schema.classMentorsPrices)
-        .where(whereClause)
-        .then((result) => result[0].count || 0);
+        .where(whereClause);
+      const total = await selectQuery.then((result) => result[0].count || 0);
 
       // Set default pagination values if not provided
       const page = pagination?.page || 1;

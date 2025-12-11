@@ -33,27 +33,27 @@ export class MentorPriceService implements IMentorPriceService {
   ) {}
 
   /**
-   * Get mentor price by mentor ID and session type code[根据导师ID和会话类型代码获取导师价格]
+   * Get mentor price by mentor user ID and session type code[根据导师用户ID和会话类型代码获取导师价格]
    *
-   * @param mentorId - Mentor ID[导师ID]
+   * @param mentorUserId - Mentor user ID[导师用户ID]
    * @param sessionTypeCode - Session type code[会话类型代码]
    * @returns Mentor price record or null if not found[导师价格记录或未找到时返回null]
    */
   public async getMentorPrice(
-    mentorId: string,
+    mentorUserId: string,
     sessionTypeCode: string,
   ): Promise<MentorPrice | null> {
     try {
-      if (!mentorId || !sessionTypeCode) {
+      if (!mentorUserId || !sessionTypeCode) {
         this.logger.warn(
-          "Empty mentorId or sessionTypeCode provided to getMentorPrice",
+          "Empty mentorUserId or sessionTypeCode provided to getMentorPrice",
         );
         return null;
       }
 
       const mentorPrice = await this.db.query.mentorPrices.findFirst({
         where: and(
-          eq(schema.mentorPrices.mentorId, mentorId),
+          eq(schema.mentorPrices.mentorUserId, mentorUserId),
           eq(schema.mentorPrices.sessionTypeCode, sessionTypeCode),
           eq(schema.mentorPrices.status, "active"),
         ),
@@ -62,7 +62,7 @@ export class MentorPriceService implements IMentorPriceService {
       return mentorPrice || null;
     } catch (error) {
       this.logger.error(
-        `Error getting mentor price for mentor: ${mentorId}, session type: ${sessionTypeCode}`,
+        `Error getting mentor price for mentor: ${mentorUserId}, session type: ${sessionTypeCode}`,
         error instanceof Error ? error.stack : undefined,
       );
       throw error;
@@ -93,7 +93,7 @@ export class MentorPriceService implements IMentorPriceService {
       // Check if mentor price already exists[检查导师价格是否已存在]
       const existingPrice = await this.db.query.mentorPrices.findFirst({
         where: and(
-          eq(schema.mentorPrices.mentorId, dto.mentorId),
+          eq(schema.mentorPrices.mentorUserId, dto.mentorUserId),
           eq(schema.mentorPrices.sessionTypeCode, dto.sessionTypeCode),
           eq(schema.mentorPrices.status, "active"),
         ),
@@ -107,7 +107,7 @@ export class MentorPriceService implements IMentorPriceService {
       const [createdPrice] = await this.db
         .insert(schema.mentorPrices)
         .values({
-          mentorId: dto.mentorId,
+          mentorUserId: dto.mentorUserId,
           sessionTypeCode: dto.sessionTypeCode,
           price: String(dto.price),
           currency: dto.currency || "USD",
@@ -119,7 +119,7 @@ export class MentorPriceService implements IMentorPriceService {
         .returning();
 
       this.logger.log(
-        `Created mentor price for mentor: ${dto.mentorId}, session type: ${dto.sessionTypeCode}`,
+        `Created mentor price for mentor: ${dto.mentorUserId}, session type: ${dto.sessionTypeCode}`,
       );
 
       return createdPrice;
@@ -129,7 +129,7 @@ export class MentorPriceService implements IMentorPriceService {
         throw error;
       }
       this.logger.error(
-        `Error creating mentor price for mentor: ${dto.mentorId}`,
+        `Error creating mentor price for mentor: ${dto.mentorUserId}`,
         error instanceof Error ? error.stack : undefined,
       );
       // Otherwise, wrap and throw
@@ -286,7 +286,7 @@ export class MentorPriceService implements IMentorPriceService {
    */
   public async searchMentorPrices(
     filter: {
-      mentorId?: string;
+      mentorUserId?: string;
       sessionTypeCode?: string;
       status?: string;
       packageCode?: string;
@@ -309,8 +309,8 @@ export class MentorPriceService implements IMentorPriceService {
     try {
       // Build filter conditions[构建过滤条件]
       const conditions = [];
-      if (filter.mentorId) {
-        conditions.push(eq(schema.mentorPrices.mentorId, filter.mentorId));
+      if (filter.mentorUserId) {
+        conditions.push(eq(schema.mentorPrices.mentorUserId, filter.mentorUserId));
       }
       if (filter.sessionTypeCode) {
         conditions.push(
@@ -343,7 +343,7 @@ export class MentorPriceService implements IMentorPriceService {
         // Only allow sorting on known columns
         const sortableColumns = [
           "id",
-          "mentorId",
+          "mentorUserId",
           "sessionTypeCode",
           "price",
           "currency",
@@ -444,11 +444,11 @@ export class MentorPriceService implements IMentorPriceService {
       // Check for duplicate entries in the same batch[检查批次中是否有重复条目]
       const uniqueCombinations = new Set<string>();
       for (const dto of dtos) {
-        const key = `${dto.mentorId}-${dto.sessionTypeCode}`;
+        const key = `${dto.mentorUserId}-${dto.sessionTypeCode}`;
         if (uniqueCombinations.has(key)) {
           throw new FinancialException(
             "BULK_VALIDATION_FAILED",
-            `Duplicate mentorId-sessionTypeCode combination found: ${dto.mentorId}-${dto.sessionTypeCode}`,
+            `Duplicate mentorUserId-sessionTypeCode combination found: ${dto.mentorUserId}-${dto.sessionTypeCode}`,
           );
         }
         uniqueCombinations.add(key);
@@ -462,7 +462,7 @@ export class MentorPriceService implements IMentorPriceService {
           // Check if mentor price already exists in database[检查数据库中是否已存在导师价格]
           const existingPrice = await tx.query.mentorPrices.findFirst({
             where: and(
-              eq(schema.mentorPrices.mentorId, dto.mentorId),
+              eq(schema.mentorPrices.mentorUserId, dto.mentorUserId),
               eq(schema.mentorPrices.sessionTypeCode, dto.sessionTypeCode),
               eq(schema.mentorPrices.status, "active"),
             ),
@@ -471,7 +471,7 @@ export class MentorPriceService implements IMentorPriceService {
           if (existingPrice) {
             throw new FinancialConflictException(
               "MENTOR_PRICE_ALREADY_EXISTS",
-              `Mentor price already exists for mentor: ${dto.mentorId}, session type: ${dto.sessionTypeCode}`,
+              `Mentor price already exists for mentor: ${dto.mentorUserId}, session type: ${dto.sessionTypeCode}`,
             );
           }
 
@@ -479,7 +479,7 @@ export class MentorPriceService implements IMentorPriceService {
           const [createdPrice] = await tx
             .insert(schema.mentorPrices)
             .values({
-              mentorId: dto.mentorId,
+              mentorUserId: dto.mentorUserId,
               sessionTypeCode: dto.sessionTypeCode,
               price: String(dto.price),
               currency: dto.currency || "USD",

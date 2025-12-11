@@ -16,7 +16,7 @@ import {
 export class MentorPriceSearchDto {
   @IsString()
   @IsOptional()
-  mentorId?: string; // Filter by mentor ID[按导师ID过滤]
+  mentorUserId?: string; // Filter by mentor user ID[按导师用户ID过滤]
 
   @IsString()
   @IsOptional()

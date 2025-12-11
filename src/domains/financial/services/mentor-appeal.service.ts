@@ -75,6 +75,13 @@ export class MentorAppealService implements IMentorAppealService {
     );
 
     try {
+      // Validate that mentorId matches createdByUserId
+      if (dto.mentorId !== createdByUserId) {
+        throw new BadRequestException(
+          "Mentor ID must match the creator's user ID",
+        );
+      }
+
       // Create the appeal record
       const [appeal] = await this.db
         .insert(schema.mentorAppeals)

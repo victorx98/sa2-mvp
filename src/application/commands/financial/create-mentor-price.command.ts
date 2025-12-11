@@ -35,7 +35,7 @@ export class CreateMentorPriceCommand extends CommandBase {
   }): Promise<MentorPrice> {
     try {
       this.logger.debug(
-        `Creating mentor price for mentor: ${input.dto.mentorId}, session type: ${input.dto.sessionTypeCode}`,
+        `Creating mentor price for mentor: ${input.dto.mentorUserId}, session type: ${input.dto.sessionTypeCode}`,
       );
       const mentorPrice = await this.mentorPriceService.createMentorPrice(
         input.dto,

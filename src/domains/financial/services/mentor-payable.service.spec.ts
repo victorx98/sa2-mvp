@@ -56,7 +56,7 @@ describe("MentorPayableService", () => {
 
     const mockMentorPrice = {
       id: "price-123",
-      mentorId: "mentor-123",
+      mentorUserId: "mentor-123", // Changed from mentorId to mentorUserId
       sessionTypeCode: "consultation",
       price: "100",
       currency: "USD",
@@ -173,7 +173,7 @@ describe("MentorPayableService", () => {
         id: "price-123",
         status: "active",
         updatedBy: "user-123",
-        mentorId: "mentor-123",
+        mentorUserId: "mentor-123", // Changed from mentorId to mentorUserId
         serviceTypeId: "service-type-123",
         sessionTypeCode: "consultation",
         packageCode: "package-123",
@@ -265,7 +265,7 @@ describe("MentorPayableService", () => {
 
     const mockMentorPrice = {
       id: "price-123",
-      mentorId: "mentor-123",
+      mentorUserId: "mentor-123", // Changed from mentorId to mentorUserId
       sessionTypeCode: "recommended",
       price: "500",
       currency: "USD",
