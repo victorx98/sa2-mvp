@@ -1,14 +1,10 @@
 import {
   Controller,
-  Get,
   Post,
   Body,
   Param,
   Patch,
-  Query,
   UseGuards,
-  HttpException,
-  HttpStatus,
   Logger,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";

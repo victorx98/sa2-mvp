@@ -19,6 +19,7 @@ import { CounselorListQuery } from "./queries/counselor/counselor-list.query";
 import { SchoolListQuery } from "./queries/school/school-list.query";
 import { MajorListQuery } from "./queries/major/major-list.query";
 import { ServiceBalanceQuery } from "./queries/contract/service-balance.query";
+import { StudentContractsQuery } from "./queries/contract/student-contracts.query";
 import { RegularMentoringQueryService } from "./queries/services/regular-mentoring-query.service";
 import { ClassQueryService } from "./queries/services/class.query.service";
 import { ClassSessionQueryService } from "./queries/services/class-session.query.service";

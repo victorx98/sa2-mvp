@@ -63,7 +63,7 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
       const insertValues = {
         classId: dto.classId,
         mentorUserId: dto.mentorUserId,
-        pricePerSession: dto.pricePerSession.toString(),
+        pricePerSession: dto.pricePerSession,
         status: ClassMentorPriceStatus.ACTIVE,
         updatedAt: new Date(),
       };
@@ -124,7 +124,7 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
         .update(schema.classMentorsPrices)
         .set({
           pricePerSession:
-            dto.pricePerSession !== undefined ? dto.pricePerSession.toString() : existingPrice.pricePerSession,
+            dto.pricePerSession !== undefined ? dto.pricePerSession : existingPrice.pricePerSession,
           updatedAt: new Date(),
         })
         .where(eq(schema.classMentorsPrices.id, id))
