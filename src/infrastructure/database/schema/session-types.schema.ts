@@ -9,7 +9,7 @@ export const sessionTypes = pgTable(
   'session_types',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    code: varchar('code', { length: 50 }).notNull().unique(),
+    code: varchar('code', { length: 50 }).notNull(),
     name: varchar('name', { length: 100 }).notNull(),
     templateId: uuid('template_id'),
     isBilling: boolean('is_billing').notNull().default(true),
