@@ -24,6 +24,7 @@ import { PlacementController } from "./controllers/placement/placement.controlle
 import { SessionController as UnifiedSessionController } from "./controllers/services/session.controller";
 import { ClassController } from "./controllers/services/class.controller";
 import { ClassSessionController } from "./controllers/services/class-session.controller";
+import { SessionTypesController } from "./controllers/services/session-types.controller";
 
 /**
  * API Layer - Root Module
@@ -56,6 +57,7 @@ import { ClassSessionController } from "./controllers/services/class-session.con
     
     // Service Controllers (Unified + Legacy)
     UnifiedSessionController, // New unified API endpoint
+    SessionTypesController, // Session types query API
     RegularMentoringController, // Legacy - kept for backward compatibility
     GapAnalysisController, // Legacy - kept for backward compatibility
     AiCareerController, // Legacy - kept for backward compatibility

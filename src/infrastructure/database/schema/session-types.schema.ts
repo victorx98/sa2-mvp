@@ -1,4 +1,5 @@
-import { pgTable, uuid, varchar, boolean, timestamp, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, boolean, timestamp, index, unique } from 'drizzle-orm/pg-core';
+import { serviceTypes } from './service-types.schema';
 
 /**
  * Session Types Schema
@@ -11,6 +12,7 @@ export const sessionTypes = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     code: varchar('code', { length: 50 }).notNull(),
     name: varchar('name', { length: 100 }).notNull(),
+    serviceTypeCode: varchar('service_type_code', { length: 50 }).notNull().references(() => serviceTypes.code),
     templateId: uuid('template_id'),
     isBilling: boolean('is_billing').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -19,6 +21,8 @@ export const sessionTypes = pgTable(
   (table) => ({
     codeIdx: index('idx_session_types_code').on(table.code),
     nameIdx: index('idx_session_types_name').on(table.name),
+    serviceTypeCodeIdx: index('idx_session_types_service_type_code').on(table.serviceTypeCode),
+    uniqueServiceTypeCode: unique('uq_session_types_service_type_code_code').on(table.serviceTypeCode, table.code),
   }),
 );
 

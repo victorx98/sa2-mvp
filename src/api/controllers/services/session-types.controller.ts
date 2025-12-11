@@ -1,8 +1,7 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiOkResponse, ApiQuery, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiOkResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { GetSessionTypesQuery } from '@application/queries/services/get-session-types.query';
-import { SessionTypesQueryService } from '@domains/services/session-types/services/session-types-query.service';
 import { GetSessionTypesDto, SessionTypeDto } from '@domains/services/session-types/dto/get-session-types.dto';
 import { ApiPrefix } from '@api/api.constants';
 
@@ -18,22 +17,24 @@ import { ApiPrefix } from '@api/api.constants';
 export class SessionTypesController {
   constructor(
     private readonly getSessionTypesQuery: GetSessionTypesQuery,
-    private readonly sessionTypesQueryService: SessionTypesQueryService,
   ) {}
 
   /**
    * Get session types list
    * 
-   * @param filters - Query filters (code: External | Internal)
+   * @param filters - Query filters (serviceTypeCode: External | Internal)
    * @returns List of session types
    */
   @Get()
-  @ApiOperation({ summary: "Get session types list" })
+  @ApiOperation({ 
+    summary: "Get session types list",
+    description: "Retrieve session types, optionally filtered by service type code (e.g., External, Internal)"
+  })
   @ApiQuery({
-    name: "code",
+    name: "serviceTypeCode",
     required: false,
-    description: "Filter by session type code (External | Internal)",
-    enum: ['External', 'Internal'],
+    description: "Filter by service type code (e.g., External, Internal)",
+    example: "External",
   })
   @ApiOkResponse({
     description: "Session types retrieved successfully",
@@ -44,27 +45,6 @@ export class SessionTypesController {
     @Query() filters: GetSessionTypesDto,
   ): Promise<SessionTypeDto[]> {
     return this.getSessionTypesQuery.execute(filters);
-  }
-
-  /**
-   * Get session type by ID
-   * 
-   * @param id - Session type ID
-   * @returns Session type details
-   */
-  @Get(':id')
-  @ApiOperation({ summary: "Get session type by ID" })
-  @ApiParam({
-    name: "id",
-    description: "Session type ID",
-    type: String,
-  })
-  @ApiOkResponse({
-    description: "Session type retrieved successfully",
-    type: SessionTypeDto,
-  })
-  async getSessionTypeById(@Param('id') id: string): Promise<SessionTypeDto> {
-    return this.sessionTypesQueryService.getSessionTypeById(id);
   }
 }
 
