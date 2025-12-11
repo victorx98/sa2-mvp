@@ -13,11 +13,12 @@ import type {
 } from '@shared/types/database.types';
 import { Trace, addSpanAttributes, addSpanEvent } from '@shared/decorators/trace.decorator';
 import { MetricsService } from '@telemetry/metrics.service';
-import { CLASS_SESSION_CREATED_EVENT } from '@shared/events/event-constants';
+import { CLASS_SESSION_CREATED_EVENT, CLASS_SESSION_UPDATED_EVENT, CLASS_SESSION_CANCELLED_EVENT } from '@shared/events/event-constants';
 import { ClassSessionService as DomainClassSessionService } from '@domains/services/class/class-sessions/services/class-session.service';
 import { ClassSessionStatus, SessionType as ClassSessionType } from '@domains/services/class/class-sessions/entities/class-session.entity';
 import { CreateClassSessionDto as DomainCreateClassSessionDto } from '@domains/services/class/class-sessions/dto/create-class-session.dto';
 import { ClassService as DomainClassService } from '@domains/services/class/classes/services/class.service';
+import { ClassSessionQueryService as DomainClassSessionQueryService } from '@domains/query/services/class-session-query.service';
 
 // DTOs
 export interface CreateClassSessionDto {
@@ -34,6 +35,7 @@ export interface UpdateClassSessionDto {
   title?: string;
   description?: string;
   scheduledAt?: Date;
+  duration?: number;
 }
 
 /**
@@ -54,6 +56,7 @@ export class ClassSessionService {
     private readonly db: DrizzleDatabase,
     private readonly domainClassSessionService: DomainClassSessionService,
     private readonly domainClassService: DomainClassService,
+    private readonly domainClassSessionQueryService: DomainClassSessionQueryService,
     private readonly calendarService: CalendarService,
     private readonly eventEmitter: EventEmitter2,
     private readonly metricsService: MetricsService,
@@ -176,7 +179,9 @@ export class ClassSessionService {
 
   /**
    * Update class session
-   * Updates session info and calendar slots if needed
+   * Handles two scenarios:
+   * 1. Time/duration change: Cancel old calendar slots, create new ones, emit update event
+   * 2. Metadata only: Update calendar title/session details
    */
   @Trace({
     name: 'class_session.update',
@@ -190,10 +195,75 @@ export class ClassSessionService {
     });
 
     try {
+      // Step 1: Fetch old session data with meeting details
+      const oldSession = await this.domainClassSessionQueryService.getSessionById(sessionId);
+      if (!oldSession) {
+        throw new NotFoundException(`Session ${sessionId} not found`);
+      }
+
+      // Step 2: Convert Date to ISO string if provided
+      const scheduledAtIso = dto.scheduledAt
+        ? (dto.scheduledAt instanceof Date ? dto.scheduledAt.toISOString() : dto.scheduledAt)
+        : undefined;
+
+      // Step 3: Determine if time/duration changed
+      const oldSessionData = oldSession as any;
+      const meetingScheduleStartTime = oldSessionData.meeting?.scheduleStartTime;
+
+      if (!meetingScheduleStartTime) {
+        throw new Error(`Unable to determine meeting schedule start time for session ${sessionId}`);
+      }
+
+      const timeChanged = scheduledAtIso && scheduledAtIso !== meetingScheduleStartTime;
+
+      const meetingScheduleDuration = oldSessionData.meeting?.scheduleDuration;
+      const newDuration = dto.duration ?? meetingScheduleDuration;
+
+      if (!newDuration) {
+        throw new Error(`Unable to determine duration for session ${sessionId}`);
+      }
+
+      const durationChanged = dto.duration && dto.duration !== meetingScheduleDuration;
+
+      // Step 4: Execute transaction to update calendar and session
       await this.db.transaction(async (tx: DrizzleTransaction) => {
-        const scheduledAtIso = dto.scheduledAt
-          ? (dto.scheduledAt instanceof Date ? dto.scheduledAt.toISOString() : dto.scheduledAt)
-          : undefined;
+        // Update calendar if time or duration changed
+        if (timeChanged || durationChanged) {
+          // Cancel old calendar slots
+          await this.calendarService.updateSlots(
+            sessionId,
+            { status: 'cancelled' as any },
+            tx,
+          );
+          this.logger.debug(`Old calendar slots cancelled for session ${sessionId}`);
+
+          // Create new mentor calendar slot
+          const mentorSlot = await this.calendarService.createSlotDirect(
+            {
+              userId: oldSession.mentorUserId,
+              userType: UserType.MENTOR,
+              startTime: scheduledAtIso || meetingScheduleStartTime,
+              durationMinutes: newDuration,
+              sessionType: CalendarSessionType.CLASS_SESSION,
+              title: dto.title || oldSession.title,
+              sessionId: sessionId,
+            },
+            tx,
+          );
+
+          if (!mentorSlot) {
+            throw new TimeConflictException('The mentor already has a scheduling conflict');
+          }
+
+          this.logger.debug(`New calendar slot created for session ${sessionId}`);
+        } else if (dto.title) {
+          // Only title changed, update calendar title
+          await this.calendarService.updateSlots(
+            sessionId,
+            { title: dto.title },
+            tx,
+          );
+        }
 
         // Update session in domain layer
         const updateData: any = {};
@@ -201,15 +271,29 @@ export class ClassSessionService {
         if (dto.description !== undefined) updateData.description = dto.description;
         if (scheduledAtIso) updateData.scheduledAt = scheduledAtIso;
 
-        await this.domainClassSessionService.updateSession(sessionId, updateData);
-
-        // TODO: If scheduledAt changed, need to update calendar slots
-        // This requires getting the session first to find related calendar slots
+        await this.domainClassSessionService.updateSession(sessionId, updateData, tx);
       });
+
+      // Step 5: Emit update event if time/duration changed
+      if (timeChanged || durationChanged) {
+        this.eventEmitter.emit(CLASS_SESSION_UPDATED_EVENT, {
+          sessionId: sessionId,
+          classId: oldSession.classId,
+          meetingId: oldSession.meetingId,
+          oldScheduledStartTime: meetingScheduleStartTime,
+          newScheduledStartTime: scheduledAtIso || meetingScheduleStartTime,
+          oldDuration: meetingScheduleDuration,
+          newDuration: newDuration,
+          topic: dto.title || oldSession.title,
+        });
+        this.logger.log(`Published CLASS_SESSION_UPDATED_EVENT for session ${sessionId}`);
+      }
 
       this.logger.log(`Class session updated: sessionId=${sessionId}`);
       addSpanEvent('session.update.success');
-      return { sessionId, updated: true };
+      
+      // Return updated session with meeting details
+      return this.domainClassSessionQueryService.getSessionById(sessionId);
     } catch (error) {
       this.logger.error(`Failed to update class session: ${error.message}`, error.stack);
       addSpanEvent('session.update.error');
@@ -219,7 +303,8 @@ export class ClassSessionService {
 
   /**
    * Cancel class session
-   * Cancels session in domain layer and releases calendar slots
+   * Sync Flow: Update session status, cancel calendar slots
+   * Async Flow: Cancel meeting via event handler
    */
   @Trace({
     name: 'class_session.cancel',
@@ -233,14 +318,38 @@ export class ClassSessionService {
     });
 
     try {
+      // Step 1: Get session details for event
+      const session = await this.domainClassSessionQueryService.getSessionById(sessionId);
+      if (!session) {
+        throw new NotFoundException(`Session ${sessionId} not found`);
+      }
+
+      // Step 2: Execute transaction to update session and calendar
       await this.db.transaction(async (tx: DrizzleTransaction) => {
         // Cancel session in domain layer
         await this.domainClassSessionService.cancelSession(sessionId, reason);
 
-        // TODO: Release calendar slots
-        // TODO: Cancel meeting if needed (via MeetingManagerService)
+        // Cancel calendar slots (update status to 'cancelled')
+        await this.calendarService.updateSlots(
+          sessionId,
+          { status: 'cancelled' as any },
+          tx,
+        );
+
+        this.logger.debug(`Calendar slots cancelled for session ${sessionId}`);
       });
 
+      // Step 3: Emit cancellation event for async meeting cancellation
+      this.eventEmitter.emit(CLASS_SESSION_CANCELLED_EVENT, {
+        sessionId: sessionId,
+        classId: (session as any).classId,
+        meetingId: (session as any).meetingId,
+        mentorId: (session as any).mentorUserId,
+        cancelledAt: new Date().toISOString(),
+        cancelReason: reason || 'Cancelled by administrator',
+      });
+
+      this.logger.log(`Published CLASS_SESSION_CANCELLED_EVENT for session ${sessionId}`);
       this.logger.log(`Class session cancelled: sessionId=${sessionId}`);
       addSpanEvent('session.cancel.success');
       return { sessionId, status: 'cancelled' };

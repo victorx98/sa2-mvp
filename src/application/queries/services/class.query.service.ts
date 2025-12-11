@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ClassQueryService as DomainClassQueryService } from '@domains/services/class/classes/services/class-query.service';
+import { ClassQueryService as DomainCrossQueryService } from '@domains/query/services/class-query.service';
 import { ClassStatus, ClassType } from '@domains/services/class/classes/entities/class.entity';
 
 /**
@@ -16,6 +17,7 @@ export class ClassQueryService {
 
   constructor(
     private readonly domainClassQueryService: DomainClassQueryService,
+    private readonly domainCrossQueryService: DomainCrossQueryService,
   ) {}
 
   /**
@@ -41,7 +43,23 @@ export class ClassQueryService {
   }
 
   /**
-   * Get mentors for class
+   * Get mentors for class with user names (cross-domain query)
+   */
+  async getClassMentorsWithNames(classId: string) {
+    this.logger.debug(`Getting mentors with names for class: classId=${classId}`);
+    return this.domainCrossQueryService.getClassMentorsWithNames(classId);
+  }
+
+  /**
+   * Get students for class with user names (cross-domain query)
+   */
+  async getClassStudentsWithNames(classId: string) {
+    this.logger.debug(`Getting students with names for class: classId=${classId}`);
+    return this.domainCrossQueryService.getClassStudentsWithNames(classId);
+  }
+
+  /**
+   * Get mentors for class (simple query)
    */
   async getClassMentors(classId: string) {
     this.logger.debug(`Getting mentors for class: classId=${classId}`);
@@ -49,7 +67,7 @@ export class ClassQueryService {
   }
 
   /**
-   * Get students for class
+   * Get students for class (simple query)
    */
   async getClassStudents(classId: string) {
     this.logger.debug(`Getting students for class: classId=${classId}`);

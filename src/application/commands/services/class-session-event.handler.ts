@@ -5,12 +5,17 @@ import { MeetingManagerService } from '@core/meeting';
 import { CalendarService } from '@core/calendar';
 import {
   CLASS_SESSION_CREATED_EVENT,
+  CLASS_SESSION_UPDATED_EVENT,
+  CLASS_SESSION_CANCELLED_EVENT,
+  CLASS_SESSION_OPERATION_RESULT_EVENT,
   SESSION_BOOKED_EVENT,
 } from '@shared/events/event-constants';
+import { retryWithBackoff } from '@shared/utils/retry.util';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase } from '@shared/types/database.types';
 import { FEISHU_DEFAULT_HOST_USER_ID } from 'src/constants';
 import { ClassSessionService } from '@domains/services/class/class-sessions/services/class-session.service';
+import { sql } from 'drizzle-orm';
 
 /**
  * Class Session Created Event Handler
@@ -100,8 +105,237 @@ export class ClassSessionCreatedEventHandler {
       });
 
       this.logger.log(`SESSION_BOOKED_EVENT published: sessionId=${event.sessionId}`);
+
+      // Step 4: Publish unified result event (success)
+      this.eventEmitter.emit(CLASS_SESSION_OPERATION_RESULT_EVENT, {
+        operation: 'create',
+        status: 'success',
+        sessionId: event.sessionId,
+        classId: event.classId,
+        mentorId: event.mentorId,
+        scheduledAt: event.scheduledStartTime,
+        meetingUrl: meeting.meetingUrl,
+        notifyRoles: ['counselor', 'mentor'],
+      });
+
+      this.logger.log(
+        `OPERATION_RESULT_EVENT published: operation=create, status=success, sessionId=${event.sessionId}`,
+      );
     } catch (error) {
       this.logger.error(`Failed to create meeting for session ${event.sessionId}: ${error.message}`, error.stack);
+
+      // Publish unified result event (failed)
+      this.eventEmitter.emit(CLASS_SESSION_OPERATION_RESULT_EVENT, {
+        operation: 'create',
+        status: 'failed',
+        sessionId: event.sessionId,
+        classId: event.classId,
+        mentorId: event.mentorId,
+        scheduledAt: event.scheduledStartTime,
+        errorMessage: error.message,
+        notifyRoles: ['counselor'],
+        requireManualIntervention: true,
+      });
+
+      this.logger.warn(
+        `OPERATION_RESULT_EVENT published: operation=create, status=failed, sessionId=${event.sessionId}`,
+      );
+    }
+  }
+
+  @OnEvent(CLASS_SESSION_UPDATED_EVENT)
+  async handleSessionUpdated(event: any): Promise<void> {
+    this.logger.log(
+      `Handling CLASS_SESSION_UPDATED_EVENT: sessionId=${event.sessionId}`,
+    );
+
+    let updateSuccess = false;
+    let errorMessage = '';
+
+    try {
+      // Step 1: Check if meeting is updatable
+      const isMeetingUpdatable = await this.isMeetingUpdatable(event.meetingId);
+      if (!isMeetingUpdatable) {
+        updateSuccess = false;
+        errorMessage = 'Meeting is in a non-updatable state (cancelled/ended). Update skipped.';
+        this.logger.warn(`${errorMessage} meetingId=${event.meetingId}`);
+      } else {
+        // Step 2: Update external meeting platform with retry mechanism (max 3 retries)
+        await retryWithBackoff(
+          async () => {
+            return await this.meetingManagerService.updateMeeting(
+              event.meetingId,
+              {
+                topic: event.topic,
+                startTime: event.newScheduledStartTime,
+                duration: event.newDuration,
+              },
+            );
+          },
+          3,
+          1000,
+          this.logger,
+        );
+
+        // Step 3: Update meetings table with new schedule info
+        const startTime = new Date(event.newScheduledStartTime);
+        await this.db.execute(sql`
+          UPDATE meetings 
+          SET 
+            topic = ${event.topic},
+            schedule_start_time = ${startTime.toISOString()},
+            schedule_duration = ${event.newDuration},
+            updated_at = NOW()
+          WHERE id = ${event.meetingId}
+        `);
+        this.logger.debug(`Meetings table updated: meetingId=${event.meetingId}`);
+
+        updateSuccess = true;
+        this.logger.debug(`Meeting ${event.meetingId} updated successfully`);
+      }
+    } catch (error) {
+      updateSuccess = false;
+      errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      this.logger.error(
+        `Failed to update meeting ${event.meetingId}: ${errorMessage}`,
+        error instanceof Error ? error.stack : '',
+      );
+    }
+
+    // Step 4: Publish unified result event
+    this.eventEmitter.emit(CLASS_SESSION_OPERATION_RESULT_EVENT, {
+      operation: 'update',
+      status: updateSuccess ? 'success' : 'failed',
+      sessionId: event.sessionId,
+      meetingId: event.meetingId,
+      classId: event.classId,
+      mentorId: event.mentorId,
+      newScheduledAt: event.newScheduledStartTime,
+      newDuration: event.newDuration,
+      errorMessage: updateSuccess ? undefined : errorMessage,
+      notifyRoles: updateSuccess ? ['counselor', 'mentor'] : ['counselor'],
+      requireManualIntervention: !updateSuccess,
+    });
+
+    this.logger.log(
+      `OPERATION_RESULT_EVENT published: operation=update, status=${updateSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
+    );
+  }
+
+  @OnEvent(CLASS_SESSION_CANCELLED_EVENT)
+  async handleSessionCancelled(event: any): Promise<void> {
+    this.logger.log(
+      `Handling CLASS_SESSION_CANCELLED_EVENT: sessionId=${event.sessionId}`,
+    );
+
+    let cancelSuccess = false;
+    let errorMessage = '';
+
+    try {
+      // Step 1: Check if meeting exists and is cancellable
+      if (!event.meetingId) {
+        cancelSuccess = false;
+        errorMessage = 'No meeting ID found, session was in PENDING_MEETING state';
+        this.logger.warn(`${errorMessage} sessionId=${event.sessionId}`);
+      } else {
+        const canCancel = await this.isMeetingCancellable(event.meetingId);
+
+        if (!canCancel) {
+          cancelSuccess = false;
+          errorMessage = 'Meeting is already cancelled or ended';
+          this.logger.warn(`${errorMessage} meetingId=${event.meetingId}`);
+        } else {
+          // Step 2: Cancel meeting with retry (max 3 times)
+          await retryWithBackoff(
+            async () => {
+              await this.meetingManagerService.cancelMeeting(event.meetingId);
+            },
+            3,
+            1000,
+            this.logger,
+          );
+
+          // Step 3: Update meetings table status
+          await this.db.execute(sql`
+            UPDATE meetings 
+            SET status = 'cancelled', updated_at = NOW()
+            WHERE id = ${event.meetingId}
+          `);
+
+          cancelSuccess = true;
+          this.logger.debug(`Meeting ${event.meetingId} cancelled successfully`);
+        }
+      }
+    } catch (error) {
+      cancelSuccess = false;
+      errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      this.logger.error(
+        `Failed to cancel meeting ${event.meetingId}: ${errorMessage}`,
+        error instanceof Error ? error.stack : '',
+      );
+    }
+
+    // Step 4: Publish unified result event
+    this.eventEmitter.emit(CLASS_SESSION_OPERATION_RESULT_EVENT, {
+      operation: 'cancel',
+      status: cancelSuccess ? 'success' : 'failed',
+      sessionId: event.sessionId,
+      meetingId: event.meetingId,
+      classId: event.classId,
+      mentorId: event.mentorId,
+      cancelledAt: event.cancelledAt,
+      cancelReason: event.cancelReason,
+      errorMessage: cancelSuccess ? undefined : errorMessage,
+      notifyRoles: cancelSuccess ? ['counselor', 'mentor'] : ['counselor'],
+      requireManualIntervention: !cancelSuccess,
+    });
+
+    this.logger.log(
+      `OPERATION_RESULT_EVENT published: operation=cancel, status=${cancelSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
+    );
+  }
+
+  /**
+   * Check if meeting is cancellable
+   */
+  private async isMeetingCancellable(meetingId: string): Promise<boolean> {
+    try {
+      const result = await this.db.execute(sql`
+        SELECT status FROM meetings WHERE id = ${meetingId}
+      `);
+
+      if (result.rows.length === 0) {
+        return false;
+      }
+
+      const status = (result.rows[0] as any).status;
+      return status === 'scheduled' || status === 'active';
+    } catch (error) {
+      this.logger.warn(`Failed to check meeting cancellable status: ${error}`);
+      return false;
+    }
+  }
+
+  /**
+   * Check if meeting is updatable
+   */
+  private async isMeetingUpdatable(meetingId: string): Promise<boolean> {
+    try {
+      const result = await this.db.execute(
+        sql`SELECT status FROM meetings WHERE id = ${meetingId}`,
+      );
+      const row = (result as any).rows?.[0];
+      if (!row) {
+        this.logger.warn(`Meeting not found: ${meetingId}`);
+        return false;
+      }
+      // Only allow update for 'scheduled' or 'active' status
+      return row.status === 'scheduled' || row.status === 'active';
+    } catch (error) {
+      this.logger.error(`Error checking meeting status: ${error.message}`);
+      return false;
     }
   }
 

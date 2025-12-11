@@ -27,6 +27,7 @@ import { CurrentUser } from '@shared/decorators/current-user.decorator';
 import { User } from '@domains/identity/user/user-interface';
 import { ApiPrefix } from '@api/api.constants';
 import { ClassSessionService } from '@application/commands/services/class-session.service';
+import { ClassSessionQueryService } from '@application/queries/services/class-session.query.service';
 
 // ============================================================================
 // DTOs - Request
@@ -126,6 +127,16 @@ export class UpdateClassSessionRequestDto {
   @IsDateString()
   @IsOptional()
   scheduledAt?: string;
+
+  @ApiProperty({
+    description: 'Session Duration in minutes',
+    example: 60,
+    required: false,
+  })
+  @IsInt()
+  @Min(15)
+  @IsOptional()
+  duration?: number;
 }
 
 export class CancelClassSessionRequestDto {
@@ -186,6 +197,7 @@ export class DeleteClassSessionResponseDto {
 export class ClassSessionController {
   constructor(
     private readonly classSessionService: ClassSessionService,
+    private readonly classSessionQueryService: ClassSessionQueryService,
   ) {}
 
   /**
@@ -279,8 +291,13 @@ export class ClassSessionController {
     @Query('status') status?: string,
     @Query() filters?: any,
   ) {
-    // TODO: Implement getSessionsList in ClassSessionService
-    // For now, return empty array
+    if (classId) {
+      return this.classSessionQueryService.getSessionsByClass(classId, { status: status as any });
+    }
+    if (mentorId) {
+      return this.classSessionQueryService.getMentorSessions(mentorId, { status: status as any });
+    }
+    // TODO: Implement other filter options
     return [];
   }
 
@@ -308,7 +325,7 @@ export class ClassSessionController {
   async getSessionDetail(
     @Param('id') sessionId: string,
   ) {
-    return this.classSessionService.getSessionById(sessionId);
+    return this.classSessionQueryService.getSessionById(sessionId);
   }
 
   /**
@@ -343,11 +360,12 @@ export class ClassSessionController {
   async updateSession(
     @Param('id') sessionId: string,
     @Body() dto: UpdateClassSessionRequestDto,
-  ): Promise<UpdateClassSessionResponseDto> {
+  ) {
     return this.classSessionService.updateSession(sessionId, {
       title: dto.title,
       description: dto.description,
       scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
+      duration: dto.duration,
     });
   }
 
