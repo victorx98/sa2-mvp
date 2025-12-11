@@ -6,6 +6,7 @@ import {
   Patch,
   UseGuards,
   Logger,
+  Get,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from "@nestjs/swagger";
 import { ApiPrefix } from "@api/api.constants";
