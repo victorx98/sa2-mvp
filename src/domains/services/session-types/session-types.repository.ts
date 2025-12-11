@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import type { DrizzleDatabase } from '@shared/types/database.types';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import { sessionTypes } from '@infrastructure/database/schema/session-types.schema';
@@ -28,6 +28,22 @@ export class SessionTypesRepository {
   async findAll(): Promise<SessionTypeEntity[]> {
     const results = await this.db.query.sessionTypes.findMany();
     return results as SessionTypeEntity[];
+  }
+
+  async findByServiceTypeCode(serviceTypeCode: string): Promise<SessionTypeEntity[]> {
+    return this.db.query.sessionTypes.findMany({
+      where: eq(sessionTypes.serviceTypeCode, serviceTypeCode),
+    });
+  }
+
+  async findByServiceTypeCodeAndCode(serviceTypeCode: string, code: string): Promise<SessionTypeEntity | null> {
+    const result = await this.db.query.sessionTypes.findFirst({
+      where: and(
+        eq(sessionTypes.serviceTypeCode, serviceTypeCode),
+        eq(sessionTypes.code, code)
+      ),
+    });
+    return result || null;
   }
 
   async create(data: Partial<SessionTypeEntity>): Promise<SessionTypeEntity> {

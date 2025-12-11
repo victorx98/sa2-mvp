@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { SessionTypesRepository } from '../session-types.repository';
 import { GetSessionTypesDto, SessionTypeDto } from '../dto/get-session-types.dto';
 
@@ -16,8 +16,8 @@ export class SessionTypesQueryService {
   async getSessionTypes(filters: GetSessionTypesDto): Promise<SessionTypeDto[]> {
     let sessionTypes;
 
-    if (filters.code) {
-      sessionTypes = await this.sessionTypesRepository.findByCode(filters.code);
+    if (filters.serviceTypeCode) {
+      sessionTypes = await this.sessionTypesRepository.findByServiceTypeCode(filters.serviceTypeCode);
     } else {
       sessionTypes = await this.sessionTypesRepository.findAll();
     }
@@ -28,7 +28,7 @@ export class SessionTypesQueryService {
   async getSessionTypeById(id: string): Promise<SessionTypeDto> {
     const sessionType = await this.sessionTypesRepository.findOne(id);
     if (!sessionType) {
-      throw new Error(`Session type with ID ${id} not found`);
+      throw new NotFoundException(`Session type with ID ${id} not found`);
     }
     return this.toDto(sessionType);
   }
@@ -38,10 +38,11 @@ export class SessionTypesQueryService {
       id: entity.id,
       code: entity.code,
       name: entity.name,
-      template_id: entity.template_id,
-      is_billing: entity.is_billing,
-      created_at: entity.created_at,
-      updated_at: entity.updated_at,
+      serviceTypeCode: entity.serviceTypeCode,
+      templateId: entity.templateId,
+      isBilling: entity.isBilling,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
     };
   }
 }

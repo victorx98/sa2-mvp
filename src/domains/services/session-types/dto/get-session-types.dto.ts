@@ -1,4 +1,4 @@
-import { IsOptional, IsIn } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
@@ -6,38 +6,41 @@ import { ApiProperty } from '@nestjs/swagger';
  */
 export class GetSessionTypesDto {
   @ApiProperty({
-    description: "Filter by session type code",
-    enum: ['External', 'Internal'],
+    description: "Filter by service type code (e.g., External, Internal)",
     required: false,
+    example: 'External',
   })
   @IsOptional()
-  @IsIn(['External', 'Internal'])
-  code?: 'External' | 'Internal';
+  @IsString()
+  serviceTypeCode?: string;
 }
 
 /**
  * Response DTO for session type
  */
 export class SessionTypeDto {
-  @ApiProperty({ description: "Session type ID" })
+  @ApiProperty({ description: "Session type ID", example: "123e4567-e89b-12d3-a456-426614174000" })
   id: string;
 
-  @ApiProperty({ description: "Session type code" })
+  @ApiProperty({ description: "Session type code", example: "regular_mentoring" })
   code: string;
 
-  @ApiProperty({ description: "Session type name" })
+  @ApiProperty({ description: "Session type name", example: "Regular Mentoring" })
   name: string;
 
+  @ApiProperty({ description: "Service type code", example: "External" })
+  serviceTypeCode: string;
+
   @ApiProperty({ description: "Template ID", nullable: true, required: false })
-  template_id: string | null;
+  templateId: string | null;
 
   @ApiProperty({ description: "Whether this session type is billable" })
-  is_billing: boolean;
+  isBilling: boolean;
 
   @ApiProperty({ description: "Creation timestamp", type: String, format: "date-time" })
-  created_at: Date;
+  createdAt: Date;
 
   @ApiProperty({ description: "Last update timestamp", type: String, format: "date-time" })
-  updated_at: Date;
+  updatedAt: Date;
 }
 
