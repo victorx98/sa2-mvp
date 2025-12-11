@@ -369,26 +369,74 @@ export class GapAnalysisController {
     return GapAnalysisSessionMapper.toResponseDto(updatedSession);
   }
 
+  /**
+   * Cancel a gap analysis session
+   * POST /api/services/gap-analysis/:id/cancel
+   *
+   * Sync Flow (returns immediately):
+   * 1. Update session status to CANCELLED
+   * 2. Release calendar slots (update to cancelled)
+   * 3. Return response with CANCELLED status
+   *
+   * Async Flow (runs in background):
+   * 1. Cancel meeting via third-party API (Feishu/Zoom) with retry (max 3 times)
+   * 2. Update meetings table status to CANCELLED
+   * 3. Publish success/failed event for notifications:
+   *    - Success: Notify counselor + mentor + student
+   *    - Failed: Notify counselor only (requires manual retry from frontend)
+   *
+   * @param sessionId Session ID
+   * @param body Cancel request with reason
+   * @returns Cancelled session details
+   */
   @Post(':id/cancel')
   @UseGuards(RolesGuard)
   @Roles('counselor')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Cancel a gap analysis session',
+    description: `
+      Cancel an existing gap analysis session with optional reason.
+      
+      Sync Flow (immediate response):
+      - Update session status to CANCELLED
+      - Release calendar slots
+      - Return cancelled session details
+      
+      Async Flow (background):
+      - Cancel meeting via third-party API (max 3 retries)
+      - Update meetings table
+      - Send notifications based on result (success: all parties, failed: counselor only)
+    `,
   })
   @ApiParam({
     name: 'id',
     description: 'Session ID',
     type: String,
   })
+  @ApiOkResponse({
+    description: 'Session cancelled successfully (meeting cancellation in progress)',
+    type: GapAnalysisSessionResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid session status (only SCHEDULED/PENDING_MEETING can be cancelled)',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Session not found',
+  })
   async cancelSession(
     @Param('id') sessionId: string,
     @Body() body?: { reason?: string },
-  ) {
-    return this.gapAnalysisService.cancelSession(
+  ): Promise<GapAnalysisSessionResponseDto> {
+    const cancelledSession = await this.gapAnalysisService.cancelSession(
       sessionId,
       body?.reason || 'Cancelled by counselor',
     );
+    
+    // Return cancelled session with meeting info (similar to updateSession)
+    return GapAnalysisSessionMapper.toResponseDto(cancelledSession);
   }
 
   @Delete(':id')

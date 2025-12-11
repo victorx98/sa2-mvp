@@ -19,6 +19,7 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
   ApiParam,
+  ApiProperty,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { RolesGuard } from '@shared/guards/roles.guard';
@@ -26,19 +27,31 @@ import { Roles } from '@shared/decorators/roles.decorator';
 import { CurrentUser } from '@shared/decorators/current-user.decorator';
 import { User } from '@domains/identity/user/user-interface';
 import { ApiPrefix } from '@api/api.constants';
-import { RegularMentoringService } from '@application/commands/services/regular-mentoring.service';
+import { SessionOrchestratorService } from '@application/commands/services/session-orchestrator.service';
 import { RegularMentoringSessionMapper } from '@domains/services/sessions/regular-mentoring/mappers/regular-mentoring-session.mapper';
-import { plainToInstance } from 'class-transformer';
+import { GapAnalysisSessionMapper } from '@domains/services/sessions/gap-analysis/mappers/gap-analysis-session.mapper';
+import { AiCareerSessionMapper } from '@domains/services/sessions/ai-career/mappers/ai-career-session.mapper';
+import { SessionType } from '@domains/services/sessions/shared/enums/session-type.enum';
+import { IsString, IsNotEmpty, IsOptional, IsInt, Min, IsDateString, IsEnum } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 // ============================================================================
 // DTOs - Request
 // ============================================================================
 
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsUUID, IsInt, Min, IsDateString } from 'class-validator';
-import { Transform } from 'class-transformer';
+export class CreateSessionRequestDto {
+  @ApiProperty({
+    description: 'Session Type',
+    example: 'regular_mentoring',
+    enum: ['regular_mentoring', 'gap_analysis', 'ai_career'],
+  })
+  @IsString()
+  @IsNotEmpty()
+  @IsEnum(SessionType, {
+    message: 'sessionType must be one of: regular_mentoring, gap_analysis, ai_career',
+  })
+  sessionType: string;
 
-export class CreateRegularMentoringRequestDto {
   @ApiProperty({
     description: 'Student ID',
     example: '9e50af7d-5f08-4516-939f-7f765ce131b8',
@@ -109,7 +122,7 @@ export class CreateRegularMentoringRequestDto {
   meetingProvider?: string;
 }
 
-export class UpdateRegularMentoringRequestDto {
+export class UpdateSessionRequestDto {
   @ApiProperty({
     description: 'Session Title',
     example: 'Resume Coaching',
@@ -152,7 +165,6 @@ export class UpdateRegularMentoringRequestDto {
 // DTOs - Response
 // ============================================================================
 
-// Meeting DTO
 export class MeetingDto {
   id: string;
   meetingNo: string;
@@ -173,7 +185,7 @@ export class MeetingDto {
   updatedAt: string;
 }
 
-export class RegularMentoringSessionResponseDto {
+export class SessionResponseDto {
   id: string;
   meetingId: string;
   sessionType: string;
@@ -196,12 +208,8 @@ export class RegularMentoringSessionResponseDto {
 
 export class CreateSessionResponseDto {
   sessionId: string;
-  status: string; // PENDING_MEETING during async flow, SCHEDULED after meeting creation
+  status: string;
   scheduledAt: string;
-  // Meeting details are filled asynchronously - client should poll GET /api/services/regular-mentoring/:id
-  // meetingId?: string;
-  // meetingNo?: string;
-  // meetingUrl?: string;
   holdId?: string;
 }
 
@@ -210,41 +218,42 @@ export class CreateSessionResponseDto {
 // ============================================================================
 
 /**
- * API Layer - Counselor Regular Mentoring Controller
- *
- * Responsibility:
- * - Define HTTP routes for regular mentoring session management
- * - Extract and validate request parameters
- * - Call Application Layer services
- * - Return HTTP responses
- *
- * Route: /api/services/regular-mentoring
+ * Unified Session Controller
+ * 
+ * Purpose: Provides unified API endpoints for all session types
+ * Routes requests to SessionOrchestratorService which delegates to specific services
+ * 
+ * Route: /api/services/sessions
+ * 
+ * Supported Session Types:
+ * - regular_mentoring
+ * - gap_analysis
+ * - ai_career
  */
-@ApiTags('Counselor Portal - Regular Mentoring')
-@Controller(`${ApiPrefix}/services/regular-mentoring`)
+@ApiTags('Counselor Portal - Unified Sessions')
+@Controller(`${ApiPrefix}/services/sessions`)
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
-export class RegularMentoringController {
+export class SessionController {
   constructor(
-    private readonly regularMentoringService: RegularMentoringService,
+    private readonly sessionOrchestratorService: SessionOrchestratorService,
   ) {}
 
   /**
-   * Create a new regular mentoring session
-   * POST /api/services/regular-mentoring
-   *
-   * @param user Current counselor user
-   * @param dto Create session request
-   * @returns Created session details
+   * Create a new session (any type)
+   * POST /api/services/sessions
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
   @Roles('counselor')
   @ApiOperation({
-    summary: 'Create a new regular mentoring session',
+    summary: 'Create a new session (unified endpoint)',
     description: `
-      Creates a new regular mentoring session asynchronously.
+      Creates a new session asynchronously. Supports multiple session types:
+      - regular_mentoring: Regular mentoring sessions
+      - gap_analysis: Gap analysis sessions
+      - ai_career: AI career assessment sessions
       
       Sync Flow (returns immediately):
       1. Create calendar slots for mentor and student
@@ -256,12 +265,7 @@ export class RegularMentoringController {
       2. Update session with meeting_id and status=SCHEDULED
       3. Publish SESSION_BOOKED_EVENT
       
-      Response includes:
-      - sessionId: unique session identifier
-      - status: PENDING_MEETING (meeting creation in progress)
-      - scheduledAt: scheduled start time
-      
-      Client should poll GET /api/services/regular-mentoring/:id to check status and get meetingUrl
+      Client should poll GET /api/services/sessions/:id?sessionType=xxx to check status and get meetingUrl
     `,
   })
   @ApiCreatedResponse({
@@ -270,7 +274,7 @@ export class RegularMentoringController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Invalid request parameters or insufficient balance',
+    description: 'Invalid request parameters or unsupported session type',
   })
   @ApiResponse({
     status: 403,
@@ -282,54 +286,46 @@ export class RegularMentoringController {
   })
   async createSession(
     @CurrentUser() user: User,
-    @Body() dto: CreateRegularMentoringRequestDto,
+    @Body() dto: CreateSessionRequestDto,
   ): Promise<CreateSessionResponseDto> {
-    const result = await this.regularMentoringService.createSession({
-      counselorId: user.id,
-      studentId: dto.studentId,
-      mentorId: dto.mentorId,
-      sessionTypeId: dto.sessionTypeId,
-      title: dto.title,
-      description: dto.description,
-      scheduledAt: new Date(dto.scheduledAt),
-      duration: dto.duration,
-      meetingProvider: dto.meetingProvider,
-    });
+    const result = await this.sessionOrchestratorService.createSession(
+      dto.sessionType,
+      {
+        counselorId: user.id,
+        studentId: dto.studentId,
+        mentorId: dto.mentorId,
+        sessionTypeId: dto.sessionTypeId,
+        title: dto.title,
+        description: dto.description,
+        scheduledAt: new Date(dto.scheduledAt),
+        duration: dto.duration,
+        meetingProvider: dto.meetingProvider,
+      },
+    );
 
-    // Convert scheduledAt back to ISO string for response
     return {
       ...result,
-      scheduledAt: typeof result.scheduledAt === 'string' 
-        ? result.scheduledAt 
+      scheduledAt: typeof result.scheduledAt === 'string'
+        ? result.scheduledAt
         : result.scheduledAt.toISOString(),
     };
   }
 
   /**
-   * Get list of regular mentoring sessions with flexible filtering
-   * GET /api/services/regular-mentoring
-   *
-   * Supports multiple query scenarios:
-   * - Without parameters: Returns sessions based on user role (default behavior)
-   * - With studentId: Returns that student's sessions
-   * - With mentorId: Returns that mentor's sessions
-   * - With both studentId & mentorId: Returns sessions for that student-mentor pair
-   * - With counselorId: Returns sessions for that counselor's students (counselor role only)
-   *
-   * @param user Current user from JWT token
-   * @param studentId Optional student ID filter
-   * @param mentorId Optional mentor ID filter
-   * @param counselorId Optional counselor ID filter
-   * @param filters Additional query filters (status, dates, pagination, etc.)
-   * @returns List of sessions matching the query criteria
+   * Get list of sessions with flexible filtering
+   * GET /api/services/sessions
    */
   @Get()
   @ApiOperation({
-    summary: 'Get list of regular mentoring sessions with flexible filtering',
+    summary: 'Get list of sessions with flexible filtering (unified endpoint)',
     description: `
-      Retrieve regular mentoring sessions with support for multiple query combinations:
+      Retrieve sessions with support for multiple query combinations:
       
       Query Parameters:
+      - sessionType (optional): Filter by session type, supports single or multiple values
+        * Not provided: returns all session types
+        * Single: ?sessionType=regular_mentoring
+        * Multiple: ?sessionType=regular_mentoring&sessionType=gap_analysis
       - studentId (optional): Filter by specific student ID
       - mentorId (optional): Filter by specific mentor ID
       - counselorId (optional): Filter by specific counselor ID (counselor role only)
@@ -340,58 +336,82 @@ export class RegularMentoringController {
       - limit (optional): Results per page
       
       Examples:
-      - GET /api/services/regular-mentoring (returns user's own sessions)
-      - GET /api/services/regular-mentoring?studentId=xxx (returns student's sessions)
-      - GET /api/services/regular-mentoring?mentorId=xxx (returns mentor's sessions)
-      - GET /api/services/regular-mentoring?mentorId=xxx&studentId=yyy (returns sessions for specific mentor-student pair)
+      - GET /api/services/sessions (returns all types)
+      - GET /api/services/sessions?sessionType=regular_mentoring
+      - GET /api/services/sessions?sessionType=gap_analysis&studentId=xxx
+      - GET /api/services/sessions?sessionType=regular_mentoring&sessionType=gap_analysis
+      - GET /api/services/sessions?sessionType=ai_career&mentorId=xxx&studentId=yyy
     `,
   })
   @ApiOkResponse({
     description: 'Sessions retrieved successfully',
-    type: RegularMentoringSessionResponseDto,
+    type: SessionResponseDto,
     isArray: true,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Missing or invalid sessionType parameter',
   })
   async getSessionsList(
     @CurrentUser() user: User,
+    @Query('sessionType') sessionType?: string | string[],
     @Query('studentId') studentId?: string,
     @Query('mentorId') mentorId?: string,
     @Query('counselorId') counselorId?: string,
     @Query() filters?: any,
-  ): Promise<RegularMentoringSessionResponseDto[]> {
+  ): Promise<SessionResponseDto[]> {
+    // If sessionType is not provided, query all types
+    const types = sessionType 
+      ? (Array.isArray(sessionType) ? sessionType : [sessionType])
+      : [SessionType.REGULAR_MENTORING, SessionType.GAP_ANALYSIS, SessionType.AI_CAREER];
+
     const userRole = user.roles?.[0] || 'student';
-    
-    // Build filter object with all ID parameters
+
     const sessionFilters = {
       ...filters,
       studentId,
       mentorId,
       counselorId,
     };
-    
-    // Fetch sessions with meeting data
-    const sessions = await this.regularMentoringService.getSessionsByRole(
-      user.id,
-      userRole,
-      sessionFilters,
+
+    // Fetch sessions for all types in parallel
+    const results = await Promise.all(
+      types.map(type =>
+        this.sessionOrchestratorService.getSessionsByRole(
+          type,
+          user.id,
+          userRole,
+          sessionFilters,
+        ),
+      ),
     );
-    
-    // Map sessions with meeting information to response DTO
-    return RegularMentoringSessionMapper.toResponseDtos(sessions || []);
+
+    // Flatten and merge all results
+    const allSessions = results.flat();
+
+    // Sort by scheduledAt descending (most recent first)
+    allSessions.sort((a, b) => {
+      const dateA = new Date(a.scheduledAt).getTime();
+      const dateB = new Date(b.scheduledAt).getTime();
+      return dateB - dateA;
+    });
+
+    // Map each session using its corresponding mapper
+    return allSessions.map(session =>
+      this.mapSessionToResponse(session.sessionType, session),
+    );
   }
 
   /**
-   * Get regular mentoring session details
-   * GET /api/services/regular-mentoring/:id
-   *
-   * @param sessionId Session ID
-   * @returns Session details
+   * Get session details
+   * GET /api/services/sessions/:id
    */
   @Get(':id')
   @UseGuards(RolesGuard)
   @Roles('counselor')
   @ApiOperation({
-    summary: 'Get regular mentoring session details',
-    description: 'Retrieve detailed information about a specific regular mentoring session',
+    summary: 'Get session details (unified endpoint)',
+    description: 'Retrieve detailed information about a specific session. Requires sessionType query parameter.',
   })
   @ApiParam({
     name: 'id',
@@ -400,7 +420,11 @@ export class RegularMentoringController {
   })
   @ApiOkResponse({
     description: 'Session retrieved successfully',
-    type: RegularMentoringSessionResponseDto,
+    type: SessionResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Missing or invalid sessionType parameter',
   })
   @ApiResponse({
     status: 404,
@@ -408,27 +432,31 @@ export class RegularMentoringController {
   })
   async getSessionDetail(
     @Param('id') sessionId: string,
-  ): Promise<RegularMentoringSessionResponseDto> {
-    const session = await this.regularMentoringService.getSessionById(sessionId);
-    // Map session with meeting information to response DTO
-    return RegularMentoringSessionMapper.toResponseDto(session);
+    @Query('sessionType') sessionType: string,
+  ): Promise<SessionResponseDto> {
+    if (!sessionType) {
+      throw new Error('sessionType query parameter is required');
+    }
+
+    const session = await this.sessionOrchestratorService.getSessionById(
+      sessionType,
+      sessionId,
+    );
+
+    return this.mapSessionToResponse(sessionType, session);
   }
 
   /**
-   * Update a regular mentoring session
-   * PATCH /api/services/regular-mentoring/:id
-   *
-   * @param sessionId Session ID
-   * @param dto Update request
-   * @returns Updated session
+   * Update a session
+   * PATCH /api/services/sessions/:id
    */
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
   @Roles('counselor')
   @ApiOperation({
-    summary: 'Update a regular mentoring session',
-    description: 'Update session details like title, description, or scheduled time',
+    summary: 'Update a session (unified endpoint)',
+    description: 'Update session details like title, description, or scheduled time. Requires sessionType query parameter.',
   })
   @ApiParam({
     name: 'id',
@@ -437,7 +465,11 @@ export class RegularMentoringController {
   })
   @ApiOkResponse({
     description: 'Session updated successfully',
-    type: RegularMentoringSessionResponseDto,
+    type: SessionResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Missing or invalid sessionType parameter',
   })
   @ApiResponse({
     status: 404,
@@ -449,9 +481,15 @@ export class RegularMentoringController {
   })
   async updateSession(
     @Param('id') sessionId: string,
-    @Body() dto: UpdateRegularMentoringRequestDto,
-  ): Promise<RegularMentoringSessionResponseDto> {
-    const updatedSession = await this.regularMentoringService.updateSession(
+    @Query('sessionType') sessionType: string,
+    @Body() dto: UpdateSessionRequestDto,
+  ): Promise<SessionResponseDto> {
+    if (!sessionType) {
+      throw new Error('sessionType query parameter is required');
+    }
+
+    const updatedSession = await this.sessionOrchestratorService.updateSession(
+      sessionType,
       sessionId,
       {
         title: dto.title,
@@ -460,38 +498,22 @@ export class RegularMentoringController {
         duration: dto.duration,
       },
     );
-    // Use mapper to ensure all fields including meeting info are properly mapped
-    return RegularMentoringSessionMapper.toResponseDto(updatedSession);
+
+    return this.mapSessionToResponse(sessionType, updatedSession);
   }
 
   /**
-   * Cancel a regular mentoring session
-   * POST /api/services/regular-mentoring/:id/cancel
-   *
-   * Sync Flow (returns immediately):
-   * 1. Update session status to CANCELLED
-   * 2. Release calendar slots (delete from calendar)
-   * 3. Return response with CANCELLED status
-   *
-   * Async Flow (runs in background):
-   * 1. Cancel meeting via third-party API (Feishu/Zoom) with retry (max 3 times)
-   * 2. Update meetings table status to CANCELLED
-   * 3. Publish success/failed event for notifications:
-   *    - Success: Notify counselor + mentor + student
-   *    - Failed: Notify counselor only (requires manual retry from frontend)
-   *
-   * @param sessionId Session ID
-   * @param body Cancel request with reason
-   * @returns Cancelled session details
+   * Cancel a session
+   * POST /api/services/sessions/:id/cancel
    */
   @Post(':id/cancel')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
   @Roles('counselor')
   @ApiOperation({
-    summary: 'Cancel a regular mentoring session',
+    summary: 'Cancel a session (unified endpoint)',
     description: `
-      Cancel an existing regular mentoring session with optional reason.
+      Cancel an existing session with optional reason. Requires sessionType query parameter.
       
       Sync Flow (immediate response):
       - Update session status to CANCELLED
@@ -501,7 +523,7 @@ export class RegularMentoringController {
       Async Flow (background):
       - Cancel meeting via third-party API (max 3 retries)
       - Update meetings table
-      - Send notifications based on result (success: all parties, failed: counselor only)
+      - Send notifications based on result
     `,
   })
   @ApiParam({
@@ -510,12 +532,12 @@ export class RegularMentoringController {
     type: String,
   })
   @ApiOkResponse({
-    description: 'Session cancelled successfully (meeting cancellation in progress)',
-    type: RegularMentoringSessionResponseDto,
+    description: 'Session cancelled successfully',
+    type: SessionResponseDto,
   })
   @ApiResponse({
     status: 400,
-    description: 'Invalid session status (only SCHEDULED/PENDING_MEETING can be cancelled)',
+    description: 'Invalid session status or missing sessionType parameter',
   })
   @ApiResponse({
     status: 404,
@@ -523,31 +545,33 @@ export class RegularMentoringController {
   })
   async cancelSession(
     @Param('id') sessionId: string,
+    @Query('sessionType') sessionType: string,
     @Body() body?: { reason?: string },
-  ): Promise<RegularMentoringSessionResponseDto> {
-    const cancelledSession = await this.regularMentoringService.cancelSession(
+  ): Promise<SessionResponseDto> {
+    if (!sessionType) {
+      throw new Error('sessionType query parameter is required');
+    }
+
+    const cancelledSession = await this.sessionOrchestratorService.cancelSession(
+      sessionType,
       sessionId,
       body?.reason || 'Cancelled by counselor',
     );
-    
-    // Return cancelled session with meeting info (similar to updateSession)
-    return RegularMentoringSessionMapper.toResponseDto(cancelledSession);
+
+    return this.mapSessionToResponse(sessionType, cancelledSession);
   }
 
   /**
-   * Delete (soft delete) a regular mentoring session
-   * DELETE /api/services/regular-mentoring/:id
-   *
-   * @param sessionId Session ID
-   * @returns Deletion result
+   * Delete (soft delete) a session
+   * DELETE /api/services/sessions/:id
    */
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
   @Roles('counselor')
   @ApiOperation({
-    summary: 'Delete a regular mentoring session',
-    description: 'Soft delete a regular mentoring session (marks as deleted)',
+    summary: 'Delete a session (unified endpoint)',
+    description: 'Soft delete a session (marks as deleted). Requires sessionType query parameter.',
   })
   @ApiParam({
     name: 'id',
@@ -558,13 +582,58 @@ export class RegularMentoringController {
     description: 'Session deleted successfully',
   })
   @ApiResponse({
+    status: 400,
+    description: 'Missing or invalid sessionType parameter',
+  })
+  @ApiResponse({
     status: 404,
     description: 'Session not found',
   })
   async deleteSession(
     @Param('id') sessionId: string,
+    @Query('sessionType') sessionType: string,
   ) {
-    return this.regularMentoringService.deleteSession(sessionId);
+    if (!sessionType) {
+      throw new Error('sessionType query parameter is required');
+    }
+
+    return this.sessionOrchestratorService.deleteSession(sessionType, sessionId);
+  }
+
+  /**
+   * Helper: Map single session to response using appropriate mapper
+   */
+  private mapSessionToResponse(sessionType: string, session: any): SessionResponseDto {
+    const mappers: Record<string, any> = {
+      [SessionType.REGULAR_MENTORING]: RegularMentoringSessionMapper,
+      [SessionType.GAP_ANALYSIS]: GapAnalysisSessionMapper,
+      [SessionType.AI_CAREER]: AiCareerSessionMapper,
+    };
+
+    const mapper = mappers[sessionType];
+    if (!mapper) {
+      throw new Error(`No mapper found for session type: ${sessionType}`);
+    }
+
+    return mapper.toResponseDto(session);
+  }
+
+  /**
+   * Helper: Map sessions array to response using appropriate mapper
+   */
+  private mapSessionsToResponse(sessionType: string, sessions: any[]): SessionResponseDto[] {
+    const mappers: Record<string, any> = {
+      [SessionType.REGULAR_MENTORING]: RegularMentoringSessionMapper,
+      [SessionType.GAP_ANALYSIS]: GapAnalysisSessionMapper,
+      [SessionType.AI_CAREER]: AiCareerSessionMapper,
+    };
+
+    const mapper = mappers[sessionType];
+    if (!mapper) {
+      throw new Error(`No mapper found for session type: ${sessionType}`);
+    }
+
+    return mapper.toResponseDtos(sessions);
   }
 }
 

@@ -22,6 +22,7 @@ import { MetricsService } from '@telemetry/metrics.service';
 import { 
   REGULAR_MENTORING_SESSION_CREATED_EVENT,
   REGULAR_MENTORING_SESSION_UPDATED_EVENT,
+  REGULAR_MENTORING_SESSION_CANCELLED_EVENT,
   SESSION_RESCHEDULED_COMPLETED,
 } from '@shared/events/event-constants';
 
@@ -452,10 +453,12 @@ export class RegularMentoringService {
 
   /**
    * Cancel a regular mentoring session
+   * Synchronous flow (transaction): Update session + Release calendar slots
+   * Asynchronous flow (event): Cancel meeting via third-party API
    *
    * @param sessionId Session ID
    * @param reason Cancellation reason
-   * @returns Cancellation result
+   * @returns Cancelled session with CANCELLED status
    */
   @Trace({
     name: 'regular_mentoring.cancel',
@@ -470,22 +473,63 @@ export class RegularMentoringService {
     });
 
     try {
-      // Step 1: Get session details
+      // Step 1: Fetch session details before cancellation
       const session = await this.regularMentoringQueryService.getSessionById(sessionId);
       if (!session) {
         throw new NotFoundException(`Session ${sessionId} not found`);
       }
 
-      // Step 2: Cancel in domain layer
-      await this.domainRegularMentoringService.cancelSession(sessionId, reason);
+      // Step 2: Validate session status (only scheduled/pending_meeting can be cancelled)
+      const statusLower = session.status?.toLowerCase();
+      if (!['scheduled', 'pending_meeting'].includes(statusLower)) {
+        throw new Error(`Cannot cancel session with status: ${session.status}`);
+      }
 
-      // Step 3: Update calendar status (if needed)
-      // TODO: Update calendar status based on session details
+      // Step 3: Execute transaction to update session and calendar
+      await this.db.transaction(async (tx: DrizzleTransaction) => {
+        // Update session status to CANCELLED (no tx support, runs outside transaction)
+        await this.domainRegularMentoringService.cancelSession(sessionId, reason);
 
-      this.logger.log(`Regular mentoring session cancelled: sessionId=${sessionId}`);
+        // Release calendar slots (update status to cancelled instead of deleting)
+        await this.calendarService.updateSlots(
+          sessionId,
+          { status: 'cancelled' as any },
+          tx,
+        );
+        this.logger.debug(`Calendar slots cancelled for session ${sessionId}`);
+      });
+
+      // Step 4: Re-fetch session to get updated data with cancelledAt
+      const cancelledSession = await this.regularMentoringQueryService.getSessionById(sessionId);
+
+      this.logger.log(`Regular mentoring session cancelled in transaction: sessionId=${sessionId}`);
+      addSpanEvent('session.cancel.transaction.success');
+
+      // Step 5: Extract meeting provider and session details
+      const sessionData = session as any;
+      const meetingProvider = sessionData.meetingProvider || 'feishu';
+
+      // Step 6: Publish cancellation event for async meeting cancellation
+      this.eventEmitter.emit(REGULAR_MENTORING_SESSION_CANCELLED_EVENT, {
+        sessionId: sessionId,
+        meetingId: session.meetingId,
+        studentId: session.studentUserId,
+        mentorId: session.mentorUserId,
+        counselorId: session.createdByCounselorId,
+        scheduledAt: session.scheduledAt,
+        cancelReason: reason,
+        cancelledAt: (cancelledSession as any).cancelledAt,
+        meetingProvider: meetingProvider,
+      });
+
+      this.logger.log(`Published REGULAR_MENTORING_SESSION_CANCELLED_EVENT for session ${sessionId}`);
       addSpanEvent('session.cancel.success');
 
-      return { sessionId, status: 'cancelled' };
+      // Step 7: Return cancelled session with meeting info (similar to updateSession)
+      return {
+        ...cancelledSession,
+        meeting: session.meeting,
+      };
     } catch (error) {
       this.logger.error(
         `Failed to cancel regular mentoring session: ${error.message}`,

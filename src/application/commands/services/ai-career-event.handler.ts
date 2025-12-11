@@ -7,6 +7,8 @@ import { AiCareerService as DomainAiCareerService } from '@domains/services/sess
 import {
   AI_CAREER_SESSION_CREATED_EVENT,
   AI_CAREER_SESSION_UPDATED_EVENT,
+  AI_CAREER_SESSION_CANCELLED_EVENT,
+  AI_CAREER_SESSION_OPERATION_RESULT_EVENT,
   SESSION_BOOKED_EVENT,
   SESSION_RESCHEDULED_COMPLETED,
 } from '@shared/events/event-constants';
@@ -131,11 +133,46 @@ export class AiCareerCreatedEventHandler {
       this.logger.log(
         `SESSION_BOOKED_EVENT published: sessionId=${event.sessionId}, meetingUrl=${meeting.meetingUrl}`,
       );
+
+      // Step 4: Publish unified result event (success)
+      this.eventEmitter.emit(AI_CAREER_SESSION_OPERATION_RESULT_EVENT, {
+        operation: 'create',
+        status: 'success',
+        sessionId: event.sessionId,
+        studentId: event.studentId,
+        mentorId: event.mentorId,
+        counselorId: event.counselorId,
+        scheduledAt: event.scheduledStartTime,
+        meetingUrl: meeting.meetingUrl,
+        notifyRoles: ['counselor', 'mentor', 'student'],
+      });
+
+      this.logger.log(
+        `OPERATION_RESULT_EVENT published: operation=create, status=success, sessionId=${event.sessionId}`,
+      );
     } catch (error) {
-      // Error handling: Log error without updating session status
+      // Error handling: Log error and publish failed result event
       this.logger.error(
         `Failed to create meeting for session ${event.sessionId}: ${error.message}`,
         error.stack,
+      );
+
+      // Publish unified result event (failed)
+      this.eventEmitter.emit(AI_CAREER_SESSION_OPERATION_RESULT_EVENT, {
+        operation: 'create',
+        status: 'failed',
+        sessionId: event.sessionId,
+        studentId: event.studentId,
+        mentorId: event.mentorId,
+        counselorId: event.counselorId,
+        scheduledAt: event.scheduledStartTime,
+        errorMessage: error.message,
+        notifyRoles: ['counselor'],
+        requireManualIntervention: true,
+      });
+
+      this.logger.warn(
+        `OPERATION_RESULT_EVENT published: operation=create, status=failed, sessionId=${event.sessionId}`,
       );
     }
   }
@@ -152,18 +189,18 @@ export class AiCareerCreatedEventHandler {
       `Handling AI_CAREER_SESSION_UPDATED_EVENT: sessionId=${event.sessionId}`,
     );
 
+    let updateSuccess = false;
+    let errorMessage = '';
+
     try {
       // Step 1: Check if meeting is in an updatable state (not cancelled/ended)
       const isMeetingUpdatable = await this.isMeetingUpdatable(event.meetingId);
       if (!isMeetingUpdatable) {
-        this.logger.warn(
-          `Meeting is in a non-updatable state (cancelled/ended). Update skipped. meetingId=${event.meetingId}`,
-        );
-        return; // Skip external meeting update
-      }
-
-      // Step 2: Update external meeting platform with retry mechanism (max 3 retries)
-      try {
+        updateSuccess = false;
+        errorMessage = 'Meeting is in a non-updatable state (cancelled/ended). Update skipped.';
+        this.logger.warn(`${errorMessage} meetingId=${event.meetingId}`);
+      } else {
+        // Step 2: Update external meeting platform with retry mechanism (max 3 retries)
         await retryWithBackoff(
           async () => {
             return await this.meetingManagerService.updateMeeting(
@@ -179,18 +216,10 @@ export class AiCareerCreatedEventHandler {
           1000, // Initial delay
           this.logger,
         );
-        this.logger.debug(`External meeting updated successfully for meetingId=${event.meetingId}`);
-      } catch (error) {
-        this.logger.error(
-          `Failed to update external meeting ${event.meetingId}: ${error.message}`,
-        );
-        // Continue to update DB even if external update fails
-      }
 
-      // Step 3: Update meetings table in database with new schedule info
-      if (event.meetingId) {
+        // Step 3: Update meetings table in database with new schedule info
         const startTime = new Date(event.newScheduledAt);
-        const result = await this.db.execute(sql`
+        await this.db.execute(sql`
           UPDATE meetings 
           SET 
             topic = ${event.newTitle},
@@ -199,35 +228,157 @@ export class AiCareerCreatedEventHandler {
             updated_at = NOW()
           WHERE id = ${event.meetingId}
         `);
-        this.logger.debug(
-          `Meetings table updated: topic=${event.newTitle}, ` +
-          `scheduleStartTime=${startTime.toISOString()}, ` +
-          `scheduleDuration=${event.newDuration}, ` +
-          `affectedRows=${(result as any).rowCount}`,
-        );
-      } else {
-        this.logger.warn(`Meeting ID is null for session ${event.sessionId}, skipping meetings table update.`);
+        this.logger.debug(`Meetings table updated: topic=${event.newTitle}, scheduleStartTime=${startTime.toISOString()}`);
+
+        updateSuccess = true;
+        this.logger.debug(`Meeting ${event.meetingId} updated successfully`);
       }
     } catch (error) {
+      updateSuccess = false;
+      errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
       this.logger.error(
-        `Failed to handle session updated event ${event.sessionId}: ${error.message}`,
-        error.stack,
+        `Failed to update meeting ${event.meetingId}: ${errorMessage}`,
+        error instanceof Error ? error.stack : '',
       );
     }
+
+    // Step 4: Publish unified result event
+    this.eventEmitter.emit(AI_CAREER_SESSION_OPERATION_RESULT_EVENT, {
+      operation: 'update',
+      status: updateSuccess ? 'success' : 'failed',
+      sessionId: event.sessionId,
+      meetingId: event.meetingId,
+      studentId: event.studentId,
+      mentorId: event.mentorId,
+      counselorId: event.counselorId,
+      newScheduledAt: event.newScheduledAt,
+      newDuration: event.newDuration,
+      errorMessage: updateSuccess ? undefined : errorMessage,
+      notifyRoles: updateSuccess ? ['counselor', 'mentor', 'student'] : ['counselor'],
+      requireManualIntervention: !updateSuccess,
+    });
+
+    this.logger.log(
+      `OPERATION_RESULT_EVENT published: operation=update, status=${updateSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
+    );
+
+    // Step 5: Emit legacy notification event (for backward compatibility)
+    this.eventEmitter.emit(SESSION_RESCHEDULED_COMPLETED, {
+      sessionId: event.sessionId,
+      meetingUpdateSuccess: updateSuccess,
+      errorMessage,
+      mentorId: event.mentorId,
+      studentId: event.studentId,
+      counselorId: event.counselorId,
+      newScheduledAt: event.newScheduledAt,
+      newDuration: event.newDuration,
+    });
   }
 
   /**
-   * Handle SESSION_RESCHEDULED_COMPLETED event
-   * Placeholder for future notification handler implementation
+   * Handle AI_CAREER_SESSION_CANCELLED_EVENT
+   * Executes the async meeting cancellation flow
    * 
-   * @param event - Session rescheduled completed event
+   * @param event - Session cancellation event
    */
-  @OnEvent(SESSION_RESCHEDULED_COMPLETED)
-  async handleSessionRescheduled(event: any): Promise<void> {
+  @OnEvent(AI_CAREER_SESSION_CANCELLED_EVENT)
+  async handleSessionCancelled(event: any): Promise<void> {
     this.logger.log(
-      `SESSION_RESCHEDULED_COMPLETED published for session ${event.sessionId}`,
+      `Handling AI_CAREER_SESSION_CANCELLED_EVENT: sessionId=${event.sessionId}`,
     );
-    // Placeholder for future notification handler implementation
+
+    let cancelSuccess = false;
+    let errorMessage = '';
+
+    try {
+      // Step 1: Check if meeting exists and is cancellable
+      if (!event.meetingId) {
+        cancelSuccess = false;
+        errorMessage = 'No meeting ID found, session was in PENDING_MEETING state';
+        this.logger.warn(`${errorMessage} sessionId=${event.sessionId}`);
+      } else {
+        const canCancel = await this.isMeetingCancellable(event.meetingId);
+
+        if (!canCancel) {
+          cancelSuccess = false;
+          errorMessage = 'Meeting is already cancelled or ended';
+          this.logger.warn(`${errorMessage} meetingId=${event.meetingId}`);
+        } else {
+          // Step 2: Cancel meeting with retry (max 3 times)
+          await retryWithBackoff(
+            async () => {
+              await this.meetingManagerService.cancelMeeting(event.meetingId);
+            },
+            3,
+            1000,
+            this.logger,
+          );
+
+          // Step 3: Update meetings table status
+          await this.db.execute(sql`
+            UPDATE meetings 
+            SET status = 'cancelled', updated_at = NOW()
+            WHERE id = ${event.meetingId}
+          `);
+
+          cancelSuccess = true;
+          this.logger.debug(`Meeting ${event.meetingId} cancelled successfully`);
+        }
+      }
+    } catch (error) {
+      cancelSuccess = false;
+      errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      this.logger.error(
+        `Failed to cancel meeting ${event.meetingId}: ${errorMessage}`,
+        error instanceof Error ? error.stack : '',
+      );
+    }
+
+    // Step 4: Publish unified result event
+    this.eventEmitter.emit(AI_CAREER_SESSION_OPERATION_RESULT_EVENT, {
+      operation: 'cancel',
+      status: cancelSuccess ? 'success' : 'failed',
+      sessionId: event.sessionId,
+      meetingId: event.meetingId,
+      studentId: event.studentId,
+      mentorId: event.mentorId,
+      counselorId: event.counselorId,
+      cancelledAt: event.cancelledAt,
+      cancelReason: event.cancelReason,
+      errorMessage: cancelSuccess ? undefined : errorMessage,
+      notifyRoles: cancelSuccess ? ['counselor', 'mentor', 'student'] : ['counselor'],
+      requireManualIntervention: !cancelSuccess,
+    });
+
+    this.logger.log(
+      `OPERATION_RESULT_EVENT published: operation=cancel, status=${cancelSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
+    );
+  }
+
+  /**
+   * Check if meeting is cancellable
+   * 
+   * @param meetingId - Meeting ID
+   * @returns True if meeting can be cancelled, false otherwise
+   */
+  private async isMeetingCancellable(meetingId: string): Promise<boolean> {
+    try {
+      const result = await this.db.execute(sql`
+        SELECT status FROM meetings WHERE id = ${meetingId}
+      `);
+
+      if (result.rows.length === 0) {
+        return false;
+      }
+
+      const status = (result.rows[0] as any).status;
+      return status === 'scheduled' || status === 'active';
+    } catch (error) {
+      this.logger.warn(`Failed to check meeting cancellable status: ${error}`);
+      return false;
+    }
   }
 
   /**

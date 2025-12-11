@@ -21,6 +21,7 @@ import { ProductsController } from "./controllers/catalog/products.controller";
 import { ContractsController } from "./controllers/contract/contracts.controller";
 import { FinancialController } from "./controllers/financial/financial.controller";
 import { PlacementController } from "./controllers/placement/placement.controller";
+import { SessionController as UnifiedSessionController } from "./controllers/services/session.controller";
 
 /**
  * API Layer - Root Module
@@ -50,9 +51,12 @@ import { PlacementController } from "./controllers/placement/placement.controlle
     CounselorStudentContractController,
     CounselorProfileController,
     CounselorsController,
-    RegularMentoringController,
-    GapAnalysisController,
-    AiCareerController,
+    
+    // Service Controllers (Unified + Legacy)
+    UnifiedSessionController, // New unified API endpoint
+    RegularMentoringController, // Legacy - kept for backward compatibility
+    GapAnalysisController, // Legacy - kept for backward compatibility
+    AiCareerController, // Legacy - kept for backward compatibility
     CommSessionController,
     // Mentor Controllers
     MentorsController,
