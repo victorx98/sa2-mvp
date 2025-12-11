@@ -55,7 +55,6 @@ import { ClassModule } from "@domains/services/class/class.module";
     SchoolQueryService,
     MajorQueryService,
     ClassMentorPriceQueryService,
-    ClassMentorPriceQueryService,
     RegularMentoringQueryService,
     GapAnalysisQueryService,
     AiCareerQueryService,
