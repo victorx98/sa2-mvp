@@ -7,7 +7,8 @@ import {
   UseGuards,
   Logger,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiResponse, ApiParam } from "@nestjs/swagger";
+import { ApiPrefix } from "@api/api.constants";
 import { JwtAuthGuard as AuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
 import { Roles } from "@shared/decorators/roles.decorator";
@@ -23,6 +24,9 @@ import { UpdateContractStatusDto } from "@domains/contract/dto/update-contract-s
 import { ConsumeServiceDto } from "@domains/contract/dto/consume-service.dto";
 import { AddAmendmentLedgerDto } from "@domains/contract/dto/add-amendment-ledger.dto";
 import { UpdateContractStatusCommand } from "@application/commands/contract/update-contract-status.command";
+import { StudentContractsQuery } from "@application/queries/contract/student-contracts.query";
+import { ServiceBalanceQuery } from "@application/queries/contract/service-balance.query";
+import type { StudentContractResponseDto } from "@domains/contract/dto/student-contracts-query.dto";
 
 /**
  * Admin Contracts Controller
@@ -34,7 +38,7 @@ import { UpdateContractStatusCommand } from "@application/commands/contract/upda
  * 3. 调用Application Layer的Command和Query
  * 4. 返回HTTP响应
  */
-@Controller("api/contracts")
+@Controller(`${ApiPrefix}/contracts`)
 @ApiTags("Admin Contracts")
 @UseGuards(AuthGuard, RolesGuard)
 @Roles("admin", "manager", "counselor")
@@ -47,7 +51,116 @@ export class ContractsController {
     private readonly updateContractCommand: UpdateContractCommand,
     private readonly consumeServiceCommand: ConsumeServiceCommand,
     private readonly addAmendmentLedgerCommand: AddAmendmentLedgerCommand,
-  ) {}
+    private readonly studentContractsQuery: StudentContractsQuery,
+    private readonly serviceBalanceQuery: ServiceBalanceQuery,
+  ) { }
+
+  @Get("students/:studentId/service-balance")
+  @ApiOperation({
+    summary: "Get service entitlements for a specific student",
+    description: "Retrieve all service entitlements (balance information) for a student",
+  })
+  @ApiParam({
+    name: "studentId",
+    required: true,
+    description: "Student ID (UUID)",
+    type: String,
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Service entitlements retrieved successfully",
+    schema: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          studentId: { type: "string", format: "uuid" },
+          serviceType: { type: "string" },
+          totalQuantity: { type: "number" },
+          consumedQuantity: { type: "number" },
+          heldQuantity: { type: "number" },
+          availableQuantity: { type: "number" },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: "Invalid student ID format" })
+  @ApiResponse({ status: 404, description: "Student not found" })
+  async getStudentServiceBalance(
+    @Param("studentId") studentId: string,
+  ): Promise<
+    Array<{
+      studentId: string;
+      serviceType: string;
+      totalQuantity: number;
+      consumedQuantity: number;
+      heldQuantity: number;
+      availableQuantity: number;
+    }>
+  > {
+    this.logger.log(`Getting service balance for student: ${studentId}`);
+    const result = await this.serviceBalanceQuery.getServiceBalance(studentId);
+    const mappedResult = result.map((item) => ({
+      studentId: item.studentId,
+      serviceType: item.serviceType,
+      totalQuantity: item.totalQuantity,
+      consumedQuantity: item.consumedQuantity,
+      heldQuantity: item.heldQuantity,
+      availableQuantity: item.availableQuantity,
+    }));
+    this.logger.log(
+      `Retrieved ${mappedResult.length} service entitlement(s) for student: ${studentId}`,
+    );
+    return mappedResult;
+  }
+
+  @Get("students/:studentId")
+  @ApiOperation({
+    summary: "Get contracts purchased by a specific student",
+    description: "Retrieve all contracts purchased by a student with product information and contract status",
+  })
+  @ApiParam({
+    name: "studentId",
+    required: true,
+    description: "Student ID (UUID)",
+    type: String,
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Student contracts retrieved successfully",
+    schema: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          contract_number: { type: "string" },
+          product: {
+            type: "object",
+            properties: {
+              id: { type: "string", format: "uuid" },
+              name: { type: "string" },
+            },
+          },
+          status: { type: "string", enum: ["DRAFT", "SIGNED", "ACTIVE", "SUSPENDED", "COMPLETED", "TERMINATED"] },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: "Invalid student ID format" })
+  @ApiResponse({ status: 404, description: "Student not found" })
+  async getStudentContracts(
+    @Param("studentId") studentId: string,
+  ): Promise<StudentContractResponseDto[]> {
+    this.logger.log(`Getting contracts for student: ${studentId}`);
+    const result = await this.studentContractsQuery.getStudentContracts(
+      studentId,
+    );
+    this.logger.log(
+      `Retrieved ${result.length} contract(s) for student: ${studentId}`,
+    );
+    return result;
+  }
 
   @Post()
   @ApiOperation({ summary: "Create a new contract" })

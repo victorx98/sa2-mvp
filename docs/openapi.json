@@ -1722,6 +1722,871 @@
         ]
       }
     },
+    "/api/services/classes": {
+      "post": {
+        "description": "Create a new class with basic information",
+        "operationId": "ClassController_createClass",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateClassRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Class created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateClassResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a new class",
+        "tags": [
+          "Services - Class Management"
+        ]
+      }
+    },
+    "/api/services/classes/{id}/mentors": {
+      "get": {
+        "description": "Retrieve list of mentors assigned to the class with their names",
+        "operationId": "ClassController_getClassMentors",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mentors retrieved successfully"
+          },
+          "404": {
+            "description": "Class not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get class mentors with names",
+        "tags": [
+          "Services - Class Management"
+        ]
+      },
+      "post": {
+        "description": "Add a mentor to the class with price per session",
+        "operationId": "ClassController_addMentor",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddMentorRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Mentor added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddMemberResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Class not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add mentor to class",
+        "tags": [
+          "Services - Class Management"
+        ]
+      }
+    },
+    "/api/services/classes/{id}/students": {
+      "get": {
+        "description": "Retrieve list of students enrolled in the class with their names",
+        "operationId": "ClassController_getClassStudents",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Students retrieved successfully"
+          },
+          "404": {
+            "description": "Class not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get class students with names",
+        "tags": [
+          "Services - Class Management"
+        ]
+      },
+      "post": {
+        "description": "Add a student to the class",
+        "operationId": "ClassController_addStudent",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddStudentRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Student added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddMemberResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Class not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add student to class",
+        "tags": [
+          "Services - Class Management"
+        ]
+      }
+    },
+    "/api/services/classes/{id}": {
+      "get": {
+        "description": "Retrieve detailed information about a specific class",
+        "operationId": "ClassController_getClassDetail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Class retrieved successfully"
+          },
+          "404": {
+            "description": "Class not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get class details",
+        "tags": [
+          "Services - Class Management"
+        ]
+      },
+      "patch": {
+        "description": "Update class details like name, dates, or description",
+        "operationId": "ClassController_updateClass",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateClassRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Class updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateClassResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Class not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update class information",
+        "tags": [
+          "Services - Class Management"
+        ]
+      }
+    },
+    "/api/services/classes/{id}/status": {
+      "patch": {
+        "description": "Change class status (DRAFT, ACTIVE, COMPLETED, CANCELLED)",
+        "operationId": "ClassController_updateClassStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateClassStatusRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Class status updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassStatusResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Class not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update class status",
+        "tags": [
+          "Services - Class Management"
+        ]
+      }
+    },
+    "/api/services/classes/{id}/mentors/{mentorId}": {
+      "delete": {
+        "description": "Remove a mentor from the class",
+        "operationId": "ClassController_removeMentor",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mentorId",
+            "required": true,
+            "in": "path",
+            "description": "Mentor user ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mentor removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoveMemberResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Class or mentor not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove mentor from class",
+        "tags": [
+          "Services - Class Management"
+        ]
+      }
+    },
+    "/api/services/classes/{id}/mentors/{mentorId}/price": {
+      "patch": {
+        "description": "Update the price per session for a specific mentor in the class",
+        "operationId": "ClassController_updateMentorPrice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mentorId",
+            "required": true,
+            "in": "path",
+            "description": "Mentor user ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMentorPriceRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mentor price updated successfully"
+          },
+          "404": {
+            "description": "Class or mentor not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update mentor price per session",
+        "tags": [
+          "Services - Class Management"
+        ]
+      }
+    },
+    "/api/services/classes/{id}/students/{studentId}": {
+      "delete": {
+        "description": "Remove a student from the class",
+        "operationId": "ClassController_removeStudent",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "studentId",
+            "required": true,
+            "in": "path",
+            "description": "Student user ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Student removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoveMemberResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Class or student not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove student from class",
+        "tags": [
+          "Services - Class Management"
+        ]
+      }
+    },
+    "/api/services/classes/{id}/counselors": {
+      "post": {
+        "description": "Add a counselor to the class",
+        "operationId": "ClassController_addCounselor",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCounselorRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Counselor added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddMemberResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Class not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add counselor to class",
+        "tags": [
+          "Services - Class Management"
+        ]
+      }
+    },
+    "/api/services/classes/{id}/counselors/{counselorId}": {
+      "delete": {
+        "description": "Remove a counselor from the class",
+        "operationId": "ClassController_removeCounselor",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "counselorId",
+            "required": true,
+            "in": "path",
+            "description": "Counselor user ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Counselor removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoveMemberResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Class or counselor not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove counselor from class",
+        "tags": [
+          "Services - Class Management"
+        ]
+      }
+    },
+    "/api/services/class-sessions": {
+      "post": {
+        "description": "\n      Create a new class session for multiple students.\n      \n      Sync Flow (returns immediately):\n      1. Create calendar slot for mentor\n      2. Create session record with PENDING_MEETING status\n      3. Return response with sessionId and status\n      \n      Async Flow (runs in background):\n      1. Create meeting link via third-party API\n      2. Update session with meeting_id and status=SCHEDULED\n      3. Publish CLASS_SESSION_CREATED_EVENT\n      \n      Client should poll GET /api/services/class-sessions/:id to check status and get meetingUrl\n    ",
+        "operationId": "ClassSessionController_createSession",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateClassSessionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Class session created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateClassSessionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters"
+          },
+          "404": {
+            "description": "Class not found"
+          },
+          "409": {
+            "description": "Time conflict (mentor already scheduled)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a new class session",
+        "tags": [
+          "Services - Class Session Management"
+        ]
+      },
+      "get": {
+        "description": "\n      Retrieve class sessions with optional filtering.\n      \n      Query Parameters:\n      - classId (optional): Filter by specific class ID\n      - mentorId (optional): Filter by specific mentor ID\n      - status (optional): Filter by session status\n      - startDate (optional): Filter by start date\n      - endDate (optional): Filter by end date\n    ",
+        "operationId": "ClassSessionController_getSessionsList",
+        "parameters": [
+          {
+            "name": "classId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mentorId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Class sessions retrieved successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get list of class sessions",
+        "tags": [
+          "Services - Class Session Management"
+        ]
+      }
+    },
+    "/api/services/class-sessions/{id}": {
+      "get": {
+        "description": "Retrieve detailed information about a specific class session",
+        "operationId": "ClassSessionController_getSessionDetail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Class session retrieved successfully"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get class session details",
+        "tags": [
+          "Services - Class Session Management"
+        ]
+      },
+      "patch": {
+        "description": "Update session details like title, description, or scheduled time",
+        "operationId": "ClassSessionController_updateSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateClassSessionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Class session updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateClassSessionResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found"
+          },
+          "409": {
+            "description": "Time conflict detected"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update class session",
+        "tags": [
+          "Services - Class Session Management"
+        ]
+      },
+      "delete": {
+        "description": "Soft delete a class session (marks as deleted)",
+        "operationId": "ClassSessionController_deleteSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Class session deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteClassSessionResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete class session",
+        "tags": [
+          "Services - Class Session Management"
+        ]
+      }
+    },
+    "/api/services/class-sessions/{id}/cancel": {
+      "post": {
+        "description": "\n      Cancel an existing class session with optional reason.\n      \n      Sync Flow (immediate response):\n      - Update session status to CANCELLED\n      - Release calendar slots\n      - Return cancelled session details\n      \n      Async Flow (background):\n      - Cancel meeting via third-party API (max 3 retries)\n      - Update meetings table\n      - Send notifications\n    ",
+        "operationId": "ClassSessionController_cancelSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelClassSessionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Class session cancelled successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelClassSessionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid session status"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancel class session",
+        "tags": [
+          "Services - Class Session Management"
+        ]
+      }
+    },
     "/api/mentors/find": {
       "get": {
         "operationId": "MentorsController_findMentors",
@@ -2132,6 +2997,143 @@
         "summary": "Update product",
         "tags": [
           "Catalog Products"
+        ]
+      }
+    },
+    "/api/contracts/students/{studentId}/service-balance": {
+      "get": {
+        "description": "Retrieve all service entitlements (balance information) for a student",
+        "operationId": "ContractsController_getStudentServiceBalance",
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": true,
+            "in": "path",
+            "description": "Student ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Service entitlements retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "studentId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "serviceType": {
+                        "type": "string"
+                      },
+                      "totalQuantity": {
+                        "type": "number"
+                      },
+                      "consumedQuantity": {
+                        "type": "number"
+                      },
+                      "heldQuantity": {
+                        "type": "number"
+                      },
+                      "availableQuantity": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid student ID format"
+          },
+          "404": {
+            "description": "Student not found"
+          }
+        },
+        "summary": "Get service entitlements for a specific student",
+        "tags": [
+          "Admin Contracts"
+        ]
+      }
+    },
+    "/api/contracts/students/{studentId}": {
+      "get": {
+        "description": "Retrieve all contracts purchased by a student with product information and contract status",
+        "operationId": "ContractsController_getStudentContracts",
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": true,
+            "in": "path",
+            "description": "Student ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Student contracts retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "contract_number": {
+                        "type": "string"
+                      },
+                      "product": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "DRAFT",
+                          "SIGNED",
+                          "ACTIVE",
+                          "SUSPENDED",
+                          "COMPLETED",
+                          "TERMINATED"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid student ID format"
+          },
+          "404": {
+            "description": "Student not found"
+          }
+        },
+        "summary": "Get contracts purchased by a specific student",
+        "tags": [
+          "Admin Contracts"
         ]
       }
     },
@@ -2608,6 +3610,30 @@
       "get": {
         "operationId": "FinancialController_searchClassMentorPrices",
         "parameters": [
+          {
+            "name": "classId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mentorUserId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "page",
             "required": true,
@@ -3995,6 +5021,272 @@
             "example": 60
           }
         }
+      },
+      "CreateClassRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Class name",
+            "example": "Spring 2025 Career Mentoring"
+          },
+          "type": {
+            "type": "string",
+            "description": "Class type",
+            "enum": [
+              "session",
+              "enroll"
+            ],
+            "example": "session"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "Start date (ISO 8601)",
+            "example": "2025-01-01T00:00:00Z"
+          },
+          "endDate": {
+            "type": "string",
+            "description": "End date (ISO 8601)",
+            "example": "2025-06-30T23:59:59Z"
+          },
+          "description": {
+            "type": "string",
+            "description": "Class description",
+            "example": "Comprehensive career mentoring program"
+          },
+          "totalSessions": {
+            "type": "number",
+            "description": "Total number of sessions",
+            "example": 10
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "startDate"
+        ]
+      },
+      "CreateClassResponseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateClassRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Class name",
+            "example": "Spring 2025 Career Mentoring"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "Start date (ISO 8601)",
+            "example": "2025-01-01T00:00:00Z"
+          },
+          "endDate": {
+            "type": "string",
+            "description": "End date (ISO 8601)",
+            "example": "2025-06-30T23:59:59Z"
+          },
+          "description": {
+            "type": "string",
+            "description": "Class description",
+            "example": "Comprehensive career mentoring program"
+          },
+          "totalSessions": {
+            "type": "number",
+            "description": "Total number of sessions",
+            "example": 10
+          }
+        }
+      },
+      "UpdateClassResponseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateClassStatusRequestDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Class status",
+            "enum": [
+              "Active",
+              "Inactive"
+            ],
+            "example": "Active"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "ClassStatusResponseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AddMentorRequestDto": {
+        "type": "object",
+        "properties": {
+          "mentorUserId": {
+            "type": "string",
+            "description": "Mentor user ID",
+            "example": "4903b94b-67cc-42a1-9b3e-91ebc51bcefc"
+          },
+          "pricePerSession": {
+            "type": "number",
+            "description": "Price per session",
+            "example": 100
+          }
+        },
+        "required": [
+          "mentorUserId",
+          "pricePerSession"
+        ]
+      },
+      "AddMemberResponseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RemoveMemberResponseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateMentorPriceRequestDto": {
+        "type": "object",
+        "properties": {
+          "pricePerSession": {
+            "type": "number",
+            "description": "Price per session",
+            "example": 120
+          }
+        },
+        "required": [
+          "pricePerSession"
+        ]
+      },
+      "AddStudentRequestDto": {
+        "type": "object",
+        "properties": {
+          "studentUserId": {
+            "type": "string",
+            "description": "Student user ID",
+            "example": "9e50af7d-5f08-4516-939f-7f765ce131b8"
+          }
+        },
+        "required": [
+          "studentUserId"
+        ]
+      },
+      "AddCounselorRequestDto": {
+        "type": "object",
+        "properties": {
+          "counselorUserId": {
+            "type": "string",
+            "description": "Counselor user ID",
+            "example": "7f123abc-4d56-78ef-90ab-cd1234567890"
+          }
+        },
+        "required": [
+          "counselorUserId"
+        ]
+      },
+      "CreateClassSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "classId": {
+            "type": "string",
+            "description": "Class ID",
+            "example": "class-uuid-123"
+          },
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor ID",
+            "example": "4903b94b-67cc-42a1-9b3e-91ebc51bcefc"
+          },
+          "title": {
+            "type": "string",
+            "description": "Session Title",
+            "example": "Week 1 - Career Planning Basics"
+          },
+          "description": {
+            "type": "string",
+            "description": "Session Description",
+            "example": "Introduction to career planning fundamentals"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "Scheduled Start Time (ISO 8601)",
+            "example": "2025-12-03T06:00:00Z"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Session Duration in minutes",
+            "example": 60
+          },
+          "meetingProvider": {
+            "type": "string",
+            "description": "Meeting Provider",
+            "example": "feishu"
+          }
+        },
+        "required": [
+          "classId",
+          "mentorId",
+          "title",
+          "scheduledAt"
+        ]
+      },
+      "CreateClassSessionResponseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateClassSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Session Title",
+            "example": "Week 1 - Career Planning Basics"
+          },
+          "description": {
+            "type": "string",
+            "description": "Session Description",
+            "example": "Introduction to career planning fundamentals"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "Scheduled Start Time (ISO 8601)",
+            "example": "2025-12-03T06:00:00Z"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Session Duration in minutes",
+            "example": 60
+          }
+        }
+      },
+      "UpdateClassSessionResponseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CancelClassSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Cancellation reason",
+            "example": "Mentor unavailable"
+          }
+        }
+      },
+      "CancelClassSessionResponseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "DeleteClassSessionResponseDto": {
+        "type": "object",
+        "properties": {}
       },
       "MentorSummaryResponseDto": {
         "type": "object",
