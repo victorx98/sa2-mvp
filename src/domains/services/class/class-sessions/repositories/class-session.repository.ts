@@ -128,7 +128,7 @@ export class ClassSessionRepository {
     if (entity.completedAt !== undefined) updates.completedAt = entity.completedAt;
     if (entity.cancelledAt !== undefined) updates.cancelledAt = entity.cancelledAt;
     if (entity.deletedAt !== undefined) updates.deletedAt = entity.deletedAt;
-    if (entity.meetingId !== undefined) updates.meeting_id = entity.meetingId;
+    if (entity.meetingId !== undefined) updates.meetingId = entity.meetingId;
 
     const db = tx || this.db;
     const [result] = await db
