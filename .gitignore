@@ -52,3 +52,6 @@ CLAUDE.md
 .trae/documents/修改导师申诉批准方法.md
 .trae/documents/移除 service_type 枚举类型的详细计划.md
 .trae/documents/优化Placement Controller注释.md
+
+# API spec (do not commit)
+docs/openapi.json
