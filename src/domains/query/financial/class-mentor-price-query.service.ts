@@ -33,7 +33,7 @@ export interface ClassMentorPriceWithMentor {
   id: string;
   classId: string;
   mentor: MentorInfo; // Mentor object instead of mentorUserId (导师对象，替代mentorUserId)
-  pricePerSession: string;
+  pricePerSession: number;
   status: string;
   createdAt: Date;
   updatedAt: Date;

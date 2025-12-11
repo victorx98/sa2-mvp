@@ -26,7 +26,7 @@ const mockLogger = {
 
 describe("ClassMentorPriceService", () => {
   let service: ClassMentorPriceService;
-  
+
   beforeEach(async () => {
     // Initialize mock database
     const chainableSelectMock = {
@@ -38,13 +38,13 @@ describe("ClassMentorPriceService", () => {
       then: jest.fn().mockResolvedValue([{ count: 0 }]),
       execute: jest.fn().mockResolvedValue([{ count: 0 }]),
     };
-    
+
     chainableUpdateMock = {
       set: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       returning: jest.fn().mockResolvedValue([{}]),
     };
-    
+
     mockDb = {
       query: {
         classMentorsPrices: {
@@ -58,7 +58,7 @@ describe("ClassMentorPriceService", () => {
       values: jest.fn().mockReturnThis(),
       transaction: jest.fn(),
     };
-    
+
     const moduleBuilder = Test.createTestingModule({
       imports: [],
       providers: [
@@ -70,17 +70,17 @@ describe("ClassMentorPriceService", () => {
       ],
     });
     const compiledModule = await moduleBuilder.compile();
-    
+
     service = compiledModule.get<ClassMentorPriceService>(ClassMentorPriceService);
     // Replace logger with mock
     (service as any).logger = mockLogger;
   });
-  
+
   afterEach(() => {
     // Clear all mocks
     jest.clearAllMocks();
   });
-  
+
   describe("createClassMentorPrice", () => {
     it("should create a new class mentor price record", async () => {
       // Arrange
@@ -89,36 +89,36 @@ describe("ClassMentorPriceService", () => {
         mentorUserId: "123e4567-e89b-12d3-a456-426614174001",
         pricePerSession: 100.50, // Number in DTO
       };
-      
+
       const mockCreatedPrice = {
         id: "123e4567-e89b-12d3-a456-426614174002",
         classId: dto.classId,
         mentorUserId: dto.mentorUserId,
-        pricePerSession: dto.pricePerSession.toString(), // Database returns string (decimal type)
+        pricePerSession: dto.pricePerSession,
         status: "active",
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any; // Type assertion because database returns string but DTO uses number
-      
+      } as any;
+
       // Mock the database calls
       (mockDb.query.classMentorsPrices.findFirst as jest.Mock).mockResolvedValue(null);
       (mockDb.returning as jest.Mock).mockResolvedValue([mockCreatedPrice]);
-      
+
       // Act
       const result = await service.createClassMentorPrice(dto);
-      
+
       // Assert
       expect(result).toEqual(mockCreatedPrice);
       expect(mockDb.insert).toHaveBeenCalledWith(schema.classMentorsPrices);
       expect(mockDb.values).toHaveBeenCalledWith(expect.objectContaining({
         classId: dto.classId,
         mentorUserId: dto.mentorUserId,
-        pricePerSession: dto.pricePerSession.toString(), // Service converts to string
+        pricePerSession: dto.pricePerSession,
         status: "active",
       }));
       expect(mockLogger.log).toHaveBeenCalled();
     });
-    
+
     it("should throw an error if class mentor price already exists", async () => {
       // Arrange
       const dto: CreateClassMentorPriceDto = {
@@ -126,24 +126,24 @@ describe("ClassMentorPriceService", () => {
         mentorUserId: "123e4567-e89b-12d3-a456-426614174001",
         pricePerSession: 100.50, // Number in DTO
       };
-      
+
       // Mock the database call to return an existing price
       (mockDb.query.classMentorsPrices.findFirst as jest.Mock).mockResolvedValue({
         id: "123e4567-e89b-12d3-a456-426614174002",
         classId: dto.classId,
         mentorUserId: dto.mentorUserId,
-        pricePerSession: dto.pricePerSession.toString(), // Database returns string (decimal type)
+        pricePerSession: dto.pricePerSession,
         status: "active",
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any); // Type assertion because database returns string but DTO uses number
-      
+      } as any);
+
       // Act & Assert
       await expect(service.createClassMentorPrice(dto)).rejects.toThrow(FinancialException);
       // Note: FinancialConflictException is a FinancialException, so error logging may occur
     });
   });
-  
+
   describe("updateClassMentorPrice", () => {
     it("should update an existing class mentor price record", async () => {
       // Arrange
@@ -151,84 +151,84 @@ describe("ClassMentorPriceService", () => {
       const dto: UpdateClassMentorPriceDto = {
         pricePerSession: 150.75, // Number in DTO
       };
-      
+
       const existingPrice = {
         id,
         classId: "123e4567-e89b-12d3-a456-426614174001",
         mentorUserId: "123e4567-e89b-12d3-a456-426614174002",
-        pricePerSession: "100.50", // String to match database schema
+        pricePerSession: 100,
         status: "active",
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      
+
       const updatedPrice = {
         ...existingPrice,
-        pricePerSession: dto.pricePerSession.toString(), // Convert to string to match schema
+        pricePerSession: dto.pricePerSession,
         updatedAt: new Date(),
       };
-      
+
       // Mock the database calls
       (mockDb.query.classMentorsPrices.findFirst as jest.Mock).mockResolvedValue(existingPrice);
       (chainableUpdateMock.returning as jest.Mock).mockResolvedValue([updatedPrice]);
-      
+
       // Act
       const result = await service.updateClassMentorPrice(id, dto);
-      
+
       // Assert
       expect(result).toEqual(updatedPrice);
       expect(mockDb.update).toHaveBeenCalledWith(schema.classMentorsPrices);
       expect(chainableUpdateMock.set).toHaveBeenCalledWith(expect.objectContaining({
-        pricePerSession: dto.pricePerSession.toString(), // Service converts to string
+        pricePerSession: dto.pricePerSession,
       }));
       expect(chainableUpdateMock.where).toHaveBeenCalled();
       expect(mockLogger.log).toHaveBeenCalled();
     });
-    
+
     it("should throw an error if class mentor price not found", async () => {
       // Arrange
       const id = "123e4567-e89b-12d3-a456-426614174000";
       const dto: UpdateClassMentorPriceDto = {
         pricePerSession: 150.75, // Number in DTO
       };
-      
+
       // Mock the database call to return null
       (mockDb.query.classMentorsPrices.findFirst as jest.Mock).mockResolvedValue(null);
-      
+
       // Act & Assert
       await expect(service.updateClassMentorPrice(id, dto)).rejects.toThrow(FinancialException);
     });
   });
-  
+
   describe("updateStatus", () => {
     it("should update class mentor price status to deleted", async () => {
       // Arrange
       const id = "123e4567-e89b-12d3-a456-426614174000";
-      const status = "deleted";
-      
+      const status = ClassMentorPriceStatus.INACTIVE;
+
       const existingPrice = {
         id,
         classId: "123e4567-e89b-12d3-a456-426614174001",
         mentorUserId: "123e4567-e89b-12d3-a456-426614174002",
-        pricePerSession: "100.50", // String to match database schema
-        status: "active",
+        pricePerSession: 100,
+        status: ClassMentorPriceStatus.ACTIVE,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      
+
       const updatedPrice = {
         ...existingPrice,
-        status: "deleted",
+        status: ClassMentorPriceStatus.INACTIVE,
         updatedAt: new Date(),
       };
-      
+
       // Mock the database calls
       (mockDb.query.classMentorsPrices.findFirst as jest.Mock).mockResolvedValue(existingPrice);
       (chainableUpdateMock.returning as jest.Mock).mockResolvedValue([updatedPrice]);
-      
+
       // Act
       const result = await service.updateStatus(id, status);
-      
+
       // Assert
       expect(result).toEqual(updatedPrice);
       expect(mockDb.update).toHaveBeenCalledWith(schema.classMentorsPrices);
@@ -237,37 +237,37 @@ describe("ClassMentorPriceService", () => {
       }));
       expect(mockLogger.log).toHaveBeenCalled();
     });
-    
+
     it("should update class mentor price status to active", async () => {
       // Arrange
       const id = "123e4567-e89b-12d3-a456-426614174000";
       const status = ClassMentorPriceStatus.ACTIVE;
-      
+
       const existingPrice = {
         id,
         classId: "123e4567-e89b-12d3-a456-426614174001",
         mentorUserId: "123e4567-e89b-12d3-a456-426614174002",
-        pricePerSession: "100.50", // String to match database schema
+        pricePerSession: 100,
         status: "deleted",
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      
+
       const updatedPrice = {
         ...existingPrice,
         status: ClassMentorPriceStatus.ACTIVE,
         updatedAt: new Date(),
       };
-      
+
       // Mock the database calls
       (mockDb.query.classMentorsPrices.findFirst as jest.Mock)
         .mockResolvedValueOnce(existingPrice) // First call: check if exists
         .mockResolvedValueOnce(null); // Second call: check if active price exists
       (chainableUpdateMock.returning as jest.Mock).mockResolvedValue([updatedPrice]);
-      
+
       // Act
       const result = await service.updateStatus(id, status);
-      
+
       // Assert
       expect(result).toEqual(updatedPrice);
       expect(mockDb.update).toHaveBeenCalledWith(schema.classMentorsPrices);
@@ -276,79 +276,79 @@ describe("ClassMentorPriceService", () => {
       }));
       expect(mockLogger.log).toHaveBeenCalled();
     });
-    
+
     it("should throw an error if class mentor price not found", async () => {
       // Arrange
       const id = "123e4567-e89b-12d3-a456-426614174000";
-      const status = "deleted";
-      
+      const status = ClassMentorPriceStatus.INACTIVE;
+
       // Mock the database call to return null
       (mockDb.query.classMentorsPrices.findFirst as jest.Mock).mockResolvedValue(null);
-      
+
       // Act & Assert
       await expect(service.updateStatus(id, status)).rejects.toThrow(FinancialException);
     });
-    
+
     it("should throw an error if active price already exists when restoring", async () => {
       // Arrange
       const id = "123e4567-e89b-12d3-a456-426614174000";
       const status = ClassMentorPriceStatus.ACTIVE;
-      
+
       const existingPrice = {
         id,
         classId: "123e4567-e89b-12d3-a456-426614174001",
         mentorUserId: "123e4567-e89b-12d3-a456-426614174002",
-        pricePerSession: "100.50", // String to match database schema
-        status: "deleted",
+        pricePerSession: 100,
+        status: ClassMentorPriceStatus.INACTIVE,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      
+
       const activePrice = {
         id: "123e4567-e89b-12d3-a456-426614174003",
         classId: existingPrice.classId,
         mentorUserId: existingPrice.mentorUserId,
-        pricePerSession: "150.75", // String to match database schema
+        pricePerSession: 150,
         status: ClassMentorPriceStatus.ACTIVE,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      
+
       // Mock the database calls
       (mockDb.query.classMentorsPrices.findFirst as jest.Mock)
         .mockResolvedValueOnce(existingPrice) // First call: check if exists
         .mockResolvedValueOnce(activePrice); // Second call: check if active price exists
-      
+
       // Act & Assert
       await expect(service.updateStatus(id, status)).rejects.toThrow(FinancialException);
     });
-    
+
     it("should return the existing price if status is already the same", async () => {
       // Arrange
       const id = "123e4567-e89b-12d3-a456-426614174000";
       const status = ClassMentorPriceStatus.ACTIVE;
-      
+
       const existingPrice = {
         id,
         classId: "123e4567-e89b-12d3-a456-426614174001",
         mentorUserId: "123e4567-e89b-12d3-a456-426614174002",
-        pricePerSession: "100.50", // String to match database schema
-        status: "active",
+        pricePerSession: 100,
+        status: ClassMentorPriceStatus.ACTIVE,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      
+
       // Mock the database call
       (mockDb.query.classMentorsPrices.findFirst as jest.Mock).mockResolvedValue(existingPrice);
-      
+
       // Act
       const result = await service.updateStatus(id, status);
-      
+
       // Assert
       expect(result).toEqual(existingPrice);
       expect(mockDb.update).not.toHaveBeenCalled();
       expect(mockLogger.warn).toHaveBeenCalled();
     });
   });
-  
+
 });
