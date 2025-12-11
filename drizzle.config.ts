@@ -3,7 +3,7 @@ import type { Config } from 'drizzle-kit';
 // 增强的数据库URL配置，添加更多连接参数以解决连接问题
 export const createEnhancedDatabaseUrl = (): string => {
   // 从环境变量获取基础URL，默认使用Supabase连接字符串
-  const baseUrl = process.env.POSTGRES_URL || `postgresql://postgres.gexkpohuuqewswljbguf:Abc@123456@aws-1-us-east-2.pooler.supabase.com:6543/postgres`;
+  const baseUrl = process.env.DATABASE_URL;
   
   // 添加全面的连接参数，包括重试逻辑和连接池设置
   const connectionParams = [
