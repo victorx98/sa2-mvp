@@ -47,3 +47,7 @@ CLAUDE.md
 .mcp.json
 .gitignore
 .github/CODEOWNERS
+.trae/documents/swagger.md
+.trae/documents/产品服务算法重构计划.md
+.trae/documents/修改导师申诉批准方法.md
+.trae/documents/移除 service_type 枚举类型的详细计划.md

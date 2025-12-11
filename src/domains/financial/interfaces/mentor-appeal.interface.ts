@@ -93,6 +93,13 @@ export interface IMentorAppeal {
    */
   rejectionReason?: string;
 
+  /**
+   * Comments (申诉评论)
+   * Additional comments added during appeal processing
+   * (申诉处理过程中添加的额外评论)
+   */
+  comments?: string;
+
   // ========== Processing Records ==========
   /**
    * Approved By (审批人ID)
@@ -332,13 +339,23 @@ export interface IMentorAppealService {
    * Verifies that the approver matches the assigned counselor
    * Records approval information and publishes MENTOR_APPEAL_APPROVED_EVENT
    * If linked to a payable ledger, creates an adjustment record
+   * If original appeal amount is invalid, uses provided appealAmount and currency
    *
    * @param id - ID of the appeal to approve (要批准的申诉ID)
    * @param approvedByUserId - ID of the counselor approving (批准该申诉的顾问ID)
+   * @param appealAmount - New appeal amount if original is invalid (如果原始金额无效，提供新的申诉金额)
+   * @param currency - New currency if original is invalid (如果原始金额无效，提供新的货币类型)
+   * @param comments - Additional comments about the approval (关于批准的额外评论)
    * @returns Updated appeal record (更新后的申诉记录)
    * @throws Error if appeal not found, status not PENDING, or permission denied
    */
-  approveAppeal(id: string, approvedByUserId: string): Promise<IMentorAppeal>;
+  approveAppeal(
+    id: string,
+    approvedByUserId: string,
+    appealAmount?: number,
+    currency?: string,
+    comments?: string
+  ): Promise<IMentorAppeal>;
 
   /**
    * Reject Appeal (驳回申诉)

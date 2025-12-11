@@ -21,16 +21,63 @@ export class ErrorInterceptor implements NestInterceptor {
     return next.handle().pipe(
       catchError(error => {
         const request = context.switchToHttp().getRequest();
-        const status = error instanceof HttpException ? error.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+        let status = error instanceof HttpException ? error.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+        
+        // Get the original exception response [获取原始异常响应]
+        let originalResponse: any = {};
+        if (error instanceof HttpException) {
+          originalResponse = error.getResponse();
+        }
         
         // 构建错误响应 [Build error response]
-        const errorResponse = {
+        const errorResponse: any = {
           statusCode: status,
-          message: error.message || 'Internal server error',
+          message: 'Internal server error',
           error: error.name || 'Error',
           timestamp: new Date().toISOString(),
           path: request.url
         };
+        
+        // 处理数据库错误 [Handle database errors]
+        const dbError = this.parseDatabaseError(error);
+        if (dbError) {
+          errorResponse.message = dbError.message;
+          errorResponse.error = dbError.code || 'DATABASE_ERROR';
+          errorResponse.dbError = {
+            code: dbError.code,
+            detail: dbError.detail,
+            table: dbError.table,
+            constraint: dbError.constraint
+          };
+          // 根据数据库错误类型调整状态码 [Adjust status code based on database error type]
+          if (dbError.code === '23505') { // Unique constraint violation
+            status = HttpStatus.CONFLICT;
+          } else if (dbError.code === '23502') { // Not null constraint violation
+            status = HttpStatus.BAD_REQUEST;
+          } else if (dbError.code === '22P02') { // Invalid data type
+            status = HttpStatus.BAD_REQUEST;
+          } else if (dbError.code === '23514') { // Check constraint violation
+            status = HttpStatus.BAD_REQUEST;
+          }
+        } 
+        // 如果原始响应是对象，提取其中的code和message [If original response is an object, extract code and message from it]
+        else if (originalResponse && typeof originalResponse === 'object') {
+          // 使用原始响应中的message（如果存在），否则使用error.message [Use message from original response if exists, otherwise use error.message]
+          errorResponse.message = originalResponse.message || error.message || 'Internal server error';
+          
+          // 如果原始响应包含code字段，则使用它作为error字段的值 [If original response contains code field, use it as error field value]
+          if (originalResponse.code) {
+            errorResponse.error = originalResponse.code;
+          }
+          
+          // 如果原始响应包含 errors 字段，则保留它 [If original response contains errors field, keep it]
+          if (originalResponse.errors) {
+            errorResponse.errors = originalResponse.errors;
+          }
+        } else {
+          // 否则使用默认值 [Otherwise use default values]
+          errorResponse.message = error.message || 'Internal server error';
+        }
         
         // 记录错误日志 [Log error]
         this.logger.error(
@@ -42,5 +89,93 @@ export class ErrorInterceptor implements NestInterceptor {
         return throwError(() => new HttpException(errorResponse, status));
       })
     );
+  }
+
+  /**
+   * Parse database error and extract detailed information [解析数据库错误并提取详细信息]
+   * @param error Original error object [原始错误对象]
+   * @returns Parsed database error information [解析后的数据库错误信息]
+   */
+  private parseDatabaseError(error: any): { code: string; message: string; detail?: string; table?: string; constraint?: string } | null {
+    // Check if error has a cause property (which may contain the original PostgreSQL error) [检查错误是否有cause属性，其中可能包含原始PostgreSQL错误]
+    const originalError = error.cause || error;
+    
+    // Check if it's a PostgreSQL error [检查是否为PostgreSQL错误]
+    if (originalError && originalError.code && originalError.detail) {
+      let message = 'Database operation failed';
+      
+      switch (originalError.code) {
+        case '23505': // Unique constraint violation [唯一约束冲突]
+          message = `Database insert failed: Unique constraint violated`;
+          break;
+        case '23502': // Not null constraint violation [非空约束冲突]
+          message = `Database insert failed: Required field cannot be null`;
+          break;
+        case '22P02': // Invalid data type [无效数据类型]
+          message = `Database insert failed: Invalid data type`;
+          break;
+        case '23514': // Check constraint violation [检查约束冲突]
+          message = `Database insert failed: Check constraint violated`;
+          break;
+        case '23503': // Foreign key constraint violation [外键约束冲突]
+          message = `Database insert failed: Foreign key constraint violated`;
+          break;
+        default:
+          message = `Database insert failed: ${originalError.message}`;
+      }
+      
+      // Extract table and constraint information if available [如果可用，提取表和约束信息]
+      let table: string | undefined;
+      let constraint: string | undefined;
+      
+      if (originalError.detail) {
+        // Extract table name from detail [从详细信息中提取表名]
+        const tableMatch = originalError.detail.match(/table "([^"]+)"/i);
+        if (tableMatch && tableMatch[1]) {
+          table = tableMatch[1];
+        }
+        
+        // Extract constraint name from detail [从详细信息中提取约束名]
+        const constraintMatch = originalError.detail.match(/constraint "([^"]+)"/i);
+        if (constraintMatch && constraintMatch[1]) {
+          constraint = constraintMatch[1];
+        }
+      }
+      
+      return {
+        code: originalError.code,
+        message,
+        detail: originalError.detail,
+        table,
+        constraint
+      };
+    }
+    
+    // Check if it's a Drizzle ORM error [检查是否为Drizzle ORM错误]
+    if (error && error.message && error.message.includes('Failed query')) {
+      // Try to extract more information from Drizzle error [尝试从Drizzle错误中提取更多信息]
+      let detailedMessage = 'Database insert failed';
+      
+      // Check if error message contains specific constraint violation patterns [检查错误消息是否包含特定的约束冲突模式]
+      if (error.message.includes('duplicate key')) {
+        detailedMessage = 'Database insert failed: Unique constraint violated';
+      } else if (error.message.includes('null value in column')) {
+        detailedMessage = 'Database insert failed: Required field cannot be null';
+      } else if (error.message.includes('invalid input syntax')) {
+        detailedMessage = 'Database insert failed: Invalid data type';
+      } else if (error.message.includes('violates check constraint')) {
+        detailedMessage = 'Database insert failed: Check constraint violated';
+      } else if (error.message.includes('violates foreign key constraint')) {
+        detailedMessage = 'Database insert failed: Foreign key constraint violated';
+      }
+      
+      return {
+        code: 'DRIZZLE_ERROR',
+        message: detailedMessage,
+        detail: error.message
+      };
+    }
+    
+    return null;
   }
 }

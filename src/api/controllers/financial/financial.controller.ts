@@ -1,15 +1,9 @@
 import {
-  Controller,
-  Get,
-  Post,
+  Controller, Post,
   Body,
   Param,
   Patch,
-  Put,
-  Query,
-  UseGuards,
-  HttpException,
-  HttpStatus,
+  Put, UseGuards
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
@@ -33,6 +27,7 @@ import { CreateOrUpdateMentorPaymentInfoCommand } from "@application/commands/fi
 import { UpdateMentorPaymentInfoStatusCommand } from "@application/commands/financial/update-mentor-payment-info-status.command";
 import { CreateAppealDto } from "@domains/financial/dto/appeals/create-appeal.dto";
 import { RejectAppealDto } from "@domains/financial/dto/appeals/reject-appeal.dto";
+import { ApproveAppealDto } from "@domains/financial/dto/appeals/approve-appeal.dto";
 import { CreateMentorPriceDto } from "@domains/financial/dto/create-mentor-price.dto";
 import { UpdateMentorPriceDto } from "@domains/financial/dto/update-mentor-price.dto";
 import { UpdateMentorPriceStatusDto } from "@domains/financial/dto/update-mentor-price-status.dto";
@@ -53,11 +48,11 @@ import { ICreateOrUpdateMentorPaymentInfoRequest } from "@domains/financial/dto/
  * 4. 导师应付管理
  * 5. 结算管理
  */
-@Controller("api/admin/financial")
+@Controller("api/financial")
 @ApiTags("Admin Financial")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles("admin")
-export class AdminFinancialController {
+export class FinancialController {
   constructor(
     // 导师申诉相关
     private readonly createMentorAppealCommand: CreateMentorAppealCommand,
@@ -117,14 +112,17 @@ export class AdminFinancialController {
     description: "Mentor appeal approved successfully",
   })
   @ApiResponse({ status: 404, description: "Mentor appeal not found" })
+  @ApiResponse({ status: 400, description: "Bad request" })
   async approveMentorAppeal(
     @CurrentUser() user: IJwtUser,
     @Param("id") id: string,
+    @Body() approveAppealDto: ApproveAppealDto,
   ) {
     // Guard ensures user is authenticated and has valid structure [守卫确保用户已认证且结构有效]
     return this.approveMentorAppealCommand.execute({
       id,
       approvedBy: String((user as unknown as { id: string }).id),
+      ...approveAppealDto,
     });
   }
 

@@ -94,6 +94,7 @@ export class ServiceLedgerService {
         type: "consumption",
         source: "booking_completed",
         balanceAfter: totalAvailable - quantity,
+        relatedHoldId: null,
         relatedBookingId,
         metadata:
           relatedBookingId && bookingSource ? { bookingSource } : undefined, // Store bookingSource in metadata when relatedBookingId exists [当relatedBookingId存在时，在metadata中存储bookingSource]
@@ -164,6 +165,8 @@ export class ServiceLedgerService {
         type: "adjustment",
         source: "manual_adjustment",
         balanceAfter,
+        relatedHoldId: null,
+        relatedBookingId: null,
         reason,
         createdBy,
       })

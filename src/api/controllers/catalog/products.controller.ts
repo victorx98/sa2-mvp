@@ -4,11 +4,7 @@ import {
   Post,
   Body,
   Param,
-  Patch,
-  Query,
-  UseGuards,
-  HttpException,
-  HttpStatus,
+  Patch, UseGuards
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { JwtAuthGuard as AuthGuard } from "@shared/guards/jwt-auth.guard";
@@ -34,11 +30,11 @@ import { UpdateProductStatusDto } from "@domains/catalog/product/dto/update-prod
  * 3. 调用Application Layer的Command和Query
  * 4. 返回HTTP响应
  */
-@Controller("api/admin/products")
-@ApiTags("Admin Products")
+@Controller("api/products")
+@ApiTags("Catalog Products")
 @UseGuards(AuthGuard, RolesGuard)
 @Roles("admin", "manager")
-export class AdminProductsController {
+export class ProductsController {
   constructor(
     private readonly createProductCommand: CreateProductCommand,
     private readonly updateProductCommand: UpdateProductCommand,

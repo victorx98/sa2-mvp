@@ -43,7 +43,7 @@ jest.mock("@infrastructure/database/schema", () => ({
     rejectedAt: "rejectedAt",
     createdBy: "createdBy",
     createdAt: "createdAt",
-    updatedAt: "updatedAt",
+    comments: "comments",
   },
 }));
 
@@ -627,6 +627,209 @@ describe("MentorAppealService", () => {
         service.approveAppeal(appealId, approvedByUserId),
       ).rejects.toThrow(
         "Cannot approve appeal with status: APPROVED. Only PENDING appeals can be approved.",
+      );
+      expect(_mockDb.update).not.toHaveBeenCalled();
+      expect(_mockEventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it("should approve an appeal with invalid original amount by providing new appealAmount and currency", async () => {
+      // Arrange
+      const appealId = "550e8400-e29b-41d4-a716-446655440001";
+      const approvedByUserId = "550e8400-e29b-41d4-a716-446655440002";
+      const expectedAppeal = {
+        id: appealId,
+        mentorId: "550e8400-e29b-41d4-a716-446655440003",
+        counselorId: approvedByUserId, // Must match the approver
+        appealType: "billing_error",
+        appealAmount: "0", // Invalid original amount
+        currency: "USD",
+        reason: "Billing calculation error",
+        status: "PENDING",
+        createdAt: new Date(),
+        createdBy: "550e8400-e29b-41d4-a716-446655440004",
+      };
+
+      const newAppealAmount = 200.5;
+      const newCurrency = "EUR";
+      const comments = "Updated appeal amount due to calculation error";
+
+      const updatedAppeal = {
+        ...expectedAppeal,
+        status: "APPROVED",
+        approvedAt: new Date(),
+        approvedBy: approvedByUserId,
+        appealAmount: newAppealAmount.toString(),
+        currency: newCurrency,
+        comments,
+      };
+
+      // Mock findOne to return the appeal
+      const mockQuery = {
+        mentorAppeals: {
+          findFirst: jest.fn().mockResolvedValue(expectedAppeal),
+        },
+      };
+
+      _mockDb.query = mockQuery;
+
+      // Mock update
+      const mockUpdate = {
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        returning: jest.fn().mockResolvedValue([updatedAppeal]),
+      };
+
+      _mockDb.update = jest.fn().mockReturnValue(mockUpdate);
+
+      // Act
+      const result = await service.approveAppeal(
+        appealId, 
+        approvedByUserId, 
+        newAppealAmount, 
+        newCurrency, 
+        comments
+      );
+
+      // Assert
+      expect(_mockDb.query.mentorAppeals.findFirst).toHaveBeenCalledWith({
+        where: expect.anything(),
+      });
+      expect(_mockDb.update).toHaveBeenCalledWith(mentorAppeals);
+      expect(mockUpdate.set).toHaveBeenCalledWith({
+        status: "APPROVED",
+        approvedAt: expect.any(Date),
+        approvedBy: approvedByUserId,
+        appealAmount: newAppealAmount.toString(),
+        currency: newCurrency,
+        comments,
+        rejectionReason: undefined,
+        rejectedBy: undefined,
+        rejectedAt: undefined,
+      });
+      expect(mockUpdate.where).toHaveBeenCalled();
+      expect(mockUpdate.returning).toHaveBeenCalled();
+      expect(_mockEventEmitter.emit).toHaveBeenCalledWith(
+        MENTOR_APPEAL_APPROVED_EVENT,
+        expect.objectContaining({
+          appealId,
+          mentorId: expectedAppeal.mentorId,
+          counselorId: expectedAppeal.counselorId,
+          appealAmount: newAppealAmount.toString(),
+          approvedBy: approvedByUserId,
+          currency: newCurrency,
+        }),
+      );
+      expect(result).toEqual(updatedAppeal);
+    });
+
+    it("should throw an error when original amount is invalid and appealAmount is missing", async () => {
+      // Arrange
+      const appealId = "550e8400-e29b-41d4-a716-446655440001";
+      const approvedByUserId = "550e8400-e29b-41d4-a716-446655440002";
+      const expectedAppeal = {
+        id: appealId,
+        mentorId: "550e8400-e29b-41d4-a716-446655440003",
+        counselorId: approvedByUserId, // Must match the approver
+        appealType: "billing_error",
+        appealAmount: "", // Invalid original amount
+        currency: "USD",
+        reason: "Billing calculation error",
+        status: "PENDING",
+        createdAt: new Date(),
+        createdBy: "550e8400-e29b-41d4-a716-446655440004",
+      };
+
+      // Mock findOne to return the appeal
+      const mockQuery = {
+        mentorAppeals: {
+          findFirst: jest.fn().mockResolvedValue(expectedAppeal),
+        },
+      };
+
+      _mockDb.query = mockQuery;
+
+      // Act & Assert
+      await expect(
+        service.approveAppeal(appealId, approvedByUserId),
+      ).rejects.toThrow(
+        "appealAmount is required when original appeal amount is invalid",
+      );
+      expect(_mockDb.update).not.toHaveBeenCalled();
+      expect(_mockEventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it("should throw an error when original amount is invalid and currency is missing", async () => {
+      // Arrange
+      const appealId = "550e8400-e29b-41d4-a716-446655440001";
+      const approvedByUserId = "550e8400-e29b-41d4-a716-446655440002";
+      const expectedAppeal = {
+        id: appealId,
+        mentorId: "550e8400-e29b-41d4-a716-446655440003",
+        counselorId: approvedByUserId, // Must match the approver
+        appealType: "billing_error",
+        appealAmount: "0", // Invalid original amount
+        currency: "USD",
+        reason: "Billing calculation error",
+        status: "PENDING",
+        createdAt: new Date(),
+        createdBy: "550e8400-e29b-41d4-a716-446655440004",
+      };
+
+      const newAppealAmount = 200.5;
+
+      // Mock findOne to return the appeal
+      const mockQuery = {
+        mentorAppeals: {
+          findFirst: jest.fn().mockResolvedValue(expectedAppeal),
+        },
+      };
+
+      _mockDb.query = mockQuery;
+
+      // Act & Assert
+      await expect(
+        service.approveAppeal(appealId, approvedByUserId, newAppealAmount),
+      ).rejects.toThrow(
+        "currency is required when original appeal amount is invalid",
+      );
+      expect(_mockDb.update).not.toHaveBeenCalled();
+      expect(_mockEventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it("should throw an error when original amount is invalid and currency format is invalid", async () => {
+      // Arrange
+      const appealId = "550e8400-e29b-41d4-a716-446655440001";
+      const approvedByUserId = "550e8400-e29b-41d4-a716-446655440002";
+      const expectedAppeal = {
+        id: appealId,
+        mentorId: "550e8400-e29b-41d4-a716-446655440003",
+        counselorId: approvedByUserId, // Must match the approver
+        appealType: "billing_error",
+        appealAmount: "0", // Invalid original amount
+        currency: "USD",
+        reason: "Billing calculation error",
+        status: "PENDING",
+        createdAt: new Date(),
+        createdBy: "550e8400-e29b-41d4-a716-446655440004",
+      };
+
+      const newAppealAmount = 200.5;
+      const invalidCurrency = "EURO"; // Invalid currency format
+
+      // Mock findOne to return the appeal
+      const mockQuery = {
+        mentorAppeals: {
+          findFirst: jest.fn().mockResolvedValue(expectedAppeal),
+        },
+      };
+
+      _mockDb.query = mockQuery;
+
+      // Act & Assert
+      await expect(
+        service.approveAppeal(appealId, approvedByUserId, newAppealAmount, invalidCurrency),
+      ).rejects.toThrow(
+        "currency must be a valid ISO 4217 3-letter code",
       );
       expect(_mockDb.update).not.toHaveBeenCalled();
       expect(_mockEventEmitter.emit).not.toHaveBeenCalled();

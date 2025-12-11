@@ -365,15 +365,7 @@ export class ProductService {
     // Return product with items [返回包含产品项的产品]
     return {
       ...this.mapToProductInterface(updatedProduct),
-      items: items.map((item) => ({
-        id: item.id,
-        productId: item.productId,
-        serviceTypeId: item.serviceTypeId,
-        quantity: item.quantity,
-        sortOrder: item.sortOrder,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
-      })),
+      items: this.safeArrayCast(items).map(this.mapToProductItemInterface.bind(this)),
     };
   }
 
@@ -382,88 +374,56 @@ export class ProductService {
    */
   async addItem(productId: string, dto: AddProductItemDto): Promise<void> {
     // Wrap operations in transaction to ensure atomicity [将操作包裹在事务中以确保原子性]
-    try {
-      await this.db.transaction(async (tx) => {
-        // 1. Check if product exists and is draft with row lock [检查产品是否存在且为草稿状态，并加行锁]
-        const [existing] = await tx
-          .select()
-          .from(schema.products)
-          .where(eq(schema.products.id, productId))
-          .for("update") // Row-level lock to prevent concurrent modifications [行级锁防止并发修改]
-          .limit(1);
+    await this.db.transaction(async (tx) => {
+      // 1. Check if product exists and is draft with row lock [检查产品是否存在且为草稿状态，并加行锁]
+      const [existing] = await tx
+        .select()
+        .from(schema.products)
+        .where(eq(schema.products.id, productId))
+        .for("update") // Row-level lock to prevent concurrent modifications [行级锁防止并发修改]
+        .limit(1);
 
-        if (!existing) {
-          throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
-        }
+      if (!existing) {
+        throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
+      }
 
-        if (existing.status !== ProductStatus.DRAFT) {
-          throw new CatalogException("PRODUCT_NOT_DRAFT");
-        }
+      if (existing.status !== ProductStatus.DRAFT) {
+        throw new CatalogException("PRODUCT_NOT_DRAFT");
+      }
 
-        // 2. Validate reference exists and is active [验证引用存在且处于激活状态]
-        await this.validateProductItemReferences(
-          [{ serviceTypeId: dto.serviceTypeId }],
-          tx,
-        ); // Pass transaction context [传递事务上下文]
-        await this.validateProductItemQuantities([
-          { serviceTypeId: dto.serviceTypeId, quantity: dto.quantity },
-        ]);
+      // 2. Validate reference exists and is active [验证引用存在且处于激活状态]
+      await this.validateProductItemReferences(
+        [{ serviceTypeId: dto.serviceTypeId }],
+        tx,
+      ); // Pass transaction context [传递事务上下文]
+      await this.validateProductItemQuantities([
+        { serviceTypeId: dto.serviceTypeId, quantity: dto.quantity },
+      ]);
 
-        // 3. Check if item already exists in product [检查产品项是否已存在于产品中]
-        const existingItem = await tx
-          .select()
-          .from(schema.productItems)
-          .where(
-            and(
-              eq(schema.productItems.productId, productId),
-              eq(schema.productItems.serviceTypeId, dto.serviceTypeId),
-            ),
-          )
-          .limit(1);
+      // 3. Check if item already exists in product [检查产品项是否已存在于产品中]
+      const existingItem = await tx
+        .select()
+        .from(schema.productItems)
+        .where(
+          and(
+            eq(schema.productItems.productId, productId),
+            eq(schema.productItems.serviceTypeId, dto.serviceTypeId),
+          ),
+        )
+        .limit(1);
 
-        if (existingItem.length > 0) {
-          throw new CatalogException("ITEM_ALREADY_IN_PRODUCT");
-        }
+      if (existingItem.length > 0) {
+        throw new CatalogException("ITEM_ALREADY_IN_PRODUCT");
+      }
 
-        // 4. Add product item [添加产品项]
-        await tx.insert(schema.productItems).values({
-          productId,
-          serviceTypeId: dto.serviceTypeId,
-          quantity: dto.quantity,
-          sortOrder: dto.sortOrder ?? 0, // Use provided sortOrder or default to 0 [使用提供的sortOrder或默认为0]
-        });
+      // 4. Add product item [添加产品项]
+      await tx.insert(schema.productItems).values({
+        productId,
+        serviceTypeId: dto.serviceTypeId,
+        quantity: dto.quantity,
+        sortOrder: dto.sortOrder ?? 0, // Use provided sortOrder or default to 0 [使用提供的sortOrder或默认为0]
       });
-    } catch (error) {
-      // Enhanced error logging with full error details [增强错误日志，包含完整错误详情]
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      const errorCause = (error as { cause?: unknown })?.cause;
-
-      // Extract PostgreSQL error details if available [提取PostgreSQL错误详情（如果可用）]
-      const pgError =
-        errorCause && typeof errorCause === "object" && "code" in errorCause
-          ? {
-              code: (errorCause as { code?: string }).code,
-              message: (errorCause as { message?: string }).message,
-              detail: (errorCause as { detail?: string }).detail,
-            }
-          : null;
-
-      // Log full error details for debugging [记录完整错误详情以便调试]
-      this.logger.error(
-        `Failed to add product item. ProductId: ${productId}, ServiceTypeId: ${dto.serviceTypeId}`,
-        {
-          error: errorMessage,
-          stack: errorStack,
-          pgError,
-          cause: errorCause,
-        },
-      );
-
-      // Re-throw original error to preserve error type [重新抛出原始错误以保留错误类型]
-      throw error;
-    }
+    });
   }
 
   /**
@@ -571,96 +531,66 @@ export class ProductService {
       .where(whereClause);
 
     // Return all data if no pagination parameters
+    let products: typeof schema.products.$inferSelect[];
     if (!pagination) {
-      const allData = await this.db
+      products = await this.db
         .select()
         .from(schema.products)
         .where(whereClause)
         .orderBy(this.getOrderBy(sort));
+    } else {
+      // Paginated query
+      const { page = 1, pageSize = this.DEFAULT_PAGE_SIZE } = pagination;
+      const offset = (page - 1) * pageSize;
 
-      // Get items for all products using Promise.all for better performance
-      const productsWithItems = await Promise.all(
-        allData.map(async (product) => {
-          const items = await this.db
-            .select()
-            .from(schema.productItems)
-            .where(eq(schema.productItems.productId, product.id))
-            .orderBy(
-              schema.productItems.sortOrder,
-              schema.productItems.createdAt,
-            );
-
-          const productInterface = this.mapToProductInterface(product);
-          return {
-            ...productInterface,
-            items: items.map((item) => ({
-              id: item.id,
-              productId: item.productId,
-              serviceTypeId: item.serviceTypeId,
-              quantity: item.quantity,
-              sortOrder: item.sortOrder,
-              createdAt: item.createdAt,
-              updatedAt: item.updatedAt,
-            })),
-          };
-        }),
-      );
-
-      return {
-        data: productsWithItems,
-        total: Number(total),
-        page: 1,
-        pageSize: Number(total),
-        totalPages: 1,
-      };
+      products = await this.db
+        .select()
+        .from(schema.products)
+        .where(whereClause)
+        .orderBy(this.getOrderBy(sort))
+        .limit(pageSize)
+        .offset(offset);
     }
 
-    // Paginated query
-    const { page = 1, pageSize = this.DEFAULT_PAGE_SIZE } = pagination;
-    const offset = (page - 1) * pageSize;
-
-    const data = await this.db
-      .select()
-      .from(schema.products)
-      .where(whereClause)
-      .orderBy(this.getOrderBy(sort))
-      .limit(pageSize)
-      .offset(offset);
-
-    // Get items for paginated products using Promise.all for better performance
-    const productsWithItems = await Promise.all(
-      data.map(async (product) => {
-        const items = await this.db
-          .select()
-          .from(schema.productItems)
-          .where(eq(schema.productItems.productId, product.id))
-          .orderBy(
-            schema.productItems.sortOrder,
-            schema.productItems.createdAt,
-          );
-
-        const productInterface = this.mapToProductInterface(product);
+    // Optimize: Get all product items in a single query instead of N+1 queries
+    let productsWithItems;
+    if (products.length > 0) {
+      const productIds = products.map(product => product.id);
+      
+      // Single query to get all product items for the found products
+      const allProductItems = await this.db
+        .select()
+        .from(schema.productItems)
+        .where(inArray(schema.productItems.productId, productIds))
+        .orderBy(schema.productItems.sortOrder, schema.productItems.createdAt);
+      
+      // Group product items by productId for efficient lookup
+      const productItemsMap = new Map<string, typeof schema.productItems.$inferSelect[]>();
+      allProductItems.forEach(item => {
+        if (!productItemsMap.has(item.productId)) {
+          productItemsMap.set(item.productId, []);
+        }
+        productItemsMap.get(item.productId)!.push(item);
+      });
+      
+      // Build products with items in memory
+      productsWithItems = products.map(product => {
+        const items = productItemsMap.get(product.id) || [];
         return {
-          ...productInterface,
-          items: items.map((item) => ({
-            id: item.id,
-            productId: item.productId,
-            serviceTypeId: item.serviceTypeId,
-            quantity: item.quantity,
-            sortOrder: item.sortOrder,
-            createdAt: item.createdAt,
-            updatedAt: item.updatedAt,
-          })),
+          ...this.mapToProductInterface(product),
+          items: items.map(this.mapToProductItemInterface.bind(this)),
         };
-      }),
-    );
+      });
+    } else {
+      productsWithItems = [];
+    }
 
     return {
       data: productsWithItems,
       total: Number(total),
-      page,
-      pageSize,
-      totalPages: Math.ceil(Number(total) / pageSize),
+      page: pagination?.page || 1,
+      pageSize: pagination?.pageSize || Number(total),
+      totalPages: Math.ceil(Number(total) / (pagination?.pageSize || Number(total))),
     };
   }
 
@@ -709,15 +639,7 @@ export class ProductService {
     // [由于项目中不需要services和service_packages表，我们只返回带有基本信息的产品项]
     return {
       ...this.mapToProductInterface(product),
-      items: items.map((item) => ({
-        id: item.id,
-        productId: item.productId,
-        serviceTypeId: item.serviceTypeId,
-        quantity: item.quantity,
-        sortOrder: item.sortOrder, // Add sortOrder property [添加排序属性]
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
-      })),
+      items: items.map(this.mapToProductItemInterface.bind(this)),
     };
   }
 
@@ -752,92 +674,12 @@ export class ProductService {
 
       // Handle state transitions [处理状态转换]
       switch (targetStatus) {
-        case ProductStatus.ACTIVE: {
-          // Publish logic (DRAFT -> ACTIVE) [发布逻辑]
-          if (product.status !== ProductStatus.DRAFT) {
-            throw new CatalogException(
-              "INVALID_STATUS_TRANSITION",
-              `Cannot publish product. Product must be in DRAFT status, but current status is ${product.status}`,
-            );
-          }
-
-          // Verify product has at least one item [验证产品至少有一个项目]
-          const items = await tx
-            .select({ id: schema.productItems.id })
-            .from(schema.productItems)
-            .where(eq(schema.productItems.productId, id))
-            .limit(1);
-
-          if (items.length === 0) {
-            throw new CatalogException(
-              "PRODUCT_MIN_ITEMS",
-              "Product must have at least one item to be published",
-            );
-          }
-
-          // Validate product item references within transaction [在事务中验证产品项引用]
-          const allItems = await tx
-            .select()
-            .from(schema.productItems)
-            .where(eq(schema.productItems.productId, id));
-
-          await this.validateProductItemReferences(allItems, tx);
-
-          // Update product status [更新产品状态]
-          const [published] = await tx
-            .update(schema.products)
-            .set({
-              status: ProductStatus.ACTIVE,
-              publishedAt: new Date(),
-              updatedAt: new Date(),
-            })
-            .where(eq(schema.products.id, id))
-            .returning();
-          return published;
-        }
-
-        case ProductStatus.INACTIVE: {
-          // Unpublish logic (ACTIVE -> INACTIVE) [取消发布逻辑]
-          if (product.status !== ProductStatus.ACTIVE) {
-            throw new CatalogException(
-              "INVALID_STATUS_TRANSITION",
-              `Cannot unpublish product. Product must be in ACTIVE status, but current status is ${product.status}`,
-            );
-          }
-
-          const [unpublished] = await tx
-            .update(schema.products)
-            .set({
-              status: ProductStatus.INACTIVE,
-              unpublishedAt: new Date(),
-              updatedAt: new Date(),
-            })
-            .where(eq(schema.products.id, id))
-            .returning();
-          return unpublished;
-        }
-
-        case ProductStatus.DRAFT: {
-          // Revert to draft logic (INACTIVE -> DRAFT) [恢复草稿逻辑]
-          if (product.status !== ProductStatus.INACTIVE) {
-            throw new CatalogException(
-              "INVALID_STATUS_TRANSITION",
-              `Cannot revert product to draft. Product must be in INACTIVE status, but current status is ${product.status}`,
-            );
-          }
-
-          const [reverted] = await tx
-            .update(schema.products)
-            .set({
-              status: ProductStatus.DRAFT,
-              unpublishedAt: new Date(),
-              updatedAt: new Date(),
-            })
-            .where(eq(schema.products.id, id))
-            .returning();
-          return reverted;
-        }
-
+        case ProductStatus.ACTIVE:
+          return this.publishProduct(tx, id, product);
+        case ProductStatus.INACTIVE:
+          return this.unpublishProduct(tx, id, product);
+        case ProductStatus.DRAFT:
+          return this.revertToDraft(tx, id, product);
         default:
           throw new CatalogException(
             "INVALID_STATUS_TRANSITION",
@@ -856,16 +698,115 @@ export class ProductService {
     // Return product with items [返回包含产品项的产品]
     return {
       ...this.mapToProductInterface(updatedProduct),
-      items: items.map((item) => ({
-        id: item.id,
-        productId: item.productId,
-        serviceTypeId: item.serviceTypeId,
-        quantity: item.quantity,
-        sortOrder: item.sortOrder,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
-      })),
+      items: this.safeArrayCast(items).map(this.mapToProductItemInterface.bind(this)),
     };
+  }
+
+  /**
+   * Publish product (DRAFT -> ACTIVE) [发布产品]
+   */
+  private async publishProduct(
+    tx: typeof this.db,
+    id: string,
+    product: typeof schema.products.$inferSelect,
+  ): Promise<typeof schema.products.$inferSelect> {
+    // Publish logic (DRAFT -> ACTIVE) [发布逻辑]
+    if (product.status !== ProductStatus.DRAFT) {
+      throw new CatalogException(
+        "INVALID_STATUS_TRANSITION",
+        `Cannot publish product. Product must be in DRAFT status, but current status is ${product.status}`,
+      );
+    }
+
+    // Verify product has at least one item [验证产品至少有一个项目]
+    const items = await tx
+      .select({ id: schema.productItems.id })
+      .from(schema.productItems)
+      .where(eq(schema.productItems.productId, id))
+      .limit(1);
+
+    if (items.length === 0) {
+      throw new CatalogException(
+        "PRODUCT_MIN_ITEMS",
+        "Product must have at least one item to be published",
+      );
+    }
+
+    // Validate product item references within transaction [在事务中验证产品项引用]
+    const allItems = await tx
+      .select()
+      .from(schema.productItems)
+      .where(eq(schema.productItems.productId, id));
+
+    await this.validateProductItemReferences(allItems, tx);
+
+    // Update product status [更新产品状态]
+    const [published] = await tx
+      .update(schema.products)
+      .set({
+        status: ProductStatus.ACTIVE,
+        publishedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.products.id, id))
+      .returning();
+    return published;
+  }
+
+  /**
+   * Unpublish product (ACTIVE -> INACTIVE) [取消发布产品]
+   */
+  private async unpublishProduct(
+    tx: typeof this.db,
+    id: string,
+    product: typeof schema.products.$inferSelect,
+  ): Promise<typeof schema.products.$inferSelect> {
+    // Unpublish logic (ACTIVE -> INACTIVE) [取消发布逻辑]
+    if (product.status !== ProductStatus.ACTIVE) {
+      throw new CatalogException(
+        "INVALID_STATUS_TRANSITION",
+        `Cannot unpublish product. Product must be in ACTIVE status, but current status is ${product.status}`,
+      );
+    }
+
+    const [unpublished] = await tx
+      .update(schema.products)
+      .set({
+        status: ProductStatus.INACTIVE,
+        unpublishedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.products.id, id))
+      .returning();
+    return unpublished;
+  }
+
+  /**
+   * Revert product to draft (INACTIVE -> DRAFT) [恢复产品为草稿]
+   */
+  private async revertToDraft(
+    tx: typeof this.db,
+    id: string,
+    product: typeof schema.products.$inferSelect,
+  ): Promise<typeof schema.products.$inferSelect> {
+    // Revert to draft logic (INACTIVE -> DRAFT) [恢复草稿逻辑]
+    if (product.status !== ProductStatus.INACTIVE) {
+      throw new CatalogException(
+        "INVALID_STATUS_TRANSITION",
+        `Cannot revert product to draft. Product must be in INACTIVE status, but current status is ${product.status}`,
+      );
+    }
+
+    const [reverted] = await tx
+      .update(schema.products)
+      .set({
+        status: ProductStatus.DRAFT,
+        unpublishedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.products.id, id))
+      .returning();
+    return reverted;
   }
 
   /**
@@ -1045,7 +986,7 @@ export class ProductService {
   }
 
   /**
-   * Map database record to interface [映射数据库记录到接口]
+   * Map database record to product interface [映射数据库记录到产品接口]
    */
   private mapToProductInterface(
     record: typeof schema.products.$inferSelect,
@@ -1056,10 +997,10 @@ export class ProductService {
       code: record.code,
       description: record.description,
       coverImage: record.coverImage,
-      targetUserPersonas: record.targetUserPersona as UserPersona[],
-      price: record.price.toString(), // Convert numeric to string [将数字转换为字符串]
+      targetUserPersonas: this.safeArrayCast(record.targetUserPersona) as UserPersona[],
+      price: String(record.price), // Ensure string type [确保字符串类型]
       currency: record.currency as Currency,
-      marketingLabels: record.marketingLabels as MarketingLabel[],
+      marketingLabels: this.safeArrayCast(record.marketingLabels) as MarketingLabel[],
       status: record.status as ProductStatus,
       publishedAt: record.publishedAt,
       unpublishedAt: record.unpublishedAt,
@@ -1067,6 +1008,31 @@ export class ProductService {
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       createdBy: record.createdBy,
+    };
+  }
+
+  /**
+   * Safely cast value to array, returning empty array if null/undefined [安全地将值转换为数组，如果为null/undefined则返回空数组]
+   */
+  private safeArrayCast<T>(value: T | T[] | null | undefined): T[] {
+    if (!value) return [];
+    return Array.isArray(value) ? value : [value];
+  }
+
+  /**
+   * Map database record to product item interface [映射数据库记录到产品项接口]
+   */
+  private mapToProductItemInterface(
+    record: typeof schema.productItems.$inferSelect,
+  ): IProductItem {
+    return {
+      id: record.id,
+      productId: record.productId,
+      serviceTypeId: record.serviceTypeId,
+      quantity: record.quantity,
+      sortOrder: record.sortOrder,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
     };
   }
 }

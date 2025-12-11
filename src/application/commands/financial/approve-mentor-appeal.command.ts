@@ -30,9 +30,18 @@ export class ApproveMentorAppealCommand extends CommandBase {
   async execute(input: {
     id: string;
     approvedBy: string;
+    appealAmount?: number;
+    currency?: string;
+    comments?: string;
   }): Promise<IMentorAppeal> {
     return this.withTransaction(async () => {
-      return this.mentorAppealService.approveAppeal(input.id, input.approvedBy);
+      return this.mentorAppealService.approveAppeal(
+        input.id,
+        input.approvedBy,
+        input.appealAmount,
+        input.currency,
+        input.comments
+      );
     });
   }
 }
