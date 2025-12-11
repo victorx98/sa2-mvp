@@ -26,6 +26,7 @@ import { CurrentUser } from '@shared/decorators/current-user.decorator';
 import { User } from '@domains/identity/user/user-interface';
 import { ApiPrefix } from '@api/api.constants';
 import { ClassService } from '@application/commands/services/class.service';
+import { ClassQueryService } from '@application/queries/services/class.query.service';
 import { ClassType, ClassStatus } from '@domains/services/class/classes/entities/class.entity';
 
 // ============================================================================
@@ -258,6 +259,7 @@ export class RemoveMemberResponseDto {
 export class ClassController {
   constructor(
     private readonly classService: ClassService,
+    private readonly classQueryService: ClassQueryService,
   ) {}
 
   /**
@@ -295,6 +297,68 @@ export class ClassController {
   }
 
   /**
+   * Get class mentors with names
+   * GET /api/services/classes/:id/mentors
+   */
+  @Get(':id/mentors')
+  @ApiOperation({
+    summary: 'Get class mentors with names',
+    description: 'Retrieve list of mentors assigned to the class with their names',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Class ID',
+    type: String,
+  })
+  @ApiOkResponse({
+    description: 'Mentors retrieved successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Class not found',
+  })
+  async getClassMentors(
+    @Param('id') classId: string,
+  ) {
+    const mentors = await this.classQueryService.getClassMentorsWithNames(classId);
+    return {
+      classId,
+      mentors,
+    };
+  }
+
+  /**
+   * Get class students with names
+   * GET /api/services/classes/:id/students
+   */
+  @Get(':id/students')
+  @ApiOperation({
+    summary: 'Get class students with names',
+    description: 'Retrieve list of students enrolled in the class with their names',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Class ID',
+    type: String,
+  })
+  @ApiOkResponse({
+    description: 'Students retrieved successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Class not found',
+  })
+  async getClassStudents(
+    @Param('id') classId: string,
+  ) {
+    const students = await this.classQueryService.getClassStudentsWithNames(classId);
+    return {
+      classId,
+      students,
+    };
+  }
+
+  /**
    * Get class details
    * GET /api/services/classes/:id
    */
@@ -318,7 +382,19 @@ export class ClassController {
   async getClassDetail(
     @Param('id') classId: string,
   ) {
-    return this.classService.getClassById(classId);
+    const classEntity = await this.classService.getClassById(classId);
+    return {
+      id: classEntity.id,
+      name: classEntity.name,
+      type: classEntity.type,
+      status: classEntity.status,
+      startDate: classEntity.startDate,
+      endDate: classEntity.endDate,
+      description: classEntity.description,
+      totalSessions: classEntity.totalSessions,
+      createdAt: classEntity.createdAt,
+      updatedAt: classEntity.updatedAt,
+    };
   }
 
   /**
@@ -680,5 +756,6 @@ export class ClassController {
       counselorId,
     };
   }
+
 }
 

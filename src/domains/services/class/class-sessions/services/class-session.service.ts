@@ -63,7 +63,11 @@ export class ClassSessionService {
   /**
    * Update session information
    */
-  async updateSession(id: string, dto: UpdateClassSessionDto): Promise<ClassSessionEntity> {
+  async updateSession(
+    id: string,
+    dto: UpdateClassSessionDto,
+    tx?: DrizzleTransaction,
+  ): Promise<ClassSessionEntity> {
     this.logger.log(`Updating class session: ${id}`);
 
     const session = await this.classSessionRepository.findByIdOrThrow(id);
@@ -84,7 +88,7 @@ export class ClassSessionService {
     if (dto.scheduledAt) updates.scheduledAt = new Date(dto.scheduledAt);
     if (dto.mentorUserId) updates.mentorUserId = dto.mentorUserId;
 
-    const result = await this.classSessionRepository.update(id, updates);
+    const result = await this.classSessionRepository.update(id, updates, tx);
     this.logger.log(`Class session updated successfully: ${id}`);
 
     return result;
@@ -227,26 +231,6 @@ export class ClassSessionService {
   async getSessionById(id: string): Promise<ClassSessionEntity> {
     this.logger.log(`Getting class session by ID: ${id}`);
     return this.classSessionRepository.findByIdOrThrow(id);
-  }
-
-  /**
-   * Get all sessions for class
-   */
-  async getSessionsByClass(
-    classId: string,
-    limit: number = 10,
-    offset: number = 0,
-    filters?: { status?: ClassSessionStatus },
-  ): Promise<ClassSessionEntity[]> {
-    this.logger.log(`Getting class sessions for class: ${classId}`);
-
-    // Verify class exists
-    await this.classRepository.findByIdOrThrow(classId);
-
-    return this.classSessionRepository.findByClass(classId, limit, offset, {
-      ...filters,
-      excludeDeleted: true,
-    });
   }
 }
 

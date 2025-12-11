@@ -37,9 +37,14 @@ export const COMM_SESSION_UPDATED_EVENT = "comm_session.session.updated";
 export const COMM_SESSION_CANCELLED_EVENT = "comm_session.session.cancelled";
 export const COMM_SESSION_OPERATION_RESULT_EVENT = "comm_session.session.operation.result";
 
+// Class Session Events
+export const CLASS_SESSION_CREATED_EVENT = "class_session.session.created";
+export const CLASS_SESSION_UPDATED_EVENT = "class_session.session.updated";
+export const CLASS_SESSION_CANCELLED_EVENT = "class_session.session.cancelled";
+export const CLASS_SESSION_OPERATION_RESULT_EVENT = "class_session.session.operation.result";
+
 // Legacy events (for backward compatibility)
 export const SESSION_RESCHEDULED_COMPLETED = "session.rescheduled.completed";
-export const CLASS_SESSION_CREATED_EVENT = "class_session.created";
 
 // Service Session Events (服务会话事件)
 export const SERVICE_SESSION_COMPLETED_EVENT = "services.session.completed";
