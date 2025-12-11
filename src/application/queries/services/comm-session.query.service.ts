@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { CommSessionQueryService as DomainCommSessionQueryService } from '@domains/services/comm-sessions/services/comm-session-query.service';
+import { CommSessionQueryService as DomainCommSessionQueryService } from '@domains/query/services/comm-session-query.service';
 import { CommSessionStatus } from '@domains/services/comm-sessions/entities/comm-session.entity';
 
 /**

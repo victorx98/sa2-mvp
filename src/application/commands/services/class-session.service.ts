@@ -14,9 +14,10 @@ import type {
 import { Trace, addSpanAttributes, addSpanEvent } from '@shared/decorators/trace.decorator';
 import { MetricsService } from '@telemetry/metrics.service';
 import { CLASS_SESSION_CREATED_EVENT } from '@shared/events/event-constants';
-import { ClassSessionService as DomainClassSessionService } from '@domains/services/class-sessions/sessions/services/class-session.service';
-import { ClassSessionStatus, SessionType as ClassSessionType } from '@domains/services/class-sessions/sessions/entities/class-session.entity';
-import { CreateClassSessionDto as DomainCreateClassSessionDto } from '@domains/services/class-sessions/sessions/dto/create-class-session.dto';
+import { ClassSessionService as DomainClassSessionService } from '@domains/services/class/class-sessions/services/class-session.service';
+import { ClassSessionStatus, SessionType as ClassSessionType } from '@domains/services/class/class-sessions/entities/class-session.entity';
+import { CreateClassSessionDto as DomainCreateClassSessionDto } from '@domains/services/class/class-sessions/dto/create-class-session.dto';
+import { ClassService as DomainClassService } from '@domains/services/class/classes/services/class.service';
 
 // DTOs
 export interface CreateClassSessionDto {
@@ -52,6 +53,7 @@ export class ClassSessionService {
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
     private readonly domainClassSessionService: DomainClassSessionService,
+    private readonly domainClassService: DomainClassService,
     private readonly calendarService: CalendarService,
     private readonly eventEmitter: EventEmitter2,
     private readonly metricsService: MetricsService,
@@ -85,6 +87,12 @@ export class ClassSessionService {
 
     try {
       addSpanEvent('session.creation.start');
+
+      // Validate that mentor is assigned to the class
+      const hasMentor = await this.domainClassService.hasMentor(dto.classId, dto.mentorId);
+      if (!hasMentor) {
+        throw new Error(`Mentor ${dto.mentorId} is not assigned to class ${dto.classId}`);
+      }
 
       const scheduledAtIso = dto.scheduledAt instanceof Date
         ? dto.scheduledAt.toISOString()

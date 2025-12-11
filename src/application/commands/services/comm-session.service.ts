@@ -20,7 +20,7 @@ import {
   SESSION_RESCHEDULED_COMPLETED,
 } from '@shared/events/event-constants';
 import { CommSessionService as DomainCommSessionService } from '@domains/services/comm-sessions/services/comm-session.service';
-import { CommSessionQueryService as DomainCommSessionQueryService } from '@domains/services/comm-sessions/services/comm-session-query.service';
+import { CommSessionQueryService as DomainCommSessionQueryService } from '@domains/query/services/comm-session-query.service';
 import { CommSessionStatus, CommSessionType } from '@domains/services/comm-sessions/entities/comm-session.entity';
 import { CreateCommSessionDto as DomainCreateCommSessionDto } from '@domains/services/comm-sessions/dto/create-comm-session.dto';
 import { UpdateCommSessionDto as DomainUpdateCommSessionDto } from '@domains/services/comm-sessions/dto/update-comm-session.dto';

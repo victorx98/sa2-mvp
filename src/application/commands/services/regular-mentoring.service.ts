@@ -7,7 +7,7 @@ import {
 } from '@core/calendar/interfaces/calendar-slot.interface';
 import { MeetingProviderType } from '@core/meeting';
 import { RegularMentoringService as DomainRegularMentoringService } from '@domains/services/sessions/regular-mentoring/services/regular-mentoring.service';
-import { RegularMentoringQueryService } from '@domains/services/sessions/regular-mentoring/services/regular-mentoring-query.service';
+import { RegularMentoringQueryService } from '@domains/query/services/regular-mentoring-query.service';
 import { SessionType } from '@domains/services/sessions/shared/enums/session-type.enum';
 import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
 import { StudentCounselorService } from '@domains/identity/student/student-counselor.service';

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ClassSessionQueryService as DomainClassSessionQueryService } from '@domains/services/class-sessions/sessions/services/class-session-query.service';
-import { ClassSessionStatus } from '@domains/services/class-sessions/sessions/entities/class-session.entity';
+import { ClassSessionQueryService as DomainClassSessionQueryService } from '@domains/query/services/class-session-query.service';
+import { ClassSessionStatus } from '@domains/services/class/class-sessions/entities/class-session.entity';
 
 /**
  * Application Layer - Class Session Query Service

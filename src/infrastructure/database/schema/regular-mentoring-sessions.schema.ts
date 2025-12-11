@@ -1,4 +1,5 @@
-import { pgTable, uuid, varchar, text, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, jsonb, index, check } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { meetings } from './meetings.schema';
 import { userTable } from './user.schema';
 import { sessionTypes } from './session-types.schema';
@@ -38,20 +39,23 @@ export const regularMentoringSessions = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => ({
-    meetingIdx: index('idx_regular_session_meeting').on(table.meetingId),
-    typeIdx: index('idx_regular_session_type').on(table.sessionType),
-    typeIdIdx: index('idx_regular_session_type_id').on(table.sessionTypeId),
-    statusIdx: index('idx_regular_session_status').on(table.status),
-    mentorScheduledIdx: index('idx_regular_session_mentor_scheduled').on(
+  (table) => [
+    index('idx_regular_session_meeting').on(table.meetingId),
+    index('idx_regular_session_type').on(table.sessionType),
+    index('idx_regular_session_type_id').on(table.sessionTypeId),
+    index('idx_regular_session_status').on(table.status),
+    index('idx_regular_session_mentor_scheduled').on(
       table.mentorUserId,
       table.scheduledAt,
     ),
-    studentScheduledIdx: index('idx_regular_session_student_scheduled').on(
+    index('idx_regular_session_student_scheduled').on(
       table.studentUserId,
       table.scheduledAt,
     ),
-  }),
+    check('regular_mentoring_sessions_status_check',
+      sql`status IN ('pending_meeting', 'scheduled', 'completed', 'cancelled', 'deleted', 'meeting_failed')`
+    ),
+  ],
 );
 
 export type RegularMentoringSession = typeof regularMentoringSessions.$inferSelect;

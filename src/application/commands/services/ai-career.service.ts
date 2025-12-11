@@ -7,7 +7,7 @@ import {
 } from '@core/calendar/interfaces/calendar-slot.interface';
 import { MeetingProviderType } from '@core/meeting';
 import { AiCareerService as DomainAiCareerService } from '@domains/services/sessions/ai-career/services/ai-career.service';
-import { AiCareerQueryService } from '@domains/services/sessions/ai-career/services/ai-career-query.service';
+import { AiCareerQueryService } from '@domains/query/services/ai-career-query.service';
 import { SessionType } from '@domains/services/sessions/shared/enums/session-type.enum';
 import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
 import { StudentCounselorService } from '@domains/identity/student/student-counselor.service';

@@ -23,6 +23,10 @@ export class RegularMentoringSessionMapper {
       studentUserId: entity.studentUserId,
       mentorUserId: entity.mentorUserId,
       createdByCounselorId: entity.createdByCounselorId,
+      // Add user names from query service
+      studentName: entity.studentName || null,
+      mentorName: entity.mentorName || null,
+      counselorName: entity.counselorName || null,
       title: entity.title,
       description: entity.description,
       status: entity.status,
