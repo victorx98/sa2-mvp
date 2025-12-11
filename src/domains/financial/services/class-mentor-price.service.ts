@@ -5,10 +5,11 @@
  */
 
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { eq, and, ne, sql, asc, desc } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import type { DrizzleDatabase } from "@shared/types/database.types";
+import { ClassMentorPriceStatus } from "@shared/types/financial-enums";
 import { IClassMentorPriceService } from "../interfaces/class-mentor-price.interface";
 import { CreateClassMentorPriceDto } from "../dto/create-class-mentor-price.dto";
 import { UpdateClassMentorPriceDto } from "../dto/update-class-mentor-price.dto";
@@ -47,7 +48,7 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
         where: and(
           eq(schema.classMentorsPrices.classId, dto.classId),
           eq(schema.classMentorsPrices.mentorUserId, dto.mentorUserId),
-          eq(schema.classMentorsPrices.status, "active"),
+          eq(schema.classMentorsPrices.status, ClassMentorPriceStatus.ACTIVE),
         ),
       });
 
@@ -63,7 +64,7 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
         classId: dto.classId,
         mentorUserId: dto.mentorUserId,
         pricePerSession: dto.pricePerSession.toString(),
-        status: "active",
+        status: ClassMentorPriceStatus.ACTIVE,
         updatedAt: new Date(),
       };
       const [createdPrice] = await this.db
@@ -103,11 +104,11 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
     updatedBy?: string,
   ): Promise<ClassMentorPrice> {
     try {
-      // Check if class mentor price exists
+      // Check if class mentor price exists and is active
       const existingPrice = await this.db.query.classMentorsPrices.findFirst({
         where: and(
           eq(schema.classMentorsPrices.id, id),
-          eq(schema.classMentorsPrices.status, "active"),
+          eq(schema.classMentorsPrices.status, ClassMentorPriceStatus.ACTIVE),
         ),
       });
 
@@ -157,7 +158,7 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
    */
   public async updateStatus(
     id: string,
-    status: "active" | "deleted",
+    status: ClassMentorPriceStatus,
     updatedBy?: string,
   ): Promise<ClassMentorPrice> {
     try {
@@ -180,13 +181,13 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
       }
 
       // Additional checks for status transitions
-      if (status === "active") {
+      if (status === ClassMentorPriceStatus.ACTIVE) {
         // Check if there's already an active price for this class and mentor
         const activePrice = await this.db.query.classMentorsPrices.findFirst({
           where: and(
             eq(schema.classMentorsPrices.classId, existingPrice.classId),
             eq(schema.classMentorsPrices.mentorUserId, existingPrice.mentorUserId),
-            eq(schema.classMentorsPrices.status, "active"),
+            eq(schema.classMentorsPrices.status, ClassMentorPriceStatus.ACTIVE),
           ),
         });
 
@@ -226,165 +227,4 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
     }
   }
 
-  /**
-   * Find one class mentor price record by dynamic criteria
-   * (根据动态条件查找单个班级导师价格记录)
-   *
-   * @param criteria - Search criteria (id, classId, mentorUserId)
-   * @returns Class mentor price record or null if not found
-   */
-  public async findOne(criteria: {
-    id?: string;
-    classId?: string;
-    mentorUserId?: string;
-  }): Promise<ClassMentorPrice | null> {
-    try {
-      // Validate that at least one criterion is provided
-      if (!criteria.id && !criteria.classId && !criteria.mentorUserId) {
-        this.logger.warn(
-          "No search criteria provided to findOne",
-        );
-        return null;
-      }
-
-      // Build where conditions dynamically
-      const conditions = [];
-      if (criteria.id) {
-        conditions.push(eq(schema.classMentorsPrices.id, criteria.id));
-      }
-      if (criteria.classId) {
-        conditions.push(eq(schema.classMentorsPrices.classId, criteria.classId));
-      }
-      if (criteria.mentorUserId) {
-        conditions.push(eq(schema.classMentorsPrices.mentorUserId, criteria.mentorUserId));
-      }
-
-      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
-      const price = await this.db.query.classMentorsPrices.findFirst({
-        where: whereClause,
-      });
-
-      return price || null;
-    } catch (error) {
-      this.logger.error(
-        `Error finding class mentor price: ${JSON.stringify(criteria)}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-      throw new FinancialException(
-        "CLASS_MENTOR_PRICE_GET_FAILED",
-        error instanceof Error ? error.message : "Failed to get class mentor price",
-      );
-    }
-  }
-
-  /**
-   * Search class mentor prices with filters and pagination
-   * (搜索班级导师价格，支持过滤和分页)
-   *
-   * @param filter - Filter criteria (过滤条件)
-   * @param pagination - Pagination options (分页选项)
-   * @param sort - Sorting options (排序选项)
-   * @returns Paginated list of class mentor prices (分页的班级导师价格列表)
-   */
-  public async search(
-    filter: ClassMentorPriceFilterDto,
-    pagination?: {
-      page: number;
-      pageSize: number;
-    },
-    sort?: {
-      field: string;
-      order: "asc" | "desc";
-    },
-  ): Promise<{
-    data: ClassMentorPrice[];
-    total: number;
-    page: number;
-    pageSize: number;
-    totalPages: number;
-    }> {
-    try {
-      // Build filter conditions (构建过滤条件)
-      const conditions = [];
-      if (filter.classId) {
-        conditions.push(eq(schema.classMentorsPrices.classId, filter.classId));
-      }
-      if (filter.mentorUserId) {
-        conditions.push(
-          eq(schema.classMentorsPrices.mentorUserId, filter.mentorUserId),
-        );
-      }
-      if (filter.status) {
-        conditions.push(eq(schema.classMentorsPrices.status, filter.status));
-      } else {
-        // Default: exclude deleted records (默认：排除已删除的记录)
-        conditions.push(ne(schema.classMentorsPrices.status, "deleted"));
-      }
-
-      // Build where clause
-      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
-      // Calculate total count
-      const selectQuery = this.db
-        .select({ count: sql<number>`count(*)` })
-        .from(schema.classMentorsPrices)
-        .where(whereClause);
-      const total = await selectQuery.then((result) => result[0].count || 0);
-
-      // Set default pagination values if not provided
-      const page = pagination?.page || 1;
-      const pageSize = pagination?.pageSize || 20;
-      const offset = (page - 1) * pageSize;
-      const totalPages = Math.ceil(total / pageSize);
-
-      // Build sort clause
-      const sortField = sort?.field || "createdAt";
-      const sortOrder = sort?.order || "desc";
-      
-      // Only allow valid column names for sorting
-      const validSortFields = ["createdAt", "updatedAt", "pricePerSession"];
-      const finalSortField = validSortFields.includes(sortField)
-        ? sortField
-        : "createdAt";
-      
-      // Build order by clause
-      let orderBy;
-      if (finalSortField === "createdAt") {
-        orderBy = sortOrder === "asc" ? asc(schema.classMentorsPrices.createdAt) : desc(schema.classMentorsPrices.createdAt);
-      } else if (finalSortField === "updatedAt") {
-        orderBy = sortOrder === "asc" ? asc(schema.classMentorsPrices.updatedAt) : desc(schema.classMentorsPrices.updatedAt);
-      } else {
-        orderBy = sortOrder === "asc" ? asc(schema.classMentorsPrices.pricePerSession) : desc(schema.classMentorsPrices.pricePerSession);
-      }
-
-      // Get paginated data
-      const data = await this.db
-        .select()
-        .from(schema.classMentorsPrices)
-        .where(whereClause)
-        .orderBy(orderBy)
-        .limit(pageSize)
-        .offset(offset);
-
-      this.logger.log(`Searched class mentor prices: total=${total}, page=${page}, pageSize=${pageSize}`);
-
-      return {
-        data,
-        total,
-        page,
-        pageSize,
-        totalPages,
-      };
-    } catch (error) {
-      this.logger.error(
-        `Error searching class mentor prices: ${error instanceof Error ? error.message : "Unknown error"}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-      throw new FinancialException(
-        "CLASS_MENTOR_PRICE_SEARCH_FAILED",
-        error instanceof Error ? error.message : "Failed to search class mentor prices",
-      );
-    }
-  }
 }

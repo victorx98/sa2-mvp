@@ -5,6 +5,7 @@ import { MentorQueryService } from "./services/mentor-query.service";
 import { CounselorQueryService } from "./services/counselor-query.service";
 import { SchoolQueryService } from "./services/school-query.service";
 import { MajorQueryService } from "./services/major-query.service";
+import { ClassMentorPriceQueryService } from "./financial/class-mentor-price-query.service";
 
 /**
  * Query Domain Module
@@ -21,6 +22,7 @@ import { MajorQueryService } from "./services/major-query.service";
     CounselorQueryService,
     SchoolQueryService,
     MajorQueryService,
+    ClassMentorPriceQueryService,
   ],
   exports: [
     StudentQueryService,
@@ -28,6 +30,7 @@ import { MajorQueryService } from "./services/major-query.service";
     CounselorQueryService,
     SchoolQueryService,
     MajorQueryService,
+    ClassMentorPriceQueryService,
   ],
 })
 export class QueryModule {}

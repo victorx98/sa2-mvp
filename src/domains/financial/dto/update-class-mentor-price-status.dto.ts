@@ -6,6 +6,8 @@
  * [用于更新班级导师价格状态]
  */
 
+import { ClassMentorPriceStatus } from "@shared/types/financial-enums";
+
 export class UpdateClassMentorPriceStatusDto {
   /**
    * New status for the class mentor price
@@ -13,5 +15,5 @@ export class UpdateClassMentorPriceStatusDto {
    *
    * @example active
    */
-  status: 'active' | 'deleted';
+  status: ClassMentorPriceStatus;
 }

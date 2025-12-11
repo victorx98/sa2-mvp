@@ -44,6 +44,7 @@ import { UpdateClassMentorPriceStatusDto } from "@domains/financial/dto/update-c
 import { ClassMentorPriceFilterDto } from "@domains/financial/dto/class-mentor-price-filter.dto";
 import { ICreateSettlementRequest, IPaymentParamUpdate } from "@domains/financial/dto/settlement/settlement.dtos";
 import { ICreateOrUpdateMentorPaymentInfoRequest } from "@domains/financial/dto/settlement/mentor-payment-info.dtos";
+import { ClassMentorPriceQueryService } from "@domains/query/financial/class-mentor-price-query.service";
 
 /**
  * Admin Financial Controller
@@ -92,6 +93,9 @@ export class FinancialController {
     // 支付信息相关
     private readonly createOrUpdateMentorPaymentInfoCommand: CreateOrUpdateMentorPaymentInfoCommand,
     private readonly updateMentorPaymentInfoStatusCommand: UpdateMentorPaymentInfoStatusCommand,
+
+    // 班级导师价格查询相关
+    private readonly classMentorPriceQueryService: ClassMentorPriceQueryService,
   ) {}
 
   // ----------------------
@@ -304,11 +308,7 @@ export class FinancialController {
   async getClassMentorPriceById(
     @Param("id") id: string,
   ) {
-    // Note: This endpoint directly uses the service instead of a command since it's a simple query
-    // The command pattern is typically used for write operations
-    // In a real implementation, you might want to create a query command for this
-    const classMentorPriceService = this.createClassMentorPriceCommand['classMentorPriceService'];
-    return classMentorPriceService.findOne({ id });
+    return this.classMentorPriceQueryService.findOne({ id });
   }
 
   @Get("class-mentor-prices")
@@ -318,18 +318,32 @@ export class FinancialController {
     description: "Class mentor prices retrieved successfully",
   })
   async searchClassMentorPrices(
-    @Query() filter: ClassMentorPriceFilterDto,
+    @Query('classId') classId?: string,
+    @Query('mentorUserId') mentorUserId?: string,
+    @Query('status') status?: string,
     @Query('page') page: number = 1,
     @Query('pageSize') pageSize: number = 20,
-    @Query('sortField') sortField: string = 'createdAt',
-    @Query('sortOrder') sortOrder: 'asc' | 'desc' = 'desc',
+    @Query('sortField') sortField?: string,
+    @Query('sortOrder') sortOrder?: string,
   ) {
-    // Note: This endpoint directly uses the service instead of a command since it's a query
-    const classMentorPriceService = this.createClassMentorPriceCommand['classMentorPriceService'];
-    return classMentorPriceService.search(
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/fa193b8a-ce70-45cb-82ff-cbf9f12dd9fd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'financial.controller.ts:320',message:'searchClassMentorPrices entry',data:{classId,mentorUserId,status,page,pageSize,sortField,sortOrder,sortFieldType:typeof sortField,sortOrderType:typeof sortOrder,sortFieldEmpty:sortField==='',sortOrderEmpty:sortOrder===''},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    // Build filter object from individual query parameters (从单独的查询参数构建过滤对象)
+    const filter: ClassMentorPriceFilterDto = {};
+    if (classId) filter.classId = classId;
+    if (mentorUserId) filter.mentorUserId = mentorUserId;
+    if (status) filter.status = status;
+    // Normalize empty strings to default values (将空字符串标准化为默认值)
+    const normalizedSortField = sortField && sortField.trim() ? sortField.trim() : 'createdAt';
+    const normalizedSortOrder: 'asc' | 'desc' = (sortOrder === 'asc' || sortOrder === 'desc') ? sortOrder : 'desc';
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/fa193b8a-ce70-45cb-82ff-cbf9f12dd9fd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'financial.controller.ts:332',message:'after normalization',data:{filter,normalizedSortField,normalizedSortOrder},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    return this.classMentorPriceQueryService.search(
       filter,
       { page, pageSize },
-      { field: sortField, order: sortOrder },
+      { field: normalizedSortField, order: normalizedSortOrder },
     );
   }
 
@@ -343,9 +357,7 @@ export class FinancialController {
     @Query('classId') classId: string,
     @Query('mentorUserId') mentorUserId: string,
   ) {
-    // Note: This endpoint directly uses the service instead of a command since it's a query
-    const classMentorPriceService = this.createClassMentorPriceCommand['classMentorPriceService'];
-    return classMentorPriceService.findOne({ classId, mentorUserId });
+    return this.classMentorPriceQueryService.findOne({ classId, mentorUserId });
   }
 
   @Put("class-mentor-prices/:id")

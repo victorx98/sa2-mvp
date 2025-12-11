@@ -9,6 +9,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import type { DrizzleDatabase } from "@shared/types/database.types";
+import { ClassMentorPriceStatus } from "@shared/types/financial-enums";
 import { CommandBase } from "@application/core/command.base";
 import { ClassMentorPriceService } from "@domains/financial/services/class-mentor-price.service";
 import type { ClassMentorPrice } from "@infrastructure/database/schema";
@@ -31,7 +32,7 @@ export class UpdateClassMentorPriceStatusCommand extends CommandBase {
    */
   async execute(input: {
     id: string;
-    status: "active" | "deleted";
+    status: ClassMentorPriceStatus;
     updatedBy?: string;
   }): Promise<ClassMentorPrice> {
     try {
