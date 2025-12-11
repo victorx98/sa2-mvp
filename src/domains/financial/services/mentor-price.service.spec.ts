@@ -59,11 +59,11 @@ describe("MentorPriceService", () => {
   describe("getMentorPrice", () => {
     it("should return mentor price when found", async () => {
       // Arrange
-      const mentorId = "mentor-123";
+      const mentorUserId = "mentor-123";
       const sessionTypeCode = "consultation";
       const mockPrice = {
         id: "price-123",
-        mentorId,
+        mentorUserId,
         sessionTypeCode,
         price: 100,
         currency: "USD",
@@ -73,7 +73,7 @@ describe("MentorPriceService", () => {
       mockDb.query.mentorPrices.findFirst.mockResolvedValue(mockPrice);
 
       // Act
-      const result = await service.getMentorPrice(mentorId, sessionTypeCode);
+      const result = await service.getMentorPrice(mentorUserId, sessionTypeCode);
 
       // Assert
       expect(result).toEqual(mockPrice);
@@ -82,26 +82,26 @@ describe("MentorPriceService", () => {
 
     it("should return null when mentor price not found", async () => {
       // Arrange
-      const mentorId = "mentor-123";
+      const mentorUserId = "mentor-123";
       const sessionTypeCode = "consultation";
 
       mockDb.query.mentorPrices.findFirst.mockResolvedValue(null);
 
       // Act
-      const result = await service.getMentorPrice(mentorId, sessionTypeCode);
+      const result = await service.getMentorPrice(mentorUserId, sessionTypeCode);
 
       // Assert
       expect(result).toBeNull();
       expect(mockDb.query.mentorPrices.findFirst).toHaveBeenCalled();
     });
 
-    it("should return null when mentorId is empty", async () => {
+    it("should return null when mentorUserId is empty", async () => {
       // Arrange
-      const mentorId = "";
+      const mentorUserId = "";
       const sessionTypeCode = "consultation";
 
       // Act
-      const result = await service.getMentorPrice(mentorId, sessionTypeCode);
+      const result = await service.getMentorPrice(mentorUserId, sessionTypeCode);
 
       // Assert
       expect(result).toBeNull();
@@ -113,7 +113,7 @@ describe("MentorPriceService", () => {
     it("should create mentor price successfully", async () => {
       // Arrange
       const dto: CreateMentorPriceDto = {
-        mentorId: "mentor-123",
+        mentorUserId: "mentor-123",
         sessionTypeCode: "consultation",
         price: 100,
         currency: "USD",
@@ -144,7 +144,7 @@ describe("MentorPriceService", () => {
     it("should throw FinancialConflictException when mentor price already exists", async () => {
       // Arrange
       const dto: CreateMentorPriceDto = {
-        mentorId: "mentor-123",
+        mentorUserId: "mentor-123",
         sessionTypeCode: "consultation",
         price: 100,
       };
@@ -163,7 +163,7 @@ describe("MentorPriceService", () => {
     it("should throw FinancialException when price is invalid", async () => {
       // Arrange
       const dto: CreateMentorPriceDto = {
-        mentorId: "mentor-123",
+        mentorUserId: "mentor-123",
         sessionTypeCode: "consultation",
         price: -100, // Invalid price
       };
@@ -185,7 +185,7 @@ describe("MentorPriceService", () => {
 
       const existingPrice = {
         id: priceId,
-        mentorId: "mentor-123",
+        mentorUserId: "mentor-123",
         sessionTypeCode: "consultation",
         price: 100,
         currency: "USD",
@@ -396,7 +396,7 @@ describe("MentorPriceService", () => {
       const mockPrices = [
         {
           id: "price-123",
-          mentorId: "mentor-123",
+          mentorUserId: "mentor-123",
           sessionTypeCode: "consultation",
           price: 100,
           status: "active",
@@ -413,7 +413,7 @@ describe("MentorPriceService", () => {
 
       // Act
       const result = await service.searchMentorPrices({
-        mentorId: "mentor-123",
+        mentorUserId: "mentor-123",
       });
 
       // Assert
@@ -427,7 +427,7 @@ describe("MentorPriceService", () => {
       const mockPrices = [
         {
           id: "price-123",
-          mentorId: "mentor-123",
+          mentorUserId: "mentor-123",
           sessionTypeCode: "consultation",
           price: 100,
           status: "active",
@@ -524,12 +524,12 @@ describe("MentorPriceService", () => {
       // Arrange
       const dtos: CreateMentorPriceDto[] = [
         {
-          mentorId: "mentor-123",
+          mentorUserId: "mentor-123",
           sessionTypeCode: "consultation",
           price: 100,
         },
         {
-          mentorId: "mentor-123",
+          mentorUserId: "mentor-123",
           sessionTypeCode: "coaching",
           price: 150,
         },
@@ -567,12 +567,12 @@ describe("MentorPriceService", () => {
       // Arrange
       const dtos: CreateMentorPriceDto[] = [
         {
-          mentorId: "mentor-123",
+          mentorUserId: "mentor-123",
           sessionTypeCode: "consultation",
           price: 100,
         },
         {
-          mentorId: "mentor-123",
+          mentorUserId: "mentor-123",
           sessionTypeCode: "consultation",
           price: 150,
         },
@@ -601,7 +601,7 @@ describe("MentorPriceService", () => {
 
       const mockExistingPrice = {
         id: "price-123",
-        mentorId: "mentor-123",
+        mentorUserId: "mentor-123",
         sessionTypeCode: "consultation",
         price: 100,
         status: "active",

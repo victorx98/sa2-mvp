@@ -560,6 +560,12 @@ describe("MentorAppealService", () => {
         status: "APPROVED",
         approvedAt: expect.any(Date),
         approvedBy: approvedByUserId,
+        appealAmount: expectedAppeal.appealAmount, // Service always updates all fields
+        currency: expectedAppeal.currency,
+        comments: undefined,
+        rejectionReason: undefined,
+        rejectedBy: undefined,
+        rejectedAt: undefined,
       });
       expect(mockUpdate.where).toHaveBeenCalled();
       expect(mockUpdate.returning).toHaveBeenCalled();

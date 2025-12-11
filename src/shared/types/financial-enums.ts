@@ -59,3 +59,12 @@ export enum AppealStatus {
   APPROVED = "APPROVED", // 已批准
   REJECTED = "REJECTED", // 已驳回
 }
+
+/**
+ * 班级导师价格状态枚举
+ * 定义班级导师价格的不同状态
+ */
+export enum ClassMentorPriceStatus {
+  INACTIVE = "inactive", // 未激活
+  ACTIVE = "active", // 激活
+}

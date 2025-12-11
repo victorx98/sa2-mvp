@@ -9,14 +9,14 @@ import type { MentorPrice } from "@infrastructure/database/schema";
  */
 export interface IMentorPriceService {
   /**
-   * Get mentor price by mentor ID and session type code[根据导师ID和会话类型代码获取导师价格]
+   * Get mentor price by mentor user ID and session type code[根据导师用户ID和会话类型代码获取导师价格]
    *
-   * @param mentorId - Mentor ID[导师ID]
+   * @param mentorUserId - Mentor user ID[导师用户ID]
    * @param sessionTypeCode - Session type code[会话类型代码]
    * @returns Mentor price record or null if not found[导师价格记录或未找到时返回null]
    */
   getMentorPrice(
-    mentorId: string,
+    mentorUserId: string,
     sessionTypeCode: string,
   ): Promise<MentorPrice | null>;
 
@@ -69,7 +69,7 @@ export interface IMentorPriceService {
    */
   searchMentorPrices(
     filter: {
-      mentorId?: string;
+      mentorUserId?: string;
       sessionTypeCode?: string;
       status?: string;
       packageCode?: string;

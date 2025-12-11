@@ -3,7 +3,8 @@ import {
   Body,
   Param,
   Patch,
-  Put, UseGuards
+  Put, UseGuards,
+  Get, Query
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
@@ -25,6 +26,9 @@ import { UpdateOrCreatePaymentParamsCommand } from "@application/commands/financ
 import { ModifyPaymentParamsCommand } from "@application/commands/financial/modify-payment-params.command";
 import { CreateOrUpdateMentorPaymentInfoCommand } from "@application/commands/financial/create-or-update-mentor-payment-info.command";
 import { UpdateMentorPaymentInfoStatusCommand } from "@application/commands/financial/update-mentor-payment-info-status.command";
+import { CreateClassMentorPriceCommand } from "@application/commands/financial/create-class-mentor-price.command";
+import { UpdateClassMentorPriceCommand } from "@application/commands/financial/update-class-mentor-price.command";
+import { UpdateClassMentorPriceStatusCommand } from "@application/commands/financial/update-class-mentor-price-status.command";
 import { CreateAppealDto } from "@domains/financial/dto/appeals/create-appeal.dto";
 import { RejectAppealDto } from "@domains/financial/dto/appeals/reject-appeal.dto";
 import { ApproveAppealDto } from "@domains/financial/dto/appeals/approve-appeal.dto";
@@ -34,8 +38,13 @@ import { UpdateMentorPriceStatusDto } from "@domains/financial/dto/update-mentor
 import { BulkCreateMentorPriceDto } from "@domains/financial/dto/bulk-create-mentor-price.dto";
 import { BulkUpdateMentorPriceDto } from "@domains/financial/dto/bulk-update-mentor-price.dto";
 import { AdjustPayableLedgerDto } from "@domains/financial/dto/adjust-payable-ledger.dto";
+import { CreateClassMentorPriceDto } from "@domains/financial/dto/create-class-mentor-price.dto";
+import { UpdateClassMentorPriceDto } from "@domains/financial/dto/update-class-mentor-price.dto";
+import { UpdateClassMentorPriceStatusDto } from "@domains/financial/dto/update-class-mentor-price-status.dto";
+import { ClassMentorPriceFilterDto } from "@domains/financial/dto/class-mentor-price-filter.dto";
 import { ICreateSettlementRequest, IPaymentParamUpdate } from "@domains/financial/dto/settlement/settlement.dtos";
 import { ICreateOrUpdateMentorPaymentInfoRequest } from "@domains/financial/dto/settlement/mentor-payment-info.dtos";
+import { ClassMentorPriceQueryService } from "@domains/query/financial/class-mentor-price-query.service";
 
 /**
  * Admin Financial Controller
@@ -66,6 +75,11 @@ export class FinancialController {
     private readonly batchCreateMentorPricesCommand: BatchCreateMentorPricesCommand,
     private readonly batchUpdateMentorPricesCommand: BatchUpdateMentorPricesCommand,
 
+    // 班级导师价格相关
+    private readonly createClassMentorPriceCommand: CreateClassMentorPriceCommand,
+    private readonly updateClassMentorPriceCommand: UpdateClassMentorPriceCommand,
+    private readonly updateClassMentorPriceStatusCommand: UpdateClassMentorPriceStatusCommand,
+
     // 应付账款相关
     private readonly adjustPayableLedgerCommand: AdjustPayableLedgerCommand,
 
@@ -79,6 +93,9 @@ export class FinancialController {
     // 支付信息相关
     private readonly createOrUpdateMentorPaymentInfoCommand: CreateOrUpdateMentorPaymentInfoCommand,
     private readonly updateMentorPaymentInfoStatusCommand: UpdateMentorPaymentInfoStatusCommand,
+
+    // 班级导师价格查询相关
+    private readonly classMentorPriceQueryService: ClassMentorPriceQueryService,
   ) {}
 
   // ----------------------
@@ -256,6 +273,127 @@ export class FinancialController {
   ) {
     return this.batchUpdateMentorPricesCommand.execute({
       updates: dto.updates,
+      updatedBy: String((user as unknown as { id: string }).id),
+    });
+  }
+
+  // ----------------------
+  // 班级导师价格管理
+  // ----------------------
+
+  @Post("class-mentor-prices")
+  @ApiOperation({ summary: "Create class mentor price" })
+  @ApiResponse({
+    status: 201,
+    description: "Class mentor price created successfully",
+  })
+  @ApiResponse({ status: 400, description: "Bad request" })
+  async createClassMentorPrice(
+    @CurrentUser() user: IJwtUser,
+    @Body() dto: CreateClassMentorPriceDto,
+  ) {
+    return this.createClassMentorPriceCommand.execute({
+      dto,
+      updatedBy: String((user as unknown as { id: string }).id),
+    });
+  }
+
+  @Get("class-mentor-prices/:id")
+  @ApiOperation({ summary: "Get class mentor price by ID" })
+  @ApiResponse({
+    status: 200,
+    description: "Class mentor price retrieved successfully",
+  })
+  @ApiResponse({ status: 404, description: "Class mentor price not found" })
+  async getClassMentorPriceById(
+    @Param("id") id: string,
+  ) {
+    return this.classMentorPriceQueryService.findOne({ id });
+  }
+
+  @Get("class-mentor-prices")
+  @ApiOperation({ summary: "Search class mentor prices" })
+  @ApiResponse({
+    status: 200,
+    description: "Class mentor prices retrieved successfully",
+  })
+  async searchClassMentorPrices(
+    @Query('classId') classId?: string,
+    @Query('mentorUserId') mentorUserId?: string,
+    @Query('status') status?: string,
+    @Query('page') page: number = 1,
+    @Query('pageSize') pageSize: number = 20,
+    @Query('sortField') sortField?: string,
+    @Query('sortOrder') sortOrder?: string,
+  ) {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/fa193b8a-ce70-45cb-82ff-cbf9f12dd9fd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'financial.controller.ts:320',message:'searchClassMentorPrices entry',data:{classId,mentorUserId,status,page,pageSize,sortField,sortOrder,sortFieldType:typeof sortField,sortOrderType:typeof sortOrder,sortFieldEmpty:sortField==='',sortOrderEmpty:sortOrder===''},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    // Build filter object from individual query parameters (从单独的查询参数构建过滤对象)
+    const filter: ClassMentorPriceFilterDto = {};
+    if (classId) filter.classId = classId;
+    if (mentorUserId) filter.mentorUserId = mentorUserId;
+    if (status) filter.status = status;
+    // Normalize empty strings to default values (将空字符串标准化为默认值)
+    const normalizedSortField = sortField && sortField.trim() ? sortField.trim() : 'createdAt';
+    const normalizedSortOrder: 'asc' | 'desc' = (sortOrder === 'asc' || sortOrder === 'desc') ? sortOrder : 'desc';
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/fa193b8a-ce70-45cb-82ff-cbf9f12dd9fd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'financial.controller.ts:332',message:'after normalization',data:{filter,normalizedSortField,normalizedSortOrder},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    return this.classMentorPriceQueryService.search(
+      filter,
+      { page, pageSize },
+      { field: normalizedSortField, order: normalizedSortOrder },
+    );
+  }
+
+  @Get("class-mentor-prices/by-class-and-mentor")
+  @ApiOperation({ summary: "Get class mentor price by class and mentor" })
+  @ApiResponse({
+    status: 200,
+    description: "Class mentor price retrieved successfully",
+  })
+  async getClassMentorPriceByClassAndMentor(
+    @Query('classId') classId: string,
+    @Query('mentorUserId') mentorUserId: string,
+  ) {
+    return this.classMentorPriceQueryService.findOne({ classId, mentorUserId });
+  }
+
+  @Put("class-mentor-prices/:id")
+  @ApiOperation({ summary: "Update class mentor price" })
+  @ApiResponse({
+    status: 200,
+    description: "Class mentor price updated successfully",
+  })
+  @ApiResponse({ status: 404, description: "Class mentor price not found" })
+  async updateClassMentorPrice(
+    @CurrentUser() user: IJwtUser,
+    @Param("id") id: string,
+    @Body() dto: UpdateClassMentorPriceDto,
+  ) {
+    return this.updateClassMentorPriceCommand.execute({
+      id,
+      dto,
+      updatedBy: String((user as unknown as { id: string }).id),
+    });
+  }
+
+  @Patch("class-mentor-prices/:id/status")
+  @ApiOperation({ summary: "Update class mentor price status" })
+  @ApiResponse({
+    status: 200,
+    description: "Class mentor price status updated successfully",
+  })
+  @ApiResponse({ status: 404, description: "Class mentor price not found" })
+  async updateClassMentorPriceStatus(
+    @CurrentUser() user: IJwtUser,
+    @Param("id") id: string,
+    @Body() dto: UpdateClassMentorPriceStatusDto,
+  ) {
+    return this.updateClassMentorPriceStatusCommand.execute({
+      id,
+      status: dto.status,
       updatedBy: String((user as unknown as { id: string }).id),
     });
   }

@@ -6,7 +6,6 @@ import {
   timestamp,
   index,
 } from "drizzle-orm/pg-core";
-import { mentorTable } from "./mentor.schema";
 
 /**
  * Mentor Prices Table (导师价格配置表)
@@ -38,11 +37,10 @@ export const mentorPrices = pgTable(
 
     // ========== Entity References ==========
     /**
-     * Mentor ID (导师ID)
-     * References: mentor.id
+     * Mentor User ID (导师用户ID)
+     * References: user.id
      */
-    mentorId: varchar("mentor_id", { length: 32 })
-      .references(() => mentorTable.id, { onDelete: "cascade" })
+    mentorUserId: uuid("mentor_user_id")
       .notNull(),
 
     /**
@@ -88,13 +86,11 @@ export const mentorPrices = pgTable(
 
     /**
      * Updated by user ID (变更人用户ID)
-     * References: mentor.id
+     * References: user.id
      * Nullable: Initial creation may not have an updater
      * (可为空：初始创建可能没有更新者)
      */
-    updatedBy: varchar("updated_by", { length: 32 }).references(
-      () => mentorTable.id,
-    ),
+    updatedBy: uuid("updated_by"),
 
     // ========== Timestamps ==========
     /**
@@ -112,16 +108,16 @@ export const mentorPrices = pgTable(
       .notNull(),
   },
   (table) => ({
-    // Composite index: Mentor ID + Session Type Code + Status
-    // (复合索引：导师ID + 会话类型代码 + 状态)
+    // Composite index: Mentor User ID + Session Type Code + Status
+    // (复合索引：导师用户ID + 会话类型代码 + 状态)
     mentorSessionTypeIdx: index("idx_mentor_session_type_status").on(
-      table.mentorId,
+      table.mentorUserId,
       table.sessionTypeCode,
       table.status,
     ),
 
-    // Mentor ID index (导师ID索引)
-    mentorIdx: index("idx_mentor_prices_mentor").on(table.mentorId),
+    // Mentor User ID index (导师用户ID索引)
+    mentorIdx: index("idx_mentor_prices_mentor").on(table.mentorUserId),
 
     // Session type code index (会话类型代码索引)
     sessionTypeIdx: index("idx_mentor_prices_session_type").on(

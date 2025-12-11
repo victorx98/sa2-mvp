@@ -38,6 +38,7 @@ import { ClassModule } from "@domains/services/class/class.module";
     CounselorQueryService,
     SchoolQueryService,
     MajorQueryService,
+    ClassMentorPriceQueryService,
     RegularMentoringQueryService,
     GapAnalysisQueryService,
     AiCareerQueryService,

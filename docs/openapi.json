@@ -399,6 +399,1329 @@
         ]
       }
     },
+    "/api/services/sessions": {
+      "post": {
+        "description": "\n      Creates a new session asynchronously. Supports multiple session types:\n      - regular_mentoring: Regular mentoring sessions\n      - gap_analysis: Gap analysis sessions\n      - ai_career: AI career assessment sessions\n      \n      Sync Flow (returns immediately):\n      1. Create calendar slots for mentor and student\n      2. Create session record with PENDING_MEETING status\n      3. Return response with sessionId and status\n      \n      Async Flow (runs in background):\n      1. Create meeting link via third-party API\n      2. Update session with meeting_id and status=SCHEDULED\n      3. Publish SESSION_BOOKED_EVENT\n      \n      Client should poll GET /api/services/sessions/:id?sessionType=xxx to check status and get meetingUrl\n    ",
+        "operationId": "SessionController_createSession",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSessionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSessionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters or unsupported session type"
+          },
+          "403": {
+            "description": "Not authorized to book for this student"
+          },
+          "409": {
+            "description": "Time conflict (mentor or student already scheduled)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a new session (unified endpoint)",
+        "tags": [
+          "Counselor Portal - Unified Sessions"
+        ]
+      },
+      "get": {
+        "description": "\n      Retrieve sessions with support for multiple query combinations:\n      \n      Query Parameters:\n      - sessionType (optional): Filter by session type, supports single or multiple values\n        * Not provided: returns all session types\n        * Single: ?sessionType=regular_mentoring\n        * Multiple: ?sessionType=regular_mentoring&sessionType=gap_analysis\n      - studentId (optional): Filter by specific student ID\n      - mentorId (optional): Filter by specific mentor ID\n      - counselorId (optional): Filter by specific counselor ID (counselor role only)\n      - status (optional): Filter by session status (SCHEDULED, COMPLETED, CANCELLED, etc.)\n      - startDate (optional): Filter by start date\n      - endDate (optional): Filter by end date\n      - page (optional): Pagination page number\n      - limit (optional): Results per page\n      \n      Examples:\n      - GET /api/services/sessions (returns all types)\n      - GET /api/services/sessions?sessionType=regular_mentoring\n      - GET /api/services/sessions?sessionType=gap_analysis&studentId=xxx\n      - GET /api/services/sessions?sessionType=regular_mentoring&sessionType=gap_analysis\n      - GET /api/services/sessions?sessionType=ai_career&mentorId=xxx&studentId=yyy\n    ",
+        "operationId": "SessionController_getSessionsList",
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mentorId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "counselorId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sessions retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SessionResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid sessionType parameter"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get list of sessions with flexible filtering (unified endpoint)",
+        "tags": [
+          "Counselor Portal - Unified Sessions"
+        ]
+      }
+    },
+    "/api/services/sessions/{id}": {
+      "get": {
+        "description": "Retrieve detailed information about a specific session. Requires sessionType query parameter.",
+        "operationId": "SessionController_getSessionDetail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionType",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid sessionType parameter"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get session details (unified endpoint)",
+        "tags": [
+          "Counselor Portal - Unified Sessions"
+        ]
+      },
+      "patch": {
+        "description": "Update session details like title, description, or scheduled time. Requires sessionType query parameter.",
+        "operationId": "SessionController_updateSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionType",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSessionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid sessionType parameter"
+          },
+          "404": {
+            "description": "Session not found"
+          },
+          "409": {
+            "description": "Time conflict detected"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a session (unified endpoint)",
+        "tags": [
+          "Counselor Portal - Unified Sessions"
+        ]
+      },
+      "delete": {
+        "description": "Soft delete a session (marks as deleted). Requires sessionType query parameter.",
+        "operationId": "SessionController_deleteSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionType",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session deleted successfully"
+          },
+          "400": {
+            "description": "Missing or invalid sessionType parameter"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a session (unified endpoint)",
+        "tags": [
+          "Counselor Portal - Unified Sessions"
+        ]
+      }
+    },
+    "/api/services/sessions/{id}/cancel": {
+      "post": {
+        "description": "\n      Cancel an existing session with optional reason. Requires sessionType query parameter.\n      \n      Sync Flow (immediate response):\n      - Update session status to CANCELLED\n      - Release calendar slots\n      - Return cancelled session details\n      \n      Async Flow (background):\n      - Cancel meeting via third-party API (max 3 retries)\n      - Update meetings table\n      - Send notifications based on result\n    ",
+        "operationId": "SessionController_cancelSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionType",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session cancelled successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid session status or missing sessionType parameter"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancel a session (unified endpoint)",
+        "tags": [
+          "Counselor Portal - Unified Sessions"
+        ]
+      }
+    },
+    "/api/services/regular-mentoring": {
+      "post": {
+        "description": "\n      Creates a new regular mentoring session asynchronously.\n      \n      Sync Flow (returns immediately):\n      1. Create calendar slots for mentor and student\n      2. Create session record with PENDING_MEETING status\n      3. Return response with sessionId and status\n      \n      Async Flow (runs in background):\n      1. Create meeting link via third-party API\n      2. Update session with meeting_id and status=SCHEDULED\n      3. Publish SESSION_BOOKED_EVENT\n      \n      Response includes:\n      - sessionId: unique session identifier\n      - status: PENDING_MEETING (meeting creation in progress)\n      - scheduledAt: scheduled start time\n      \n      Client should poll GET /api/services/regular-mentoring/:id to check status and get meetingUrl\n    ",
+        "operationId": "RegularMentoringController_createSession",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRegularMentoringRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSessionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters or insufficient balance"
+          },
+          "403": {
+            "description": "Not authorized to book for this student"
+          },
+          "409": {
+            "description": "Time conflict (mentor or student already scheduled)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a new regular mentoring session",
+        "tags": [
+          "Counselor Portal - Regular Mentoring"
+        ]
+      },
+      "get": {
+        "description": "\n      Retrieve regular mentoring sessions with support for multiple query combinations:\n      \n      Query Parameters:\n      - studentId (optional): Filter by specific student ID\n      - mentorId (optional): Filter by specific mentor ID\n      - counselorId (optional): Filter by specific counselor ID (counselor role only)\n      - status (optional): Filter by session status (SCHEDULED, COMPLETED, CANCELLED, etc.)\n      - startDate (optional): Filter by start date\n      - endDate (optional): Filter by end date\n      - page (optional): Pagination page number\n      - limit (optional): Results per page\n      \n      Examples:\n      - GET /api/services/regular-mentoring (returns user's own sessions)\n      - GET /api/services/regular-mentoring?studentId=xxx (returns student's sessions)\n      - GET /api/services/regular-mentoring?mentorId=xxx (returns mentor's sessions)\n      - GET /api/services/regular-mentoring?mentorId=xxx&studentId=yyy (returns sessions for specific mentor-student pair)\n    ",
+        "operationId": "RegularMentoringController_getSessionsList",
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mentorId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "counselorId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sessions retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RegularMentoringSessionResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get list of regular mentoring sessions with flexible filtering",
+        "tags": [
+          "Counselor Portal - Regular Mentoring"
+        ]
+      }
+    },
+    "/api/services/regular-mentoring/{id}": {
+      "get": {
+        "description": "Retrieve detailed information about a specific regular mentoring session",
+        "operationId": "RegularMentoringController_getSessionDetail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegularMentoringSessionResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get regular mentoring session details",
+        "tags": [
+          "Counselor Portal - Regular Mentoring"
+        ]
+      },
+      "patch": {
+        "description": "Update session details like title, description, or scheduled time",
+        "operationId": "RegularMentoringController_updateSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRegularMentoringRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegularMentoringSessionResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found"
+          },
+          "409": {
+            "description": "Time conflict detected"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a regular mentoring session",
+        "tags": [
+          "Counselor Portal - Regular Mentoring"
+        ]
+      },
+      "delete": {
+        "description": "Soft delete a regular mentoring session (marks as deleted)",
+        "operationId": "RegularMentoringController_deleteSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session deleted successfully"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a regular mentoring session",
+        "tags": [
+          "Counselor Portal - Regular Mentoring"
+        ]
+      }
+    },
+    "/api/services/regular-mentoring/{id}/cancel": {
+      "post": {
+        "description": "\n      Cancel an existing regular mentoring session with optional reason.\n      \n      Sync Flow (immediate response):\n      - Update session status to CANCELLED\n      - Release calendar slots\n      - Return cancelled session details\n      \n      Async Flow (background):\n      - Cancel meeting via third-party API (max 3 retries)\n      - Update meetings table\n      - Send notifications based on result (success: all parties, failed: counselor only)\n    ",
+        "operationId": "RegularMentoringController_cancelSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session cancelled successfully (meeting cancellation in progress)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegularMentoringSessionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid session status (only SCHEDULED/PENDING_MEETING can be cancelled)"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancel a regular mentoring session",
+        "tags": [
+          "Counselor Portal - Regular Mentoring"
+        ]
+      }
+    },
+    "/api/services/gap-analysis": {
+      "post": {
+        "description": "\n      Creates a new gap analysis session asynchronously.\n      \n      Sync Flow (returns immediately):\n      1. Create calendar slots for mentor and student\n      2. Create session record with PENDING_MEETING status\n      3. Return response with sessionId and status\n      \n      Async Flow (runs in background):\n      1. Create meeting link via third-party API\n      2. Update session with meeting_id and status=SCHEDULED\n      3. Publish SESSION_BOOKED_EVENT\n      \n      Client should poll GET /api/services/gap-analysis/:id to check status and get meetingUrl\n    ",
+        "operationId": "GapAnalysisController_createSession",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGapAnalysisRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSessionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a new gap analysis session",
+        "tags": [
+          "Counselor Portal - Gap Analysis"
+        ]
+      },
+      "get": {
+        "description": "\n      Retrieve gap analysis sessions with support for multiple query combinations:\n      \n      Query Parameters:\n      - studentId (optional): Filter by specific student ID\n      - mentorId (optional): Filter by specific mentor ID\n      - counselorId (optional): Filter by specific counselor ID (counselor role only)\n      - status (optional): Filter by session status (SCHEDULED, COMPLETED, CANCELLED, etc.)\n      - startDate (optional): Filter by start date\n      - endDate (optional): Filter by end date\n      - page (optional): Pagination page number\n      - limit (optional): Results per page\n      \n      Examples:\n      - GET /api/services/gap-analysis (returns user's own sessions)\n      - GET /api/services/gap-analysis?studentId=xxx (returns student's sessions)\n      - GET /api/services/gap-analysis?mentorId=xxx (returns mentor's sessions)\n      - GET /api/services/gap-analysis?mentorId=xxx&studentId=yyy (returns sessions for specific mentor-student pair)\n    ",
+        "operationId": "GapAnalysisController_getSessionsList",
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mentorId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "counselorId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sessions retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GapAnalysisSessionResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get list of gap analysis sessions with flexible filtering",
+        "tags": [
+          "Counselor Portal - Gap Analysis"
+        ]
+      }
+    },
+    "/api/services/gap-analysis/{id}": {
+      "get": {
+        "operationId": "GapAnalysisController_getSessionDetail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get gap analysis session details",
+        "tags": [
+          "Counselor Portal - Gap Analysis"
+        ]
+      },
+      "patch": {
+        "description": "Update session details like title, description, or scheduled time",
+        "operationId": "GapAnalysisController_updateSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGapAnalysisRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GapAnalysisSessionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a gap analysis session",
+        "tags": [
+          "Counselor Portal - Gap Analysis"
+        ]
+      },
+      "delete": {
+        "operationId": "GapAnalysisController_deleteSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a gap analysis session",
+        "tags": [
+          "Counselor Portal - Gap Analysis"
+        ]
+      }
+    },
+    "/api/services/gap-analysis/{id}/cancel": {
+      "post": {
+        "description": "\n      Cancel an existing gap analysis session with optional reason.\n      \n      Sync Flow (immediate response):\n      - Update session status to CANCELLED\n      - Release calendar slots\n      - Return cancelled session details\n      \n      Async Flow (background):\n      - Cancel meeting via third-party API (max 3 retries)\n      - Update meetings table\n      - Send notifications based on result (success: all parties, failed: counselor only)\n    ",
+        "operationId": "GapAnalysisController_cancelSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session cancelled successfully (meeting cancellation in progress)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GapAnalysisSessionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid session status (only SCHEDULED/PENDING_MEETING can be cancelled)"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancel a gap analysis session",
+        "tags": [
+          "Counselor Portal - Gap Analysis"
+        ]
+      }
+    },
+    "/api/services/ai-career": {
+      "post": {
+        "description": "\n      Creates a new AI career session asynchronously.\n      \n      Sync Flow (returns immediately):\n      1. Create calendar slots for mentor and student\n      2. Create session record with PENDING_MEETING status\n      3. Return response with sessionId and status\n      \n      Async Flow (runs in background):\n      1. Create meeting link via third-party API\n      2. Update session with meeting_id and status=SCHEDULED\n      3. Publish SESSION_BOOKED_EVENT\n      \n      Client should poll GET /api/services/ai-career/:id to check status and get meetingUrl\n    ",
+        "operationId": "AiCareerController_createSession",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAiCareerRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSessionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a new AI career session",
+        "tags": [
+          "Counselor Portal - AI Career"
+        ]
+      },
+      "get": {
+        "description": "\n      Retrieve AI career sessions with support for multiple query combinations:\n      \n      Query Parameters:\n      - studentId (optional): Filter by specific student ID\n      - mentorId (optional): Filter by specific mentor ID\n      - counselorId (optional): Filter by specific counselor ID (counselor role only)\n      - status (optional): Filter by session status (SCHEDULED, COMPLETED, CANCELLED, etc.)\n      - startDate (optional): Filter by start date\n      - endDate (optional): Filter by end date\n      - page (optional): Pagination page number\n      - limit (optional): Results per page\n      \n      Examples:\n      - GET /api/services/ai-career (returns user's own sessions)\n      - GET /api/services/ai-career?studentId=xxx (returns student's sessions)\n      - GET /api/services/ai-career?mentorId=xxx (returns mentor's sessions)\n      - GET /api/services/ai-career?mentorId=xxx&studentId=yyy (returns sessions for specific mentor-student pair)\n    ",
+        "operationId": "AiCareerController_getSessionsList",
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mentorId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "counselorId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sessions retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiCareerSessionResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get list of AI career sessions with flexible filtering",
+        "tags": [
+          "Counselor Portal - AI Career"
+        ]
+      }
+    },
+    "/api/services/ai-career/{id}": {
+      "get": {
+        "operationId": "AiCareerController_getSessionDetail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get AI career session details",
+        "tags": [
+          "Counselor Portal - AI Career"
+        ]
+      },
+      "patch": {
+        "operationId": "AiCareerController_updateSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAiCareerRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update an AI career session",
+        "tags": [
+          "Counselor Portal - AI Career"
+        ]
+      },
+      "delete": {
+        "operationId": "AiCareerController_deleteSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete an AI career session",
+        "tags": [
+          "Counselor Portal - AI Career"
+        ]
+      }
+    },
+    "/api/services/ai-career/{id}/cancel": {
+      "post": {
+        "description": "\n      Cancel an existing AI career session with optional reason.\n      \n      Sync Flow (immediate response):\n      - Update session status to CANCELLED\n      - Release calendar slots\n      - Return cancelled session details\n      \n      Async Flow (background):\n      - Cancel meeting via third-party API (max 3 retries)\n      - Update meetings table\n      - Send notifications based on result (success: all parties, failed: counselor only)\n    ",
+        "operationId": "AiCareerController_cancelSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session cancelled successfully (meeting cancellation in progress)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiCareerSessionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid session status (only SCHEDULED/PENDING_MEETING can be cancelled)"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancel an AI career session",
+        "tags": [
+          "Counselor Portal - AI Career"
+        ]
+      }
+    },
+    "/api/services/comm-session": {
+      "post": {
+        "description": "\n      Creates a new communication session asynchronously.\n      \n      Sync Flow:\n      1. Create calendar slots for student and mentor/counselor\n      2. Create session record with PENDING_MEETING status\n      3. Return response with sessionId and status\n      \n      Async Flow:\n      1. Create meeting link via third-party API\n      2. Update session with meeting_id and status=SCHEDULED\n      3. Publish SESSION_BOOKED_EVENT\n    ",
+        "operationId": "CommSessionController_createSession",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCommSessionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSessionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters"
+          },
+          "409": {
+            "description": "Time conflict (student or mentor already scheduled)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a new communication session",
+        "tags": [
+          "Counselor Portal - Communication Session"
+        ]
+      },
+      "get": {
+        "description": "\n      Retrieve communication sessions with support for multiple query combinations:\n      \n      Query Parameters:\n      - studentId (optional): Filter by specific student ID\n      - mentorId (optional): Filter by specific mentor ID\n      - counselorId (optional): Filter by specific counselor ID (counselor role only)\n      - status (optional): Filter by session status (SCHEDULED, COMPLETED, CANCELLED, etc.)\n      - startDate (optional): Filter by start date\n      - endDate (optional): Filter by end date\n      - page (optional): Pagination page number\n      - limit (optional): Results per page\n      \n      Examples:\n      - GET /api/services/comm-session (returns user's own sessions)\n      - GET /api/services/comm-session?studentId=xxx (returns student's sessions)\n      - GET /api/services/comm-session?mentorId=xxx (returns mentor's sessions)\n      - GET /api/services/comm-session?mentorId=xxx&studentId=yyy (returns sessions for specific mentor-student pair)\n    ",
+        "operationId": "CommSessionController_getSessionsList",
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mentorId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "counselorId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sessions retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CommSessionResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get list of communication sessions with flexible filtering",
+        "tags": [
+          "Counselor Portal - Communication Session"
+        ]
+      }
+    },
+    "/api/services/comm-session/{id}": {
+      "get": {
+        "description": "Retrieve detailed information about a specific communication session",
+        "operationId": "CommSessionController_getSessionDetail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommSessionResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get communication session details",
+        "tags": [
+          "Counselor Portal - Communication Session"
+        ]
+      },
+      "patch": {
+        "description": "Update session details like title, description, or scheduled time",
+        "operationId": "CommSessionController_updateSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCommSessionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommSessionResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found"
+          },
+          "409": {
+            "description": "Time conflict detected"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a communication session",
+        "tags": [
+          "Counselor Portal - Communication Session"
+        ]
+      },
+      "delete": {
+        "description": "Soft delete a communication session (marks as deleted)",
+        "operationId": "CommSessionController_deleteSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session deleted successfully"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a communication session",
+        "tags": [
+          "Counselor Portal - Communication Session"
+        ]
+      }
+    },
+    "/api/services/comm-session/{id}/cancel": {
+      "post": {
+        "description": "\n      Cancel an existing communication session with optional reason.\n      \n      Sync Flow (immediate response):\n      - Update session status to CANCELLED\n      - Release calendar slots\n      - Return cancelled session details\n      \n      Async Flow (background):\n      - Cancel meeting via third-party API (max 3 retries)\n      - Update meetings table\n      - Send notifications based on result (success: all parties, failed: counselor only)\n    ",
+        "operationId": "CommSessionController_cancelSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session cancelled successfully (meeting cancellation in progress)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommSessionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid session status (only SCHEDULED/PENDING_MEETING can be cancelled)"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancel a communication session",
+        "tags": [
+          "Counselor Portal - Communication Session"
+        ]
+      }
+    },
     "/api/mentors/find": {
       "get": {
         "operationId": "MentorsController_findMentors",
@@ -677,6 +2000,1029 @@
         "summary": "Update student profile",
         "tags": [
           "Student Profile"
+        ]
+      }
+    },
+    "/api/products": {
+      "post": {
+        "operationId": "ProductsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Product created successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Create a new product",
+        "tags": [
+          "Catalog Products"
+        ]
+      }
+    },
+    "/api/products/{id}/snapshot": {
+      "get": {
+        "operationId": "ProductsController_createSnapshot",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product snapshot created successfully"
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        },
+        "summary": "Create product snapshot",
+        "tags": [
+          "Catalog Products"
+        ]
+      }
+    },
+    "/api/products/{id}/status": {
+      "patch": {
+        "operationId": "ProductsController_updateStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Product status updated successfully"
+          },
+          "400": {
+            "description": "Bad request or invalid status transition"
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        },
+        "summary": "Update product status",
+        "tags": [
+          "Catalog Products"
+        ]
+      }
+    },
+    "/api/products/{id}": {
+      "patch": {
+        "operationId": "ProductsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Product updated successfully"
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        },
+        "summary": "Update product",
+        "tags": [
+          "Catalog Products"
+        ]
+      }
+    },
+    "/api/contracts": {
+      "post": {
+        "operationId": "ContractsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateContractDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Contract created successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Create a new contract",
+        "tags": [
+          "Admin Contracts"
+        ]
+      }
+    },
+    "/api/contracts/{id}/status": {
+      "patch": {
+        "operationId": "ContractsController_updateStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateContractStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contract status updated successfully"
+          },
+          "400": {
+            "description": "Invalid status transition"
+          },
+          "404": {
+            "description": "Contract not found"
+          }
+        },
+        "summary": "Update contract status",
+        "tags": [
+          "Admin Contracts"
+        ]
+      }
+    },
+    "/api/contracts/{id}": {
+      "patch": {
+        "operationId": "ContractsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateContractDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contract updated successfully"
+          },
+          "404": {
+            "description": "Contract not found"
+          }
+        },
+        "summary": "Update contract",
+        "tags": [
+          "Admin Contracts"
+        ]
+      }
+    },
+    "/api/contracts/consume": {
+      "post": {
+        "operationId": "ContractsController_consumeService",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumeServiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Service consumed successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Student or entitlement not found"
+          }
+        },
+        "summary": "Consume service",
+        "tags": [
+          "Admin Contracts"
+        ]
+      }
+    },
+    "/api/contracts/amendment-ledger": {
+      "post": {
+        "operationId": "ContractsController_addAmendmentLedger",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAmendmentLedgerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Amendment ledger added successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Add amendment ledger",
+        "tags": [
+          "Admin Contracts"
+        ]
+      }
+    },
+    "/api/financial/mentor-appeals": {
+      "post": {
+        "operationId": "FinancialController_createMentorAppeal",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAppealDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Mentor appeal created successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Create a new mentor appeal",
+        "tags": [
+          "Admin Financial"
+        ]
+      }
+    },
+    "/api/financial/mentor-appeals/{id}/approve": {
+      "patch": {
+        "operationId": "FinancialController_approveMentorAppeal",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveAppealDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mentor appeal approved successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Mentor appeal not found"
+          }
+        },
+        "summary": "Approve mentor appeal",
+        "tags": [
+          "Admin Financial"
+        ]
+      }
+    },
+    "/api/financial/mentor-appeals/{id}/reject": {
+      "patch": {
+        "operationId": "FinancialController_rejectMentorAppeal",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectAppealDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mentor appeal rejected successfully"
+          },
+          "404": {
+            "description": "Mentor appeal not found"
+          }
+        },
+        "summary": "Reject mentor appeal",
+        "tags": [
+          "Admin Financial"
+        ]
+      }
+    },
+    "/api/financial/settlements": {
+      "post": {
+        "operationId": "FinancialController_generateSettlement",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Settlement generated successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Generate settlement bill",
+        "tags": [
+          "Admin Financial"
+        ]
+      }
+    },
+    "/api/financial/mentor-prices": {
+      "post": {
+        "operationId": "FinancialController_createMentorPrice",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMentorPriceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Mentor price created successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Create mentor price",
+        "tags": [
+          "Admin Financial"
+        ]
+      }
+    },
+    "/api/financial/mentor-prices/{id}": {
+      "put": {
+        "operationId": "FinancialController_updateMentorPrice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMentorPriceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mentor price updated successfully"
+          },
+          "404": {
+            "description": "Mentor price not found"
+          }
+        },
+        "summary": "Update mentor price",
+        "tags": [
+          "Admin Financial"
+        ]
+      }
+    },
+    "/api/financial/mentor-prices/{id}/status": {
+      "patch": {
+        "operationId": "FinancialController_updateMentorPriceStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMentorPriceStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mentor price status updated successfully"
+          },
+          "404": {
+            "description": "Mentor price not found"
+          }
+        },
+        "summary": "Update mentor price status",
+        "tags": [
+          "Admin Financial"
+        ]
+      }
+    },
+    "/api/financial/mentor-prices/batch": {
+      "post": {
+        "operationId": "FinancialController_batchCreateMentorPrices",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkCreateMentorPriceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Mentor prices created successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Batch create mentor prices",
+        "tags": [
+          "Admin Financial"
+        ]
+      },
+      "put": {
+        "operationId": "FinancialController_batchUpdateMentorPrices",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkUpdateMentorPriceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mentor prices updated successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Batch update mentor prices",
+        "tags": [
+          "Admin Financial"
+        ]
+      }
+    },
+    "/api/financial/class-mentor-prices": {
+      "post": {
+        "operationId": "FinancialController_createClassMentorPrice",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateClassMentorPriceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Class mentor price created successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Create class mentor price",
+        "tags": [
+          "Admin Financial"
+        ]
+      },
+      "get": {
+        "operationId": "FinancialController_searchClassMentorPrices",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortField",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Class mentor prices retrieved successfully"
+          }
+        },
+        "summary": "Search class mentor prices",
+        "tags": [
+          "Admin Financial"
+        ]
+      }
+    },
+    "/api/financial/class-mentor-prices/{id}": {
+      "get": {
+        "operationId": "FinancialController_getClassMentorPriceById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Class mentor price retrieved successfully"
+          },
+          "404": {
+            "description": "Class mentor price not found"
+          }
+        },
+        "summary": "Get class mentor price by ID",
+        "tags": [
+          "Admin Financial"
+        ]
+      },
+      "put": {
+        "operationId": "FinancialController_updateClassMentorPrice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateClassMentorPriceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Class mentor price updated successfully"
+          },
+          "404": {
+            "description": "Class mentor price not found"
+          }
+        },
+        "summary": "Update class mentor price",
+        "tags": [
+          "Admin Financial"
+        ]
+      }
+    },
+    "/api/financial/class-mentor-prices/by-class-and-mentor": {
+      "get": {
+        "operationId": "FinancialController_getClassMentorPriceByClassAndMentor",
+        "parameters": [
+          {
+            "name": "classId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mentorUserId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Class mentor price retrieved successfully"
+          }
+        },
+        "summary": "Get class mentor price by class and mentor",
+        "tags": [
+          "Admin Financial"
+        ]
+      }
+    },
+    "/api/financial/class-mentor-prices/{id}/status": {
+      "patch": {
+        "operationId": "FinancialController_updateClassMentorPriceStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateClassMentorPriceStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Class mentor price status updated successfully"
+          },
+          "404": {
+            "description": "Class mentor price not found"
+          }
+        },
+        "summary": "Update class mentor price status",
+        "tags": [
+          "Admin Financial"
+        ]
+      }
+    },
+    "/api/financial/payable-ledgers/{id}/adjust": {
+      "post": {
+        "operationId": "FinancialController_adjustPayableLedger",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustPayableLedgerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payable ledger adjusted successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Adjust payable ledger",
+        "tags": [
+          "Admin Financial"
+        ]
+      }
+    },
+    "/api/financial/payment-params/{currency}/{settlementMonth}": {
+      "put": {
+        "operationId": "FinancialController_updateOrCreatePaymentParams",
+        "parameters": [
+          {
+            "name": "currency",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "settlementMonth",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment parameters updated successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Create or update payment parameters",
+        "tags": [
+          "Admin Financial"
+        ]
+      },
+      "patch": {
+        "operationId": "FinancialController_modifyPaymentParams",
+        "parameters": [
+          {
+            "name": "currency",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "settlementMonth",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment parameters modified successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Modify payment parameters",
+        "tags": [
+          "Admin Financial"
+        ]
+      }
+    },
+    "/api/financial/mentor-payment-infos": {
+      "put": {
+        "operationId": "FinancialController_createOrUpdateMentorPaymentInfo",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Mentor payment info updated successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Create or update mentor payment info",
+        "tags": [
+          "Admin Financial"
+        ]
+      }
+    },
+    "/api/financial/mentor-payment-infos/{id}/status": {
+      "patch": {
+        "operationId": "FinancialController_updateMentorPaymentInfoStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mentor payment info status updated successfully"
+          },
+          "404": {
+            "description": "Mentor payment info not found"
+          }
+        },
+        "summary": "Update mentor payment info status",
+        "tags": [
+          "Admin Financial"
+        ]
+      }
+    },
+    "/api/placement/job-positions": {
+      "post": {
+        "operationId": "PlacementController_createJobPosition",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Job position created successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Create a new job position",
+        "tags": [
+          "Admin Placement"
+        ]
+      }
+    },
+    "/api/placement/job-positions/{id}/expire": {
+      "patch": {
+        "operationId": "PlacementController_markJobPositionExpired",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job position marked as expired successfully"
+          },
+          "404": {
+            "description": "Job position not found"
+          }
+        },
+        "summary": "Mark job position as expired",
+        "tags": [
+          "Admin Placement"
+        ]
+      }
+    },
+    "/api/placement/job-applications/{id}/status": {
+      "patch": {
+        "operationId": "PlacementController_updateJobApplicationStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Job application status updated successfully"
+          },
+          "404": {
+            "description": "Job application not found"
+          }
+        },
+        "summary": "Update job application status",
+        "tags": [
+          "Admin Placement"
+        ]
+      }
+    },
+    "/api/placement/job-applications/{id}/rollback": {
+      "patch": {
+        "operationId": "PlacementController_rollbackJobApplicationStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job application status rolled back successfully"
+          },
+          "400": {
+            "description": "Bad request - insufficient history or invalid transition"
+          },
+          "404": {
+            "description": "Job application not found"
+          }
+        },
+        "summary": "Rollback job application status",
+        "tags": [
+          "Admin Placement"
         ]
       }
     }
@@ -1236,6 +3582,419 @@
           "modifiedAt",
           "email"
         ]
+      },
+      "CreateSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "sessionType": {
+            "type": "string",
+            "description": "Session Type",
+            "example": "regular_mentoring",
+            "enum": [
+              "regular_mentoring",
+              "gap_analysis",
+              "ai_career"
+            ]
+          },
+          "studentId": {
+            "type": "string",
+            "description": "Student ID",
+            "example": "9e50af7d-5f08-4516-939f-7f765ce131b8"
+          },
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor/Tutor ID",
+            "example": "4903b94b-67cc-42a1-9b3e-91ebc51bcefc"
+          },
+          "sessionTypeId": {
+            "type": "string",
+            "description": "Session Type ID",
+            "example": "uuid-session-type-id"
+          },
+          "title": {
+            "type": "string",
+            "description": "Session Title",
+            "example": "Resume Coaching"
+          },
+          "description": {
+            "type": "string",
+            "description": "Session Description",
+            "example": "Session description"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "Scheduled Start Time (ISO 8601)",
+            "example": "2025-12-03T06:00:00Z"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Session Duration in minutes",
+            "example": 60
+          },
+          "meetingProvider": {
+            "type": "string",
+            "description": "Meeting Provider",
+            "example": "feishu"
+          }
+        },
+        "required": [
+          "sessionType",
+          "studentId",
+          "mentorId",
+          "sessionTypeId",
+          "title",
+          "scheduledAt"
+        ]
+      },
+      "CreateSessionResponseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "SessionResponseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Session Title",
+            "example": "Resume Coaching"
+          },
+          "description": {
+            "type": "string",
+            "description": "Session Description",
+            "example": "Session description"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "Scheduled Start Time (ISO 8601)",
+            "example": "2025-12-03T06:00:00Z"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Session Duration in minutes",
+            "example": 60
+          }
+        }
+      },
+      "CreateRegularMentoringRequestDto": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "description": "Student ID",
+            "example": "9e50af7d-5f08-4516-939f-7f765ce131b8"
+          },
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor/Tutor ID",
+            "example": "4903b94b-67cc-42a1-9b3e-91ebc51bcefc"
+          },
+          "sessionTypeId": {
+            "type": "string",
+            "description": "Session Type ID",
+            "example": "uuid-session-type-id"
+          },
+          "title": {
+            "type": "string",
+            "description": "Session Title",
+            "example": "Resume Coaching"
+          },
+          "description": {
+            "type": "string",
+            "description": "Session Description",
+            "example": "Session description"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "Scheduled Start Time (ISO 8601)",
+            "example": "2025-12-03T06:00:00Z"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Session Duration in minutes",
+            "example": 60
+          },
+          "meetingProvider": {
+            "type": "string",
+            "description": "Meeting Provider",
+            "example": "feishu"
+          }
+        },
+        "required": [
+          "studentId",
+          "mentorId",
+          "sessionTypeId",
+          "title",
+          "scheduledAt"
+        ]
+      },
+      "RegularMentoringSessionResponseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateRegularMentoringRequestDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Session Title",
+            "example": "Resume Coaching"
+          },
+          "description": {
+            "type": "string",
+            "description": "Session Description",
+            "example": "Session description"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "Scheduled Start Time (ISO 8601)",
+            "example": "2025-12-03T06:00:00Z"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Session Duration in minutes",
+            "example": 60
+          }
+        }
+      },
+      "CreateGapAnalysisRequestDto": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "description": "Student ID",
+            "example": "9e50af7d-5f08-4516-939f-7f765ce131b8"
+          },
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor/Tutor ID",
+            "example": "4903b94b-67cc-42a1-9b3e-91ebc51bcefc"
+          },
+          "sessionTypeId": {
+            "type": "string",
+            "description": "Session Type ID",
+            "example": "uuid-session-type-id"
+          },
+          "title": {
+            "type": "string",
+            "description": "Session Title",
+            "example": "Gap Analysis Session"
+          },
+          "description": {
+            "type": "string",
+            "description": "Session Description",
+            "example": "Gap analysis session description"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "Scheduled Start Time (ISO 8601)",
+            "example": "2025-12-03T06:00:00Z"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Session Duration in minutes",
+            "example": 60
+          },
+          "meetingProvider": {
+            "type": "string",
+            "description": "Meeting Provider",
+            "example": "feishu"
+          }
+        },
+        "required": [
+          "studentId",
+          "mentorId",
+          "sessionTypeId",
+          "title",
+          "scheduledAt"
+        ]
+      },
+      "GapAnalysisSessionResponseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateGapAnalysisRequestDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Session Title",
+            "example": "Gap Analysis Session"
+          },
+          "description": {
+            "type": "string",
+            "description": "Session Description",
+            "example": "Gap analysis session description"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "Scheduled Start Time (ISO 8601)",
+            "example": "2025-12-03T06:00:00Z"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Session Duration in minutes",
+            "example": 60
+          }
+        }
+      },
+      "CreateAiCareerRequestDto": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "description": "Student ID",
+            "example": "9e50af7d-5f08-4516-939f-7f765ce131b8"
+          },
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor/Tutor ID",
+            "example": "4903b94b-67cc-42a1-9b3e-91ebc51bcefc"
+          },
+          "sessionTypeId": {
+            "type": "string",
+            "description": "Session Type ID",
+            "example": "uuid-session-type-id"
+          },
+          "title": {
+            "type": "string",
+            "description": "Session Title",
+            "example": "AI Career Assessment"
+          },
+          "description": {
+            "type": "string",
+            "description": "Session Description",
+            "example": "AI career assessment session description"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "Scheduled Start Time (ISO 8601)",
+            "example": "2025-12-03T06:00:00Z"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Session Duration in minutes",
+            "example": 60
+          },
+          "meetingProvider": {
+            "type": "string",
+            "description": "Meeting Provider",
+            "example": "feishu"
+          }
+        },
+        "required": [
+          "studentId",
+          "mentorId",
+          "sessionTypeId",
+          "title",
+          "scheduledAt"
+        ]
+      },
+      "AiCareerSessionResponseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateAiCareerRequestDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Session Title",
+            "example": "AI Career Assessment"
+          },
+          "description": {
+            "type": "string",
+            "description": "Session Description",
+            "example": "AI career assessment session description"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "Scheduled Start Time (ISO 8601)",
+            "example": "2025-12-03T06:00:00Z"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Session Duration in minutes",
+            "example": 60
+          }
+        }
+      },
+      "CreateCommSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "description": "Student ID",
+            "example": "9e50af7d-5f08-4516-939f-7f765ce131b8"
+          },
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor/Tutor ID (Optional)",
+            "example": "4903b94b-67cc-42a1-9b3e-91ebc51bcefc"
+          },
+          "title": {
+            "type": "string",
+            "description": "Session Title",
+            "example": "Discussion about career"
+          },
+          "description": {
+            "type": "string",
+            "description": "Session Description",
+            "example": "Session description"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "Scheduled Start Time (ISO 8601)",
+            "example": "2025-12-03T06:00:00Z"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Session Duration in minutes",
+            "example": 60
+          },
+          "meetingProvider": {
+            "type": "string",
+            "description": "Meeting Provider",
+            "example": "feishu"
+          }
+        },
+        "required": [
+          "studentId",
+          "title",
+          "scheduledAt"
+        ]
+      },
+      "CommSessionResponseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateCommSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Session Title",
+            "example": "Discussion about career"
+          },
+          "description": {
+            "type": "string",
+            "description": "Session Description",
+            "example": "Session description"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "Scheduled Start Time (ISO 8601)",
+            "example": "2025-12-03T06:00:00Z"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Session Duration in minutes",
+            "example": 60
+          }
+        }
       },
       "MentorSummaryResponseDto": {
         "type": "object",
@@ -1808,6 +4567,127 @@
             "nullable": true
           }
         }
+      },
+      "CreateProductDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateProductStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "ACTIVE",
+              "INACTIVE",
+              "DELETED"
+            ],
+            "description": "Target status for the product",
+            "example": "ACTIVE"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "UpdateProductDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateContractDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateContractStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SIGNED",
+              "ACTIVE",
+              "SUSPENDED",
+              "COMPLETED",
+              "TERMINATED"
+            ],
+            "description": "Target status for the contract [合同的目标状态]",
+            "example": "ACTIVE"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Reason for status change (required for suspend and terminate) [状态变更原因（暂停和终止时需要）]",
+            "example": "Payment issue"
+          },
+          "signedBy": {
+            "type": "string",
+            "description": "User ID who signed the contract (optional, will use current user if not provided) [签署合同的用户ID（可选，未提供时使用当前用户）]"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "UpdateContractDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ConsumeServiceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AddAmendmentLedgerDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateAppealDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ApproveAppealDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RejectAppealDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateMentorPriceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateMentorPriceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateMentorPriceStatusDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "BulkCreateMentorPriceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "BulkUpdateMentorPriceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateClassMentorPriceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateClassMentorPriceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateClassMentorPriceStatusDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AdjustPayableLedgerDto": {
+        "type": "object",
+        "properties": {}
       }
     }
   }
