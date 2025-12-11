@@ -26,6 +26,7 @@ import { ConsumeServiceDto } from "@domains/contract/dto/consume-service.dto";
 import { AddAmendmentLedgerDto } from "@domains/contract/dto/add-amendment-ledger.dto";
 import { UpdateContractStatusCommand } from "@application/commands/contract/update-contract-status.command";
 import { StudentContractsQuery } from "@application/queries/contract/student-contracts.query";
+import { ServiceBalanceQuery } from "@application/queries/contract/service-balance.query";
 import type { StudentContractResponseDto } from "@domains/contract/dto/student-contracts-query.dto";
 
 /**
@@ -52,7 +53,67 @@ export class ContractsController {
     private readonly consumeServiceCommand: ConsumeServiceCommand,
     private readonly addAmendmentLedgerCommand: AddAmendmentLedgerCommand,
     private readonly studentContractsQuery: StudentContractsQuery,
-  ) {}
+    private readonly serviceBalanceQuery: ServiceBalanceQuery,
+  ) { }
+
+  @Get("students/:studentId/service-balance")
+  @ApiOperation({
+    summary: "Get service entitlements for a specific student",
+    description: "Retrieve all service entitlements (balance information) for a student",
+  })
+  @ApiParam({
+    name: "studentId",
+    required: true,
+    description: "Student ID (UUID)",
+    type: String,
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Service entitlements retrieved successfully",
+    schema: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          studentId: { type: "string", format: "uuid" },
+          serviceType: { type: "string" },
+          totalQuantity: { type: "number" },
+          consumedQuantity: { type: "number" },
+          heldQuantity: { type: "number" },
+          availableQuantity: { type: "number" },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: "Invalid student ID format" })
+  @ApiResponse({ status: 404, description: "Student not found" })
+  async getStudentServiceBalance(
+    @Param("studentId") studentId: string,
+  ): Promise<
+    Array<{
+      studentId: string;
+      serviceType: string;
+      totalQuantity: number;
+      consumedQuantity: number;
+      heldQuantity: number;
+      availableQuantity: number;
+    }>
+  > {
+    this.logger.log(`Getting service balance for student: ${studentId}`);
+    const result = await this.serviceBalanceQuery.getServiceBalance(studentId);
+    const mappedResult = result.map((item) => ({
+      studentId: item.studentId,
+      serviceType: item.serviceType,
+      totalQuantity: item.totalQuantity,
+      consumedQuantity: item.consumedQuantity,
+      heldQuantity: item.heldQuantity,
+      availableQuantity: item.availableQuantity,
+    }));
+    this.logger.log(
+      `Retrieved ${mappedResult.length} service entitlement(s) for student: ${studentId}`,
+    );
+    return mappedResult;
+  }
 
   @Get("students/:studentId")
   @ApiOperation({

@@ -1763,6 +1763,172 @@
         ]
       }
     },
+    "/api/services/classes/{id}/mentors": {
+      "get": {
+        "description": "Retrieve list of mentors assigned to the class with their names",
+        "operationId": "ClassController_getClassMentors",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mentors retrieved successfully"
+          },
+          "404": {
+            "description": "Class not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get class mentors with names",
+        "tags": [
+          "Services - Class Management"
+        ]
+      },
+      "post": {
+        "description": "Add a mentor to the class with price per session",
+        "operationId": "ClassController_addMentor",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddMentorRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Mentor added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddMemberResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Class not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add mentor to class",
+        "tags": [
+          "Services - Class Management"
+        ]
+      }
+    },
+    "/api/services/classes/{id}/students": {
+      "get": {
+        "description": "Retrieve list of students enrolled in the class with their names",
+        "operationId": "ClassController_getClassStudents",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Students retrieved successfully"
+          },
+          "404": {
+            "description": "Class not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get class students with names",
+        "tags": [
+          "Services - Class Management"
+        ]
+      },
+      "post": {
+        "description": "Add a student to the class",
+        "operationId": "ClassController_addStudent",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddStudentRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Student added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddMemberResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Class not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add student to class",
+        "tags": [
+          "Services - Class Management"
+        ]
+      }
+    },
     "/api/services/classes/{id}": {
       "get": {
         "description": "Retrieve detailed information about a specific class",
@@ -1897,57 +2063,6 @@
         ]
       }
     },
-    "/api/services/classes/{id}/mentors": {
-      "post": {
-        "description": "Add a mentor to the class with price per session",
-        "operationId": "ClassController_addMentor",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Class ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AddMentorRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Mentor added successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AddMemberResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Class not found"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Add mentor to class",
-        "tags": [
-          "Services - Class Management"
-        ]
-      }
-    },
     "/api/services/classes/{id}/mentors/{mentorId}": {
       "delete": {
         "description": "Remove a mentor from the class",
@@ -2046,57 +2161,6 @@
           }
         ],
         "summary": "Update mentor price per session",
-        "tags": [
-          "Services - Class Management"
-        ]
-      }
-    },
-    "/api/services/classes/{id}/students": {
-      "post": {
-        "description": "Add a student to the class",
-        "operationId": "ClassController_addStudent",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Class ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AddStudentRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Student added successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AddMemberResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Class not found"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Add student to class",
         "tags": [
           "Services - Class Management"
         ]
@@ -2933,6 +2997,69 @@
         "summary": "Update product",
         "tags": [
           "Catalog Products"
+        ]
+      }
+    },
+    "/api/contracts/students/{studentId}/service-balance": {
+      "get": {
+        "description": "Retrieve all service entitlements (balance information) for a student",
+        "operationId": "ContractsController_getStudentServiceBalance",
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": true,
+            "in": "path",
+            "description": "Student ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Service entitlements retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "studentId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "serviceType": {
+                        "type": "string"
+                      },
+                      "totalQuantity": {
+                        "type": "number"
+                      },
+                      "consumedQuantity": {
+                        "type": "number"
+                      },
+                      "heldQuantity": {
+                        "type": "number"
+                      },
+                      "availableQuantity": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid student ID format"
+          },
+          "404": {
+            "description": "Student not found"
+          }
+        },
+        "summary": "Get service entitlements for a specific student",
+        "tags": [
+          "Admin Contracts"
         ]
       }
     },
@@ -5131,6 +5258,11 @@
             "type": "string",
             "description": "Scheduled Start Time (ISO 8601)",
             "example": "2025-12-03T06:00:00Z"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Session Duration in minutes",
+            "example": 60
           }
         }
       },
