@@ -308,7 +308,7 @@ export class FinancialController {
     // The command pattern is typically used for write operations
     // In a real implementation, you might want to create a query command for this
     const classMentorPriceService = this.createClassMentorPriceCommand['classMentorPriceService'];
-    return classMentorPriceService.getClassMentorPriceById(id);
+    return classMentorPriceService.findOne({ id });
   }
 
   @Get("class-mentor-prices")
@@ -326,7 +326,7 @@ export class FinancialController {
   ) {
     // Note: This endpoint directly uses the service instead of a command since it's a query
     const classMentorPriceService = this.createClassMentorPriceCommand['classMentorPriceService'];
-    return classMentorPriceService.searchClassMentorPrices(
+    return classMentorPriceService.search(
       filter,
       { page, pageSize },
       { field: sortField, order: sortOrder },
@@ -345,7 +345,7 @@ export class FinancialController {
   ) {
     // Note: This endpoint directly uses the service instead of a command since it's a query
     const classMentorPriceService = this.createClassMentorPriceCommand['classMentorPriceService'];
-    return classMentorPriceService.getClassMentorPriceByClassAndMentor(classId, mentorUserId);
+    return classMentorPriceService.findOne({ classId, mentorUserId });
   }
 
   @Put("class-mentor-prices/:id")

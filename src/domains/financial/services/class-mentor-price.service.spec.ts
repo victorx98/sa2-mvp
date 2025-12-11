@@ -350,7 +350,7 @@ describe("ClassMentorPriceService", () => {
     });
   });
   
-  describe("getClassMentorPriceById", () => {
+  describe("findOne", () => {
     it("should return a class mentor price record by ID", async () => {
       // Arrange
       const id = "123e4567-e89b-12d3-a456-426614174000";
@@ -369,15 +369,13 @@ describe("ClassMentorPriceService", () => {
       (mockDb.query.classMentorsPrices.findFirst as jest.Mock).mockResolvedValue(expectedPrice);
       
       // Act
-      const result = await service.getClassMentorPriceById(id);
+      const result = await service.findOne({ id });
       
       // Assert
       expect(result).toEqual(expectedPrice);
       expect(mockDb.query.classMentorsPrices.findFirst).toHaveBeenCalledWith(expect.any(Object));
     });
-  });
-  
-  describe("getClassMentorPriceByClassAndMentor", () => {
+
     it("should return a class mentor price record by class ID and mentor user ID", async () => {
       // Arrange
       const classId = "123e4567-e89b-12d3-a456-426614174001";
@@ -397,10 +395,34 @@ describe("ClassMentorPriceService", () => {
       (mockDb.query.classMentorsPrices.findFirst as jest.Mock).mockResolvedValue(expectedPrice);
       
       // Act
-      const result = await service.getClassMentorPriceByClassAndMentor(classId, mentorUserId);
+      const result = await service.findOne({ classId, mentorUserId });
       
       // Assert
       expect(result).toEqual(expectedPrice);
+      expect(mockDb.query.classMentorsPrices.findFirst).toHaveBeenCalledWith(expect.any(Object));
+    });
+
+    it("should return null when no criteria provided", async () => {
+      // Act
+      const result = await service.findOne({});
+      
+      // Assert
+      expect(result).toBeNull();
+      expect(mockDb.query.classMentorsPrices.findFirst).not.toHaveBeenCalled();
+    });
+
+    it("should return null when record not found", async () => {
+      // Arrange
+      const id = "123e4567-e89b-12d3-a456-426614174000";
+      
+      // Mock the database call to return null
+      (mockDb.query.classMentorsPrices.findFirst as jest.Mock).mockResolvedValue(null);
+      
+      // Act
+      const result = await service.findOne({ id });
+      
+      // Assert
+      expect(result).toBeNull();
       expect(mockDb.query.classMentorsPrices.findFirst).toHaveBeenCalledWith(expect.any(Object));
     });
   });

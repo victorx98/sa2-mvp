@@ -47,26 +47,16 @@ export interface IClassMentorPriceService {
   ): Promise<ClassMentorPrice>;
 
   /**
-   * Get class mentor price by ID
+   * Find one class mentor price record by dynamic criteria
    *
-   * @param id - Class mentor price ID
+   * @param criteria - Search criteria (id, classId, mentorUserId)
    * @returns Class mentor price record or null if not found
    */
-  getClassMentorPriceById(
-    id: string,
-  ): Promise<ClassMentorPrice | null>;
-
-  /**
-   * Get class mentor price by class ID and mentor user ID
-   *
-   * @param classId - Class ID
-   * @param mentorUserId - Mentor user ID
-   * @returns Class mentor price record or null if not found
-   */
-  getClassMentorPriceByClassAndMentor(
-    classId: string,
-    mentorUserId: string,
-  ): Promise<ClassMentorPrice | null>;
+  findOne(criteria: {
+    id?: string;
+    classId?: string;
+    mentorUserId?: string;
+  }): Promise<ClassMentorPrice | null>;
 
   /**
    * Search class mentor prices with filters and pagination
@@ -76,7 +66,7 @@ export interface IClassMentorPriceService {
    * @param sort - Sorting options
    * @returns Paginated list of class mentor prices
    */
-  searchClassMentorPrices(
+  search(
     filter: ClassMentorPriceFilterDto,
     pagination?: {
       page: number;

@@ -5,7 +5,7 @@
  */
 
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { eq, and, sql, asc, desc } from "drizzle-orm";
+import { eq, and, ne, sql, asc, desc } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import type { DrizzleDatabase } from "@shared/types/database.types";
@@ -227,55 +227,48 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
   }
 
   /**
-   * Get class mentor price by ID
+   * Find one class mentor price record by dynamic criteria
+   * (根据动态条件查找单个班级导师价格记录)
    *
-   * @param id - Class mentor price ID
+   * @param criteria - Search criteria (id, classId, mentorUserId)
    * @returns Class mentor price record or null if not found
    */
-  public async getClassMentorPriceById(
-    id: string,
-  ): Promise<ClassMentorPrice | null> {
+  public async findOne(criteria: {
+    id?: string;
+    classId?: string;
+    mentorUserId?: string;
+  }): Promise<ClassMentorPrice | null> {
     try {
+      // Validate that at least one criterion is provided
+      if (!criteria.id && !criteria.classId && !criteria.mentorUserId) {
+        this.logger.warn(
+          "No search criteria provided to findOne",
+        );
+        return null;
+      }
+
+      // Build where conditions dynamically
+      const conditions = [];
+      if (criteria.id) {
+        conditions.push(eq(schema.classMentorsPrices.id, criteria.id));
+      }
+      if (criteria.classId) {
+        conditions.push(eq(schema.classMentorsPrices.classId, criteria.classId));
+      }
+      if (criteria.mentorUserId) {
+        conditions.push(eq(schema.classMentorsPrices.mentorUserId, criteria.mentorUserId));
+      }
+
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
       const price = await this.db.query.classMentorsPrices.findFirst({
-        where: eq(schema.classMentorsPrices.id, id),
+        where: whereClause,
       });
 
-      return price;
+      return price || null;
     } catch (error) {
       this.logger.error(
-        `Error getting class mentor price by ID: ${id}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-      throw new FinancialException(
-        "CLASS_MENTOR_PRICE_GET_FAILED",
-        error instanceof Error ? error.message : "Failed to get class mentor price",
-      );
-    }
-  }
-
-  /**
-   * Get class mentor price by class ID and mentor user ID
-   *
-   * @param classId - Class ID
-   * @param mentorUserId - Mentor user ID
-   * @returns Class mentor price record or null if not found
-   */
-  public async getClassMentorPriceByClassAndMentor(
-    classId: string,
-    mentorUserId: string,
-  ): Promise<ClassMentorPrice | null> {
-    try {
-      const price = await this.db.query.classMentorsPrices.findFirst({
-        where: and(
-          eq(schema.classMentorsPrices.classId, classId),
-          eq(schema.classMentorsPrices.mentorUserId, mentorUserId),
-        ),
-      });
-
-      return price;
-    } catch (error) {
-      this.logger.error(
-        `Error getting class mentor price by class and mentor: classId=${classId}, mentorUserId=${mentorUserId}`,
+        `Error finding class mentor price: ${JSON.stringify(criteria)}`,
         error instanceof Error ? error.stack : undefined,
       );
       throw new FinancialException(
@@ -287,13 +280,14 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
 
   /**
    * Search class mentor prices with filters and pagination
+   * (搜索班级导师价格，支持过滤和分页)
    *
-   * @param filter - Filter criteria
-   * @param pagination - Pagination options
-   * @param sort - Sorting options
-   * @returns Paginated list of class mentor prices
+   * @param filter - Filter criteria (过滤条件)
+   * @param pagination - Pagination options (分页选项)
+   * @param sort - Sorting options (排序选项)
+   * @returns Paginated list of class mentor prices (分页的班级导师价格列表)
    */
-  public async searchClassMentorPrices(
+  public async search(
     filter: ClassMentorPriceFilterDto,
     pagination?: {
       page: number;
@@ -311,7 +305,7 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
     totalPages: number;
     }> {
     try {
-      // Build filter conditions
+      // Build filter conditions (构建过滤条件)
       const conditions = [];
       if (filter.classId) {
         conditions.push(eq(schema.classMentorsPrices.classId, filter.classId));
@@ -323,6 +317,9 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
       }
       if (filter.status) {
         conditions.push(eq(schema.classMentorsPrices.status, filter.status));
+      } else {
+        // Default: exclude deleted records (默认：排除已删除的记录)
+        conditions.push(ne(schema.classMentorsPrices.status, "deleted"));
       }
 
       // Build where clause
