@@ -97,6 +97,9 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
           findFirst: jest.fn(),
           findMany: jest.fn(),
         },
+        serviceLedgers: {
+          findFirst: jest.fn(),
+        },
       },
       transaction: jest.fn(async (callback) => {
         const mockTx = {
@@ -122,6 +125,7 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
     mockDb.query.contractServiceEntitlements.findMany = jest
       .fn()
       .mockResolvedValue([]);
+    mockDb.query.serviceLedgers.findFirst = jest.fn().mockResolvedValue(null);
 
     moduleRef = await Test.createTestingModule({
       imports: [
@@ -1141,6 +1145,9 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         mockDb.query.contractServiceEntitlements.findFirst as jest.Mock
       ).mockResolvedValue(mockEntitlement);
 
+      // Mock serviceLedgers.findFirst to return null (no previous ledger)
+      (mockDb.query.serviceLedgers.findFirst as jest.Mock).mockResolvedValue(null);
+
       const mockValues = jest.fn().mockReturnValue({
         onConflictDoUpdate: jest.fn().mockReturnThis(),
         returning: jest.fn().mockResolvedValue([mockEntitlement]),
@@ -1209,6 +1216,9 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       (
         mockDb.query.contractServiceEntitlements.findFirst as jest.Mock
       ).mockResolvedValue(mockEntitlement);
+
+      // Mock serviceLedgers.findFirst to return null (no previous ledger)
+      (mockDb.query.serviceLedgers.findFirst as jest.Mock).mockResolvedValue(null);
 
       const mockValues = jest.fn().mockReturnValue({
         onConflictDoUpdate: jest.fn().mockReturnThis(),

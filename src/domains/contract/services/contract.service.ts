@@ -33,7 +33,7 @@ export class ContractService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-  ) {}
+  ) { }
 
   /**
    * Record status change in history table (在历史表中记录状态变更)
@@ -818,18 +818,30 @@ export class ContractService {
         })
         .returning();
 
+      // Calculate the correct balance after this adjustment
+      const lastLedger = await tx.query.serviceLedgers.findFirst({
+        where: and(
+          eq(schema.serviceLedgers.studentId, studentId),
+          eq(schema.serviceLedgers.serviceType, serviceTypeCode),
+        ),
+        orderBy: [desc(schema.serviceLedgers.createdAt)],
+      });
+
+      const currentBalance = lastLedger?.balanceAfter || 0;
+      const newBalance = currentBalance + quantityChanged;
+
       await tx.insert(schema.serviceLedgers).values({
         studentId,
         serviceType: serviceTypeCode,
+        quantity: quantityChanged,
         type: "adjustment",
         source: "manual_adjustment",
-        quantity: quantityChanged,
-        balanceAfter: 0,
+        balanceAfter: newBalance,
+        relatedBookingId: relatedBookingId || undefined,  // Use undefined for DEFAULT
         reason: `Added ${serviceTypeCode} entitlement: ${reason || "No reason provided"}`,
-        relatedBookingId: relatedBookingId || null,
-        metadata:
-          relatedBookingId && bookingSource ? { bookingSource } : undefined,
         createdBy,
+        metadata:
+          relatedBookingId && bookingSource ? { bookingSource } : undefined,  // Already correct
       });
 
       const entitlement = await tx.query.contractServiceEntitlements.findFirst({

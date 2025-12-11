@@ -91,17 +91,40 @@ export const CONTRACT_ERROR_MESSAGES: Record<string, string> = {
   // Consumption related errors
   CONSUMPTION_PRIORITY_NOT_FOUND: "No entitlement found with required priority",
   CONSUMPTION_QUANTITY_INVALID: "Consumption quantity must be positive",
+  CONSUMPTION_QUANTITY_POSITIVE: "Consumption quantity must be negative",
   HOLD_QUANTITY_INVALID: "Hold quantity must be positive",
   HOLD_TTL_INVALID: "Hold TTL must be positive",
 
   // Validation errors
   INVALID_PRICE: "Price must be greater than 0",
-  INVALID_CURRENCY: "Invalid currency code",
-  INVALID_VALIDITY_DAYS: "Validity days must be greater than 0 or NULL",
+  INVALID_PRICE_MIN: "Price must be at least {min} dollars",
+  INVALID_PRICE_MAX: "Price cannot exceed {max} dollars",
+  INVALID_PRICE_DECIMAL: "Price must have at most 1 decimal place (dollars)",
   INVALID_QUANTITY: "Quantity must be greater than 0",
+  INVALID_QUANTITY_MIN: "Quantity must be at least {min}",
+  INVALID_QUANTITY_MAX: "Quantity cannot exceed {max}",
+  INVALID_QUANTITY_INTEGER: "Quantity must be an integer",
+  INVALID_VALIDITY_DAYS: "Validity days must be greater than 0 or NULL",
+  INVALID_VALIDITY_DAYS_INTEGER: "Validity days must be an integer",
+  INVALID_CONSUMED_QUANTITY: "Consumed quantity cannot be negative",
+  INVALID_HELD_QUANTITY: "Held quantity cannot be negative",
+  INVALID_QUANTITY_SUM: "Consumed + held quantity cannot exceed total quantity",
+  INVALID_CURRENCY: "Invalid currency code",
   INVALID_SERVICE_TYPE: "Invalid service type",
   INVALID_QUERY: "At least one query condition must be provided",
   REASON_REQUIRED: "Reason is required for this operation",
+  INVALID_PRODUCT_SNAPSHOT: "Product snapshot is invalid or incomplete",
+  INVALID_PRODUCT_SNAPSHOT_FIELD: "Product snapshot missing required field: {field}",
+  INVALID_PRODUCT_SNAPSHOT_STRING_TYPE: "Product snapshot string fields must be of type string",
+  INVALID_PRODUCT_SNAPSHOT_UUID: "Product snapshot productId must be a valid UUID",
+  INVALID_PRODUCT_SNAPSHOT_PRICE: "Product snapshot price must be a valid positive number",
+  INVALID_PRODUCT_SNAPSHOT_ITEMS_TYPE: "Product snapshot items must be an array",
+  INVALID_PRODUCT_SNAPSHOT_ITEMS_EMPTY: "Product snapshot items array cannot be empty",
+  INVALID_PRODUCT_SNAPSHOT_ITEM_TYPE: "Product snapshot item must be an object",
+  INVALID_PRODUCT_SNAPSHOT_ITEM_UUID: "Product snapshot item productItemId must be a valid UUID",
+  INVALID_PRODUCT_SNAPSHOT_ITEM_SERVICE_TYPE: "Product snapshot item serviceTypeCode must be a valid string",
+  INVALID_PRODUCT_SNAPSHOT_ITEM_SORT_ORDER: "Product snapshot item sortOrder must be an integer",
+  INVALID_PRODUCT_SNAPSHOT_DATE: "Product snapshot snapshotAt must be a valid date",
 
   // Concurrent control errors
   CONCURRENT_MODIFICATION: "Resource has been modified by another operation",
@@ -115,11 +138,14 @@ export class ContractException extends BadRequestException {
     public readonly code: string,
     message?: string,
   ) {
+    const actualMessage = message || CONTRACT_ERROR_MESSAGES[code] || "Unknown error";
     super({
       statusCode: HttpStatus.BAD_REQUEST,
       code,
-      message: message || CONTRACT_ERROR_MESSAGES[code] || "Unknown error",
+      message: actualMessage,
     });
+    // Set the message property explicitly to override the default "Bad Request"
+    this.message = actualMessage;
   }
 }
 
@@ -129,11 +155,14 @@ export class ContractNotFoundException extends NotFoundException {
     public readonly code: string,
     message?: string,
   ) {
+    const actualMessage = message || CONTRACT_ERROR_MESSAGES[code] || "Resource not found";
     super({
       statusCode: HttpStatus.NOT_FOUND,
       code,
-      message: message || CONTRACT_ERROR_MESSAGES[code] || "Resource not found",
+      message: actualMessage,
     });
+    // Set the message property explicitly to override the default "Not Found"
+    this.message = actualMessage;
   }
 }
 
@@ -143,11 +172,14 @@ export class ContractConflictException extends ConflictException {
     public readonly code: string,
     message?: string,
   ) {
+    const actualMessage = message || CONTRACT_ERROR_MESSAGES[code] || "Resource conflict";
     super({
       statusCode: HttpStatus.CONFLICT,
       code,
-      message: message || CONTRACT_ERROR_MESSAGES[code] || "Resource conflict",
+      message: actualMessage,
     });
+    // Set the message property explicitly to override the default "Conflict"
+    this.message = actualMessage;
   }
 }
 
@@ -157,14 +189,16 @@ export class ContractGoneException extends BadRequestException {
     public readonly code: string,
     message?: string,
   ) {
+    const actualMessage = message ||
+      CONTRACT_ERROR_MESSAGES[code] ||
+      "Resource has been deleted or expired";
     super({
       statusCode: HttpStatus.GONE,
       code,
-      message:
-        message ||
-        CONTRACT_ERROR_MESSAGES[code] ||
-        "Resource has been deleted or expired",
+      message: actualMessage,
     });
+    // Set the message property explicitly to override the default "Bad Request"
+    this.message = actualMessage;
   }
 }
 
@@ -174,13 +208,15 @@ export class ContractUnprocessableException extends UnprocessableEntityException
     public readonly code: string,
     message?: string,
   ) {
+    const actualMessage = message ||
+      CONTRACT_ERROR_MESSAGES[code] ||
+      "Unable to process request due to business rule violation";
     super({
       statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
       code,
-      message:
-        message ||
-        CONTRACT_ERROR_MESSAGES[code] ||
-        "Unable to process request due to business rule violation",
+      message: actualMessage,
     });
+    // Set the message property explicitly to override the default "Unprocessable Entity"
+    this.message = actualMessage;
   }
 }

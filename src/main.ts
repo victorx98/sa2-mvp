@@ -96,10 +96,15 @@ async function bootstrap() {
           "ValidationPipe",
         );
 
+        // Generate specific error message [生成具体的错误消息]
+        const specificMessages = messages.map((msg) => {
+          return `${msg.property}: ${msg.constraints.join(', ')}`;
+        }).join('; ');
+
         // Return formatted error response [返回格式化的错误响应]
         return new BadRequestException({
           statusCode: 400,
-          message: "Validation failed",
+          message: specificMessages || "Validation failed",
           errors: messages.map((msg) => ({
             field: msg.property,
             messages: msg.constraints,

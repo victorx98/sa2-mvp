@@ -38,12 +38,12 @@ import { UpdateContractStatusCommand } from "@application/commands/contract/upda
  * 3. 调用Application Layer的Command和Query
  * 4. 返回HTTP响应
  */
-@Controller("api/admin/contracts")
+@Controller("api/contracts")
 @ApiTags("Admin Contracts")
 @UseGuards(AuthGuard, RolesGuard)
 @Roles("admin", "manager", "counselor")
-export class AdminContractsController {
-  private readonly logger = new Logger(AdminContractsController.name);
+export class ContractsController {
+  private readonly logger = new Logger(ContractsController.name);
 
   constructor(
     private readonly createContractCommand: CreateContractCommand,

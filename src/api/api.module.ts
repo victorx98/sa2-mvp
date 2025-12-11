@@ -11,18 +11,16 @@ import { StudentsController } from "./controllers/identity/students.controller";
 import { StudentProfileController } from "./controllers/identity/student-profile.controller";
 import { MentorProfileController } from "./controllers/identity/mentor-profile.controller";
 import { CounselorProfileController } from "./controllers/identity/counselor-profile.controller";
-import { AdminProductsController } from "./controllers/admin/products.controller";
-import { AdminContractsController } from "./controllers/admin/contracts.controller";
-import { AdminFinancialController } from "./controllers/admin/financial.controller";
-import { AdminPlacementController } from "./controllers/admin/placement.controller";
-import { AdminServiceTypesController } from "./controllers/admin/service-types.controller";
-import { SessionTypesController } from "./controllers/services/session-types.controller";
 import { ApplicationModule } from "@application/application.module";
 import { WebhookModule } from "@core/webhook/webhook.module";
 import { RegularMentoringController } from "./controllers/services/regular-mentoring.controller";
 import { GapAnalysisController } from "./controllers/services/gap-analysis.controller";
 import { AiCareerController } from "./controllers/services/ai-career.controller";
 import { CommSessionController } from "./controllers/services/comm-session.controller";
+import { ProductsController } from "./controllers/catalog/products.controller";
+import { ContractsController } from "./controllers/contract/contracts.controller";
+import { FinancialController } from "./controllers/financial/financial.controller";
+import { PlacementController } from "./controllers/placement/placement.controller";
 
 /**
  * API Layer - Root Module
@@ -63,6 +61,18 @@ import { CommSessionController } from "./controllers/services/comm-session.contr
     // Student Controllers
     StudentsController,
     StudentProfileController,
+
+    // Catalog Controllers
+    ProductsController,
+
+    // Contract Controllers
+    ContractsController,
+
+    // Financial Controllers
+    FinancialController,
+
+    // Placement Controllers
+    PlacementController,
   ],
 })
 export class ApiModule {}

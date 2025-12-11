@@ -122,6 +122,13 @@ export const mentorAppeals = pgTable("mentor_appeals", {
    */
   rejectionReason: text("rejection_reason"),
 
+  /**
+   * Comments (申诉评论)
+   * Additional comments added during appeal processing
+   * (申诉处理过程中添加的额外评论)
+   */
+  comments: text("comments"),
+
   // ========== Processing Records ==========
   /**
    * Approved By (审批人ID)

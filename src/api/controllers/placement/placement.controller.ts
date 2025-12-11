@@ -1,13 +1,8 @@
 import {
-  Controller,
-  Get,
-  Post,
+  Controller, Post,
   Body,
   Param,
-  Patch,
-  Query,
-  HttpException,
-  HttpStatus,
+  Patch
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { JwtAuthGuard as AuthGuard } from "@shared/guards/jwt-auth.guard";
@@ -34,11 +29,11 @@ import type { IJwtUser } from "@shared/types/jwt-user.interface";
  * 1. 职位管理
  * 2. 职位申请管理
  */
-@Controller("api/admin/placement")
+@Controller("api/placement")
 @ApiTags("Admin Placement")
 @UseGuards(AuthGuard, RolesGuard)
 @Roles("admin", "manager")
-export class AdminPlacementController {
+export class PlacementController {
   constructor(
     // 职位管理相关
     private readonly createJobPositionCommand: CreateJobPositionCommand,
@@ -47,7 +42,7 @@ export class AdminPlacementController {
     // 职位申请管理相关
     private readonly updateJobApplicationStatusCommand: UpdateJobApplicationStatusCommand,
     private readonly rollbackJobApplicationStatusCommand: RollbackJobApplicationStatusCommand,
-  ) {}
+  ) { }
 
   // ----------------------
   // 职位管理

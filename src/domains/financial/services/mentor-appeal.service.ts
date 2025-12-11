@@ -74,13 +74,6 @@ export class MentorAppealService implements IMentorAppealService {
       `Creating appeal for mentor: ${dto.mentorId}, counselor: ${dto.counselorId}`,
     );
 
-    // Validate that mentorId matches the creator
-    if (dto.mentorId !== createdByUserId) {
-      throw new BadRequestException(
-        "Mentor ID must match the creator's user ID",
-      );
-    }
-
     try {
       // Create the appeal record
       const [appeal] = await this.db
@@ -248,17 +241,24 @@ export class MentorAppealService implements IMentorAppealService {
    * Approves a pending appeal and updates its status to APPROVED
    * Validates that only assigned counselor can approve
    * If linked to payable ledger, creates adjustment record
+   * If original appeal amount is invalid, uses provided appealAmount and currency
    *
    * @param id - ID of the appeal to approve
    * @param approvedByUserId - ID of the counselor approving
+   * @param appealAmount - New appeal amount if original is invalid
+   * @param currency - New currency if original is invalid
+   * @param comments - Additional comments about the approval
    * @returns Updated appeal record
    * @throws NotFoundException if appeal not found
-   * @throws BadRequestException if status is not PENDING
+   * @throws BadRequestException if status is not PENDING or validation fails
    * @throws ForbiddenException if counselor ID mismatch
    */
   public async approveAppeal(
     id: string,
     approvedByUserId: string,
+    appealAmount?: number,
+    currency?: string,
+    comments?: string,
   ): Promise<IMentorAppeal> {
     this.logger.log(`Approving appeal: ${id} by user: ${approvedByUserId}`);
 
@@ -283,6 +283,37 @@ export class MentorAppealService implements IMentorAppealService {
         );
       }
 
+      // Check if original appeal amount is valid
+      const isOriginalAmountValid = appeal.appealAmount && parseFloat(appeal.appealAmount) !== 0;
+      let finalAppealAmount = appeal.appealAmount;
+      let finalCurrency = appeal.currency;
+
+      // If original amount is invalid, use provided values
+      if (!isOriginalAmountValid) {
+        // Validate that appealAmount and currency are provided
+        if (appealAmount === undefined) {
+          throw new BadRequestException(
+            "appealAmount is required when original appeal amount is invalid",
+          );
+        }
+        if (!currency) {
+          throw new BadRequestException(
+            "currency is required when original appeal amount is invalid",
+          );
+        }
+
+        // Validate currency format (ISO 4217: 3 letters)
+        if (!/^[A-Z]{3}$/.test(currency)) {
+          throw new BadRequestException(
+            "currency must be a valid ISO 4217 3-letter code",
+          );
+        }
+
+        // Convert number to string for database storage
+        finalAppealAmount = appealAmount.toString();
+        finalCurrency = currency;
+      }
+
       // Update status to APPROVED
       const now = new Date();
       const [updatedAppeal] = await this.db
@@ -291,6 +322,9 @@ export class MentorAppealService implements IMentorAppealService {
           status: "APPROVED",
           approvedBy: approvedByUserId,
           approvedAt: now,
+          appealAmount: finalAppealAmount,
+          currency: finalCurrency,
+          comments,
           rejectionReason: undefined,
           rejectedBy: undefined,
           rejectedAt: undefined,
