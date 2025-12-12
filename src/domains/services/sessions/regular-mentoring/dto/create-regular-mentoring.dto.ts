@@ -17,6 +17,10 @@ export class CreateRegularMentoringDto {
   @IsUUID()
   sessionTypeId?: string; // Nullable until session_types lookup is implemented
 
+  @IsOptional()
+  @IsString()
+  serviceType?: string; // Business-level service type (e.g., premium_mentoring)
+
   @IsNotEmpty()
   @IsUUID()
   studentUserId: string;

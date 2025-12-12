@@ -12,6 +12,9 @@ export class RegisterServiceDto {
   @IsString()
   service_type: string;
 
+  @IsString()
+  title?: string; // Session title
+
   @IsNotEmpty()
   @IsUUID()
   student_user_id: string;

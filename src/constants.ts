@@ -11,5 +11,5 @@ export const FEISHU_DEFAULT_HOST_USER_ID = 'ou_977d022952b2f47efe0740d2d1b2a713'
 /**
  * Meeting Lifecycle Configuration
  */
-export const MEETING_COMPLETION_CHECK_DELAY_MINUTES = 0.5; // Delayed completion check window (minutes)
+export const MEETING_COMPLETION_CHECK_DELAY_MINUTES = 30; // Delayed completion check window (minutes)
 

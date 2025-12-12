@@ -12,6 +12,7 @@ export const classSessions = pgTable(
       .references(() => classes.id, { onDelete: 'cascade' }),
     meetingId: uuid('meeting_id').unique(),
     sessionType: varchar('session_type', { length: 50 }).notNull().default('class_session'),
+    serviceType: varchar('service_type', { length: 50 }), // Business-level service type
     mentorUserId: uuid('mentor_user_id').notNull(),
     title: varchar('title', { length: 255 }).notNull(),
     description: text('description'),
@@ -30,6 +31,7 @@ export const classSessions = pgTable(
     index('idx_class_session_mentor').on(table.mentorUserId),
     index('idx_class_session_status').on(table.status),
     index('idx_class_session_scheduled').on(table.scheduledAt),
+    index('idx_class_session_service_type').on(table.serviceType),
     foreignKey({
       columns: [table.classId, table.mentorUserId],
       foreignColumns: [classMentorsPrices.classId, classMentorsPrices.mentorUserId],

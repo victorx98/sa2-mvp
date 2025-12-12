@@ -34,6 +34,7 @@ export class RegularMentoringService {
       meetingId: dto.meetingId || null, // Nullable for async meeting creation flow
       sessionType: dto.sessionType,
       sessionTypeId: dto.sessionTypeId || null, // Nullable until session_types lookup is implemented
+      serviceType: dto.serviceType || null, // Business-level service type
       studentUserId: dto.studentUserId,
       mentorUserId: dto.mentorUserId,
       createdByCounselorId: dto.createdByCounselorId || null,
@@ -152,9 +153,11 @@ export class RegularMentoringService {
     });
 
     // 4. Register service to Service Registry (shared primary key)
+    // Use serviceType (business-level) instead of sessionType (technical-level)
     await this.serviceRegistryService.registerService({
       id: sessionId,
-      service_type: session.sessionType,
+      service_type: session.serviceType,
+      title: session.title, // Include session title
       student_user_id: session.studentUserId,
       provider_user_id: session.mentorUserId,
       consumed_units: this.calculateUnits(payload.actualDuration),

@@ -16,6 +16,7 @@ export class ClassSessionEntity {
   classId: string;
   meetingId: string;
   sessionType: SessionType;
+  serviceType?: string; // Business-level service type
   mentorUserId: string;
   title: string;
   description?: string;

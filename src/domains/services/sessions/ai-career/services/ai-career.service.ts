@@ -34,6 +34,7 @@ export class AiCareerService {
       meetingId: dto.meetingId || null, // Nullable for async meeting creation flow
       sessionType: dto.sessionType,
       sessionTypeId: dto.sessionTypeId,
+      serviceType: dto.serviceType || null, // Business-level service type
       studentUserId: dto.studentUserId,
       mentorUserId: dto.mentorUserId,
       createdByCounselorId: dto.createdByCounselorId || null,
@@ -155,7 +156,8 @@ export class AiCareerService {
     // 4. Register service to Service Registry
     await this.serviceRegistryService.registerService({
       id: sessionId,
-      service_type: session.sessionType,
+      service_type: session.serviceType,
+      title: session.title, // Include session title
       student_user_id: session.studentUserId,
       provider_user_id: session.mentorUserId,
       consumed_units: this.calculateUnits(payload.actualDuration),

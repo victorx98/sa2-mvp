@@ -21,6 +21,7 @@ export const regularMentoringSessions = pgTable(
       .default('regular_mentoring'),
     sessionTypeId: uuid('session_type_id')
       .references(() => sessionTypes.id), // Nullable until session_types lookup is implemented
+    serviceType: varchar('service_type', { length: 50 }), // Business-level service type (e.g., premium_mentoring)
     studentUserId: uuid('student_user_id')
       .notNull()
       .references(() => userTable.id),
@@ -52,6 +53,7 @@ export const regularMentoringSessions = pgTable(
       table.studentUserId,
       table.scheduledAt,
     ),
+    index('idx_regular_session_service_type').on(table.serviceType),
     check('regular_mentoring_sessions_status_check',
       sql`status IN ('pending_meeting', 'scheduled', 'completed', 'cancelled', 'deleted', 'meeting_failed')`
     ),

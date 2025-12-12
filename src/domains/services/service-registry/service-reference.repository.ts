@@ -34,6 +34,7 @@ export class ServiceReferenceRepository {
       .values({
         id: dto.id,
         serviceType: dto.service_type,
+        title: dto.title, // Include session title
         studentUserId: dto.student_user_id,
         providerUserId: dto.provider_user_id,
         consumedUnits: dto.consumed_units.toString(), // Convert to string for decimal type

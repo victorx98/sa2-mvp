@@ -45,6 +45,7 @@ export class ClassSessionService {
       classId: dto.classId,
       meetingId: dto.meetingId,
       sessionType: SessionType.CLASS_SESSION,
+      serviceType: dto.serviceType, // Business-level service type
       mentorUserId: dto.mentorUserId,
       title: dto.title,
       description: dto.description,
@@ -191,7 +192,8 @@ export class ClassSessionService {
     const actualDurationHours = Math.round((payload.actualDuration / 3600) * 100) / 100;
     const registerServiceDto: RegisterServiceDto = {
       id: sessionId,
-      service_type: 'class_session',
+      service_type: session.serviceType || 'class_session', // Prefer serviceType
+      title: session.title, // Include session title
       student_user_id: null, // Class session scenario: student list managed by class_students table
       provider_user_id: session.mentorUserId,
       consumed_units: actualDurationHours,
