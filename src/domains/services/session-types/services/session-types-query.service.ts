@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { SessionTypesRepository } from '../session-types.repository';
-import { GetSessionTypesDto, SessionTypeDto } from '../dto/get-session-types.dto';
+import { GetSessionTypesDto, SessionTypeDto, SessionTypeItemDto } from '../dto/get-session-types.dto';
 
 /**
  * Session Types Query Service (CQRS - Query)
@@ -22,27 +22,37 @@ export class SessionTypesQueryService {
       sessionTypes = await this.sessionTypesRepository.findAll();
     }
 
-    return sessionTypes.map(this.toDto);
+    // Group by serviceTypeCode
+    const grouped: Record<string, SessionTypeItemDto[]> = {};
+    for (const entity of sessionTypes) {
+      const serviceTypeCode = entity.serviceTypeCode;
+      if (!grouped[serviceTypeCode]) {
+        grouped[serviceTypeCode] = [];
+      }
+      grouped[serviceTypeCode].push(this.toItemDto(entity));
+    }
+
+    // Convert to array format
+    return Object.entries(grouped).map(([serviceTypeCode, sessionTypes]): SessionTypeDto => ({
+      serviceTypeCode,
+      sessionTypes,
+    }));
   }
 
-  async getSessionTypeById(id: string): Promise<SessionTypeDto> {
+  async getSessionTypeById(id: string): Promise<SessionTypeItemDto> {
     const sessionType = await this.sessionTypesRepository.findOne(id);
     if (!sessionType) {
       throw new NotFoundException(`Session type with ID ${id} not found`);
     }
-    return this.toDto(sessionType);
+    return this.toItemDto(sessionType);
   }
 
-  private toDto(entity: any): SessionTypeDto {
+  private toItemDto(entity: any): SessionTypeItemDto {
     return {
       id: entity.id,
       code: entity.code,
       name: entity.name,
-      serviceTypeCode: entity.serviceTypeCode,
-      templateId: entity.templateId,
       isBilling: entity.isBilling,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
     };
   }
 }

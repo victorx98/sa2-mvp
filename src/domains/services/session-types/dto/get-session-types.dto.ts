@@ -16,9 +16,9 @@ export class GetSessionTypesDto {
 }
 
 /**
- * Response DTO for session type
+ * Response DTO for session type item
  */
-export class SessionTypeDto {
+export class SessionTypeItemDto {
   @ApiProperty({ description: "Session type ID", example: "123e4567-e89b-12d3-a456-426614174000" })
   id: string;
 
@@ -28,19 +28,18 @@ export class SessionTypeDto {
   @ApiProperty({ description: "Session type name", example: "Regular Mentoring" })
   name: string;
 
+  @ApiProperty({ description: "Whether this session type is billable" })
+  isBilling: boolean;
+}
+
+/**
+ * Response DTO for grouped session types by service type
+ */
+export class SessionTypeDto {
   @ApiProperty({ description: "Service type code", example: "External" })
   serviceTypeCode: string;
 
-  @ApiProperty({ description: "Template ID", nullable: true, required: false })
-  templateId: string | null;
-
-  @ApiProperty({ description: "Whether this session type is billable" })
-  isBilling: boolean;
-
-  @ApiProperty({ description: "Creation timestamp", type: String, format: "date-time" })
-  createdAt: Date;
-
-  @ApiProperty({ description: "Last update timestamp", type: String, format: "date-time" })
-  updatedAt: Date;
+  @ApiProperty({ description: "List of session types", type: [SessionTypeItemDto] })
+  sessionTypes: SessionTypeItemDto[];
 }
 
