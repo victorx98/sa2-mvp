@@ -11,6 +11,7 @@ export const serviceReferences = pgTable(
   {
     id: uuid('id').primaryKey(), // Shared primary key from business tables
     serviceType: varchar('service_type', { length: 50 }).notNull(),
+    title: varchar('title', { length: 255 }), // Session title from business tables
     studentUserId: uuid('student_user_id')
       .notNull()
       .references(() => userTable.id),

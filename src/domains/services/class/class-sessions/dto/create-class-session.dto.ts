@@ -17,6 +17,10 @@ export class CreateClassSessionDto {
   @IsEnum(SessionType)
   sessionType: SessionType = SessionType.CLASS_SESSION;
 
+  @IsOptional()
+  @IsString()
+  serviceType?: string; // Business-level service type
+
   @IsNotEmpty()
   @IsUUID()
   mentorUserId: string;

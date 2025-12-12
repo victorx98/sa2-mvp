@@ -17,6 +17,10 @@ export class CreateAiCareerDto {
   @IsUUID()
   sessionTypeId: string;
 
+  @IsOptional()
+  @IsString()
+  serviceType?: string; // Business-level service type
+
   @IsNotEmpty()
   @IsUUID()
   studentUserId: string;

@@ -32,6 +32,7 @@ export interface CreateRegularMentoringDto {
   studentId: string;
   mentorId: string; // Simplified from mentorUserId for consistency with studentId
   sessionTypeId: string;
+  serviceType?: string; // Business-level service type (e.g., premium_mentoring)
   title: string;
   description?: string;
   scheduledAt: Date;
@@ -184,6 +185,7 @@ export class RegularMentoringService {
             meetingId: undefined, // No meeting yet - async flow
             sessionType: SessionType.REGULAR_MENTORING,
             sessionTypeId: dto.sessionTypeId,
+            serviceType: dto.serviceType, // Pass serviceType to domain layer
             studentUserId: dto.studentId,
             mentorUserId: dto.mentorId,
             createdByCounselorId: dto.counselorId,

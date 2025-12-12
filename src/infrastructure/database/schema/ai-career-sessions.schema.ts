@@ -22,6 +22,7 @@ export const aiCareerSessions = pgTable(
     sessionTypeId: uuid('session_type_id')
       .notNull()
       .references(() => sessionTypes.id),
+    serviceType: varchar('service_type', { length: 50 }), // Business-level service type
     studentUserId: uuid('student_user_id')
       .notNull()
       .references(() => userTable.id),
@@ -53,6 +54,7 @@ export const aiCareerSessions = pgTable(
       table.studentUserId,
       table.scheduledAt,
     ),
+    index('idx_ai_career_session_service_type').on(table.serviceType),
     check('ai_career_sessions_status_check',
       sql`status IN ('pending_meeting', 'scheduled', 'completed', 'cancelled', 'deleted', 'meeting_failed')`
     ),

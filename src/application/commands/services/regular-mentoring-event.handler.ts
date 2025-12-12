@@ -9,7 +9,7 @@ import {
   REGULAR_MENTORING_SESSION_CREATED_EVENT,
   REGULAR_MENTORING_SESSION_UPDATED_EVENT,
   REGULAR_MENTORING_SESSION_CANCELLED_EVENT,
-  REGULAR_MENTORING_SESSION_OPERATION_RESULT_EVENT,
+  REGULAR_MENTORING_SESSION_MEETING_OPERATION_RESULT_EVENT,
   SESSION_BOOKED_EVENT,
   SESSION_RESCHEDULED_COMPLETED,
 } from '@shared/events/event-constants';
@@ -135,7 +135,7 @@ export class RegularMentoringCreatedEventHandler {
       );
 
       // Step 4: Publish unified result event (success - notify all parties)
-      this.eventEmitter.emit(REGULAR_MENTORING_SESSION_OPERATION_RESULT_EVENT, {
+      this.eventEmitter.emit(REGULAR_MENTORING_SESSION_MEETING_OPERATION_RESULT_EVENT, {
         operation: 'create',
         status: 'success',
         sessionId: event.sessionId,
@@ -148,7 +148,7 @@ export class RegularMentoringCreatedEventHandler {
       });
 
       this.logger.log(
-        `OPERATION_RESULT_EVENT published: operation=create, status=success, sessionId=${event.sessionId}`,
+        `MEETING_OPERATION_RESULT_EVENT published: operation=create, status=success, sessionId=${event.sessionId}`,
       );
     } catch (error) {
       // Error handling: Log error and publish failed result event
@@ -158,7 +158,7 @@ export class RegularMentoringCreatedEventHandler {
       );
 
       // Publish unified result event (failed - notify counselor only)
-      this.eventEmitter.emit(REGULAR_MENTORING_SESSION_OPERATION_RESULT_EVENT, {
+      this.eventEmitter.emit(REGULAR_MENTORING_SESSION_MEETING_OPERATION_RESULT_EVENT, {
         operation: 'create',
         status: 'failed',
         sessionId: event.sessionId,
@@ -172,7 +172,7 @@ export class RegularMentoringCreatedEventHandler {
       });
 
       this.logger.warn(
-        `OPERATION_RESULT_EVENT published: operation=create, status=failed, sessionId=${event.sessionId}`,
+        `MEETING_OPERATION_RESULT_EVENT published: operation=create, status=failed, sessionId=${event.sessionId}`,
       );
     }
   }
@@ -253,7 +253,7 @@ export class RegularMentoringCreatedEventHandler {
     }
 
     // Step 4: Publish unified result event based on result
-    this.eventEmitter.emit(REGULAR_MENTORING_SESSION_OPERATION_RESULT_EVENT, {
+    this.eventEmitter.emit(REGULAR_MENTORING_SESSION_MEETING_OPERATION_RESULT_EVENT, {
       operation: 'update',
       status: updateSuccess ? 'success' : 'failed',
       sessionId: event.sessionId,
@@ -269,7 +269,7 @@ export class RegularMentoringCreatedEventHandler {
     });
 
     this.logger.log(
-      `OPERATION_RESULT_EVENT published: operation=update, status=${updateSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
+      `MEETING_OPERATION_RESULT_EVENT published: operation=update, status=${updateSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
     );
 
     // Step 5: Emit legacy notification event (for backward compatibility)
@@ -359,7 +359,7 @@ export class RegularMentoringCreatedEventHandler {
     }
 
     // Step 4: Publish unified result event based on result
-    this.eventEmitter.emit(REGULAR_MENTORING_SESSION_OPERATION_RESULT_EVENT, {
+    this.eventEmitter.emit(REGULAR_MENTORING_SESSION_MEETING_OPERATION_RESULT_EVENT, {
       operation: 'cancel',
       status: cancelSuccess ? 'success' : 'failed',
       sessionId: event.sessionId,
@@ -375,7 +375,7 @@ export class RegularMentoringCreatedEventHandler {
     });
 
     this.logger.log(
-      `OPERATION_RESULT_EVENT published: operation=cancel, status=${cancelSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
+      `MEETING_OPERATION_RESULT_EVENT published: operation=cancel, status=${cancelSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
     );
   }
 

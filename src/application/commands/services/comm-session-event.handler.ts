@@ -7,7 +7,7 @@ import {
   COMM_SESSION_CREATED_EVENT,
   COMM_SESSION_UPDATED_EVENT,
   COMM_SESSION_CANCELLED_EVENT,
-  COMM_SESSION_OPERATION_RESULT_EVENT,
+  COMM_SESSION_MEETING_OPERATION_RESULT_EVENT,
   SESSION_BOOKED_EVENT,
   SESSION_RESCHEDULED_COMPLETED,
 } from '@shared/events/event-constants';
@@ -108,7 +108,7 @@ export class CommSessionCreatedEventHandler {
       this.logger.log(`SESSION_BOOKED_EVENT published: sessionId=${event.sessionId}`);
 
       // Step 4: Publish unified result event (success)
-      this.eventEmitter.emit(COMM_SESSION_OPERATION_RESULT_EVENT, {
+      this.eventEmitter.emit(COMM_SESSION_MEETING_OPERATION_RESULT_EVENT, {
         operation: 'create',
         status: 'success',
         sessionId: event.sessionId,
@@ -121,13 +121,13 @@ export class CommSessionCreatedEventHandler {
       });
 
       this.logger.log(
-        `OPERATION_RESULT_EVENT published: operation=create, status=success, sessionId=${event.sessionId}`,
+        `MEETING_OPERATION_RESULT_EVENT published: operation=create, status=success, sessionId=${event.sessionId}`,
       );
     } catch (error) {
       this.logger.error(`Failed to create meeting for session ${event.sessionId}: ${error.message}`, error.stack);
 
       // Publish unified result event (failed)
-      this.eventEmitter.emit(COMM_SESSION_OPERATION_RESULT_EVENT, {
+      this.eventEmitter.emit(COMM_SESSION_MEETING_OPERATION_RESULT_EVENT, {
         operation: 'create',
         status: 'failed',
         sessionId: event.sessionId,
@@ -141,7 +141,7 @@ export class CommSessionCreatedEventHandler {
       });
 
       this.logger.warn(
-        `OPERATION_RESULT_EVENT published: operation=create, status=failed, sessionId=${event.sessionId}`,
+        `MEETING_OPERATION_RESULT_EVENT published: operation=create, status=failed, sessionId=${event.sessionId}`,
       );
     }
   }
@@ -207,7 +207,7 @@ export class CommSessionCreatedEventHandler {
     }
 
     // Step 4: Publish unified result event
-    this.eventEmitter.emit(COMM_SESSION_OPERATION_RESULT_EVENT, {
+    this.eventEmitter.emit(COMM_SESSION_MEETING_OPERATION_RESULT_EVENT, {
       operation: 'update',
       status: updateSuccess ? 'success' : 'failed',
       sessionId: event.sessionId,
@@ -223,7 +223,7 @@ export class CommSessionCreatedEventHandler {
     });
 
     this.logger.log(
-      `OPERATION_RESULT_EVENT published: operation=update, status=${updateSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
+      `MEETING_OPERATION_RESULT_EVENT published: operation=update, status=${updateSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
     );
 
     // Step 5: Emit legacy notification event (for backward compatibility)
@@ -300,7 +300,7 @@ export class CommSessionCreatedEventHandler {
     }
 
     // Step 4: Publish unified result event
-    this.eventEmitter.emit(COMM_SESSION_OPERATION_RESULT_EVENT, {
+    this.eventEmitter.emit(COMM_SESSION_MEETING_OPERATION_RESULT_EVENT, {
       operation: 'cancel',
       status: cancelSuccess ? 'success' : 'failed',
       sessionId: event.sessionId,
@@ -316,7 +316,7 @@ export class CommSessionCreatedEventHandler {
     });
 
     this.logger.log(
-      `OPERATION_RESULT_EVENT published: operation=cancel, status=${cancelSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
+      `MEETING_OPERATION_RESULT_EVENT published: operation=cancel, status=${cancelSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
     );
   }
 

@@ -17,31 +17,44 @@ export const REGULAR_MENTORING_SESSION_UPDATED_EVENT = "regular_mentoring.sessio
 export const REGULAR_MENTORING_SESSION_CANCELLED_EVENT = "regular_mentoring.session.cancelled";
 
 // Result event (1 unified event with operation + status fields)
-export const REGULAR_MENTORING_SESSION_OPERATION_RESULT_EVENT = "regular_mentoring.session.operation.result";
+// Meeting operation result event for create/update/cancel operations, result: success/failed
+export const REGULAR_MENTORING_SESSION_MEETING_OPERATION_RESULT_EVENT = "regular_mentoring.session.meeting.operation.result";
 
 // Gap Analysis Session Events
 export const GAP_ANALYSIS_SESSION_CREATED_EVENT = "gap_analysis.session.created";
 export const GAP_ANALYSIS_SESSION_UPDATED_EVENT = "gap_analysis.session.updated";
 export const GAP_ANALYSIS_SESSION_CANCELLED_EVENT = "gap_analysis.session.cancelled";
-export const GAP_ANALYSIS_SESSION_OPERATION_RESULT_EVENT = "gap_analysis.session.operation.result";
+
+// Result event (1 unified event with operation + status fields)
+// Meeting operation result event for create/update/cancel operations, result: success/failed
+export const GAP_ANALYSIS_SESSION_MEETING_OPERATION_RESULT_EVENT = "gap_analysis.session.meeting.operation.result";
 
 // AI Career Session Events
 export const AI_CAREER_SESSION_CREATED_EVENT = "ai_career.session.created";
 export const AI_CAREER_SESSION_UPDATED_EVENT = "ai_career.session.updated";
 export const AI_CAREER_SESSION_CANCELLED_EVENT = "ai_career.session.cancelled";
-export const AI_CAREER_SESSION_OPERATION_RESULT_EVENT = "ai_career.session.operation.result";
+
+// Result event (1 unified event with operation + status fields)
+// Meeting operation result event for create/update/cancel operations, result: success/failed
+export const AI_CAREER_SESSION_MEETING_OPERATION_RESULT_EVENT = "ai_career.session.meeting.operation.result";
 
 // Communication Session Events
 export const COMM_SESSION_CREATED_EVENT = "comm_session.session.created";
 export const COMM_SESSION_UPDATED_EVENT = "comm_session.session.updated";
 export const COMM_SESSION_CANCELLED_EVENT = "comm_session.session.cancelled";
-export const COMM_SESSION_OPERATION_RESULT_EVENT = "comm_session.session.operation.result";
+
+// Result event (1 unified event with operation + status fields)
+// Meeting operation result event for create/update/cancel operations, result: success/failed
+export const COMM_SESSION_MEETING_OPERATION_RESULT_EVENT = "comm_session.session.meeting.operation.result";
 
 // Class Session Events
 export const CLASS_SESSION_CREATED_EVENT = "class_session.session.created";
 export const CLASS_SESSION_UPDATED_EVENT = "class_session.session.updated";
 export const CLASS_SESSION_CANCELLED_EVENT = "class_session.session.cancelled";
-export const CLASS_SESSION_OPERATION_RESULT_EVENT = "class_session.session.operation.result";
+
+// Result event (1 unified event with operation + status fields)
+// Meeting operation result event for create/update/cancel operations, result: success/failed
+export const CLASS_SESSION_MEETING_OPERATION_RESULT_EVENT = "class_session.session.meeting.operation.result";
 
 // Legacy events (for backward compatibility)
 export const SESSION_RESCHEDULED_COMPLETED = "session.rescheduled.completed";

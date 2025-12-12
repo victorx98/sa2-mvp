@@ -53,6 +53,15 @@ export class CreateSessionRequestDto {
   sessionType: string;
 
   @ApiProperty({
+    description: 'Service Type (business-level)',
+    example: 'premium_mentoring',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  serviceType?: string;
+
+  @ApiProperty({
     description: 'Student ID',
     example: '9e50af7d-5f08-4516-939f-7f765ce131b8',
   })
@@ -295,6 +304,7 @@ export class SessionController {
         studentId: dto.studentId,
         mentorId: dto.mentorId,
         sessionTypeId: dto.sessionTypeId,
+        serviceType: dto.serviceType, // Pass serviceType from frontend
         title: dto.title,
         description: dto.description,
         scheduledAt: new Date(dto.scheduledAt),
