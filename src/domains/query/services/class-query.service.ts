@@ -21,7 +21,7 @@ export class ClassQueryService {
   ) {}
 
   /**
-   * Get class mentors with user names
+   * Get class mentors with user names (i18n format)
    * JOIN class_mentors_prices with users table
    */
   async getClassMentorsWithNames(classId: string): Promise<any[]> {
@@ -37,22 +37,19 @@ export class ClassQueryService {
       .leftJoin(userTable, eq(classMentorsPrices.mentorUserId, userTable.id))
       .where(eq(classMentorsPrices.classId, classId as any));
 
-    return result.map((row) => {
-      const nameEn = row.nameEn || '';
-      const nameZh = row.nameZh || '';
-      const name = nameEn && nameZh ? `${nameEn}(${nameZh})` : (nameEn || nameZh || 'Unknown');
-      
-      return {
-        userId: row.userId,
-        name,
-        pricePerSession: row.pricePerSession,
-        addedAt: row.addedAt,
-      };
-    });
+    return result.map((row) => ({
+      userId: row.userId,
+      name: {
+        en: row.nameEn || '',
+        zh: row.nameZh || '',
+      },
+      pricePerSession: row.pricePerSession,
+      addedAt: row.addedAt,
+    }));
   }
 
   /**
-   * Get class students with user names
+   * Get class students with user names (i18n format)
    * JOIN class_students with users table
    */
   async getClassStudentsWithNames(classId: string): Promise<any[]> {
@@ -67,17 +64,14 @@ export class ClassQueryService {
       .leftJoin(userTable, eq(classStudents.studentUserId, userTable.id))
       .where(eq(classStudents.classId, classId as any));
 
-    return result.map((row) => {
-      const nameEn = row.nameEn || '';
-      const nameZh = row.nameZh || '';
-      const name = nameEn && nameZh ? `${nameEn}(${nameZh})` : (nameEn || nameZh || 'Unknown');
-      
-      return {
-        userId: row.userId,
-        name,
-        enrolledAt: row.enrolledAt,
-      };
-    });
+    return result.map((row) => ({
+      userId: row.userId,
+      name: {
+        en: row.nameEn || '',
+        zh: row.nameZh || '',
+      },
+      enrolledAt: row.enrolledAt,
+    }));
   }
 }
 

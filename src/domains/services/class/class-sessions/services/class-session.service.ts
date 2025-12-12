@@ -218,19 +218,11 @@ export class ClassSessionService {
   }
 
   /**
-   * Find session by meeting_id
+   * Find session by meeting_id (for write operations)
    */
   async findByMeetingId(meetingId: string): Promise<ClassSessionEntity | null> {
     this.logger.log(`Finding class session by meeting ID: ${meetingId}`);
     return this.classSessionRepository.findByMeetingId(meetingId);
-  }
-
-  /**
-   * Get session details
-   */
-  async getSessionById(id: string): Promise<ClassSessionEntity> {
-    this.logger.log(`Getting class session by ID: ${id}`);
-    return this.classSessionRepository.findByIdOrThrow(id);
   }
 }
 

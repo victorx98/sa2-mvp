@@ -4,7 +4,6 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 
 // Classes Module
 import { ClassService } from './classes/services/class.service';
-import { ClassQueryService } from './classes/services/class-query.service';
 import { ClassRepository } from './classes/repositories/class.repository';
 
 // Class Sessions Module
@@ -21,7 +20,6 @@ import { ServiceReferenceRepository } from '../service-registry/service-referenc
   providers: [
     // Classes
     ClassService,
-    ClassQueryService,
     ClassRepository,
     // Class Sessions
     ClassSessionService,
@@ -34,7 +32,6 @@ import { ServiceReferenceRepository } from '../service-registry/service-referenc
   exports: [
     // Classes
     ClassService,
-    ClassQueryService,
     ClassRepository,
     // Class Sessions
     ClassSessionService,

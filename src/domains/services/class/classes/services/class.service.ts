@@ -179,7 +179,7 @@ export class ClassService {
   }
 
   /**
-   * Get class details
+   * Get class details (for write operations validation)
    */
   async getClassById(id: string): Promise<ClassEntity> {
     this.logger.log(`Getting class by ID: ${id}`);
@@ -187,7 +187,7 @@ export class ClassService {
   }
 
   /**
-   * Check if mentor is assigned to class
+   * Check if mentor is assigned to class (for write operations validation)
    */
   async hasMentor(classId: string, mentorId: string): Promise<boolean> {
     this.logger.log(`Checking if mentor ${mentorId} is in class ${classId}`);

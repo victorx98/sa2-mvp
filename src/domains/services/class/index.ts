@@ -4,7 +4,6 @@ export { ClassMentorPriceEntity } from './classes/entities/class-mentor-price.en
 export { ClassStudentEntity } from './classes/entities/class-student.entity';
 export { ClassCounselorEntity } from './classes/entities/class-counselor.entity';
 export { ClassService } from './classes/services/class.service';
-export { ClassQueryService, type ClassFiltersDto } from './classes/services/class-query.service';
 export { CreateClassDto, type MentorPriceInput } from './classes/dto/create-class.dto';
 export { UpdateClassDto } from './classes/dto/update-class.dto';
 export { ClassRepository } from './classes/repositories/class.repository';

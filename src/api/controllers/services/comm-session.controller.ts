@@ -171,8 +171,13 @@ export class CommSessionResponseDto {
   meetingId: string;
   sessionType: string;
   studentUserId: string;
+  studentName?: { en: string; zh: string };
   mentorUserId?: string;
+  mentorName?: { en: string; zh: string };
+  counselorUserId?: string;
+  counselorName?: { en: string; zh: string };
   createdByCounselorId: string;
+  createdByCounselorName?: { en: string; zh: string };
   title: string;
   description?: string;
   status: string;

@@ -20,8 +20,13 @@ export class CommSessionMapper {
       meetingId: entity.meetingId,
       sessionType: entity.sessionType,
       studentUserId: entity.studentUserId,
+      studentName: entity.studentName, // i18n format: { en, zh }
       mentorUserId: entity.mentorUserId,
+      mentorName: entity.mentorName, // i18n format: { en, zh }
+      counselorUserId: entity.counselorUserId,
+      counselorName: entity.counselorName, // i18n format: { en, zh }
       createdByCounselorId: entity.createdByCounselorId,
+      createdByCounselorName: entity.createdByCounselorName, // i18n format: { en, zh }
       title: entity.title,
       description: entity.description,
       status: entity.status,
