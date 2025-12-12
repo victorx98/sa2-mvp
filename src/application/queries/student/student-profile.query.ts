@@ -15,11 +15,18 @@ export class StudentProfileQuery {
   ) {}
 
   /**
-   * 获取当前学生完整档案（User + Student Profile）
+   * 获取当前学生完整档案（User + Student Profile + 关联的 Schools 和 Majors）
    */
   async getProfile(userId: string) {
-    const { user, profile } =
-      await this.studentProfileService.getAggregateByUserId(userId);
+    const {
+      user,
+      profile,
+      highSchool,
+      underCollege,
+      graduateCollege,
+      underMajor,
+      graduateMajor,
+    } = await this.studentProfileService.getAggregateWithRelationsByUserId(userId);
 
     return {
       // User 基础信息
@@ -36,11 +43,41 @@ export class StudentProfileQuery {
 
       // Student Profile 专有信息
       studentStatus: profile.status,
-      highSchool: profile.highSchool,
-      underCollege: profile.underCollege,
-      underMajor: profile.underMajor,
-      graduateCollege: profile.graduateCollege,
-      graduateMajor: profile.graduateMajor,
+      highSchool: profile.highSchool
+        ? {
+            id: profile.highSchool,
+            nameZh: highSchool?.nameZh || null,
+            nameEn: highSchool?.nameEn || null,
+          }
+        : null,
+      underCollege: profile.underCollege
+        ? {
+            id: profile.underCollege,
+            nameZh: underCollege?.nameZh || null,
+            nameEn: underCollege?.nameEn || null,
+          }
+        : null,
+      underMajor: profile.underMajor
+        ? {
+            id: profile.underMajor,
+            nameZh: underMajor?.nameZh || null,
+            nameEn: underMajor?.nameEn || null,
+          }
+        : null,
+      graduateCollege: profile.graduateCollege
+        ? {
+            id: profile.graduateCollege,
+            nameZh: graduateCollege?.nameZh || null,
+            nameEn: graduateCollege?.nameEn || null,
+          }
+        : null,
+      graduateMajor: profile.graduateMajor
+        ? {
+            id: profile.graduateMajor,
+            nameZh: graduateMajor?.nameZh || null,
+            nameEn: graduateMajor?.nameEn || null,
+          }
+        : null,
       aiResumeSummary: profile.aiResumeSummary,
       customerImportance: profile.customerImportance,
       underGraduationDate: profile.underGraduationDate,
