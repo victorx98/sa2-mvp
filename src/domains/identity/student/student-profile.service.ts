@@ -14,6 +14,16 @@ import {
   User,
 } from "@domains/identity/user/user-interface";
 
+export interface StudentProfileWithRelations {
+  user: User;
+  profile: schema.Student;
+  highSchool?: schema.School | null;
+  underCollege?: schema.School | null;
+  graduateCollege?: schema.School | null;
+  underMajor?: schema.Major | null;
+  graduateMajor?: schema.Major | null;
+}
+
 export interface IUpdateStudentProfileInput {
   status?: string;
   highSchool?: string | null;
@@ -23,7 +33,8 @@ export interface IUpdateStudentProfileInput {
   graduateMajor?: string | null;
   aiResumeSummary?: string | null;
   customerImportance?: string | null;
-  graduationDate?: string | null;
+  underGraduationDate?: string | null;
+  graduateGraduationDate?: string | null;
   grades?: string | null;
 }
 
@@ -112,7 +123,10 @@ export class StudentProfileService {
     if (input.graduateMajor !== undefined) updateValues.graduateMajor = input.graduateMajor;
     if (input.aiResumeSummary !== undefined) updateValues.aiResumeSummary = input.aiResumeSummary;
     if (input.customerImportance !== undefined) updateValues.customerImportance = input.customerImportance;
-    if (input.graduationDate !== undefined) updateValues.graduationDate = input.graduationDate;
+    if (input.underGraduationDate !== undefined)
+      updateValues.underGraduationDate = input.underGraduationDate;
+    if (input.graduateGraduationDate !== undefined)
+      updateValues.graduateGraduationDate = input.graduateGraduationDate;
     if (input.grades !== undefined) updateValues.grades = input.grades;
 
     const [updated] = await executor
@@ -151,8 +165,6 @@ export class StudentProfileService {
     userId: string,
     tx?: DrizzleTransaction,
   ): Promise<{ user: User; profile: schema.Student }> {
-    const executor: DrizzleExecutor = tx ?? this.db;
-
     const [user, profile] = await Promise.all([
       this.userService.findByIdWithRoles(userId),
       this.findByUserId(userId, tx),
@@ -166,5 +178,83 @@ export class StudentProfileService {
     }
 
     return { user, profile };
+  }
+
+  /**
+   * 聚合查询：获取包含 User + Student Profile + 关联的 Schools 和 Majors 的完整档案
+   */
+  async getAggregateWithRelationsByUserId(
+    userId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<StudentProfileWithRelations> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    // 并行查询 user 和 student profile
+    const [user, profile] = await Promise.all([
+      this.userService.findByIdWithRoles(userId),
+      this.findByUserId(userId, tx),
+    ]);
+
+    if (!user) {
+      throw new NotFoundException(`User not found for id ${userId}`);
+    }
+    if (!profile) {
+      throw new NotFoundException(`Student profile not found for user ${userId}`);
+    }
+
+    // 分别查询关联的 schools 和 majors
+    const [highSchool, underCollege, graduateCollege, underMajor, graduateMajor] =
+      await Promise.all([
+        profile.highSchool
+          ? executor
+              .select()
+              .from(schema.schoolsTable)
+              .where(eq(schema.schoolsTable.id, profile.highSchool))
+              .limit(1)
+              .then((rows) => rows[0] || null)
+          : Promise.resolve(null),
+        profile.underCollege
+          ? executor
+              .select()
+              .from(schema.schoolsTable)
+              .where(eq(schema.schoolsTable.id, profile.underCollege))
+              .limit(1)
+              .then((rows) => rows[0] || null)
+          : Promise.resolve(null),
+        profile.graduateCollege
+          ? executor
+              .select()
+              .from(schema.schoolsTable)
+              .where(eq(schema.schoolsTable.id, profile.graduateCollege))
+              .limit(1)
+              .then((rows) => rows[0] || null)
+          : Promise.resolve(null),
+        profile.underMajor
+          ? executor
+              .select()
+              .from(schema.majorsTable)
+              .where(eq(schema.majorsTable.id, profile.underMajor))
+              .limit(1)
+              .then((rows) => rows[0] || null)
+          : Promise.resolve(null),
+        profile.graduateMajor
+          ? executor
+              .select()
+              .from(schema.majorsTable)
+              .where(eq(schema.majorsTable.id, profile.graduateMajor))
+              .limit(1)
+              .then((rows) => rows[0] || null)
+          : Promise.resolve(null),
+      ]);
+
+    return {
+      user,
+      profile,
+      highSchool,
+      underCollege,
+      graduateCollege,
+      underMajor,
+      graduateMajor,
+    };
   }
 }

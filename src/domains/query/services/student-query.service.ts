@@ -49,7 +49,8 @@ export class StudentQueryService {
         s.graduate_college,
         s.ai_resume_summary,
         s.customer_importance,
-        s.graduation_date,
+        s.under_graduation_date,
+        s.graduate_graduation_date,
         s.background_info,
         s.grades,
         s.created_time,
@@ -98,7 +99,8 @@ export class StudentQueryService {
         s.graduate_college,
         s.ai_resume_summary,
         s.customer_importance,
-        s.graduation_date,
+        s.under_graduation_date,
+        s.graduate_graduation_date,
         s.background_info,
         s.grades,
         s.created_time,
@@ -146,7 +148,8 @@ export class StudentQueryService {
         s.graduate_college,
         s.ai_resume_summary,
         s.customer_importance,
-        s.graduation_date,
+        s.under_graduation_date,
+        s.graduate_graduation_date,
         s.background_info,
         s.grades,
         s.created_time,
@@ -240,7 +243,8 @@ export class StudentQueryService {
           s.high_school,
           s.ai_resume_summary,
           s.customer_importance,
-          s.graduation_date,
+          s.under_graduation_date,
+          s.graduate_graduation_date,
           s.background_info,
           s.grades,
           s.created_time,
@@ -308,7 +312,8 @@ export class StudentQueryService {
           s.high_school,
           s.ai_resume_summary,
           s.customer_importance,
-          s.graduation_date,
+          s.under_graduation_date,
+          s.graduate_graduation_date,
           s.background_info,
           s.grades,
           s.created_time,
@@ -378,8 +383,11 @@ export class StudentQueryService {
       graduateCollege: String(row.graduate_college || ""),
       aiResumeSummary: String(row.ai_resume_summary || ""),
       customerImportance: String(row.customer_importance || ""),
-      graduationDate: row.graduation_date
-        ? new Date(String(row.graduation_date))
+      underGraduationDate: row.under_graduation_date
+        ? new Date(String(row.under_graduation_date))
+        : null,
+      graduateGraduationDate: row.graduate_graduation_date
+        ? new Date(String(row.graduate_graduation_date))
         : null,
       backgroundInfo: String(row.background_info || ""),
       grades: String(row.grades || ""),
@@ -406,8 +414,11 @@ export class StudentQueryService {
       highSchool: String(row.high_school || ""),
       aiResumeSummary: String(row.ai_resume_summary || ""),
       customerImportance: String(row.customer_importance || ""),
-      graduationDate: row.graduation_date
-        ? new Date(String(row.graduation_date))
+      underGraduationDate: row.under_graduation_date
+        ? new Date(String(row.under_graduation_date))
+        : null,
+      graduateGraduationDate: row.graduate_graduation_date
+        ? new Date(String(row.graduate_graduation_date))
         : null,
       backgroundInfo: String(row.background_info || ""),
       grades: String(row.grades || ""),
@@ -452,7 +463,8 @@ export interface StudentListItem {
   graduateCollege: string; // student.graduate_college
   aiResumeSummary: string; // student.ai_resume_summary
   customerImportance: string; // student.customer_importance
-  graduationDate: Date | null; // student.graduation_date
+  underGraduationDate: Date | null; // student.under_graduation_date
+  graduateGraduationDate: Date | null; // student.graduate_graduation_date
   backgroundInfo: string; // student.background_info
   grades: string; // student.grades
   createdAt: Date; // student.created_time
@@ -486,7 +498,8 @@ export interface StudentCounselorViewItem {
   highSchool: string; // student.high_school (UUID)
   aiResumeSummary: string; // student.ai_resume_summary
   customerImportance: string; // student.customer_importance
-  graduationDate: Date | null; // student.graduation_date
+  underGraduationDate: Date | null; // student.under_graduation_date
+  graduateGraduationDate: Date | null; // student.graduate_graduation_date
   backgroundInfo: string; // student.background_info
   grades: string; // student.grades
   createdAt: Date; // student.created_time

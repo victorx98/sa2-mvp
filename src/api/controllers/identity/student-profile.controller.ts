@@ -1,4 +1,11 @@
-import { Body, Controller, Get, Put, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Put,
+  UseGuards,
+} from "@nestjs/common";
 import {
   ApiBearerAuth,
   ApiBody,
@@ -9,8 +16,6 @@ import {
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
 import { Roles } from "@shared/decorators/roles.decorator";
-import { CurrentUser } from "@shared/decorators/current-user.decorator";
-import { User } from "@domains/identity/user/user-interface";
 import { ApiPrefix } from "@api/api.constants";
 import { UpdateStudentProfileDto } from "@api/dto/request/update-student-profile.dto";
 import { UpdateStudentProfileCommand } from "@application/commands/profile/update-student-profile.command";
@@ -30,9 +35,8 @@ import { StudentProfileQuery } from "@application/queries/student/student-profil
  * ❌ 不包含业务逻辑
  */
 @ApiTags("Student Profile")
-@Controller(`${ApiPrefix}/students/profile`)
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles("student")
+@Controller(`${ApiPrefix}/students/:studentId/profile`)
+@UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class StudentProfileController {
   constructor(
@@ -45,8 +49,8 @@ export class StudentProfileController {
   @ApiOkResponse({
     description: "Student profile retrieved successfully",
   })
-  async getProfile(@CurrentUser() user: User) {
-    return this.studentProfileQuery.getProfile(user.id);
+  async getProfile(@Param("studentId") studentId: string) {
+    return this.studentProfileQuery.getProfile(studentId);
   }
 
   @Put()
@@ -56,10 +60,10 @@ export class StudentProfileController {
     description: "Student profile updated successfully",
   })
   async updateProfile(
-    @CurrentUser() user: User,
+    @Param("studentId") studentId: string,
     @Body() dto: UpdateStudentProfileDto,
   ): Promise<{ message: string }> {
-    await this.updateStudentProfileCommand.execute(user.id, dto);
+    await this.updateStudentProfileCommand.execute(studentId, dto);
     return { message: "Student profile updated successfully" };
   }
 }

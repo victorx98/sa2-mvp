@@ -30,12 +30,20 @@ export class StudentSummaryResponseDto {
   customerImportance: string;
 
   @ApiProperty({
-    description: "Graduation date",
+    description: "Undergraduate graduation date",
     type: String,
     format: "date-time",
     nullable: true,
   })
-  graduationDate: Date | null;
+  underGraduationDate: Date | null;
+
+  @ApiProperty({
+    description: "Graduate graduation date",
+    type: String,
+    format: "date-time",
+    nullable: true,
+  })
+  graduateGraduationDate: Date | null;
 
   @ApiProperty({ description: "Background information", required: false })
   backgroundInfo: string;
@@ -129,12 +137,20 @@ export class StudentCounselorViewResponseDto {
   customerImportance: string;
 
   @ApiProperty({
-    description: "Graduation date",
+    description: "Undergraduate graduation date",
     type: String,
     format: "date-time",
     nullable: true,
   })
-  graduationDate: Date | null;
+  underGraduationDate: Date | null;
+
+  @ApiProperty({
+    description: "Graduate graduation date",
+    type: String,
+    format: "date-time",
+    nullable: true,
+  })
+  graduateGraduationDate: Date | null;
 
   @ApiProperty({ description: "Background information", required: false })
   backgroundInfo: string;

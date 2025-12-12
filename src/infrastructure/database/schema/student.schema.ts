@@ -23,7 +23,8 @@ export const studentTable = pgTable(
   aiResumeSummary: text("ai_resume_summary"),
   backgroundInfo: text("background_info"),
   customerImportance: varchar("customer_importance", { length: 50 }),
-  graduationDate: date("graduation_date"),
+  underGraduationDate: date("under_graduation_date"),
+  graduateGraduationDate: date("graduate_graduation_date"),
   grades: text("grades"),
   createdTime: timestamp("created_time", { withTimezone: true, mode: "date" })
     .defaultNow(),
