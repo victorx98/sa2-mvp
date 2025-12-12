@@ -192,7 +192,7 @@ export class CommSessionService {
   }
 
   /**
-   * Find session by meeting ID
+   * Find session by meeting ID (for write operations)
    *
    * @param meetingId - Meeting ID
    * @returns Session entity or null
@@ -200,17 +200,6 @@ export class CommSessionService {
   async findByMeetingId(meetingId: string): Promise<CommSessionEntity | null> {
     this.logger.log(`Finding comm session by meeting ID: ${meetingId}`);
     return this.commSessionRepository.findByMeetingId(meetingId);
-  }
-
-  /**
-   * Get session details by ID
-   *
-   * @param id - Session ID
-   * @returns Session entity
-   */
-  async getSessionById(id: string): Promise<CommSessionEntity> {
-    this.logger.log(`Getting comm session by ID: ${id}`);
-    return this.commSessionRepository.findByIdOrThrow(id);
   }
 }
 

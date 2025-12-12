@@ -34,8 +34,7 @@ export class ClassSessionQueryService {
   ) {}
 
   /**
-   * Get sessions list for class with meeting and mentor info
-   * Default filter: status != 'deleted'
+   * Get sessions list for class with cross-domain data (one-time JOIN)
    */
   async getSessionsByClass(classId: string, filters: SessionFiltersDto = {}): Promise<any[]> {
     const { limit = 10, offset = 0, excludeDeleted = true, status } = filters;
@@ -52,7 +51,7 @@ export class ClassSessionQueryService {
       whereConditions.push(eq(classSessions.status, status));
     }
 
-    // Query sessions with meetings (LEFT JOIN)
+    // One-time cross-domain JOIN: sessions + meetings
     const results = await this.db
       .select({
         session: classSessions,
@@ -65,22 +64,12 @@ export class ClassSessionQueryService {
       .limit(limit)
       .offset(offset);
 
-    // Extract sessions for user enrichment
-    const sessions = results.map(r => r.session);
-    
-    // Enrich with user names
-    const enrichedSessions = await this.enrichSessionsWithUserNames(sessions);
-    
-    // Merge meeting data
-    return enrichedSessions.map((session, index) => ({
-      ...session,
-      meeting: results[index].meeting || undefined,
-    }));
+    // Batch enrich user names
+    return this.enrichWithUserNames(results);
   }
 
   /**
-   * Get sessions list for mentor with meeting info
-   * Default filter: status != 'deleted'
+   * Get mentor's sessions with cross-domain data (one-time JOIN)
    */
   async getMentorSessions(mentorId: string, filters: SessionFiltersDto = {}): Promise<any[]> {
     const { limit = 10, offset = 0, excludeDeleted = true, status } = filters;
@@ -97,7 +86,7 @@ export class ClassSessionQueryService {
       whereConditions.push(eq(classSessions.status, status));
     }
 
-    // Query sessions with meetings (LEFT JOIN)
+    // One-time cross-domain JOIN: sessions + meetings
     const results = await this.db
       .select({
         session: classSessions,
@@ -110,26 +99,17 @@ export class ClassSessionQueryService {
       .limit(limit)
       .offset(offset);
 
-    // Extract sessions for user enrichment
-    const sessions = results.map(r => r.session);
-    
-    // Enrich with user names
-    const enrichedSessions = await this.enrichSessionsWithUserNames(sessions);
-    
-    // Merge meeting data
-    return enrichedSessions.map((session, index) => ({
-      ...session,
-      meeting: results[index].meeting || undefined,
-    }));
+    // Batch enrich user names
+    return this.enrichWithUserNames(results);
   }
 
   /**
-   * Get session details with meeting and user info
+   * Get single session by ID (cross-domain JOIN)
    */
   async getSessionById(id: string): Promise<any> {
     this.logger.log(`Getting class session by ID: ${id}`);
     
-    // Query session with meeting (LEFT JOIN)
+    // Cross-domain JOIN: sessions + meetings
     const results = await this.db
       .select({
         session: classSessions,
@@ -143,67 +123,50 @@ export class ClassSessionQueryService {
       throw new ClassSessionNotFoundException(id);
     }
 
-    const row = results[0];
-    const session = row.session;
-
-    // Batch query user names (only mentor for class sessions)
-    const userIds = [session.mentorUserId].filter(Boolean);
-    const users = userIds.length > 0
-      ? await this.db.select().from(userTable).where(inArray(userTable.id, userIds as any))
-      : [];
-
-    const userMap = new Map(users.map(u => [u.id, u]));
-
-    // Helper function to format user name
-    const formatUserName = (userId: string) => {
-      const user = userMap.get(userId);
-      if (!user) return null;
-      const nameEn = user.nameEn || '';
-      const nameZh = user.nameZh || '';
-      return nameZh ? `${nameEn} (${nameZh})` : nameEn;
-    };
-
-    return {
-      ...session,
-      meeting: row.meeting || undefined,
-      mentorName: formatUserName(session.mentorUserId),
-    };
+    // Batch enrich user names (single result)
+    const enriched = await this.enrichWithUserNames(results);
+    return enriched[0];
   }
 
   /**
-   * Private helper: Enrich sessions with mentor names
-   * Batch query to avoid N+1 problem
+   * Private: Batch enrich user names (avoid N+1)
+   * Format: { en: "John", zh: "约翰" } for i18n support
+   * Note: class_session only has mentor, no student
    */
-  private async enrichSessionsWithUserNames(sessions: any[]): Promise<any[]> {
-    if (sessions.length === 0) return [];
+  private async enrichWithUserNames(
+    results: Array<{ session: any; meeting: any }>,
+  ): Promise<any[]> {
+    if (results.length === 0) return [];
 
     // Collect all unique mentor IDs
     const mentorIds = new Set<string>();
-    sessions.forEach(session => {
+    results.forEach(({ session }) => {
       if (session.mentorUserId) mentorIds.add(session.mentorUserId);
     });
 
-    // Batch query all users using IN clause
+    // Batch query all users
     const mentorIdsArray = Array.from(mentorIds);
     const users = mentorIdsArray.length > 0
       ? await this.db.select().from(userTable).where(inArray(userTable.id, mentorIdsArray as any))
       : [];
-
-    // Create user map for quick lookup
     const userMap = new Map(users.map(u => [u.id, u]));
 
-    // Helper function to format user name: name_en (name_zh)
+    // Format user name helper: return structured i18n object
     const formatUserName = (userId: string) => {
       const user = userMap.get(userId);
       if (!user) return null;
-      const nameEn = user.nameEn || '';
-      const nameZh = user.nameZh || '';
-      return nameZh ? `${nameEn} (${nameZh})` : nameEn;
+      return {
+        en: user.nameEn || '',
+        zh: user.nameZh || '',
+      };
     };
 
-    // Enrich sessions with mentor names
-    return sessions.map(session => ({
+    // Merge all data
+    return results.map(({ session, meeting }) => ({
       ...session,
+      meeting: meeting || undefined,
+      duration: meeting?.scheduleDuration || undefined,
+      scheduleStartTime: meeting?.scheduleStartTime || undefined,
       mentorName: formatUserName(session.mentorUserId),
     }));
   }

@@ -391,12 +391,12 @@ export class ClassSessionService {
   }
 
   /**
-   * Get session details
-   * Delegates to domain layer
+   * Get session details with cross-domain data
+   * Delegates to query layer for enriched data
    */
   async getSessionById(sessionId: string) {
     this.logger.debug(`Fetching class session details: sessionId=${sessionId}`);
-    return this.domainClassSessionService.getSessionById(sessionId);
+    return this.domainClassSessionQueryService.getSessionById(sessionId);
   }
 }
 

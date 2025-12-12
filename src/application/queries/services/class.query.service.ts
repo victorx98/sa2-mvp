@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ClassQueryService as DomainClassQueryService } from '@domains/services/class/classes/services/class-query.service';
 import { ClassQueryService as DomainCrossQueryService } from '@domains/query/services/class-query.service';
+import { ClassRepository } from '@domains/services/class/classes/repositories/class.repository';
 import { ClassStatus, ClassType } from '@domains/services/class/classes/entities/class.entity';
 
 /**
@@ -8,20 +8,20 @@ import { ClassStatus, ClassType } from '@domains/services/class/classes/entities
  *
  * Responsibility:
  * - Orchestrate class queries and aggregation
- * - Coordinate multiple domain query services if needed
- * - Format and transform data for API layer
+ * - Single-table queries use Repository directly
+ * - Cross-domain queries use Query domain service
  */
 @Injectable()
 export class ClassQueryService {
   private readonly logger = new Logger(ClassQueryService.name);
 
   constructor(
-    private readonly domainClassQueryService: DomainClassQueryService,
+    private readonly classRepository: ClassRepository,
     private readonly domainCrossQueryService: DomainCrossQueryService,
   ) {}
 
   /**
-   * Get class list with filters
+   * Get class list with filters (single-table query)
    */
   async getClasses(filters: {
     status?: ClassStatus;
@@ -29,17 +29,29 @@ export class ClassQueryService {
     limit?: number;
     offset?: number;
   } = {}) {
-    this.logger.debug(`Getting classes with filters: ${JSON.stringify(filters)}`);
-    return this.domainClassQueryService.getClasses(filters);
+    const { limit = 10, offset = 0, ...queryFilters } = filters;
+    this.logger.debug(`Getting classes with filters: ${JSON.stringify(queryFilters)}`);
+    return this.classRepository.findAll(limit, offset, queryFilters);
   }
 
   /**
    * Get class details with all related data
-   * Includes mentors, students, counselors
+   * Aggregates: class + mentors + students + counselors
    */
   async getClassById(classId: string) {
     this.logger.debug(`Getting class details: classId=${classId}`);
-    return this.domainClassQueryService.getClassById(classId);
+    
+    const classEntity = await this.classRepository.findByIdOrThrow(classId);
+    const mentors = await this.classRepository.getMentors(classId);
+    const students = await this.classRepository.getStudents(classId);
+    const counselors = await this.classRepository.getCounselors(classId);
+
+    return {
+      ...classEntity,
+      mentors,
+      students,
+      counselors,
+    };
   }
 
   /**
@@ -59,27 +71,27 @@ export class ClassQueryService {
   }
 
   /**
-   * Get mentors for class (simple query)
+   * Get mentors for class (single-table query)
    */
   async getClassMentors(classId: string) {
     this.logger.debug(`Getting mentors for class: classId=${classId}`);
-    return this.domainClassQueryService.getClassMentors(classId);
+    return this.classRepository.getMentors(classId);
   }
 
   /**
-   * Get students for class (simple query)
+   * Get students for class (single-table query)
    */
   async getClassStudents(classId: string) {
     this.logger.debug(`Getting students for class: classId=${classId}`);
-    return this.domainClassQueryService.getClassStudents(classId);
+    return this.classRepository.getStudents(classId);
   }
 
   /**
-   * Get counselors for class
+   * Get counselors for class (single-table query)
    */
   async getClassCounselors(classId: string) {
     this.logger.debug(`Getting counselors for class: classId=${classId}`);
-    return this.domainClassQueryService.getClassCounselors(classId);
+    return this.classRepository.getCounselors(classId);
   }
 }
 

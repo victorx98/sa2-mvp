@@ -1,7 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, and, ne, desc } from 'drizzle-orm';
 import { RegularMentoringRepository } from '@domains/services/sessions/regular-mentoring/repositories/regular-mentoring.repository';
-import { RegularMentoringSessionEntity } from '@domains/services/sessions/regular-mentoring/entities/regular-mentoring-session.entity';
 import { SessionFiltersDto } from '@domains/services/sessions/shared/dto/session-query.dto';
 import { SessionNotFoundException } from '@domains/services/sessions/shared/exceptions/session-not-found.exception';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
@@ -13,9 +12,9 @@ import type { DrizzleDatabase } from '@shared/types/database.types';
 /**
  * Regular Mentoring Query Service (CQRS - Query)
  * 
- * Cross-domain Read Model aggregation layer
- * Handles read operations for regular mentoring sessions with joins across domains
- * Joins: regular_mentoring_sessions + meetings + user (for mentor/student names)
+ * Cross-domain Read Model: One-time JOIN across multiple domains
+ * Directly queries: regular_mentoring_sessions + meetings + users
+ * No dependency on Repository for read operations
  */
 @Injectable()
 export class RegularMentoringQueryService {
@@ -25,46 +24,74 @@ export class RegularMentoringQueryService {
     private readonly db: DrizzleDatabase,
   ) {}
 
+  /**
+   * Get mentor's sessions with cross-domain data (one-time JOIN)
+   */
   async getMentorSessions(
     mentorId: string,
     filters: SessionFiltersDto,
   ): Promise<any[]> {
     const excludeDeleted = filters.excludeDeleted !== false;
-    const sessions = await this.repository.findByMentorId(mentorId, excludeDeleted);
     
-    // Enrich sessions with user names
-    return this.enrichSessionsWithUserNames(sessions);
+    const whereConditions = excludeDeleted
+      ? and(
+          eq(regularMentoringSessions.mentorUserId, mentorId),
+          ne(regularMentoringSessions.status, 'deleted' as any),
+        )
+      : eq(regularMentoringSessions.mentorUserId, mentorId);
+
+    // One-time cross-domain JOIN: sessions + meetings
+    const results = await this.db
+      .select({
+        session: regularMentoringSessions,
+        meeting: meetings,
+      })
+      .from(regularMentoringSessions)
+      .leftJoin(meetings, eq(regularMentoringSessions.meetingId, meetings.id))
+      .where(whereConditions)
+      .orderBy(desc(regularMentoringSessions.scheduledAt));
+
+    // Batch enrich user names
+    return this.enrichWithUserNames(results);
   }
 
+  /**
+   * Get student's sessions with cross-domain data (one-time JOIN)
+   */
   async getStudentSessions(
     studentId: string,
     filters: SessionFiltersDto,
   ): Promise<any[]> {
     const excludeDeleted = filters.excludeDeleted !== false;
-    const sessions = await this.repository.findByStudentId(studentId, excludeDeleted);
     
-    // Enrich sessions with user names
-    return this.enrichSessionsWithUserNames(sessions);
+    const whereConditions = excludeDeleted
+      ? and(
+          eq(regularMentoringSessions.studentUserId, studentId),
+          ne(regularMentoringSessions.status, 'deleted' as any),
+        )
+      : eq(regularMentoringSessions.studentUserId, studentId);
+
+    // One-time cross-domain JOIN: sessions + meetings
+    const results = await this.db
+      .select({
+        session: regularMentoringSessions,
+        meeting: meetings,
+      })
+      .from(regularMentoringSessions)
+      .leftJoin(meetings, eq(regularMentoringSessions.meetingId, meetings.id))
+      .where(whereConditions)
+      .orderBy(desc(regularMentoringSessions.scheduledAt));
+
+    // Batch enrich user names
+    return this.enrichWithUserNames(results);
   }
 
   /**
-   * Get session by ID with meeting details (LEFT JOIN)
-   * Includes complete meeting information for consistency checks
-   * Also includes user names (student, mentor, counselor)
-   * 
-   * Key fields for update consistency:
-   * - scheduledAt: Source value from regular_mentoring_sessions (may be stale after failed update)
-   * - scheduleStartTime: Actual value from meetings table (reflects last successful meeting update)
-   * 
-   * During updateSession, we compare against scheduleStartTime from meetings table
-   * to detect if previous meeting updates failed, enabling automatic retry on next modification
-   * 
-   * @param id - Session ID
-   * @returns Session with meeting details and user names
-   * @throws SessionNotFoundException if session not found
+   * Get single session by ID (cross-domain JOIN)
+   * Consistency check: scheduledAt vs scheduleStartTime for detecting failed updates
    */
   async getSessionById(id: string): Promise<any> {
-    // First get session with meeting details
+    // Cross-domain JOIN: sessions + meetings
     const results = await this.db
       .select({
         session: regularMentoringSessions,
@@ -78,36 +105,9 @@ export class RegularMentoringQueryService {
       throw new SessionNotFoundException(id);
     }
 
-    const row = results[0];
-    const session = row.session;
-
-    // Batch query user names
-    const userIds = [session.studentUserId, session.mentorUserId, session.createdByCounselorId].filter(Boolean);
-    const users = userIds.length > 0
-      ? await this.db.select().from(userTable).where(inArray(userTable.id, userIds as any))
-      : [];
-
-    const userMap = new Map(users.map(u => [u.id, u]));
-
-    // Helper function to format user name: name_en (name_zh)
-    const formatUserName = (userId: string) => {
-      const user = userMap.get(userId);
-      if (!user) return null;
-      const nameEn = user.nameEn || '';
-      const nameZh = user.nameZh || '';
-      return nameZh ? `${nameEn} (${nameZh})` : nameEn;
-    };
-
-    return {
-      ...session,
-      meeting: row.meeting || undefined,
-      duration: row.meeting?.scheduleDuration || undefined,
-      scheduleStartTime: row.meeting?.scheduleStartTime || undefined,
-      // Add user names for frontend display in format: name_en (name_zh)
-      studentName: formatUserName(session.studentUserId),
-      mentorName: formatUserName(session.mentorUserId),
-      counselorName: session.createdByCounselorId ? formatUserName(session.createdByCounselorId) : null,
-    } as any;
+    // Batch enrich user names (single result)
+    const enriched = await this.enrichWithUserNames(results);
+    return enriched[0];
   }
 
   async countSessions(filters: SessionFiltersDto): Promise<number> {
@@ -117,58 +117,78 @@ export class RegularMentoringQueryService {
   }
 
   /**
-   * Get sessions by multiple student IDs (batch query for counselor)
-   * @param studentIds Array of student IDs
-   * @param filters Query filters
-   * @returns Array of regular mentoring sessions with user names
+   * Get sessions by multiple student IDs (cross-domain JOIN)
    */
   async getSessionsByStudentIds(
     studentIds: string[],
     filters: SessionFiltersDto,
   ): Promise<any[]> {
+    if (studentIds.length === 0) return [];
+
     const excludeDeleted = filters.excludeDeleted !== false;
-    const sessions = await this.repository.findByStudentIds(studentIds, excludeDeleted);
     
-    // Enrich sessions with user names
-    return this.enrichSessionsWithUserNames(sessions);
+    const whereConditions = excludeDeleted
+      ? and(
+          inArray(regularMentoringSessions.studentUserId, studentIds),
+          ne(regularMentoringSessions.status, 'deleted' as any),
+        )
+      : inArray(regularMentoringSessions.studentUserId, studentIds);
+
+    // One-time cross-domain JOIN: sessions + meetings
+    const results = await this.db
+      .select({
+        session: regularMentoringSessions,
+        meeting: meetings,
+      })
+      .from(regularMentoringSessions)
+      .leftJoin(meetings, eq(regularMentoringSessions.meetingId, meetings.id))
+      .where(whereConditions)
+      .orderBy(desc(regularMentoringSessions.scheduledAt));
+
+    // Batch enrich user names
+    return this.enrichWithUserNames(results);
   }
 
   /**
-   * Private helper: Enrich sessions with user names
-   * Batch query to avoid N+1 problem
+   * Private: Batch enrich user names (avoid N+1)
+   * Format: { en: "John", zh: "约翰" } for i18n support
    */
-  private async enrichSessionsWithUserNames(sessions: RegularMentoringSessionEntity[]): Promise<any[]> {
-    if (sessions.length === 0) return [];
+  private async enrichWithUserNames(
+    results: Array<{ session: any; meeting: any }>,
+  ): Promise<any[]> {
+    if (results.length === 0) return [];
 
     // Collect all unique user IDs
     const userIds = new Set<string>();
-    sessions.forEach(session => {
+    results.forEach(({ session }) => {
       if (session.studentUserId) userIds.add(session.studentUserId);
       if (session.mentorUserId) userIds.add(session.mentorUserId);
       if (session.createdByCounselorId) userIds.add(session.createdByCounselorId);
     });
 
-    // Batch query all users using IN clause
+    // Batch query all users
     const userIdsArray = Array.from(userIds);
     const users = userIdsArray.length > 0
       ? await this.db.select().from(userTable).where(inArray(userTable.id, userIdsArray as any))
       : [];
-
-    // Create user map for quick lookup
     const userMap = new Map(users.map(u => [u.id, u]));
 
-    // Helper function to format user name: name_en (name_zh)
+    // Format user name helper: return structured i18n object
     const formatUserName = (userId: string) => {
       const user = userMap.get(userId);
       if (!user) return null;
-      const nameEn = user.nameEn || '';
-      const nameZh = user.nameZh || '';
-      return nameZh ? `${nameEn} (${nameZh})` : nameEn;
+      return {
+        en: user.nameEn || '',
+        zh: user.nameZh || '',
+      };
     };
 
-    // Enrich sessions with user names
-    return sessions.map(session => ({
+    // Merge all data
+    return results.map(({ session, meeting }) => ({
       ...session,
+      meeting: meeting || undefined,
+      duration: meeting?.scheduleDuration || undefined,
+      scheduleStartTime: meeting?.scheduleStartTime || undefined,
       studentName: formatUserName(session.studentUserId),
       mentorName: formatUserName(session.mentorUserId),
       counselorName: session.createdByCounselorId ? formatUserName(session.createdByCounselorId) : null,
