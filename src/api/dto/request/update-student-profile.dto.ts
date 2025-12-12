@@ -75,10 +75,27 @@ export class UpdateStudentProfileDto {
   @IsString()
   customerImportance?: string | null;
 
-  @ApiProperty({ description: "Graduation date", required: false, nullable: true, type: String, format: "date" })
+  @ApiProperty({
+    description: "Undergraduate graduation date",
+    required: false,
+    nullable: true,
+    type: String,
+    format: "date",
+  })
   @IsOptional()
   @IsDateString()
-  graduationDate?: string | null;
+  underGraduationDate?: string | null;
+
+  @ApiProperty({
+    description: "Graduate graduation date",
+    required: false,
+    nullable: true,
+    type: String,
+    format: "date",
+  })
+  @IsOptional()
+  @IsDateString()
+  graduateGraduationDate?: string | null;
 
   @ApiProperty({ description: "Grades information", required: false, nullable: true })
   @IsOptional()

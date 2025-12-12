@@ -57,8 +57,10 @@ export class UpdateStudentProfileCommand {
       input.profile!.aiResumeSummary = dto.aiResumeSummary;
     if (dto.customerImportance !== undefined)
       input.profile!.customerImportance = dto.customerImportance;
-    if (dto.graduationDate !== undefined)
-      input.profile!.graduationDate = dto.graduationDate;
+    if (dto.underGraduationDate !== undefined)
+      input.profile!.underGraduationDate = dto.underGraduationDate;
+    if (dto.graduateGraduationDate !== undefined)
+      input.profile!.graduateGraduationDate = dto.graduateGraduationDate;
     if (dto.grades !== undefined) input.profile!.grades = dto.grades;
 
     await this.studentProfileService.updateAggregate(userId, input);

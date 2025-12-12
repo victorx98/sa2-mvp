@@ -23,7 +23,8 @@ export interface IUpdateStudentProfileInput {
   graduateMajor?: string | null;
   aiResumeSummary?: string | null;
   customerImportance?: string | null;
-  graduationDate?: string | null;
+  underGraduationDate?: string | null;
+  graduateGraduationDate?: string | null;
   grades?: string | null;
 }
 
@@ -112,7 +113,10 @@ export class StudentProfileService {
     if (input.graduateMajor !== undefined) updateValues.graduateMajor = input.graduateMajor;
     if (input.aiResumeSummary !== undefined) updateValues.aiResumeSummary = input.aiResumeSummary;
     if (input.customerImportance !== undefined) updateValues.customerImportance = input.customerImportance;
-    if (input.graduationDate !== undefined) updateValues.graduationDate = input.graduationDate;
+    if (input.underGraduationDate !== undefined)
+      updateValues.underGraduationDate = input.underGraduationDate;
+    if (input.graduateGraduationDate !== undefined)
+      updateValues.graduateGraduationDate = input.graduateGraduationDate;
     if (input.grades !== undefined) updateValues.grades = input.grades;
 
     const [updated] = await executor

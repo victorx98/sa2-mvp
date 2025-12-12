@@ -43,7 +43,8 @@ export class StudentProfileQuery {
       graduateMajor: profile.graduateMajor,
       aiResumeSummary: profile.aiResumeSummary,
       customerImportance: profile.customerImportance,
-      graduationDate: profile.graduationDate,
+      underGraduationDate: profile.underGraduationDate,
+      graduateGraduationDate: profile.graduateGraduationDate,
       grades: profile.grades,
     };
   }
