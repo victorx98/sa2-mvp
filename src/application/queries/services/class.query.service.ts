@@ -71,6 +71,14 @@ export class ClassQueryService {
   }
 
   /**
+   * Get counselors for class with user names (cross-domain query)
+   */
+  async getClassCounselorsWithNames(classId: string) {
+    this.logger.debug(`Getting counselors with names for class: classId=${classId}`);
+    return this.domainCrossQueryService.getClassCounselorsWithNames(classId);
+  }
+
+  /**
    * Get mentors for class (single-table query)
    */
   async getClassMentors(classId: string) {
