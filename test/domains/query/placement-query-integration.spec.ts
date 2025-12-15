@@ -96,7 +96,7 @@ describe('Placement Query API Integration Tests', () => {
   describe('GET /api/query/placement/jobs', () => {
     it('should return paginated job results with default parameters', async () => {
       const response = await request(app.getHttpServer())
-        .get('/query/placement/jobs')
+        .get('/query/placement/jobs?jobApplicationType=direct')
         .set('Authorization', 'Bearer mock-token')
         .expect(200);
 
@@ -113,7 +113,7 @@ describe('Placement Query API Integration Tests', () => {
       });
 
       expect(mockPlacementQueryService.queryJobs).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'active' }),
+        expect.objectContaining({ jobApplicationType: 'direct', status: 'active' }),
         { page: 1, pageSize: 20 },
         { field: 'postDate', direction: 'desc' },
       );
@@ -121,12 +121,12 @@ describe('Placement Query API Integration Tests', () => {
 
     it('should return job results with custom pagination', async () => {
       const response = await request(app.getHttpServer())
-        .get('/query/placement/jobs?page=2&pageSize=10')
+        .get('/query/placement/jobs?jobApplicationType=direct&page=2&pageSize=10')
         .set('Authorization', 'Bearer mock-token')
         .expect(200);
 
       expect(mockPlacementQueryService.queryJobs).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'active' }),
+        expect.objectContaining({ jobApplicationType: 'direct', status: 'active' }),
         { page: 2, pageSize: 10 },
         { field: 'postDate', direction: 'desc' },
       );
@@ -134,12 +134,12 @@ describe('Placement Query API Integration Tests', () => {
 
     it('should return job results with sorting', async () => {
       const response = await request(app.getHttpServer())
-        .get('/query/placement/jobs?sortField=title&sortDirection=asc')
+        .get('/query/placement/jobs?jobApplicationType=direct&sortField=title&sortDirection=asc')
         .set('Authorization', 'Bearer mock-token')
         .expect(200);
 
       expect(mockPlacementQueryService.queryJobs).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'active' }),
+        expect.objectContaining({ jobApplicationType: 'direct', status: 'active' }),
         { page: 1, pageSize: 20 },
         { field: 'title', direction: 'asc' },
       );
@@ -147,12 +147,12 @@ describe('Placement Query API Integration Tests', () => {
 
     it('should filter jobs by location', async () => {
       await request(app.getHttpServer())
-        .get('/query/placement/jobs?locations=杭州')
+        .get('/query/placement/jobs?jobApplicationType=direct&location=杭州')
         .set('Authorization', 'Bearer mock-token')
         .expect(200);
 
       expect(mockPlacementQueryService.queryJobs).toHaveBeenCalledWith(
-        expect.objectContaining({ locations: ['杭州'], status: 'active' }),
+        expect.objectContaining({ jobApplicationType: 'direct', location: '杭州', status: 'active' }),
         expect.any(Object),
         expect.any(Object),
       );
@@ -160,12 +160,12 @@ describe('Placement Query API Integration Tests', () => {
 
     it('should filter jobs by keyword', async () => {
       const response = await request(app.getHttpServer())
-        .get('/query/placement/jobs?keyword=算法')
+        .get('/query/placement/jobs?jobApplicationType=direct&keyword=算法')
         .set('Authorization', 'Bearer mock-token')
         .expect(200);
 
       expect(mockPlacementQueryService.queryJobs).toHaveBeenCalledWith(
-        expect.objectContaining({ keyword: '算法', status: 'active' }),
+        expect.objectContaining({ jobApplicationType: 'direct', keyword: '算法', status: 'active' }),
         expect.any(Object),
         expect.any(Object),
       );
@@ -173,14 +173,15 @@ describe('Placement Query API Integration Tests', () => {
 
     it('should filter jobs by multiple criteria', async () => {
       await request(app.getHttpServer())
-        .get('/query/placement/jobs?locations=北京&h1b=true&keyword=算法')
+        .get('/query/placement/jobs?jobApplicationType=direct&location=北京&h1b=yes&keyword=算法')
         .set('Authorization', 'Bearer mock-token')
         .expect(200);
 
       expect(mockPlacementQueryService.queryJobs).toHaveBeenCalledWith(
         expect.objectContaining({ 
-          locations: ['北京'], 
-          h1b: 'true',
+          jobApplicationType: 'direct',
+          location: '北京', // Single value [单值]
+          h1b: 'yes', // Use actual database value [使用数据库实际值]
           keyword: '算法',
           status: 'active' 
         }),
@@ -191,13 +192,20 @@ describe('Placement Query API Integration Tests', () => {
 
     it('should return 200 even without authorization header due to mocked guard', async () => {
       await request(app.getHttpServer())
-        .get('/query/placement/jobs')
+        .get('/query/placement/jobs?jobApplicationType=direct')
         .expect(200);
     });
 
     it('should validate query parameters', async () => {
       await request(app.getHttpServer())
-        .get('/query/placement/jobs?page=0&pageSize=0')
+        .get('/query/placement/jobs?jobApplicationType=direct&page=0&pageSize=0')
+        .set('Authorization', 'Bearer mock-token')
+        .expect(400);
+    });
+
+    it('should return 400 when jobApplicationType is missing', async () => {
+      await request(app.getHttpServer())
+        .get('/query/placement/jobs')
         .set('Authorization', 'Bearer mock-token')
         .expect(400);
     });

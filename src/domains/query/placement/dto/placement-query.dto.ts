@@ -17,8 +17,8 @@ export interface IDateRangeFilter {
  */
 export interface IJobQueryFilter {
   // Basic filters [基础筛选]
-  locations?: string[]; // Filter by locations [按地点筛选]
-  jobTypes?: string[]; // Filter by job types [按职位类型筛选]
+  location?: string; // Filter by single location [按单个地点筛选]
+  jobType?: string; // Filter by single job type [按单个职位类型筛选]
   level?: string; // Filter by level (Senior/Entry) [按级别筛选]
   jobTitles?: string[]; // Filter by job titles [按职位标题筛选]
   postDateRange?: IDateRangeFilter; // Filter by post date range [按发布日期范围筛选]
@@ -28,7 +28,7 @@ export interface IJobQueryFilter {
   // Advanced filters [高级筛选]
   h1b?: string; // Filter by H1B visa support [按H1B签证支持筛选]
   usCitizenship?: string; // Filter by US citizenship requirement [按美国公民身份要求筛选]
-  jobApplicationTypes?: string[]; // Filter by application types (direct=海投, proxy=代投, referral=内推, bd=BD推荐) [按投递类型筛选]
+  jobApplicationType: string; // Required filter by application type (direct=海投, proxy=代投, referral=内推, bd=BD推荐) [必填：按投递类型筛选]
 }
 
 /**

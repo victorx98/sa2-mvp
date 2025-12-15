@@ -107,6 +107,9 @@ export const recommendedJobs = pgTable(
     // US citizenship requirement [美国公民身份要求]
     usCitizenship: varchar("us_citizenship", { length: 10 }), // US citizenship requirement [美国公民身份要求]
 
+    // Job level requirement [岗位级别要求]
+    level: varchar("level", { length: 20 }), // Job level requirement (entry_level, mid_level, senior_level) [岗位级别要求]
+
     // AI analysis results [AI分析结果]
     aiAnalysis: jsonb("ai_analysis"),
 

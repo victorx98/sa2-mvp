@@ -2,8 +2,9 @@
  * Placement Job Query Request DTO [岗位查询请求DTO]
  * Used for validating and transforming job query requests [用于验证和转换岗位查询请求]
  */
-import { IsOptional, IsString, IsArray, IsInt, Min, IsEnum, IsDateString } from 'class-validator';
+import { IsOptional, IsString, IsArray, IsInt, Min, IsEnum, IsDateString, IsNotEmpty } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
+import { ApplicationType, JobLevel } from '@domains/placement/types';
 
 /**
  * Custom transformer to convert string to array [自定义转换器，将字符串转换为数组]
@@ -56,20 +57,16 @@ export class JobQueryDto {
 
   // Filter parameters [筛选参数]
   @IsOptional()
-  @Transform(({ value }) => stringToArray(value))
-  @IsArray()
-  @IsString({ each: true })
-  locations?: string[];
-
-  @IsOptional()
-  @Transform(({ value }) => stringToArray(value))
-  @IsArray()
-  @IsString({ each: true })
-  jobTypes?: string[];
+  @IsString()
+  location?: string; // Single location value [单个地点值]
 
   @IsOptional()
   @IsString()
-  level?: string;
+  jobType?: string; // Single job type value [单个职位类型值]
+
+  @IsOptional()
+  @IsEnum(JobLevel)
+  level?: JobLevel; // Job level requirement (entry_level, mid_level, senior_level) [岗位级别要求]
 
   @IsOptional()
   @Transform(({ value }) => stringToArray(value))
@@ -93,12 +90,17 @@ export class JobQueryDto {
   @IsString()
   usCitizenship?: string;
 
-  // Job application type filter [岗位投递类型筛选]
-  @IsOptional()
-  @Transform(({ value }) => stringToArray(value))
-  @IsArray()
-  @IsString({ each: true })
-  jobApplicationTypes?: string[];
+  // Job application type filter [岗位投递类型筛选] - Required single value [必填单值]
+  @IsNotEmpty()
+  @IsEnum(ApplicationType)
+  @Transform(({ value }) => {
+    // Reject array input [拒绝数组输入]
+    if (Array.isArray(value)) {
+      throw new Error('jobApplicationType must be a single value, not an array');
+    }
+    return value;
+  })
+  jobApplicationType!: ApplicationType;
 
   // Date range filters [日期范围筛选]
   @IsOptional()

@@ -74,15 +74,18 @@ export class PlacementQueryController {
    * @returns Job query filter [岗位查询筛选条件]
    */
   private buildFilterFromDto(queryDto: JobQueryDto): IJobQueryFilter {
-    const filter: IJobQueryFilter = {};
+    // Required: job application type filter [必填：岗位投递类型筛选]
+    const filter: IJobQueryFilter = {
+      jobApplicationType: queryDto.jobApplicationType,
+    };
 
     // Basic filters [基础筛选]
-    if (queryDto.locations && queryDto.locations.length > 0) {
-      filter.locations = queryDto.locations;
+    if (queryDto.location) {
+      filter.location = queryDto.location;
     }
 
-    if (queryDto.jobTypes && queryDto.jobTypes.length > 0) {
-      filter.jobTypes = queryDto.jobTypes;
+    if (queryDto.jobType) {
+      filter.jobType = queryDto.jobType;
     }
 
     if (queryDto.level) {
@@ -107,10 +110,6 @@ export class PlacementQueryController {
 
     if (queryDto.usCitizenship) {
       filter.usCitizenship = queryDto.usCitizenship;
-    }
-
-    if (queryDto.jobApplicationTypes && queryDto.jobApplicationTypes.length > 0) {
-      filter.jobApplicationTypes = queryDto.jobApplicationTypes;
     }
 
     // Date range filter [日期范围筛选]

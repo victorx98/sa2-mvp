@@ -206,7 +206,7 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
           max_years: 5,
         },
         responsibilities: ["Develop software and collaborate with team"], // Changed to array type [改为数组类型]
-        jobTypes: ["full_time"], // Changed from 'jobType' to 'jobTypes' and to array [从'jobType'改为'jobTypes'并改为数组]
+        jobTypes: ["Full-time"], // Use valid enum values [使用有效枚举值]
         locations: ["Beijing", "Shanghai"],
         salaryDetails: { // Changed from individual salary fields to salaryDetails object [从单独的salary字段改为salaryDetails对象]
           base_salary: {
@@ -474,6 +474,11 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
           };
         }
         const mockQuery = {
+          orderBy: jest.fn(() => ({
+            limit: jest.fn(() => ({
+              offset: jest.fn().mockResolvedValue(mockJobs),
+            })),
+          })),
           limit: jest.fn(() => ({
             offset: jest.fn().mockResolvedValue(mockJobs),
           })),

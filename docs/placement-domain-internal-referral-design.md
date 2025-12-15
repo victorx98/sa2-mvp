@@ -541,6 +541,7 @@ Content-Type: application/json
 | P-2025-12-02-REF-02 | 所有终态（`rejected`、`got_offer` 等）都需要记录 `resultDate`，防止评估结果在历史中缺失 | 🟡 进行中 | 建议在 `updateApplicationStatus` 中同步 `resultDate` 逻辑 |
 | P-2025-12-02-REF-03 | `submitApplication` 只确认岗位记录存在，未校验 `recommended_jobs.status === 'active'`，停用岗位仍能接收内推申请 | 🟡 进行中 | 建议在查询岗位时加状态过滤并在非活跃时抛出 BadRequestException |
 | P-2025-12-02-REF-04 | `updateApplicationStatus` 与 `rollbackApplicationStatus` 在未传 `mentorId` 的情况下仍将 `assignedMentorId` 置空，后续状态修改会丢失导师分配 | 🟡 进行中 | 建议仅在 DTO 显式要求改变导师时才更新该字段，其他情况保持原值 |
+| P-2025-12-02-REF-05 | `/query/placement/jobs` 接口必须携带单值 `jobApplicationType` 参数（`direct`/`proxy`/`referral`/`bd` 之一），不能为数组或集合 | ✅ 已确认 | 查询条件强制应用，使用 PostgreSQL 数组包含操作符 `@>` 过滤岗位 |
 
 ---
 

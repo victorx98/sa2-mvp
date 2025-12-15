@@ -100,10 +100,18 @@ export class PlacementQueryService {
     const conditions: any[] = [];
 
     if (!filter) {
-      // Default condition: active status [默认条件：活跃状态]
-      conditions.push(eq(recommendedJobs.status, 'active'));
-      return conditions;
+      // Filter is required, but if not provided, throw error [筛选条件是必填的，如果未提供则抛出错误]
+      throw new Error('Job query filter is required, including jobApplicationType');
     }
+
+    // Required: Job application type filter [必填：岗位投递类型筛选]
+    // Validate jobApplicationType is provided [验证jobApplicationType已提供]
+    if (!filter.jobApplicationType) {
+      throw new Error('jobApplicationType is required in filter');
+    }
+
+    // Check if job_application_type array contains the requested type [检查job_application_type数组是否包含请求的类型]
+    conditions.push(sql`${recommendedJobs.jobApplicationType} @> ARRAY[${filter.jobApplicationType}]::text[]`);
 
     // Status filter [状态筛选]
     if (filter.status) {
@@ -113,18 +121,25 @@ export class PlacementQueryService {
       conditions.push(eq(recommendedJobs.status, 'active'));
     }
 
-    // Location filter [地点筛选]
-    if (filter.locations && filter.locations.length > 0) {
+    // Location filter [地点筛选] - Single value [单值]
+    if (filter.location) {
       // jobLocations is a JSONB array type [jobLocations是JSONB数组类型]
-      // For JSONB arrays, use && operator for overlap matching [对于JSONB数组，使用&&操作符进行重叠匹配]
-      conditions.push(sql`${recommendedJobs.jobLocations} && $1::jsonb`, filter.locations);
+      // Check if jobLocations array contains the single location value [检查jobLocations数组是否包含单个地点值]
+      // Use JSON.stringify to create JSONB array literal [使用JSON.stringify创建JSONB数组字面量]
+      // Escape single quotes in JSON string to prevent SQL injection [转义JSON字符串中的单引号以防止SQL注入]
+      const locationArrayJson = JSON.stringify([filter.location]);
+      const escapedJson = locationArrayJson.replace(/'/g, "''");
+      // Use sql.raw to directly inject the JSON string without parameter binding [使用sql.raw直接注入JSON字符串，避免参数绑定]
+      conditions.push(
+        sql`${recommendedJobs.jobLocations}::jsonb @> ${sql.raw(`'${escapedJson}'::jsonb`)}`,
+      );
     }
 
-    // Job type filter [职位类型筛选]
-    if (filter.jobTypes && filter.jobTypes.length > 0) {
-      // jobTypes is a JSONB array type [jobTypes是JSONB数组类型]
-      // For JSONB arrays, use && operator for overlap matching [对于JSONB数组，使用&&操作符进行重叠匹配]
-      conditions.push(sql`${recommendedJobs.jobTypes} && $1::jsonb`, filter.jobTypes);
+    // Job type filter [职位类型筛选] - Single value [单值]
+    if (filter.jobType) {
+      // jobTypes is a text array type [jobTypes是text数组类型]
+      // Check if jobTypes array contains the single job type value [检查jobTypes数组是否包含单个职位类型值]
+      conditions.push(sql`${recommendedJobs.jobTypes} @> ARRAY[${filter.jobType}]::text[]`);
     }
 
     // Job titles filter [职位名称筛选]
@@ -155,11 +170,9 @@ export class PlacementQueryService {
       conditions.push(eq(recommendedJobs.usCitizenship, filter.usCitizenship));
     }
 
-    // Job application type filter [岗位投递类型筛选]
-    if (filter.jobApplicationTypes && filter.jobApplicationTypes.length > 0) {
-      // jobApplicationType is a text array type [jobApplicationType是text数组类型]
-      // Use && operator for overlap matching to find jobs that support any of the requested types [使用&&操作符进行重叠匹配，查找支持任一请求类型的岗位]
-      conditions.push(sql`${recommendedJobs.jobApplicationType} && ${filter.jobApplicationTypes}`);
+    // Level filter [级别筛选]
+    if (filter.level) {
+      conditions.push(eq(recommendedJobs.level, filter.level));
     }
 
     // Post date range filter [发布日期范围筛选]
