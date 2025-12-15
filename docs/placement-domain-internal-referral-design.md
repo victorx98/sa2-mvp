@@ -51,13 +51,14 @@ flowchart TD
     B -->|顾问交接给导师| D[已转交 mentor_assigned]
     A -->|顾问撤回推荐| J[已撤回 revoked]
     B -->|顾问撤回推荐| J[已撤回 revoked]
-    D -->|导师审查通过(已内推)| E[已提交 submitted]
+    J -->|结束| I[完成]
+    D -->|"导师审查通过(已内推)"| E[已提交 submitted]
     D -->|导师审查不通过| F[已拒绝 rejected]
     E -->|安排面试| G[已面试 interviewed]
     G -->|获得Offer| H[已拿到Offer got_offer]
     G -->|面试失败| F
     E -->|导师跟进拒绝| F
-    H -->|结束| I[完成]
+    H -->|结束| I
     F -->|结束| I
     C -->|结束| I
 ```
