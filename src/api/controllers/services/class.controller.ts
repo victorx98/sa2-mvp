@@ -359,6 +359,37 @@ export class ClassController {
   }
 
   /**
+   * Get class counselors with names
+   * GET /api/services/classes/:id/counselors
+   */
+  @Get(':id/counselors')
+  @ApiOperation({
+    summary: 'Get class counselors with names',
+    description: 'Retrieve list of counselors assigned to the class with their names',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Class ID',
+    type: String,
+  })
+  @ApiOkResponse({
+    description: 'Counselors retrieved successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Class not found',
+  })
+  async getClassCounselors(
+    @Param('id') classId: string,
+  ) {
+    const counselors = await this.classQueryService.getClassCounselorsWithNames(classId);
+    return {
+      classId,
+      counselors,
+    };
+  }
+
+  /**
    * Get class details
    * GET /api/services/classes/:id
    */

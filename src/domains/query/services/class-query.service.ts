@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import { classMentorsPrices } from '@infrastructure/database/schema/class-mentors-prices.schema';
 import { classStudents } from '@infrastructure/database/schema/class-students.schema';
+import { classCounselors } from '@infrastructure/database/schema/class-counselors.schema';
 import { userTable } from '@infrastructure/database/schema/user.schema';
 import type { DrizzleDatabase } from '@shared/types/database.types';
 
@@ -56,7 +57,7 @@ export class ClassQueryService {
     const result = await this.db
       .select({
         userId: classStudents.studentUserId,
-        enrolledAt: classStudents.enrolledAt,
+        addedAt: classStudents.enrolledAt,
         nameZh: userTable.nameZh,
         nameEn: userTable.nameEn,
       })
@@ -70,7 +71,33 @@ export class ClassQueryService {
         en: row.nameEn || '',
         zh: row.nameZh || '',
       },
-      enrolledAt: row.enrolledAt,
+      addedAt: row.addedAt,
+    }));
+  }
+
+  /**
+   * Get class counselors with user names (i18n format)
+   * JOIN class_counselors with users table
+   */
+  async getClassCounselorsWithNames(classId: string): Promise<any[]> {
+    const result = await this.db
+      .select({
+        userId: classCounselors.counselorUserId,
+        addedAt: classCounselors.createdAt,
+        nameZh: userTable.nameZh,
+        nameEn: userTable.nameEn,
+      })
+      .from(classCounselors)
+      .leftJoin(userTable, eq(classCounselors.counselorUserId, userTable.id))
+      .where(eq(classCounselors.classId, classId as any));
+
+    return result.map((row) => ({
+      userId: row.userId,
+      name: {
+        en: row.nameEn || '',
+        zh: row.nameZh || '',
+      },
+      addedAt: row.addedAt,
     }));
   }
 }
