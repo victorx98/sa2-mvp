@@ -280,11 +280,6 @@ CREATE TABLE job_applications (
     }
     */
     
-    -- 结果记录
-    result VARCHAR(50) COMMENT '申请结果（rejected）',
-    result_reason TEXT COMMENT '结果原因',
-    result_date DATE COMMENT '结果日期',
-    
     -- 时间戳
     submitted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '提交时间',
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '更新时间',
@@ -532,9 +527,6 @@ export const changedByTypeEnum = pgEnum("changed_by_type", [
 export const overallRecommendationEnum = pgEnum("overall_recommendation_enum", [
   "strongly_recommend", "recommend", "neutral", "not_recommend"
 ]);
-// 结果枚举
-export const resultEnum = pgEnum("result_enum", ["rejected"]);
-
 // 推荐岗位表
 export const recommendedJobs = pgTable("recommended_jobs", {
   // 主键
@@ -607,11 +599,6 @@ export const jobApplications = pgTable("job_applications", {
 
   // 内推导师评估信息
   mentorScreening: jsonb("mentor_screening"), // 导师评估信息
-
-  // 结果记录
-  result: resultEnum("result"), // 申请结果
-  resultReason: text("result_reason"), // 结果原因
-  resultDate: date("result_date"), // 结果日期
 
   // 时间戳
   submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(), // 提交时间

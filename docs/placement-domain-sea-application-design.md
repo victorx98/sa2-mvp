@@ -267,9 +267,6 @@ flowchart TD
 | jobId | UUID | 岗位ID（外键） |
 | applicationType | application_type | 申请类型，海投固定为 direct |
 | status | application_status | 申请状态 |
-| result | result_enum | 申请结果 |
-| resultReason | TEXT | 结果原因 |
-| resultDate | DATE | 结果日期 |
 | notes | TEXT | 内部备注 |
 
 #### 5.1.3 applicationHistory（申请历史表）

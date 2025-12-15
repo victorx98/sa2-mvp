@@ -5,8 +5,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PlacementQueryService } from './placement-query.service';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
-import { recommendedJobs } from '@infrastructure/database/schema';
-import { DrizzleDatabase } from '@shared/types/database.types';
 
 // Mock data for testing [测试用模拟数据]
 const mockJobs = [

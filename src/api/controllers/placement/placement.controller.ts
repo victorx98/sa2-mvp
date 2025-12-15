@@ -2,7 +2,8 @@ import {
   Controller, Post,
   Body,
   Param,
-  Patch
+  Patch,
+  BadRequestException,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { JwtAuthGuard as AuthGuard } from "@shared/guards/jwt-auth.guard";
@@ -15,11 +16,12 @@ import { UpdateJobApplicationStatusCommand } from "@application/commands/placeme
 import { RollbackJobApplicationStatusCommand } from "@application/commands/placement/rollback-job-application-status.command";
 import {
   ICreateJobPositionDto,
-  IUpdateApplicationStatusDto,
   IRollbackApplicationStatusDto,
 } from "@domains/placement/dto";
+import type { IUpdateApplicationStatusDto } from "@domains/placement/dto";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import type { IJwtUser } from "@shared/types/jwt-user.interface";
+import { PlacementJobApplicationUpdateStatusRequestDto } from "@api/dto/request/placement-job-application-update-status.request.dto";
 
 /**
  * Admin Placement Controller
@@ -98,6 +100,7 @@ export class PlacementController {
   // ----------------------
 
   @Patch("job-applications/:id/status")
+  @Roles("admin", "manager", "counselor")
   @ApiOperation({ summary: "Update job application status" })
   @ApiResponse({
     status: 200,
@@ -105,10 +108,36 @@ export class PlacementController {
   })
   @ApiResponse({ status: 404, description: "Job application not found" })
   async updateJobApplicationStatus(
-    @Body() updateStatusDto: IUpdateApplicationStatusDto,
+    @Param("id") applicationId: string,
+    @Body() body: PlacementJobApplicationUpdateStatusRequestDto,
+    @CurrentUser() user: IJwtUser,
   ) {
+    // Restrict counselor to revoked only [限制顾问只能设置revoked]
+    const userRoles: string[] = Array.isArray((user as any).roles)
+      ? (user as any).roles
+      : [];
+    const isCounselor = userRoles.includes("counselor");
+    if (isCounselor && body.status !== "revoked") {
+      throw new BadRequestException(
+        "Counselor can only revoke recommended/interested applications",
+      );
+    }
+
+    // Block mentor assignment here to force using counselor-facing endpoint [禁止在旧接口分配导师，强制使用顾问专用接口]
+    if (body.status === "mentor_assigned") {
+      throw new BadRequestException(
+        "Use PATCH /api/placement/referrals/:applicationId/mentor for mentor assignment",
+      );
+    }
+
+    const mappedDto: IUpdateApplicationStatusDto = {
+      applicationId,
+      newStatus: body.status,
+      changedBy: String((user as unknown as { id: string }).id),
+    };
+
     return this.updateJobApplicationStatusCommand.execute({
-      updateStatusDto,
+      updateStatusDto: mappedDto,
     });
   }
 

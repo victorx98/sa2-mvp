@@ -4067,7 +4067,26 @@
     "/api/placement/job-applications/{id}/status": {
       "patch": {
         "operationId": "PlacementController_updateJobApplicationStatus",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlacementJobApplicationUpdateStatusRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Job application status updated successfully"
@@ -4149,6 +4168,43 @@
           }
         },
         "summary": "Batch recommend referral applications",
+        "tags": [
+          "Placement Referral"
+        ]
+      }
+    },
+    "/api/placement/referrals/{applicationId}/mentor": {
+      "patch": {
+        "operationId": "PlacementReferralController_assignReferralMentor",
+        "parameters": [
+          {
+            "name": "applicationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlacementReferralAssignMentorRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Referral mentor assigned"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Assign mentor for a referral application",
         "tags": [
           "Placement Referral"
         ]
@@ -6159,7 +6215,35 @@
         "type": "object",
         "properties": {}
       },
+      "PlacementJobApplicationUpdateStatusRequestDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Target status of the application [目标投递状态]",
+            "enum": [
+              "recommended",
+              "interested",
+              "not_interested",
+              "revoked",
+              "mentor_assigned",
+              "submitted",
+              "interviewed",
+              "got_offer",
+              "rejected"
+            ],
+            "example": "interested"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
       "PlacementReferralBatchRecommendRequestDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "PlacementReferralAssignMentorRequestDto": {
         "type": "object",
         "properties": {}
       }

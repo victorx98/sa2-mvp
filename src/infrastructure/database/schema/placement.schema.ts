@@ -4,15 +4,11 @@ import {
   uuid,
   varchar,
   text,
-  decimal,
   timestamp,
   jsonb,
-  integer,
-  boolean,
   pgEnum,
   uniqueIndex,
   index,
-  serial,
 } from "drizzle-orm/pg-core";
 import { APPLICATION_STATUSES } from "@domains/placement/types/application-status.types";
 
@@ -36,9 +32,6 @@ export const applicationTypeEnum = pgEnum("application_type", [
   "referral",
   "bd",
 ]);
-
-// Result enum [结果枚举]
-export const resultEnum = pgEnum("result_enum", ["rejected"]);
 
 /**
  * Recommended jobs table [推荐岗位表]
@@ -195,14 +188,13 @@ export const jobApplications = pgTable(
 
     // Basic information [基础信息]
     studentId: varchar("student_id", { length: 36 }).notNull(), // Student ID (string reference) [学生ID]
-    jobId: varchar("job_id", { length: 36 }) // Changed from integer to varchar to match recommendedJobs.id type [从integer改为varchar以匹配recommendedJobs.id类型]
+    jobId: uuid("job_id") // Job ID (foreign key references recommended_jobs) [岗位ID]
       .notNull()
-      .references(() => recommendedJobs.id, { onDelete: "cascade" }), // Job ID (foreign key references recommended_jobs) [岗位ID]
+      .references(() => recommendedJobs.id, { onDelete: "cascade" }),
 
     // Application information [申请信息]
     applicationType: applicationTypeEnum("application_type").notNull(), // Application type (direct/counselor/mentor/bd) [申请类型]
     coverLetter: text("cover_letter"), // Cover letter [求职信]
-    customAnswers: jsonb("custom_answers"), // Custom question answers [自定义问题回答]
 
     // Status management [状态管理]
     status: applicationStatusEnum("status").notNull().default("submitted"), // Application status [申请状态]
@@ -210,9 +202,9 @@ export const jobApplications = pgTable(
     // Assigned mentor for referral applications [推荐申请分配的导师ID]
     assignedMentorId: varchar("assigned_mentor_id", { length: 36 }), // Assigned mentor ID for referral applications [内推申请分配的导师ID]
 
-    // Result records [结果记录]
-    result: resultEnum("result"), // Application result [申请结果]
-    resultReason: text("result_reason"), // Result reason [结果原因]
+    // Recommendation information [推荐信息]
+    recommendedBy: varchar("recommended_by", { length: 36 }), // Recommender user ID (counselor/mentor) [推荐人ID（顾问/导师）]
+    recommendedAt: timestamp("recommended_at", { withTimezone: true }), // Recommendation time [推荐时间]
 
     // Timestamps [时间戳]
     submittedAt: timestamp("submitted_at", { withTimezone: true })
@@ -236,6 +228,8 @@ export const jobApplications = pgTable(
     index("idx_job_applications_type").on(table.applicationType),
     index("idx_job_applications_submitted").on(table.submittedAt),
     index("idx_job_applications_assigned_mentor").on(table.assignedMentorId), // Index for mentor queries [导师查询索引]
+    index("idx_job_applications_recommended_by").on(table.recommendedBy), // Index for recommender queries [推荐人查询索引]
+    index("idx_job_applications_recommended_at").on(table.recommendedAt), // Index for recommendation time queries [推荐时间查询索引]
   ],
 );
 

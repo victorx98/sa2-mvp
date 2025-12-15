@@ -49,7 +49,9 @@ flowchart TD
     A -->|学生感兴趣| B[感兴趣 interested]
     A -->|学生不感兴趣| C[不感兴趣 not_interested]
     B -->|顾问交接给导师| D[已转交 mentor_assigned]
-    D -->|导师审查通过| E[已提交 submitted]
+    A -->|顾问撤回推荐| J[已撤回 revoked]
+    B -->|顾问撤回推荐| J[已撤回 revoked]
+    D -->|导师审查通过(已内推)| E[已提交 submitted]
     D -->|导师审查不通过| F[已拒绝 rejected]
     E -->|安排面试| G[已面试 interviewed]
     G -->|获得Offer| H[已拿到Offer got_offer]
@@ -113,6 +115,7 @@ flowchart TD
 | recommended | 已推荐 | 岗位已推荐给学生 |
 | interested | 感兴趣 | 学生对推荐岗位感兴趣 |
 | not_interested | 不感兴趣 | 学生对推荐岗位不感兴趣 |
+| revoked | 已撤回 | 顾问主动撤回推荐（岗位与学生不匹配） |
 | mentor_assigned | 已转交 | 已分配导师处理申请 |
 | submitted | 已提交 | 申请已提交给企业 |
 | interviewed | 已面试 | 学生已参加面试 |
@@ -125,7 +128,9 @@ flowchart TD
 |----------|------------------|----------|
 | recommended | interested | 学生对岗位感兴趣 |
 | recommended | not_interested | 学生对岗位不感兴趣 |
+| recommended | revoked | 顾问撤回推荐 |
 | interested | mentor_assigned | 顾问将申请交接给导师 |
+| interested | revoked | 顾问撤回推荐 |
 | mentor_assigned | submitted | 导师审查通过 |
 | mentor_assigned | rejected | 导师审查不通过 |
 | submitted | interviewed | 安排面试 |
@@ -535,52 +540,26 @@ Content-Type: application/json
 | 编号 | 描述 | 状态 | 备注 |
 |------|------|------|------|
 | P-2025-12-02-REF-01 | 域层仅负责记录 `mentorId`、评估结果等业务数据，导师身份验证继续由 API/Application Layer 验证（符合 DDD 防腐层） | ✅ 已确认 | 依赖 `updateApplicationStatus` 中 `mentorId` 和 `changeMetadata` 的字段 | 
-| P-2025-12-02-REF-02 | 所有终态（`rejected`、`got_offer` 等）都需要记录 `resultDate`，防止评估结果在历史中缺失 | 🟡 进行中 | 建议在 `updateApplicationStatus` 中同步 `resultDate` 逻辑 |
-| P-2025-12-02-REF-03 | `submitApplication` 只确认岗位记录存在，未校验 `recommended_jobs.status === 'active'`，停用岗位仍能接收内推申请 | 🟡 进行中 | 建议在查询岗位时加状态过滤并在非活跃时抛出 BadRequestException |
-| P-2025-12-02-REF-04 | `updateApplicationStatus` 与 `rollbackApplicationStatus` 在未传 `mentorId` 的情况下仍将 `assignedMentorId` 置空，后续状态修改会丢失导师分配 | 🟡 进行中 | 建议仅在 DTO 显式要求改变导师时才更新该字段，其他情况保持原值 |
+| P-2025-12-02-REF-02 | 终态时间使用 `application_history.changed_at`（终态那条记录），不新增 `resultDate` 字段 | ✅ 已确认 | 终态时间从 `application_history` 表中查询，避免冗余字段 |
+| P-2025-12-02-REF-03 | `submitApplication` 只确认岗位记录存在，未校验 `recommended_jobs.status === 'active'`，停用岗位仍能接收内推申请 | ✅ 已完成 | 已在 `submitApplication` 中添加岗位 `status === 'active'` 校验 |
+| P-2025-12-02-REF-04 | `updateApplicationStatus` 与 `rollbackApplicationStatus` 在未传 `mentorId` 的情况下仍将 `assignedMentorId` 置空，后续状态修改会丢失导师分配 | ✅ 已完成 | 已修复：仅在显式提供 `mentorId` 时更新该字段，其他情况保持原值 |
 | P-2025-12-02-REF-05 | `/query/placement/jobs` 接口必须携带单值 `jobApplicationType` 参数（`direct`/`proxy`/`referral`/`bd` 之一），不能为数组或集合 | ✅ 已确认 | 查询条件强制应用，使用 PostgreSQL 数组包含操作符 `@>` 过滤岗位 |
 | P-2025-12-15-REF-06 | 批量内推推荐（多学生×多岗位）采用全成功事务语义：任一失败则整体回滚 | ✅ 已确认 | 避免部分推荐导致业务状态不一致，失败原因由 API 返回 |
+| P-2025-12-15-REF-07 | 顾问侧“指定内推导师”提供独立 API：`PATCH /api/placement/referrals/{applicationId}/mentor`，请求体仅包含 `mentorId`（`changedBy` 从 JWT 用户注入） | ✅ 已确认 | 从顾问侧移除对通用状态更新接口的依赖，便于权限与审计收敛 |
+| P-2025-12-15-REF-08 | 禁止使用 `/api/placement/job-applications/{id}/status` 将状态更新为 `mentor_assigned`（强制走 REF-07 新接口） | ✅ 已确认 | admin/manager 也需改走新接口，旧接口直接返回 400 |
+| P-2025-12-15-REF-09 | 新增投递终态 `revoked`（顾问撤回推荐），允许转换：`recommended -> revoked`、`interested -> revoked`；顾问可调用 `/api/placement/job-applications/{id}/status` 但仅限设置 `status=revoked` | ✅ 已完成 | 状态枚举/状态机已更新，DB enum 已添加 `revoked`，接口方法级 Roles 放开 counselor 且做业务限制 |
 
 ---
 
 ## 附录：版本历史
 
-### v2.0 (2025-12-02)
+### v2.1 (2025-12-15)
 **主要变更：**
-- ⚠️ **废弃 `submitMentorScreening` 方法**：改用 `updateApplicationStatus` 实现导师评估
-- ✅ **移除 `mentorScreening` 字段**：评估数据存储在 `changeMetadata.screeningResult` 中，更好地追踪评估历史
-- ✅ **添加 `assignedMentorId` 字段**：用于记录内推申请的导师分配
-- ✅ **明确权限验证职责**：导师身份验证由调用方（API/Application Layer）实现，符合 DDD 原则
-- ✅ **简化接口设计**：统一状态更新逻辑，减少代码冗余
-
-**迁移指南：**
-```typescript
-// ❌ 旧方式（已废弃）
-await jobApplicationService.submitMentorScreening({
-  applicationId: 'app-id',
-  mentorId: 'mentor-id',
-  technicalSkills: 5,
-  // ...
-});
-
-// ✅ 新方式
-await jobApplicationService.updateApplicationStatus({
-  applicationId: 'app-id',
-  newStatus: 'submitted',
-  mentorId: 'mentor-id', // 记录导师分配
-  changeMetadata: {
-    screeningResult: {
-      technicalSkills: 5,
-      // ...
-    },
-  },
-});
-```
-
-**优势：**
-- 统一的状态更新接口，代码更简洁
-- 评估数据与状态变更关联，便于追踪历史
-- 职责分离，domain 层专注业务逻辑
-- 权限验证在调用方，灵活性更高
+- ✅ **修复 `submitApplication`**：添加岗位 `status === 'active'` 校验，非活跃岗位无法接收申请
+- ✅ **修复 `assignedMentorId` 逻辑**：`updateApplicationStatus` 和 `rollbackApplicationStatus` 仅在显式提供 `mentorId` 时更新该字段
+- ✅ **优化 `rollbackApplicationStatus`**：仅查询最后两条历史记录，添加状态一致性校验
+- ✅ **扩展搜索筛选**：`IJobApplicationSearchFilter` 支持按 `recommendedBy` 和 `recommendedAtRange` 筛选
+- ✅ **修正 Drizzle schema**：`job_applications.job_id` 类型从 `varchar` 修正为 `uuid`
+- ✅ **数据库索引优化**：新增 `idx_application_history_application_changed_at_desc` 覆盖索引优化回撤查询
 
 ---
