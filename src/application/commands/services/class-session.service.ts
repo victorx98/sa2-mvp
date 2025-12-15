@@ -29,6 +29,8 @@ export interface CreateClassSessionDto {
   scheduledAt: Date;
   duration?: number;
   meetingProvider?: string;
+  serviceType?: string;
+  counselorId?: string;
 }
 
 export interface UpdateClassSessionDto {
@@ -104,6 +106,18 @@ export class ClassSessionService {
       // Create calendar slots (async meeting creation via event handler)
       const sessionResult = await this.db.transaction(async (tx: DrizzleTransaction) => {
         this.logger.debug('Starting database transaction for session creation');
+
+        // Step 0: Create service hold (reserve service credits)
+        // const hold = await this.serviceHoldService.createHold(
+        //   {
+        //     studentId: dto.studentId,
+        //     serviceType: dto.serviceType,
+        //     quantity: 1,
+        //     createdBy: dto.counselorId,
+        //   },
+        //   tx,
+        // );
+        // this.logger.debug(`Service hold created: ${hold.id}`);
 
         const durationMinutes = dto.duration || 60;
 
