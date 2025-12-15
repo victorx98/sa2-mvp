@@ -223,7 +223,6 @@ export const jobApplications = pgTable(
       .notNull(), // Update time [更新时间]
 
     // Business fields [业务字段]
-    isUrgent: boolean("is_urgent").default(false).notNull(), // Urgent application flag [加急申请标记]
     notes: text("notes"), // Internal notes [内部备注]
   },
   (table) => [

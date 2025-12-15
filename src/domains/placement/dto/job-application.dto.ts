@@ -9,7 +9,17 @@ export interface ISubmitApplicationDto {
   applicationType: ApplicationType; // Application type [申请类型]
   coverLetter?: string; // Cover letter [求职信]
   customAnswers?: Record<string, unknown>; // Custom question answers [自定义问题回答]
-  isUrgent?: boolean; // Urgent application flag [加急申请标记]
+}
+
+/**
+ * DTO for batch recommending referral applications (counselor -> students) [批量内推推荐DTO（顾问 -> 学生）]
+ * - All-or-nothing transaction: any failure rolls back all inserts [全成功事务：任一失败则整体回滚]
+ */
+export interface IRecommendReferralApplicationsBatchDto {
+  recommendedBy: string; // Recommender user ID (counselor) [推荐人ID（顾问）]
+  studentIds: string[]; // Student IDs [学生ID列表]
+  jobIds: string[]; // Recommended job IDs [岗位ID列表]
+  customAnswers?: Record<string, unknown>; // Shared metadata for all created applications [对所有创建记录生效的元数据]
 }
 
 /**

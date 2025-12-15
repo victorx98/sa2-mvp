@@ -5,7 +5,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
-import { eq, and, sql, desc, asc, getTableColumns } from "drizzle-orm";
+import { eq, and, sql, desc, asc, getTableColumns, inArray } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { DrizzleDatabase } from "@shared/types/database.types";
 import {
@@ -19,6 +19,7 @@ import {
 } from "../events";
 import {
   ISubmitApplicationDto,
+  IRecommendReferralApplicationsBatchDto,
   IUpdateApplicationStatusDto,
   IJobApplicationSearchFilter,
   IRollbackApplicationStatusDto,
@@ -90,7 +91,6 @@ export class JobApplicationService implements IJobApplicationService {
             dto.applicationType === ApplicationType.REFERRAL
               ? "recommended"
               : "submitted",
-          isUrgent: dto.isUrgent || false,
         })
         .returning();
 
@@ -127,6 +127,130 @@ export class JobApplicationService implements IJobApplicationService {
         type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
         payload: eventPayload,
       },
+    };
+  }
+
+  /**
+   * Batch recommend referral applications (counselor -> students) [批量内推推荐（顾问 -> 学生）]
+   * - All-or-nothing transaction: any failure rolls back all inserts [全成功事务：任一失败则整体回滚]
+   */
+  async recommendReferralApplicationsBatch(
+    dto: IRecommendReferralApplicationsBatchDto,
+  ): Promise<IServiceResult<{ items: Record<string, unknown>[] }, Record<string, unknown>>> {
+    if (!dto) {
+      throw new BadRequestException(
+        "recommendReferralApplicationsBatch dto is required",
+      );
+    }
+
+    const studentIds = Array.from(new Set(dto.studentIds ?? []));
+    const jobIds = Array.from(new Set(dto.jobIds ?? []));
+
+    if (!dto.recommendedBy) {
+      throw new BadRequestException("recommendedBy is required");
+    }
+    if (studentIds.length === 0) {
+      throw new BadRequestException("studentIds must not be empty");
+    }
+    if (jobIds.length === 0) {
+      throw new BadRequestException("jobIds must not be empty");
+    }
+
+    const pairs = studentIds.flatMap((studentId) =>
+      jobIds.map((jobId) => ({ studentId, jobId })),
+    );
+
+    // Keep a reasonable cap to prevent accidental explosion (N*M) [限制组合数量避免误操作]
+    if (pairs.length > 5000) {
+      throw new BadRequestException(
+        `Too many combinations (${pairs.length}). Please reduce studentIds/jobIds.`,
+      );
+    }
+
+    // Validate jobs exist and are active [校验岗位存在且为active]
+    const jobs = await this.db
+      .select({ id: recommendedJobs.id, status: recommendedJobs.status })
+      .from(recommendedJobs)
+      .where(and(inArray(recommendedJobs.id, jobIds), eq(recommendedJobs.status, "active")));
+
+    const foundJobIdSet = new Set(jobs.map((j) => j.id));
+    const missingJobIds = jobIds.filter((id) => !foundJobIdSet.has(id));
+    if (missingJobIds.length > 0) {
+      throw new BadRequestException(
+        `Some jobs are missing or not active: ${missingJobIds.slice(0, 10).join(", ")}`,
+      );
+    }
+
+    // Detect duplicates (any existing studentId+jobId is forbidden) [检测重复申请（任一已存在则整体失败）]
+    const existing = await this.db
+      .select({ studentId: jobApplications.studentId, jobId: jobApplications.jobId })
+      .from(jobApplications)
+      .where(and(inArray(jobApplications.studentId, studentIds), inArray(jobApplications.jobId, jobIds)));
+
+    const existingPairSet = new Set(existing.map((x) => `${x.studentId}::${x.jobId}`));
+    const duplicatePairs = pairs.filter((p) => existingPairSet.has(`${p.studentId}::${p.jobId}`));
+    if (duplicatePairs.length > 0) {
+      const sample = duplicatePairs
+        .slice(0, 10)
+        .map((p) => `${p.studentId}/${p.jobId}`)
+        .join(", ");
+      throw new BadRequestException(`Duplicate applications detected: ${sample}`);
+    }
+
+    const recommendedAt = new Date();
+    const sharedCustomAnswers = {
+      ...(dto.customAnswers ?? {}),
+      recommendedBy: dto.recommendedBy,
+      recommendedByRole: "counselor",
+      recommendedAt: recommendedAt.toISOString(),
+    };
+
+    const createdApplications = await this.db.transaction(async (tx) => {
+      const inserted = await tx
+        .insert(jobApplications)
+        .values(
+          pairs.map((p) => ({
+            studentId: p.studentId,
+            jobId: p.jobId,
+            applicationType: ApplicationType.REFERRAL,
+            status: "recommended" as const,
+            customAnswers: sharedCustomAnswers,
+          })),
+        )
+        .returning();
+
+      await tx.insert(applicationHistory).values(
+        inserted.map((app) => ({
+          applicationId: app.id,
+          previousStatus: null,
+          newStatus: app.status,
+          changedBy: dto.recommendedBy,
+          changeReason: "Counselor recommendation",
+          changeMetadata: {
+            recommendedBy: dto.recommendedBy,
+            recommendedAt: recommendedAt.toISOString(),
+          },
+        })),
+      );
+
+      return inserted;
+    });
+
+    const events = createdApplications.map((application) => {
+      const payload = {
+        applicationId: application.id,
+        previousStatus: null,
+        newStatus: application.status,
+        changedBy: dto.recommendedBy,
+        changedAt: application.submittedAt.toISOString(),
+      };
+      this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, payload);
+      return { type: JOB_APPLICATION_STATUS_CHANGED_EVENT, payload };
+    });
+
+    return {
+      data: { items: createdApplications },
+      events,
     };
   }
 

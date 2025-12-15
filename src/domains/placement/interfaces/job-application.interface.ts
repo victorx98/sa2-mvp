@@ -1,5 +1,6 @@
 import {
   ISubmitApplicationDto,
+  IRecommendReferralApplicationsBatchDto,
   IUpdateApplicationStatusDto,
   IJobApplicationSearchFilter,
   IRollbackApplicationStatusDto,
@@ -21,6 +22,16 @@ export interface IJobApplicationService {
   submitApplication(
     dto: ISubmitApplicationDto,
   ): Promise<IServiceResult<Record<string, unknown>, Record<string, unknown>>>;
+
+  /**
+   * Batch recommend referral applications (counselor -> students) [批量内推推荐（顾问 -> 学生）]
+   * - All-or-nothing: any validation failure rolls back all inserts [全成功：任一校验失败则整体回滚]
+   */
+  recommendReferralApplicationsBatch(
+    dto: IRecommendReferralApplicationsBatchDto,
+  ): Promise<
+    IServiceResult<{ items: Record<string, unknown>[] }, Record<string, unknown>>
+  >;
 
   /**
    * Update application status [更新投递状态]

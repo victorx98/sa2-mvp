@@ -196,55 +196,55 @@ describe('PlacementQueryService', () => {
     });
 
     describe('Basic query [基础查询]', () => {
-      it('should return all active jobs with default pagination and sorting', async () => {
+    it('should return all active jobs with default pagination and sorting', async () => {
         const results = await service.queryJobs({ jobApplicationType: 'direct' });
 
-        expect(results).toEqual({
-          items: mockJobs,
-          total: mockJobs.length,
-          page: 1,
-          pageSize: 20,
-          totalPages: 1,
-        });
+      expect(results).toEqual({
+        items: mockJobs,
+        total: mockJobs.length,
+        page: 1,
+        pageSize: 20,
+        totalPages: 1,
       });
+    });
 
-      it('should apply pagination correctly', async () => {
+    it('should apply pagination correctly', async () => {
         const results = await service.queryJobs(
           { jobApplicationType: 'direct' },
           { page: 1, pageSize: 2 },
         );
 
-        expect(results).toEqual({
-          items: mockJobs,
-          total: mockJobs.length,
-          page: 1,
-          pageSize: 2,
-          totalPages: 2,
-        });
+      expect(results).toEqual({
+        items: mockJobs,
+        total: mockJobs.length,
+        page: 1,
+        pageSize: 2,
+        totalPages: 2,
       });
+    });
 
-      it('should apply sorting correctly', async () => {
+    it('should apply sorting correctly', async () => {
         const results = await service.queryJobs(
           { jobApplicationType: 'direct' },
           undefined,
           { field: 'postDate', direction: 'asc' },
         );
 
-        expect(results).toHaveProperty('items');
-        expect(results.total).toBeGreaterThanOrEqual(0);
+      expect(results).toHaveProperty('items');
+      expect(results.total).toBeGreaterThanOrEqual(0);
         expect(results.page).toBe(1);
         expect(results.pageSize).toBe(20);
-      });
+    });
 
-      it('should handle invalid sort field gracefully', async () => {
+    it('should handle invalid sort field gracefully', async () => {
         const results = await service.queryJobs(
           { jobApplicationType: 'direct' },
           undefined,
           { field: 'invalid-field', direction: 'asc' },
         );
 
-        expect(results).toHaveProperty('items');
-        expect(results.total).toBeGreaterThanOrEqual(0);
+      expect(results).toHaveProperty('items');
+      expect(results.total).toBeGreaterThanOrEqual(0);
       });
     });
 

@@ -3,7 +3,11 @@ import { ConfigModule } from "@nestjs/config";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { JobApplicationService } from "./job-application.service";
-import { ISubmitApplicationDto, IUpdateApplicationStatusDto } from "../dto";
+import {
+  IRecommendReferralApplicationsBatchDto,
+  ISubmitApplicationDto,
+  IUpdateApplicationStatusDto,
+} from "../dto";
 import { ApplicationType } from "../types/application-type.enum";
 import { randomUUID } from "crypto";
 import { EventEmitter2 } from "@nestjs/event-emitter";
@@ -114,7 +118,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         applicationType: ApplicationType.DIRECT,
         coverLetter: "Test cover letter",
         customAnswers: { question1: "answer1" },
-        isUrgent: false,
       };
 
       const createdApplication = {
@@ -125,7 +128,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         coverLetter: dto.coverLetter,
         customAnswers: dto.customAnswers,
         status: "submitted",
-        isUrgent: dto.isUrgent,
         submittedAt: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -179,7 +181,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         applicationType: ApplicationType.DIRECT,
         coverLetter: "Test cover letter",
         customAnswers: { question1: "answer1" },
-        isUrgent: false,
       };
 
       // Mock duplicate application found
@@ -206,7 +207,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         applicationType: ApplicationType.DIRECT,
         coverLetter: "Test cover letter",
         customAnswers: { question1: "answer1" },
-        isUrgent: false,
       };
 
       // Mock no job found
@@ -223,6 +223,126 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       await expect(
         jobApplicationService.submitApplication(dto),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("recommendReferralApplicationsBatch() [批量内推推荐]", () => {
+    it("should throw BadRequestException when studentIds is empty", async () => {
+      const dto: IRecommendReferralApplicationsBatchDto = {
+        recommendedBy: testMentorId,
+        studentIds: [],
+        jobIds: [testJobId],
+      };
+
+      await expect(
+        jobApplicationService.recommendReferralApplicationsBatch(dto),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should throw BadRequestException when jobIds is empty", async () => {
+      const dto: IRecommendReferralApplicationsBatchDto = {
+        recommendedBy: testMentorId,
+        studentIds: [testStudentId],
+        jobIds: [],
+      };
+
+      await expect(
+        jobApplicationService.recommendReferralApplicationsBatch(dto),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should create applications for all studentId x jobId pairs (all-or-nothing)", async () => {
+      const studentIds = [testStudentId, randomUUID()];
+      const jobIds = [testJobId, randomUUID()];
+
+      mockDb.select = jest
+        .fn()
+        // jobs validation query returns all jobIds as active [岗位校验：全部存在且active]
+        .mockReturnValueOnce({
+          from: jest.fn(() => ({
+            where: jest.fn(() =>
+              Promise.resolve(jobIds.map((id) => ({ id, status: "active" }))),
+            ),
+          })),
+        })
+        // duplicates query returns empty [重复校验：无重复]
+        .mockReturnValueOnce({
+          from: jest.fn(() => ({
+            where: jest.fn(() => Promise.resolve([])),
+          })),
+        });
+
+      const inserted = studentIds.flatMap((studentId) =>
+        jobIds.map((jobId) => ({
+          id: randomUUID(),
+          studentId,
+          jobId,
+          applicationType: "referral",
+          status: "recommended",
+          submittedAt: new Date(),
+          updatedAt: new Date(),
+        })),
+      );
+
+      const historyInsert = jest.fn().mockResolvedValue([]);
+      mockDb.insert = jest
+        .fn()
+        // insert job_applications
+        .mockImplementationOnce(() => ({
+          values: jest.fn(() => ({
+            returning: jest.fn().mockResolvedValue(inserted),
+          })),
+        }))
+        // insert application_history
+        .mockImplementationOnce(() => ({
+          values: historyInsert,
+        }));
+
+      const dto: IRecommendReferralApplicationsBatchDto = {
+        recommendedBy: testMentorId,
+        studentIds,
+        jobIds,
+      };
+
+      const result =
+        await jobApplicationService.recommendReferralApplicationsBatch(dto);
+
+      expect(result.data.items).toHaveLength(studentIds.length * jobIds.length);
+      expect(historyInsert).toHaveBeenCalledTimes(1);
+    });
+
+    it("should throw BadRequestException when any duplicate exists (all-or-nothing)", async () => {
+      const studentIds = [testStudentId];
+      const jobIds = [testJobId];
+
+      mockDb.select = jest
+        .fn()
+        // jobs validation ok
+        .mockReturnValueOnce({
+          from: jest.fn(() => ({
+            where: jest.fn(() =>
+              Promise.resolve(jobIds.map((id) => ({ id, status: "active" }))),
+            ),
+          })),
+        })
+        // duplicates found
+        .mockReturnValueOnce({
+          from: jest.fn(() => ({
+            where: jest.fn(() =>
+              Promise.resolve([{ studentId: testStudentId, jobId: testJobId }]),
+            ),
+          })),
+        });
+
+      const dto: IRecommendReferralApplicationsBatchDto = {
+        recommendedBy: testMentorId,
+        studentIds,
+        jobIds,
+      };
+
+      await expect(
+        jobApplicationService.recommendReferralApplicationsBatch(dto),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

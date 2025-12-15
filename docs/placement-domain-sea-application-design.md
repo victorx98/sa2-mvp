@@ -138,7 +138,6 @@ interface ISubmitApplicationDto {
   applicationType: "direct"; // 申请类型，海投固定为 direct
   coverLetter?: string; // 求职信
   customAnswers?: Record<string, any>; // 自定义问题回答
-  isUrgent?: boolean; // 是否加急
 }
 ```
 
@@ -271,7 +270,6 @@ flowchart TD
 | result | result_enum | 申请结果 |
 | resultReason | TEXT | 结果原因 |
 | resultDate | DATE | 结果日期 |
-| isUrgent | BOOLEAN | 是否加急 |
 | notes | TEXT | 内部备注 |
 
 #### 5.1.3 applicationHistory（申请历史表）

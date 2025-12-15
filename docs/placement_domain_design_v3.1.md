@@ -290,7 +290,6 @@ CREATE TABLE job_applications (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '更新时间',
     
     -- 业务字段
-    is_urgent BOOLEAN DEFAULT FALSE NOT NULL COMMENT '是否加急申请',
     notes TEXT COMMENT '内部备注',
     
     -- 约束
@@ -619,7 +618,6 @@ export const jobApplications = pgTable("job_applications", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(), // 更新时间
 
   // 业务字段
-  isUrgent: boolean("is_urgent").default(false).notNull(), // 是否加急申请
   notes: text("notes"), // 内部备注
 }, (table) => [
   // 唯一约束

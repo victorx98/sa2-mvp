@@ -167,7 +167,6 @@ export const ALLOWED_APPLICATION_STATUS_TRANSITIONS: Partial<
   - `applicationType: ApplicationType`：申请类型（包括内推）
   - `coverLetter?: string`：求职信
   - `customAnswers?: Record<string, any>`：自定义问题回答，包括推荐导师信息
-  - `isUrgent?: boolean`：加急申请标记
 
 **返回值**：
 - `Promise<IServiceResult<Record<string, any>, Record<string, any>>>`：服务结果，包含创建的申请数据
@@ -259,7 +258,6 @@ await jobApplicationService.updateApplicationStatus({
 | customAnswers | jsonb | 自定义问题回答，包括推荐导师信息 |
 | assignedMentorId | string | 分配的导师ID（用于记录导师分配） |
 | status | string | 申请状态 |
-| isUrgent | boolean | 加急申请标记 |
 | submittedAt | timestamp | 提交时间 |
 | createdAt | timestamp | 创建时间 |
 | updatedAt | timestamp | 更新时间 |
@@ -323,8 +321,7 @@ Content-Type: application/json
     "referralMentor": "mentor-789",
     "referralReason": "Strong technical background",
     "previousExperience": "5+ years in software development"
-  },
-  "isUrgent": false
+  }
 }
 ```
 
@@ -542,6 +539,7 @@ Content-Type: application/json
 | P-2025-12-02-REF-03 | `submitApplication` 只确认岗位记录存在，未校验 `recommended_jobs.status === 'active'`，停用岗位仍能接收内推申请 | 🟡 进行中 | 建议在查询岗位时加状态过滤并在非活跃时抛出 BadRequestException |
 | P-2025-12-02-REF-04 | `updateApplicationStatus` 与 `rollbackApplicationStatus` 在未传 `mentorId` 的情况下仍将 `assignedMentorId` 置空，后续状态修改会丢失导师分配 | 🟡 进行中 | 建议仅在 DTO 显式要求改变导师时才更新该字段，其他情况保持原值 |
 | P-2025-12-02-REF-05 | `/query/placement/jobs` 接口必须携带单值 `jobApplicationType` 参数（`direct`/`proxy`/`referral`/`bd` 之一），不能为数组或集合 | ✅ 已确认 | 查询条件强制应用，使用 PostgreSQL 数组包含操作符 `@>` 过滤岗位 |
+| P-2025-12-15-REF-06 | 批量内推推荐（多学生×多岗位）采用全成功事务语义：任一失败则整体回滚 | ✅ 已确认 | 避免部分推荐导致业务状态不一致，失败原因由 API 返回 |
 
 ---
 

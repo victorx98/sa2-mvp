@@ -2862,10 +2862,19 @@
         ]
       }
     },
-    "/api/students/profile": {
+    "/api/students/{studentId}/profile": {
       "get": {
         "operationId": "StudentProfileController_getProfile",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Student profile retrieved successfully"
@@ -2883,7 +2892,16 @@
       },
       "put": {
         "operationId": "StudentProfileController_updateProfile",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -4107,6 +4125,34 @@
           "PlacementQuery"
         ]
       }
+    },
+    "/api/placement/referrals/recommendations/batch": {
+      "post": {
+        "operationId": "PlacementReferralController_batchRecommendReferralApplications",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlacementReferralBatchRecommendRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Referral applications recommended"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Batch recommend referral applications",
+        "tags": [
+          "Placement Referral"
+        ]
+      }
     }
   },
   "info": {
@@ -4677,6 +4723,11 @@
               "gap_analysis",
               "ai_career"
             ]
+          },
+          "serviceType": {
+            "type": "string",
+            "description": "Service Type (business-level)",
+            "example": "premium_mentoring"
           },
           "studentId": {
             "type": "string",
@@ -5624,9 +5675,15 @@
             "type": "string",
             "description": "Customer importance label"
           },
-          "graduationDate": {
+          "underGraduationDate": {
             "type": "string",
-            "description": "Graduation date",
+            "description": "Undergraduate graduation date",
+            "format": "date-time",
+            "nullable": true
+          },
+          "graduateGraduationDate": {
+            "type": "string",
+            "description": "Graduate graduation date",
             "format": "date-time",
             "nullable": true
           },
@@ -5690,7 +5747,8 @@
         "required": [
           "id",
           "status",
-          "graduationDate",
+          "underGraduationDate",
+          "graduateGraduationDate",
           "createdAt",
           "modifiedAt"
         ]
@@ -5734,9 +5792,15 @@
             "type": "string",
             "description": "Customer importance label"
           },
-          "graduationDate": {
+          "underGraduationDate": {
             "type": "string",
-            "description": "Graduation date",
+            "description": "Undergraduate graduation date",
+            "format": "date-time",
+            "nullable": true
+          },
+          "graduateGraduationDate": {
+            "type": "string",
+            "description": "Graduate graduation date",
             "format": "date-time",
             "nullable": true
           },
@@ -5840,7 +5904,8 @@
         "required": [
           "id",
           "status",
-          "graduationDate",
+          "underGraduationDate",
+          "graduateGraduationDate",
           "createdAt",
           "modifiedAt"
         ]
@@ -5954,9 +6019,15 @@
             "description": "Customer importance",
             "nullable": true
           },
-          "graduationDate": {
+          "underGraduationDate": {
             "type": "string",
-            "description": "Graduation date",
+            "description": "Undergraduate graduation date",
+            "nullable": true,
+            "format": "date"
+          },
+          "graduateGraduationDate": {
+            "type": "string",
+            "description": "Graduate graduation date",
             "nullable": true,
             "format": "date"
           },
@@ -6085,6 +6156,10 @@
         "properties": {}
       },
       "AdjustPayableLedgerDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "PlacementReferralBatchRecommendRequestDto": {
         "type": "object",
         "properties": {}
       }
