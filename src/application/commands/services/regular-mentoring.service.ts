@@ -123,7 +123,7 @@ export class RegularMentoringService {
         // const hold = await this.serviceHoldService.createHold(
         //   {
         //     studentId: dto.studentId,
-        //     serviceType: 'regular_mentoring',
+        //     serviceType: dto.serviceType,
         //     quantity: 1,
         //     createdBy: dto.counselorId,
         //   },
