@@ -26,7 +26,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
   let mockDb: any;
   const testApplicationId = randomUUID();
   const testStudentId = randomUUID();
-  const testJobId = randomUUID();
+  const testJobId = randomUUID(); // Changed to UUID string to match new schema [改为UUID字符串以匹配新schema]
   const testMentorId = randomUUID();
 
   beforeEach(async () => {

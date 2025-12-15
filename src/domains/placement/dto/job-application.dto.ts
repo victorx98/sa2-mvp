@@ -5,7 +5,7 @@ import { ApplicationStatus, ApplicationType } from "../types";
  */
 export interface ISubmitApplicationDto {
   studentId: string; // Student ID [学生ID]
-  jobId: string; // Job position ID [岗位ID]
+  jobId: string; // Job position ID [岗位ID] - Maps to varchar for UUID in database [映射到数据库的UUID varchar类型]
   applicationType: ApplicationType; // Application type [申请类型]
   coverLetter?: string; // Cover letter [求职信]
   customAnswers?: Record<string, unknown>; // Custom question answers [自定义问题回答]
@@ -29,7 +29,7 @@ export interface IUpdateApplicationStatusDto {
  */
 export interface IJobApplicationSearchFilter {
   studentId?: string; // Filter by student [按学生筛选]
-  jobId?: string; // Filter by job [按岗位筛选]
+  jobId?: string; // Filter by job [按岗位筛选] - Maps to varchar UUID in database [映射到数据库的UUID varchar类型]
   status?: ApplicationStatus; // Filter by status [按状态筛选]
   applicationType?: ApplicationType; // Filter by application type [按申请类型筛选]
   assignedMentorId?: string; // Filter by assigned mentor [按分配的导师筛选]
@@ -40,7 +40,7 @@ export interface IJobApplicationSearchFilter {
  */
 export interface IQueryApplicationsDto {
   studentId?: string; // Filter by student [按学生筛选]
-  jobId?: string; // Filter by job [按岗位筛选]
+  jobId?: string; // Filter by job [按岗位筛选] - Maps to varchar UUID in database [映射到数据库的UUID varchar类型]
   status?: ApplicationStatus; // Filter by status [按状态筛选]
   applicationType?: ApplicationType; // Filter by application type [按申请类型筛选]
   offset?: number; // Pagination offset [分页偏移]

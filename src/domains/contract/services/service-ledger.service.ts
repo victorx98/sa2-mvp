@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { eq, and, gte, lte, sql, SQL } from "drizzle-orm";
+import { eq, and, gte, lte, sql, SQL, desc } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import type {
@@ -260,7 +260,7 @@ export class ServiceLedgerService {
       .select()
       .from(schema.serviceLedgers)
       .where(and(...conditions))
-      .orderBy(sql`${schema.serviceLedgers.createdAt} DESC`)
+      .orderBy(desc(schema.serviceLedgers.createdAt))
       .limit(limit)
       .offset(offset);
 

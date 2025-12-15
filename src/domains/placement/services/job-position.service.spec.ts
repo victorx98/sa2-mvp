@@ -22,7 +22,7 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
   let moduleRef: TestingModule;
   let jobPositionService: JobPositionService;
   let mockDb: any;
-  const testJobId = randomUUID();
+  const testJobId = randomUUID(); // Job position ID is now UUID [岗位ID现在是UUID]
   const testUserId = randomUUID();
 
   // Helper function to create properly mocked database operation
@@ -158,19 +158,17 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
     it("should create job position successfully [应该成功创建岗位]", async () => {
       // Arrange [准备]
       const dto: ICreateJobPositionDto = {
-        title: "Software Engineer",
+        jobTitle: "Software Engineer", // Changed from 'title' to 'jobTitle' [从'title'改为'jobTitle']
         companyName: "Test Company",
         source: "web",
-        jobSource: "web",
         createdBy: testUserId,
       };
 
       const createdJob = {
         id: testJobId,
-        title: dto.title,
+        jobTitle: dto.jobTitle, // Changed from 'title' to 'jobTitle' [从'title'改为'jobTitle']
         companyName: dto.companyName,
         source: dto.source,
-        jobSource: dto.jobSource,
         status: "active",
         viewCount: 0,
         directApplicationCount: 0,
@@ -198,31 +196,25 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
     it("should create job position with optional fields [应该创建带有可选字段的岗位]", async () => {
       // Arrange [准备]
       const dto: ICreateJobPositionDto = {
-        title: "Software Engineer",
+        jobTitle: "Software Engineer", // Changed from 'title' to 'jobTitle' [从'title'改为'jobTitle']
         companyName: "Test Company",
         source: "web",
-        jobSource: "web",
         createdBy: testUserId,
-        description: "Test description",
-        requirements: {
-          technical: ["JavaScript", "TypeScript"],
-          experience: "3+ years",
+        jobDescription: "Test description", // Changed from 'description' to 'jobDescription' [从'description'改为'jobDescription']
+        experienceRequirement: { // Changed from 'requirements' to 'experienceRequirement' [从'requirements'改为'experienceRequirement']
+          min_years: 3,
+          max_years: 5,
         },
-        responsibilities: "Develop software and collaborate with team",
-        jobType: "full_time",
-        experienceLevel: "mid",
-        industry: "technology",
-        locations: [{ city: "Beijing" }, { city: "Shanghai" }],
-        remoteType: "hybrid",
-        salaryMin: 10000,
-        salaryMax: 20000,
-        salaryCurrency: "CNY",
-        postedDate: new Date(),
-        expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        sourceUrl: "https://example.com/job/123",
-        sourceJobId: "123",
-        aiAnalysis: { score: 85, keywords: ["javascript", "typescript"] },
-        qualityScore: 85,
+        responsibilities: ["Develop software and collaborate with team"], // Changed to array type [改为数组类型]
+        jobTypes: ["full_time"], // Changed from 'jobType' to 'jobTypes' and to array [从'jobType'改为'jobTypes'并改为数组]
+        locations: ["Beijing", "Shanghai"],
+        salaryDetails: { // Changed from individual salary fields to salaryDetails object [从单独的salary字段改为salaryDetails对象]
+          base_salary: {
+            min: 10000,
+            max: 20000,
+          },
+        },
+        postDate: new Date(), // Changed from 'postedDate' to 'postDate' [从'postedDate'改为'postDate']
       };
 
       const createdJob = {
@@ -258,7 +250,7 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
       // Arrange [准备]
       const mockJob = {
         id: testJobId,
-        title: "Software Engineer",
+        jobTitle: "Software Engineer", // Changed from 'title' to 'jobTitle' [从'title'改为'jobTitle']
         companyName: "Test Company",
         status: "active",
       };
@@ -299,7 +291,7 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
       // Arrange [准备]
       const mockJob = {
         id: testJobId,
-        title: "Software Engineer",
+        jobTitle: "Software Engineer", // Changed from 'title' to 'jobTitle' [从'title'改为'jobTitle']
         companyName: "Test Company",
         status: "active",
       };
@@ -314,7 +306,7 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
 
       // Act [执行]
       const result = await jobPositionService.findOne({
-        title: "Software Engineer",
+        title: "Software Engineer", // Test with title parameter [测试title参数]
         companyName: "Test Company",
       });
 
@@ -481,15 +473,14 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
             })),
           };
         }
+        const mockQuery = {
+          limit: jest.fn(() => ({
+            offset: jest.fn().mockResolvedValue(mockJobs),
+          })),
+        };
         return {
           from: jest.fn(() => ({
-            where: jest.fn(() => ({
-              orderBy: jest.fn(() => ({
-                limit: jest.fn(() => ({
-                  offset: jest.fn().mockResolvedValue(mockJobs),
-                })),
-              })),
-            })),
+            where: jest.fn(() => mockQuery),
           })),
         };
       });
@@ -515,7 +506,7 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
 
       const mockJob = {
         id: testJobId,
-        title: "Software Engineer",
+        jobTitle: "Software Engineer", // Changed from 'title' to 'jobTitle' [从'title'改为'jobTitle']
         companyName: "Test Company",
         status: "active",
       };

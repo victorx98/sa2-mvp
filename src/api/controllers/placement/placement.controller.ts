@@ -79,7 +79,6 @@ export class PlacementController {
   @ApiResponse({ status: 404, description: "Job position not found" })
   async markJobPositionExpired(
     @Param("id") id: string,
-    @Body() markExpiredDto: { reason?: string },
     @CurrentUser() user: IJwtUser,
   ) {
     // Use command pattern to mark job position as expired [使用命令模式标记职位过期]
@@ -87,7 +86,6 @@ export class PlacementController {
       jobId: id,
       expiredBy: String((user as unknown as { id: string }).id),
       expiredByType: "bd" as const, // Admin users are treated as BD (business development) for job expiration tracking [管理员用户在职位过期跟踪中被视为BD]
-      reason: markExpiredDto.reason,
     });
     // IServiceResult structure: { data: T, event?: {...}, events?: [...] } [IServiceResult结构]
     return result.data;

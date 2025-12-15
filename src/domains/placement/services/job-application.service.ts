@@ -5,7 +5,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc, asc, getTableColumns } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { DrizzleDatabase } from "@shared/types/database.types";
 import {
@@ -159,6 +159,41 @@ export class JobApplicationService implements IJobApplicationService {
 
     const previousStatus = application.status as ApplicationStatus;
 
+    // ✅ 新增：分配导师场景验证
+    if (dto.newStatus === 'mentor_assigned') {
+      const mentorId = dto.mentorId as string | undefined;
+      if (!mentorId) {
+        throw new BadRequestException(
+          'mentorId is required when assigning mentor',
+        );
+      }
+    }
+
+    // ✅ 新增：导师评估场景验证
+    if (previousStatus === 'mentor_assigned' && dto.newStatus === 'submitted') {
+      const mentorId = dto.mentorId as string | undefined;
+      
+      if (!mentorId) {
+        throw new BadRequestException(
+          'mentorId is required for mentor screening',
+        );
+      }
+
+      // Security check: verify mentor is assigned [安全检查：验证导师已分配]
+      if (application.assignedMentorId !== mentorId) {
+        throw new BadRequestException(
+          `Only the assigned mentor (${application.assignedMentorId}) can submit screening results. Provided: ${mentorId}`,
+        );
+      }
+
+      // Validate screening result exists [验证评估结果存在]
+      if (!dto.changeMetadata?.screeningResult) {
+        throw new BadRequestException(
+          'screeningResult is required in changeMetadata for mentor screening',
+        );
+      }
+    }
+
     // Validate status transition [验证状态转换]
     const allowedTransitions =
       ALLOWED_APPLICATION_STATUS_TRANSITIONS[previousStatus];
@@ -281,17 +316,19 @@ export class JobApplicationService implements IJobApplicationService {
     const limit = pageSize;
 
     // Build and execute main query [构建并执行主查询]
+    const columns = getTableColumns(jobApplications);
+    const sortColumn = sort?.field && sort.field in columns 
+      ? columns[sort.field] 
+      : columns.submittedAt;
+    const orderByClause = sort?.direction === "asc" 
+      ? asc(sortColumn) 
+      : desc(sortColumn);
+
     const applications = await this.db
       .select()
       .from(jobApplications)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(
-        sort?.field
-          ? sort.direction === "asc"
-            ? sql`${jobApplications[sort.field as keyof typeof jobApplications]} ASC`
-            : sql`${jobApplications[sort.field as keyof typeof jobApplications]} DESC`
-          : sql`${jobApplications.submittedAt} DESC`,
-      )
+      .orderBy(orderByClause)
       .limit(limit)
       .offset(offset);
 

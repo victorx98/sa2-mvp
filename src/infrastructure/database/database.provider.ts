@@ -108,8 +108,6 @@ export const databaseProviders = [
         logger: isDevelopment && !isTest,
       });
 
-
-
       return db;
     },
   },

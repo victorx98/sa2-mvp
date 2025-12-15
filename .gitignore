@@ -55,3 +55,5 @@ CLAUDE.md
 
 # API spec (do not commit)
 docs/openapi.json
+.trae/documents/修复 job-position.service.ts 中的属性名称不匹配问题.md
+.trae/documents/执行后续行动建议计划.md

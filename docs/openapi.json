@@ -713,6 +713,48 @@
         ]
       }
     },
+    "/api/services/session-types": {
+      "get": {
+        "description": "Retrieve session types, optionally filtered by service type code (e.g., External, Internal)",
+        "operationId": "SessionTypesController_getSessionTypes",
+        "parameters": [
+          {
+            "name": "serviceTypeCode",
+            "required": false,
+            "in": "query",
+            "description": "Filter by service type code (e.g., External, Internal)",
+            "schema": {
+              "example": "External",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session types retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SessionTypeDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get session types list",
+        "tags": [
+          "Session Types"
+        ]
+      }
+    },
     "/api/services/regular-mentoring": {
       "post": {
         "description": "\n      Creates a new regular mentoring session asynchronously.\n      \n      Sync Flow (returns immediately):\n      1. Create calendar slots for mentor and student\n      2. Create session record with PENDING_MEETING status\n      3. Return response with sessionId and status\n      \n      Async Flow (runs in background):\n      1. Create meeting link via third-party API\n      2. Update session with meeting_id and status=SCHEDULED\n      3. Publish SESSION_BOOKED_EVENT\n      \n      Response includes:\n      - sessionId: unique session identifier\n      - status: PENDING_MEETING (meeting creation in progress)\n      - scheduledAt: scheduled start time\n      \n      Client should poll GET /api/services/regular-mentoring/:id to check status and get meetingUrl\n    ",
@@ -4051,6 +4093,20 @@
           "Admin Placement"
         ]
       }
+    },
+    "/query/placement/jobs": {
+      "get": {
+        "operationId": "PlacementQueryController_queryJobs",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PlacementQuery"
+        ]
+      }
     }
   },
   "info": {
@@ -4704,6 +4760,57 @@
             "example": 60
           }
         }
+      },
+      "SessionTypeItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Session type ID",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "code": {
+            "type": "string",
+            "description": "Session type code",
+            "example": "regular_mentoring"
+          },
+          "name": {
+            "type": "string",
+            "description": "Session type name",
+            "example": "Regular Mentoring"
+          },
+          "isBilling": {
+            "type": "boolean",
+            "description": "Whether this session type is billable"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "isBilling"
+        ]
+      },
+      "SessionTypeDto": {
+        "type": "object",
+        "properties": {
+          "serviceTypeCode": {
+            "type": "string",
+            "description": "Service type code",
+            "example": "External"
+          },
+          "sessionTypes": {
+            "description": "List of session types",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionTypeItemDto"
+            }
+          }
+        },
+        "required": [
+          "serviceTypeCode",
+          "sessionTypes"
+        ]
       },
       "CreateRegularMentoringRequestDto": {
         "type": "object",

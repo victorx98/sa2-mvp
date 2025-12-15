@@ -1,5 +1,5 @@
 import { Injectable, Inject, Logger } from "@nestjs/common";
-import { eq, and, like, ne, count, sql, inArray } from "drizzle-orm";
+import { eq, and, like, ne, count, sql, inArray, desc } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
@@ -982,7 +982,7 @@ export class ProductService {
 
     const column =
       schema.products[orderField] || schema.products[this.DEFAULT_SORT_FIELD];
-    return orderDirection === "asc" ? column : sql`${column} DESC`;
+    return orderDirection === "asc" ? column : desc(column);
   }
 
   /**
