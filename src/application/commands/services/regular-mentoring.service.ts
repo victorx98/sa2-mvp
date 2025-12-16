@@ -119,17 +119,17 @@ export class RegularMentoringService {
       const sessionResult = await this.db.transaction(async (tx: DrizzleTransaction) => {
         this.logger.debug('Starting database transaction for session creation');
 
-        // Step 1: Create service hold (reserve service credits)
-        // const hold = await this.serviceHoldService.createHold(
-        //   {
-        //     studentId: dto.studentId,
-        //     serviceType: dto.serviceType,
-        //     quantity: 1,
-        //     createdBy: dto.counselorId,
-        //   },
-        //   tx,
-        // );
-        // this.logger.debug(`Service hold created: ${hold.id}`);
+        // Step 0: Create service hold (reserve service credits)
+        const hold = await this.serviceHoldService.createHold(
+          {
+            studentId: dto.studentId,
+            serviceType: dto.serviceType,
+            quantity: 1,
+            createdBy: dto.counselorId,
+          },
+          tx,
+        );
+        this.logger.debug(`Service hold created: ${hold.id}`);
 
         // Calculate duration with default value
         const durationMinutes = dto.duration || 60; // Default 1 hour
