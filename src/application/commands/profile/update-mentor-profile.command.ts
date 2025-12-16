@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { MentorProfileService } from "@domains/identity/mentor/mentor-profile.service";
-import { UpdateMentorProfileDto } from "@api/dto/request/update-mentor-profile.dto";
 import type { UpdateMentorProfileAggregateInput } from "@domains/identity/mentor/mentor-profile.service";
+import { UpdateMentorProfileInput } from "./dto/update-mentor-profile.input";
 
 /**
  * Application Layer - Update Mentor Profile Command
@@ -20,52 +20,52 @@ export class UpdateMentorProfileCommand {
 
   async execute(
     userId: string,
-    dto: UpdateMentorProfileDto,
+    input: UpdateMentorProfileInput,
   ): Promise<void> {
     this.logger.log(`Updating mentor profile for user: ${userId}`);
 
-    const input: UpdateMentorProfileAggregateInput = {
+    const aggregateInput: UpdateMentorProfileAggregateInput = {
       user: {},
       profile: {},
     };
 
     // User 基础信息
-    if (dto.nameEn !== undefined) {
-      input.user!.nameEn = dto.nameEn;
+    if (input.nameEn !== undefined) {
+      aggregateInput.user!.nameEn = input.nameEn;
     }
-    if (dto.nameZh !== undefined) {
-      input.user!.nameZh = dto.nameZh;
+    if (input.nameZh !== undefined) {
+      aggregateInput.user!.nameZh = input.nameZh;
     }
-    if (dto.gender !== undefined) {
-      input.user!.gender = dto.gender;
+    if (input.gender !== undefined) {
+      aggregateInput.user!.gender = input.gender;
     }
-    if (dto.country !== undefined) {
-      input.user!.country = dto.country;
+    if (input.country !== undefined) {
+      aggregateInput.user!.country = input.country;
     }
 
     // Mentor Profile 信息
-    if (dto.status !== undefined) input.profile!.status = dto.status;
-    if (dto.type !== undefined) input.profile!.type = dto.type;
-    if (dto.company !== undefined) input.profile!.company = dto.company;
-    if (dto.companyTitle !== undefined)
-      input.profile!.companyTitle = dto.companyTitle;
-    if (dto.briefIntro !== undefined)
-      input.profile!.briefIntro = dto.briefIntro;
-    if (dto.highSchool !== undefined)
-      input.profile!.highSchool = dto.highSchool;
-    if (dto.location !== undefined) input.profile!.location = dto.location;
-    if (dto.level !== undefined) input.profile!.level = dto.level;
-    if (dto.rating !== undefined) input.profile!.rating = dto.rating;
-    if (dto.underCollege !== undefined)
-      input.profile!.underCollege = dto.underCollege;
-    if (dto.underMajor !== undefined)
-      input.profile!.underMajor = dto.underMajor;
-    if (dto.graduateCollege !== undefined)
-      input.profile!.graduateCollege = dto.graduateCollege;
-    if (dto.graduateMajor !== undefined)
-      input.profile!.graduateMajor = dto.graduateMajor;
+    if (input.status !== undefined) aggregateInput.profile!.status = input.status;
+    if (input.type !== undefined) aggregateInput.profile!.type = input.type;
+    if (input.company !== undefined) aggregateInput.profile!.company = input.company;
+    if (input.companyTitle !== undefined)
+      aggregateInput.profile!.companyTitle = input.companyTitle;
+    if (input.briefIntro !== undefined)
+      aggregateInput.profile!.briefIntro = input.briefIntro;
+    if (input.highSchool !== undefined)
+      aggregateInput.profile!.highSchool = input.highSchool;
+    if (input.location !== undefined) aggregateInput.profile!.location = input.location;
+    if (input.level !== undefined) aggregateInput.profile!.level = input.level;
+    if (input.rating !== undefined) aggregateInput.profile!.rating = input.rating;
+    if (input.underCollege !== undefined)
+      aggregateInput.profile!.underCollege = input.underCollege;
+    if (input.underMajor !== undefined)
+      aggregateInput.profile!.underMajor = input.underMajor;
+    if (input.graduateCollege !== undefined)
+      aggregateInput.profile!.graduateCollege = input.graduateCollege;
+    if (input.graduateMajor !== undefined)
+      aggregateInput.profile!.graduateMajor = input.graduateMajor;
 
-    await this.mentorProfileService.updateAggregate(userId, input);
+    await this.mentorProfileService.updateAggregate(userId, aggregateInput);
   }
 }
 
