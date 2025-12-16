@@ -169,7 +169,7 @@ export class AddMentorRequestDto {
   pricePerSession: number;
 }
 
-export class UpdateMentorPriceRequestDto {
+export class UpdateClassMentorPriceInClassRequestDto {
   @ApiProperty({
     description: 'Price per session',
     example: 120,
@@ -625,7 +625,7 @@ export class ClassController {
   async updateMentorPrice(
     @Param('id') classId: string,
     @Param('mentorId') mentorId: string,
-    @Body() dto: UpdateMentorPriceRequestDto,
+    @Body() dto: UpdateClassMentorPriceInClassRequestDto,
   ) {
     return this.classService.updateMentorPrice(classId, mentorId, dto.pricePerSession);
   }

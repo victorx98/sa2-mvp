@@ -13,7 +13,6 @@ import { ClassMentorPriceStatus } from "@shared/types/financial-enums";
 import { IClassMentorPriceService } from "../interfaces/class-mentor-price.interface";
 import { CreateClassMentorPriceDto } from "../dto/create-class-mentor-price.dto";
 import { UpdateClassMentorPriceDto } from "../dto/update-class-mentor-price.dto";
-import { ClassMentorPriceFilterDto } from "../dto/class-mentor-price-filter.dto";
 import {
   FinancialException,
   FinancialNotFoundException,
@@ -40,7 +39,7 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
    */
   public async createClassMentorPrice(
     dto: CreateClassMentorPriceDto,
-    updatedBy?: string,
+    _updatedBy?: string,
   ): Promise<ClassMentorPrice> {
     try {
       // Check if class mentor price already exists
@@ -101,7 +100,7 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
   public async updateClassMentorPrice(
     id: string,
     dto: UpdateClassMentorPriceDto,
-    updatedBy?: string,
+    _updatedBy?: string,
   ): Promise<ClassMentorPrice> {
     try {
       // Check if class mentor price exists and is active
@@ -159,7 +158,7 @@ export class ClassMentorPriceService implements IClassMentorPriceService {
   public async updateStatus(
     id: string,
     status: ClassMentorPriceStatus,
-    updatedBy?: string,
+    _updatedBy?: string,
   ): Promise<ClassMentorPrice> {
     try {
       // Check if class mentor price exists

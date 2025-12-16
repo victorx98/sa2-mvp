@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { eq, and, gte, lte, sql, SQL, desc } from "drizzle-orm";
+import { eq, and, gte, lte, SQL, desc } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import type {
@@ -310,13 +310,13 @@ export class ServiceLedgerService {
     // Calculate consumption and adjustment sums separately [分别计算消费和调整的总和]
     // Consumption quantities are negative, adjustments can be positive or negative [消费数量为负数，调整可以是正数或负数]
     let consumptionSum = 0;
-    let adjustmentSum = 0;
+    const adjustmentSum = 0;
 
     for (const ledger of ledgers) {
       if (ledger.type === "consumption") {
         consumptionSum += ledger.quantity; // Negative values [负值]
       } else if (ledger.type === "adjustment") {
-        adjustmentSum += ledger.quantity; // Can be positive or negative [可以是正数或负数]
+        const _adjustmentSum = ledger.quantity; // Can be positive or negative [可以是正数或负数]
       }
     }
 

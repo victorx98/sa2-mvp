@@ -7,13 +7,11 @@ import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { PlacementQueryController } from '@api/controllers/placement/placement-query.controller';
 import { PlacementQueryService } from '@domains/query/placement/placement-query.service';
-import { IJobQueryFilter } from '@domains/query/placement/dto/placement-query.dto';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { RolesGuard } from '@shared/guards/roles.guard';
 import { ValidationPipe } from '@nestjs/common';
 import { ClassSerializerInterceptor } from '@nestjs/common/serializer';
 import { APP_PIPE, APP_INTERCEPTOR } from '@nestjs/core';
-import { JobQueryDto } from '@api/dto/request/placement-query.request.dto';
 
 // Mock the PlacementQueryService [模拟PlacementQueryService]
 const mockPlacementQueryService = {

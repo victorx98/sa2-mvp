@@ -4,7 +4,7 @@
  * This file contains unit tests for the ClassMentorPriceService
  */
 
-import { Test, TestingModule } from "@nestjs/testing";
+import { Test } from "@nestjs/testing";
 import { ClassMentorPriceService } from "./class-mentor-price.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";

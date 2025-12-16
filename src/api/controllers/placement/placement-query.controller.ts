@@ -2,13 +2,32 @@
  * Placement Query Controller [岗位查询控制器]
  * Handles job query API requests [处理岗位查询API请求]
  */
-import { Controller, Get, Query, UsePipes, ValidationPipe, Logger, Inject, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  UsePipes,
+  ValidationPipe,
+  Logger,
+  Inject,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { PlacementQueryService } from '@domains/query/placement/placement-query.service';
 import { JobQueryDto } from '@api/dto/request/placement-query.request.dto';
 import { IJobQueryFilter } from '@domains/query/placement/dto/placement-query.dto';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
+import { JobQueryResponseDto, JobPositionResponseDto } from '@api/dto/response/placement/placement.response.dto';
 
 @Controller('api/query/placement')
+@ApiTags('Placement Query')
+@ApiBearerAuth()
 export class PlacementQueryController {
   private readonly logger = new Logger(PlacementQueryController.name);
 
@@ -25,6 +44,16 @@ export class PlacementQueryController {
    */
   @Get('jobs')
   @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Query jobs',
+    description:
+      'Queries recommended jobs with filter/pagination/sort. jobApplicationType is required. [带筛选/分页/排序查询推荐岗位，jobApplicationType必填]',
+  })
+  @ApiOkResponse({
+    description: 'Job query completed successfully',
+    type: JobQueryResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad request' })
   @UsePipes(new ValidationPipe({
     transform: true,
     whitelist: true,
@@ -33,7 +62,7 @@ export class PlacementQueryController {
       enableImplicitConversion: true,
     },
   }))
-  async queryJobs(@Query() queryDto: JobQueryDto) {
+  async queryJobs(@Query() queryDto: JobQueryDto): Promise<JobQueryResponseDto> {
     this.logger.log(`Received job query request: ${JSON.stringify(queryDto)}`);
 
     try {
@@ -58,7 +87,13 @@ export class PlacementQueryController {
 
       return {
         success: true,
-        data: results,
+        data: {
+          items: results.items as unknown as JobPositionResponseDto[],
+          total: results.total,
+          page: results.page,
+          pageSize: results.pageSize,
+          totalPages: results.totalPages,
+        },
         message: 'Job query completed successfully',
       };
     } catch (error) {

@@ -100,7 +100,7 @@ export const databaseProviders = [
       }
 
       const isDevelopment = configService.get("NODE_ENV") === "development";
-      const isTelemetryEnabled = process.env.OTEL_ENABLED !== "false";
+      const _isTelemetryEnabled = process.env.OTEL_ENABLED !== "false";
 
       // 创建基础的 Drizzle 客户端
       const db = drizzle(pool, {

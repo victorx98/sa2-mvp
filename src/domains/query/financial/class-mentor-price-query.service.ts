@@ -7,7 +7,7 @@
  */
 
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { eq, and, ne, asc, desc, count } from "drizzle-orm";
+import { eq, and, asc, desc, count } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";

@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { eq, and, sql, SQL, gte, lte, inArray, asc, desc } from "drizzle-orm";
+import { eq, and, sql, SQL, inArray, asc, desc } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import { DrizzleDatabase } from "@shared/types/database.types";
@@ -13,7 +13,6 @@ import { FindOneContractDto } from "../dto/find-one-contract.dto";
 import { ConsumeServiceDto } from "../dto/consume-service.dto";
 import { AddAmendmentLedgerDto } from "../dto/add-amendment-ledger.dto";
 import {
-  validatePrice,
   validateProductSnapshot,
   validateProductSnapshotMatch,
 } from "../common/utils/validation.utils";

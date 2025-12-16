@@ -2267,7 +2267,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateMentorPriceRequestDto"
+                "$ref": "#/components/schemas/UpdateClassMentorPriceInClassRequestDto"
               }
             }
           }
@@ -2962,6 +2962,7 @@
     },
     "/api/products": {
       "post": {
+        "description": "Creates a catalog product with optional entitlement items. [创建目录产品，可选带权益项]",
         "operationId": "ProductsController_create",
         "parameters": [],
         "requestBody": {
@@ -2969,19 +2970,31 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateProductDto"
+                "$ref": "#/components/schemas/CreateProductRequestDto"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Product created successfully"
+            "description": "Product created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Create a new product",
         "tags": [
           "Catalog Products"
@@ -2990,12 +3003,14 @@
     },
     "/api/products/{id}/snapshot": {
       "get": {
+        "description": "Creates a frozen snapshot of the current product for contract creation. [创建当前产品的冻结快照，用于创建合同]",
         "operationId": "ProductsController_createSnapshot",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Product ID (UUID). [产品ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3003,12 +3018,24 @@
         ],
         "responses": {
           "200": {
-            "description": "Product snapshot created successfully"
+            "description": "Product snapshot created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductSnapshotResponseDto"
+                }
+              }
+            }
           },
           "404": {
             "description": "Product not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Create product snapshot",
         "tags": [
           "Catalog Products"
@@ -3017,12 +3044,14 @@
     },
     "/api/products/{id}": {
       "get": {
+        "description": "Returns product detail with enriched entitlement items (service type code/name). [返回产品详情，包含补全后的权益项(服务类型编码/名称)]",
         "operationId": "ProductsController_getProductDetail",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Product ID (UUID). [产品ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3030,24 +3059,38 @@
         ],
         "responses": {
           "200": {
-            "description": "Product detail returned successfully"
+            "description": "Product detail returned successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDetailResponseDto"
+                }
+              }
+            }
           },
           "404": {
             "description": "Product not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Get product detail (with entitlements)",
         "tags": [
           "Catalog Products"
         ]
       },
       "patch": {
+        "description": "Updates product fields and product items (add/remove/sort). [更新产品字段及产品项(新增/删除/排序)]",
         "operationId": "ProductsController_update",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Product ID (UUID). [产品ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3058,19 +3101,31 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateProductDto"
+                "$ref": "#/components/schemas/UpdateProductRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Product updated successfully"
+            "description": "Product updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponseDto"
+                }
+              }
+            }
           },
           "404": {
             "description": "Product not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Update product",
         "tags": [
           "Catalog Products"
@@ -3079,12 +3134,14 @@
     },
     "/api/products/{id}/status": {
       "patch": {
+        "description": "Updates product lifecycle status (e.g., DRAFT/ACTIVE/INACTIVE). [更新产品生命周期状态，如DRAFT/ACTIVE/INACTIVE]",
         "operationId": "ProductsController_updateStatus",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Product ID (UUID). [产品ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3095,14 +3152,21 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateProductStatusDto"
+                "$ref": "#/components/schemas/UpdateProductStatusRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Product status updated successfully"
+            "description": "Product status updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request or invalid status transition"
@@ -3111,6 +3175,11 @@
             "description": "Product not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Update product status",
         "tags": [
           "Catalog Products"
@@ -3119,14 +3188,14 @@
     },
     "/api/contracts/students/{studentId}/service-balance": {
       "get": {
-        "description": "Retrieve all service entitlements (balance information) for a student",
+        "description": "Retrieve all service entitlements (balance information) for a student. [获取学生的服务权益余额信息]",
         "operationId": "ContractsController_getStudentServiceBalance",
         "parameters": [
           {
             "name": "studentId",
             "required": true,
             "in": "path",
-            "description": "Student ID (UUID)",
+            "description": "Student ID (UUID). [学生ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3140,28 +3209,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "properties": {
-                      "studentId": {
-                        "type": "string",
-                        "format": "uuid"
-                      },
-                      "serviceType": {
-                        "type": "string"
-                      },
-                      "totalQuantity": {
-                        "type": "number"
-                      },
-                      "consumedQuantity": {
-                        "type": "number"
-                      },
-                      "heldQuantity": {
-                        "type": "number"
-                      },
-                      "availableQuantity": {
-                        "type": "number"
-                      }
-                    }
+                    "$ref": "#/components/schemas/ServiceBalanceResponseDto"
                   }
                 }
               }
@@ -3174,6 +3222,11 @@
             "description": "Student not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Get service entitlements for a specific student",
         "tags": [
           "Admin Contracts"
@@ -3182,14 +3235,14 @@
     },
     "/api/contracts/students/{studentId}": {
       "get": {
-        "description": "Retrieve all contracts purchased by a student with product information and contract status",
+        "description": "Retrieve all contracts purchased by a student with product information and contract status. [查询学生购买的合同列表，包含产品摘要与合同状态]",
         "operationId": "ContractsController_getStudentContracts",
         "parameters": [
           {
             "name": "studentId",
             "required": true,
             "in": "path",
-            "description": "Student ID (UUID)",
+            "description": "Student ID (UUID). [学生ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3203,39 +3256,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "string",
-                        "format": "uuid"
-                      },
-                      "contract_number": {
-                        "type": "string"
-                      },
-                      "product": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "format": "uuid"
-                          },
-                          "name": {
-                            "type": "string"
-                          }
-                        }
-                      },
-                      "status": {
-                        "type": "string",
-                        "enum": [
-                          "DRAFT",
-                          "SIGNED",
-                          "ACTIVE",
-                          "SUSPENDED",
-                          "COMPLETED",
-                          "TERMINATED"
-                        ]
-                      }
-                    }
+                    "$ref": "#/components/schemas/StudentContractResponseDto"
                   }
                 }
               }
@@ -3248,6 +3269,11 @@
             "description": "Student not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Get contracts purchased by a specific student",
         "tags": [
           "Admin Contracts"
@@ -3256,6 +3282,7 @@
     },
     "/api/contracts": {
       "post": {
+        "description": "Creates a contract from a frozen product snapshot. [基于产品快照创建合同]",
         "operationId": "ContractsController_create",
         "parameters": [],
         "requestBody": {
@@ -3263,19 +3290,31 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateContractDto"
+                "$ref": "#/components/schemas/CreateContractRequestDto"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Contract created successfully"
+            "description": "Contract created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Create a new contract",
         "tags": [
           "Admin Contracts"
@@ -3284,12 +3323,14 @@
     },
     "/api/contracts/{id}/status": {
       "patch": {
+        "description": "Updates contract status with optional reason/signer. [更新合同状态，可选原因/签署人]",
         "operationId": "ContractsController_updateStatus",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Contract ID (UUID). [合同ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3300,14 +3341,21 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateContractStatusDto"
+                "$ref": "#/components/schemas/UpdateContractStatusRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Contract status updated successfully"
+            "description": "Contract status updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Invalid status transition"
@@ -3316,6 +3364,11 @@
             "description": "Contract not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Update contract status",
         "tags": [
           "Admin Contracts"
@@ -3324,12 +3377,14 @@
     },
     "/api/contracts/{id}": {
       "patch": {
+        "description": "Updates contract core fields (title/amount/currency/validity). [更新合同核心字段(标题/金额/币种/有效期)]",
         "operationId": "ContractsController_update",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Contract ID (UUID). [合同ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3340,19 +3395,31 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateContractDto"
+                "$ref": "#/components/schemas/UpdateContractRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Contract updated successfully"
+            "description": "Contract updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractResponseDto"
+                }
+              }
+            }
           },
           "404": {
             "description": "Contract not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Update contract",
         "tags": [
           "Admin Contracts"
@@ -3361,6 +3428,7 @@
     },
     "/api/contracts/consume": {
       "post": {
+        "description": "Consumes student entitlements when a service is delivered (e.g., session completed). [在服务交付后消费学生权益，例如会话完成]",
         "operationId": "ContractsController_consumeService",
         "parameters": [],
         "requestBody": {
@@ -3368,14 +3436,21 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ConsumeServiceDto"
+                "$ref": "#/components/schemas/ConsumeServiceRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Service consumed successfully"
+            "description": "Service consumed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumeServiceResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request"
@@ -3384,6 +3459,11 @@
             "description": "Student or entitlement not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Consume service",
         "tags": [
           "Admin Contracts"
@@ -3392,6 +3472,7 @@
     },
     "/api/contracts/amendment-ledger": {
       "post": {
+        "description": "Adds entitlement amendment ledger entry and returns updated entitlement record. [添加权益变更台账并返回更新后的权益记录]",
         "operationId": "ContractsController_addAmendmentLedger",
         "parameters": [],
         "requestBody": {
@@ -3399,19 +3480,31 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AddAmendmentLedgerDto"
+                "$ref": "#/components/schemas/AddAmendmentLedgerRequestDto"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Amendment ledger added successfully"
+            "description": "Amendment ledger added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractServiceEntitlementResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Add amendment ledger",
         "tags": [
           "Admin Contracts"
@@ -3420,6 +3513,7 @@
     },
     "/api/financial/mentor-appeals": {
       "post": {
+        "description": "Creates a mentor appeal record and sets createdBy from current user. [创建导师申诉记录，createdBy 从当前用户注入]",
         "operationId": "FinancialController_createMentorAppeal",
         "parameters": [],
         "requestBody": {
@@ -3427,19 +3521,31 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateAppealDto"
+                "$ref": "#/components/schemas/CreateMentorAppealRequestDto"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Mentor appeal created successfully"
+            "description": "Mentor appeal created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MentorAppealResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Create a new mentor appeal",
         "tags": [
           "Admin Financial"
@@ -3448,12 +3554,14 @@
     },
     "/api/financial/mentor-appeals/{id}/approve": {
       "patch": {
+        "description": "Approves a pending mentor appeal and optionally overrides amount/currency. [批准待处理导师申诉，可选覆盖金额/币种]",
         "operationId": "FinancialController_approveMentorAppeal",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Appeal ID (UUID). [申诉ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3464,14 +3572,21 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ApproveAppealDto"
+                "$ref": "#/components/schemas/ApproveMentorAppealRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Mentor appeal approved successfully"
+            "description": "Mentor appeal approved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MentorAppealResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request"
@@ -3480,6 +3595,11 @@
             "description": "Mentor appeal not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Approve mentor appeal",
         "tags": [
           "Admin Financial"
@@ -3488,12 +3608,14 @@
     },
     "/api/financial/mentor-appeals/{id}/reject": {
       "patch": {
+        "description": "Rejects a pending mentor appeal and records rejection reason. [驳回待处理导师申诉并记录驳回理由]",
         "operationId": "FinancialController_rejectMentorAppeal",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Appeal ID (UUID). [申诉ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3504,19 +3626,31 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RejectAppealDto"
+                "$ref": "#/components/schemas/RejectMentorAppealRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Mentor appeal rejected successfully"
+            "description": "Mentor appeal rejected successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MentorAppealResponseDto"
+                }
+              }
+            }
           },
           "404": {
             "description": "Mentor appeal not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Reject mentor appeal",
         "tags": [
           "Admin Financial"
@@ -3525,16 +3659,39 @@
     },
     "/api/financial/settlements": {
       "post": {
+        "description": "Generates a settlement ledger for a mentor and month. [为指定导师与月份生成结算记录]",
         "operationId": "FinancialController_generateSettlement",
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSettlementRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
-            "description": "Settlement generated successfully"
+            "description": "Settlement generated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementDetailResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Generate settlement bill",
         "tags": [
           "Admin Financial"
@@ -3543,6 +3700,7 @@
     },
     "/api/financial/mentor-prices": {
       "post": {
+        "description": "Creates mentor pricing configuration for a session type. [创建导师某会话类型的价格配置]",
         "operationId": "FinancialController_createMentorPrice",
         "parameters": [],
         "requestBody": {
@@ -3550,19 +3708,31 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateMentorPriceDto"
+                "$ref": "#/components/schemas/CreateMentorPriceRequestDto"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Mentor price created successfully"
+            "description": "Mentor price created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MentorPriceResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Create mentor price",
         "tags": [
           "Admin Financial"
@@ -3571,12 +3741,14 @@
     },
     "/api/financial/mentor-prices/{id}": {
       "put": {
+        "description": "Updates mentor pricing configuration fields. [更新导师价格配置字段]",
         "operationId": "FinancialController_updateMentorPrice",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Mentor price ID (UUID). [导师价格ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3587,19 +3759,31 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateMentorPriceDto"
+                "$ref": "#/components/schemas/UpdateMentorPriceRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Mentor price updated successfully"
+            "description": "Mentor price updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MentorPriceResponseDto"
+                }
+              }
+            }
           },
           "404": {
             "description": "Mentor price not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Update mentor price",
         "tags": [
           "Admin Financial"
@@ -3608,12 +3792,14 @@
     },
     "/api/financial/mentor-prices/{id}/status": {
       "patch": {
+        "description": "Activates or deactivates a mentor price record. [启用/停用导师价格记录]",
         "operationId": "FinancialController_updateMentorPriceStatus",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Mentor price ID (UUID). [导师价格ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3624,7 +3810,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateMentorPriceStatusDto"
+                "$ref": "#/components/schemas/UpdateMentorPriceStatusRequestDto"
               }
             }
           }
@@ -3637,6 +3823,11 @@
             "description": "Mentor price not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Update mentor price status",
         "tags": [
           "Admin Financial"
@@ -3645,6 +3836,7 @@
     },
     "/api/financial/mentor-prices/batch": {
       "post": {
+        "description": "Creates multiple mentor price records in one request. [一次请求批量创建导师价格记录]",
         "operationId": "FinancialController_batchCreateMentorPrices",
         "parameters": [],
         "requestBody": {
@@ -3652,25 +3844,41 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BulkCreateMentorPriceDto"
+                "$ref": "#/components/schemas/BulkCreateMentorPriceRequestDto"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Mentor prices created successfully"
+            "description": "Mentor prices created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MentorPriceResponseDto"
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Batch create mentor prices",
         "tags": [
           "Admin Financial"
         ]
       },
       "put": {
+        "description": "Updates multiple mentor price records in one request. [一次请求批量更新导师价格记录]",
         "operationId": "FinancialController_batchUpdateMentorPrices",
         "parameters": [],
         "requestBody": {
@@ -3678,19 +3886,34 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BulkUpdateMentorPriceDto"
+                "$ref": "#/components/schemas/BulkUpdateMentorPriceRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Mentor prices updated successfully"
+            "description": "Mentor prices updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MentorPriceResponseDto"
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Batch update mentor prices",
         "tags": [
           "Admin Financial"
@@ -3699,6 +3922,7 @@
     },
     "/api/financial/class-mentor-prices": {
       "post": {
+        "description": "Creates class-level mentor price configuration. [创建班级维度的导师价格配置]",
         "operationId": "FinancialController_createClassMentorPrice",
         "parameters": [],
         "requestBody": {
@@ -3706,89 +3930,145 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateClassMentorPriceDto"
+                "$ref": "#/components/schemas/CreateClassMentorPriceRequestDto"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Class mentor price created successfully"
+            "description": "Class mentor price created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassMentorPriceResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Create class mentor price",
         "tags": [
           "Admin Financial"
         ]
       },
       "get": {
+        "description": "Searches class mentor prices with filters, pagination and sorting. [按条件查询班级导师价格，支持分页与排序]",
         "operationId": "FinancialController_searchClassMentorPrices",
         "parameters": [
           {
             "name": "classId",
-            "required": true,
+            "required": false,
             "in": "query",
+            "description": "Filter by class ID (UUID). [按班级ID(UUID)筛选]",
             "schema": {
+              "format": "uuid",
               "type": "string"
             }
           },
           {
             "name": "mentorUserId",
-            "required": true,
+            "required": false,
             "in": "query",
+            "description": "Filter by mentor user ID (UUID). [按导师用户ID(UUID)筛选]",
             "schema": {
+              "format": "uuid",
               "type": "string"
             }
           },
           {
             "name": "status",
-            "required": true,
+            "required": false,
             "in": "query",
+            "description": "Filter by status. Default: ACTIVE when omitted. [按状态筛选，不传默认ACTIVE]",
             "schema": {
-              "type": "string"
+              "default": "active",
+              "type": "string",
+              "enum": [
+                "inactive",
+                "active"
+              ]
             }
           },
           {
             "name": "page",
-            "required": true,
+            "required": false,
             "in": "query",
+            "description": "Page number. Default: 1. [页码，默认1]",
             "schema": {
+              "minimum": 1,
+              "default": 1,
+              "example": 1,
               "type": "number"
             }
           },
           {
             "name": "pageSize",
-            "required": true,
+            "required": false,
             "in": "query",
+            "description": "Page size. Default: 20. [每页条数，默认20]",
             "schema": {
+              "minimum": 1,
+              "default": 20,
+              "example": 20,
               "type": "number"
             }
           },
           {
             "name": "sortField",
-            "required": true,
+            "required": false,
             "in": "query",
+            "description": "Sort field. Allowed: createdAt, updatedAt, pricePerSession. Default: createdAt. [排序字段：createdAt/updatedAt/pricePerSession，默认createdAt]",
             "schema": {
-              "type": "string"
+              "default": "createdAt",
+              "type": "string",
+              "enum": [
+                "createdAt",
+                "updatedAt",
+                "pricePerSession"
+              ]
             }
           },
           {
             "name": "sortOrder",
-            "required": true,
+            "required": false,
             "in": "query",
+            "description": "Sort order. Default: desc. [排序方向，默认desc]",
             "schema": {
-              "type": "string"
+              "default": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Class mentor prices retrieved successfully"
+            "description": "Class mentor prices retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedClassMentorPriceResponseDto"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Search class mentor prices",
         "tags": [
           "Admin Financial"
@@ -3797,12 +4077,14 @@
     },
     "/api/financial/class-mentor-prices/{id}": {
       "get": {
+        "description": "Returns class mentor price with mentor name info. [按ID查询班级导师价格，包含导师姓名信息]",
         "operationId": "FinancialController_getClassMentorPriceById",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Class mentor price ID (UUID). [班级导师价格ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3810,24 +4092,38 @@
         ],
         "responses": {
           "200": {
-            "description": "Class mentor price retrieved successfully"
+            "description": "Class mentor price retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassMentorPriceWithMentorResponseDto"
+                }
+              }
+            }
           },
           "404": {
             "description": "Class mentor price not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Get class mentor price by ID",
         "tags": [
           "Admin Financial"
         ]
       },
       "put": {
+        "description": "Updates class mentor price fields (e.g., pricePerSession). [更新班级导师价格字段，如pricePerSession]",
         "operationId": "FinancialController_updateClassMentorPrice",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Class mentor price ID (UUID). [班级导师价格ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3838,19 +4134,31 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateClassMentorPriceDto"
+                "$ref": "#/components/schemas/UpdateClassMentorPriceRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Class mentor price updated successfully"
+            "description": "Class mentor price updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassMentorPriceResponseDto"
+                }
+              }
+            }
           },
           "404": {
             "description": "Class mentor price not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Update class mentor price",
         "tags": [
           "Admin Financial"
@@ -3859,12 +4167,14 @@
     },
     "/api/financial/class-mentor-prices/by-class-and-mentor": {
       "get": {
+        "description": "Finds a class mentor price record by classId and mentorUserId. [按班级ID与导师ID查询班级导师价格记录]",
         "operationId": "FinancialController_getClassMentorPriceByClassAndMentor",
         "parameters": [
           {
             "name": "classId",
             "required": true,
             "in": "query",
+            "description": "Class ID (UUID). [班级ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3873,6 +4183,7 @@
             "name": "mentorUserId",
             "required": true,
             "in": "query",
+            "description": "Mentor user ID (UUID). [导师用户ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3880,9 +4191,21 @@
         ],
         "responses": {
           "200": {
-            "description": "Class mentor price retrieved successfully"
+            "description": "Class mentor price retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassMentorPriceWithMentorResponseDto"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Get class mentor price by class and mentor",
         "tags": [
           "Admin Financial"
@@ -3891,12 +4214,14 @@
     },
     "/api/financial/class-mentor-prices/{id}/status": {
       "patch": {
+        "description": "Updates status of class mentor price record. [更新班级导师价格记录状态]",
         "operationId": "FinancialController_updateClassMentorPriceStatus",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Class mentor price ID (UUID). [班级导师价格ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3907,19 +4232,31 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateClassMentorPriceStatusDto"
+                "$ref": "#/components/schemas/UpdateClassMentorPriceStatusRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Class mentor price status updated successfully"
+            "description": "Class mentor price status updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassMentorPriceResponseDto"
+                }
+              }
+            }
           },
           "404": {
             "description": "Class mentor price not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Update class mentor price status",
         "tags": [
           "Admin Financial"
@@ -3928,12 +4265,14 @@
     },
     "/api/financial/payable-ledgers/{id}/adjust": {
       "post": {
+        "description": "Creates an adjustment record for a payable ledger. [为应付账款创建调整记录]",
         "operationId": "FinancialController_adjustPayableLedger",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Payable ledger ID (UUID). [应付账款ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -3944,7 +4283,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AdjustPayableLedgerDto"
+                "$ref": "#/components/schemas/AdjustPayableLedgerRequestDto"
               }
             }
           }
@@ -3957,6 +4296,11 @@
             "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Adjust payable ledger",
         "tags": [
           "Admin Financial"
@@ -3965,12 +4309,14 @@
     },
     "/api/financial/payment-params/{currency}/{settlementMonth}": {
       "put": {
+        "description": "Creates or updates default payment parameters for a currency and settlement month. [为币种+结算月份创建或更新默认支付参数]",
         "operationId": "FinancialController_updateOrCreatePaymentParams",
         "parameters": [
           {
             "name": "currency",
             "required": true,
             "in": "path",
+            "description": "Currency code (ISO 4217). [币种码(ISO 4217)]",
             "schema": {
               "type": "string"
             }
@@ -3979,11 +4325,22 @@
             "name": "settlementMonth",
             "required": true,
             "in": "path",
+            "description": "Settlement month (YYYY-MM). [结算月份(YYYY-MM)]",
             "schema": {
               "type": "string"
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentParamUpdateRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Payment parameters updated successfully"
@@ -3992,18 +4349,25 @@
             "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Create or update payment parameters",
         "tags": [
           "Admin Financial"
         ]
       },
       "patch": {
+        "description": "Partially modifies default payment parameters. [部分更新默认支付参数]",
         "operationId": "FinancialController_modifyPaymentParams",
         "parameters": [
           {
             "name": "currency",
             "required": true,
             "in": "path",
+            "description": "Currency code (ISO 4217). [币种码(ISO 4217)]",
             "schema": {
               "type": "string"
             }
@@ -4012,11 +4376,22 @@
             "name": "settlementMonth",
             "required": true,
             "in": "path",
+            "description": "Settlement month (YYYY-MM). [结算月份(YYYY-MM)]",
             "schema": {
               "type": "string"
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifyPaymentParamsRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Payment parameters modified successfully"
@@ -4025,6 +4400,11 @@
             "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Modify payment parameters",
         "tags": [
           "Admin Financial"
@@ -4033,16 +4413,39 @@
     },
     "/api/financial/mentor-payment-infos": {
       "put": {
+        "description": "Creates or updates mentor payment info. paymentDetails is polymorphic by paymentMethod. [创建或更新导师支付信息，paymentDetails 随 paymentMethod 多态变化]",
         "operationId": "FinancialController_createOrUpdateMentorPaymentInfo",
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrUpdateMentorPaymentInfoRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Mentor payment info updated successfully"
+            "description": "Mentor payment info updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MentorPaymentInfoResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Create or update mentor payment info",
         "tags": [
           "Admin Financial"
@@ -4051,25 +4454,49 @@
     },
     "/api/financial/mentor-payment-infos/{id}/status": {
       "patch": {
+        "description": "Updates status of a mentor payment info record. [更新导师支付信息记录状态]",
         "operationId": "FinancialController_updateMentorPaymentInfoStatus",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Payment info ID (UUID). [支付信息ID(UUID)]",
             "schema": {
               "type": "string"
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMentorPaymentInfoStatusRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Mentor payment info status updated successfully"
+            "description": "Mentor payment info status updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MentorPaymentInfoResponseDto"
+                }
+              }
+            }
           },
           "404": {
             "description": "Mentor payment info not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Update mentor payment info status",
         "tags": [
           "Admin Financial"
@@ -4078,16 +4505,39 @@
     },
     "/api/placement/job-positions": {
       "post": {
+        "description": "Creates a job position in recommended_jobs. createdBy is set from current user. [创建推荐岗位记录，createdBy 由当前用户注入]",
         "operationId": "PlacementController_createJobPosition",
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateJobPositionRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
-            "description": "Job position created successfully"
+            "description": "Job position created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobPositionResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Create a new job position",
         "tags": [
           "Admin Placement"
@@ -4096,12 +4546,14 @@
     },
     "/api/placement/job-positions/{id}/expire": {
       "patch": {
+        "description": "Marks a job position as expired. [标记岗位为expired]",
         "operationId": "PlacementController_markJobPositionExpired",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Job ID (UUID). [岗位ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -4109,12 +4561,24 @@
         ],
         "responses": {
           "200": {
-            "description": "Job position marked as expired successfully"
+            "description": "Job position marked as expired successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobPositionResponseDto"
+                }
+              }
+            }
           },
           "404": {
             "description": "Job position not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Mark job position as expired",
         "tags": [
           "Admin Placement"
@@ -4123,12 +4587,14 @@
     },
     "/api/placement/job-applications/{id}/status": {
       "patch": {
+        "description": "Updates application status. Counselor role is restricted to 'revoked' only. [更新投递状态；顾问角色仅允许revoked]",
         "operationId": "PlacementController_updateJobApplicationStatus",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Application ID (UUID). [投递ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -4146,12 +4612,24 @@
         },
         "responses": {
           "200": {
-            "description": "Job application status updated successfully"
+            "description": "Job application status updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobApplicationServiceResultResponseDto"
+                }
+              }
+            }
           },
           "404": {
             "description": "Job application not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Update job application status",
         "tags": [
           "Admin Placement"
@@ -4160,20 +4638,39 @@
     },
     "/api/placement/job-applications/{id}/rollback": {
       "patch": {
+        "description": "Rolls back application status to previous state. [将投递状态回撤到上一个状态]",
         "operationId": "PlacementController_rollbackJobApplicationStatus",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Application ID (UUID). [投递ID(UUID)]",
             "schema": {
               "type": "string"
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RollbackJobApplicationStatusRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Job application status rolled back successfully"
+            "description": "Job application status rolled back successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobApplicationResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request - insufficient history or invalid transition"
@@ -4182,6 +4679,11 @@
             "description": "Job application not found"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Rollback job application status",
         "tags": [
           "Admin Placement"
@@ -4190,20 +4692,217 @@
     },
     "/api/query/placement/jobs": {
       "get": {
+        "description": "Queries recommended jobs with filter/pagination/sort. jobApplicationType is required. [带筛选/分页/排序查询推荐岗位，jobApplicationType必填]",
         "operationId": "PlacementQueryController_queryJobs",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (1-based). Default: 1. [页码(从1开始)，默认1]",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Page size. Default: 20. [每页条数，默认20]",
+            "schema": {
+              "minimum": 1,
+              "default": 20,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
+            "in": "query",
+            "description": "Sort field. Default: postDate. [排序字段，默认postDate]",
+            "schema": {
+              "default": "postDate",
+              "example": "postDate",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortDirection",
+            "required": false,
+            "in": "query",
+            "description": "Sort direction. Default: desc. [排序方向，默认desc]",
+            "schema": {
+              "default": "desc",
+              "example": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "location",
+            "required": false,
+            "in": "query",
+            "description": "Location filter (single value). [地点筛选(单值)]",
+            "schema": {
+              "example": "San Jose, CA",
+              "type": "string"
+            }
+          },
+          {
+            "name": "jobType",
+            "required": false,
+            "in": "query",
+            "description": "Job type filter (single value). [职位类型筛选(单值)]",
+            "schema": {
+              "example": "full_time",
+              "type": "string"
+            }
+          },
+          {
+            "name": "level",
+            "required": false,
+            "in": "query",
+            "description": "Job level filter. [岗位级别筛选]",
+            "schema": {
+              "example": "entry_level",
+              "type": "string",
+              "enum": [
+                "entry_level",
+                "mid_level",
+                "senior_level"
+              ]
+            }
+          },
+          {
+            "name": "jobTitles",
+            "required": false,
+            "in": "query",
+            "description": "Job titles filter (multi). [职位标题筛选(多值)]",
+            "schema": {
+              "example": [
+                "Software Engineer",
+                "Backend Engineer"
+              ],
+              "type": "array",
+              "items": {
+                "type": "array"
+              }
+            }
+          },
+          {
+            "name": "keyword",
+            "required": false,
+            "in": "query",
+            "description": "Keyword search on title/company. [关键词搜索(标题/公司)]",
+            "schema": {
+              "example": "OpenAI",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Job status filter. Default: active. [岗位状态筛选，默认active]",
+            "schema": {
+              "default": "active",
+              "example": "active",
+              "type": "string"
+            }
+          },
+          {
+            "name": "h1b",
+            "required": false,
+            "in": "query",
+            "description": "H1B support filter. [H1B筛选]",
+            "schema": {
+              "example": "yes",
+              "type": "string"
+            }
+          },
+          {
+            "name": "usCitizenship",
+            "required": false,
+            "in": "query",
+            "description": "US citizenship requirement filter. [美国公民身份筛选]",
+            "schema": {
+              "example": "no",
+              "type": "string"
+            }
+          },
+          {
+            "name": "jobApplicationType",
+            "required": true,
+            "in": "query",
+            "description": "Job application type filter (single value). Required. [投递类型筛选(单值)，必填]",
+            "schema": {
+              "example": "direct",
+              "type": "string",
+              "enum": [
+                "direct",
+                "proxy",
+                "referral",
+                "bd"
+              ]
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Start date (ISO 8601). [开始日期(ISO 8601)]",
+            "schema": {
+              "example": "2025-11-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "End date (ISO 8601). [结束日期(ISO 8601)]",
+            "schema": {
+              "example": "2025-11-30",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Job query completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobQueryResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Query jobs",
         "tags": [
-          "PlacementQuery"
+          "Placement Query"
         ]
       }
     },
     "/api/placement/referrals/recommendations/batch": {
       "post": {
+        "description": "Counselor recommends jobs to students by creating referral applications (all-or-nothing). [顾问批量给学生推荐岗位并创建内推投递记录(全成功事务)]",
         "operationId": "PlacementReferralController_batchRecommendReferralApplications",
         "parameters": [],
         "requestBody": {
@@ -4218,12 +4917,24 @@
         },
         "responses": {
           "201": {
-            "description": "Referral applications recommended"
+            "description": "Referral applications recommended",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchRecommendReferralApplicationsResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Batch recommend referral applications",
         "tags": [
           "Placement Referral"
@@ -4232,12 +4943,14 @@
     },
     "/api/placement/referrals/{applicationId}/mentor": {
       "patch": {
+        "description": "Assigns mentor to a referral application and sets status to mentor_assigned. [为内推投递指定导师并设置状态为mentor_assigned]",
         "operationId": "PlacementReferralController_assignReferralMentor",
         "parameters": [
           {
             "name": "applicationId",
             "required": true,
             "in": "path",
+            "description": "Application ID (UUID). [投递ID(UUID)]",
             "schema": {
               "type": "string"
             }
@@ -4255,12 +4968,24 @@
         },
         "responses": {
           "200": {
-            "description": "Referral mentor assigned"
+            "description": "Referral mentor assigned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobApplicationResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request"
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Assign mentor for a referral application",
         "tags": [
           "Placement Referral"
@@ -5423,7 +6148,7 @@
         "type": "object",
         "properties": {}
       },
-      "UpdateMentorPriceRequestDto": {
+      "UpdateClassMentorPriceInClassRequestDto": {
         "type": "object",
         "properties": {
           "pricePerSession": {
@@ -6151,22 +6876,657 @@
           }
         }
       },
-      "CreateProductDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "UpdateProductStatusDto": {
+      "ProductFaqRequestDto": {
         "type": "object",
         "properties": {
+          "question": {
+            "type": "string",
+            "description": "FAQ question. Used for product marketing and student decision making. [常见问题-问题，用于产品营销与学生决策]",
+            "example": "What is included in this package?"
+          },
+          "answer": {
+            "type": "string",
+            "description": "FAQ answer. Provide clear and actionable guidance. [常见问题-答案，需清晰可执行]",
+            "example": "You will receive 4 sessions and 1 resume review."
+          }
+        },
+        "required": [
+          "question",
+          "answer"
+        ]
+      },
+      "ProductMetadataRequestDto": {
+        "type": "object",
+        "properties": {
+          "features": {
+            "description": "Key product features shown in the catalog. [产品亮点，用于目录展示]",
+            "example": [
+              "1-on-1 mentoring",
+              "Resume review"
+            ],
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "faqs": {
+            "description": "Frequently asked questions displayed in the catalog. [目录展示的常见问题列表]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductFaqRequestDto"
+            }
+          },
+          "deliverables": {
+            "description": "Deliverables the student will get after purchase. [购买后可获得的交付物]",
+            "example": [
+              "Resume PDF feedback",
+              "Mock interview recording"
+            ],
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "duration": {
+            "type": "string",
+            "description": "Marketing-only duration text shown to users (not used for billing). [展示用时长文本，不参与计费]",
+            "example": "4 weeks"
+          },
+          "prerequisites": {
+            "description": "Prerequisites the student should prepare before using the product. [使用前置条件/准备事项]",
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          }
+        }
+      },
+      "CreateProductItemRequestDto": {
+        "type": "object",
+        "properties": {
+          "serviceTypeId": {
+            "type": "string",
+            "description": "Service type ID (UUID). Identifies the entitlement item. [服务类型ID(UUID)，标识权益项]",
+            "format": "uuid",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantity of this service type included in the product. Must be >= 1. [该服务类型包含次数，必须>=1]",
+            "example": 4,
+            "minimum": 1
+          },
+          "sortOrder": {
+            "type": "number",
+            "description": "Sort order in product detail display. Default: 0 when omitted. [展示排序，未传时默认0]",
+            "default": 0,
+            "example": 1,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "serviceTypeId",
+          "quantity"
+        ]
+      },
+      "CreateProductRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Product name. [产品名称]",
+            "example": "Premium Mentoring Package"
+          },
+          "code": {
+            "type": "string",
+            "description": "Product code (unique). Used for internal reference and contract snapshots. [产品编码(唯一)，用于内部引用与合同快照]",
+            "example": "PKG_PREMIUM_MENTORING_4"
+          },
+          "description": {
+            "type": "string",
+            "description": "Product description for marketing. [产品描述，用于营销展示]",
+            "example": "4 sessions with senior mentors + resume review."
+          },
+          "coverImage": {
+            "type": "string",
+            "description": "Cover image URL. [封面图URL]",
+            "example": "https://placehold.co/600x400"
+          },
+          "targetUserPersonas": {
+            "type": "array",
+            "description": "Target user personas. [目标用户画像]",
+            "example": [
+              "undergraduate"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "undergraduate",
+                "graduate",
+                "working"
+              ]
+            }
+          },
+          "price": {
+            "type": "number",
+            "description": "Product price. Must be > 0. [产品价格，必须>0]",
+            "example": 1999,
+            "minimum": 0.01
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency (ISO 4217). Default is decided by domain/service when omitted. [币种(ISO 4217)，不传时由领域/服务默认]",
+            "enum": [
+              "USD",
+              "CNY",
+              "EUR",
+              "GBP",
+              "JPY"
+            ],
+            "example": "USD"
+          },
+          "marketingLabels": {
+            "type": "array",
+            "description": "Marketing labels shown on product cards. [产品卡片营销标签]",
+            "items": {
+              "type": "string",
+              "enum": [
+                "hot",
+                "new",
+                "recommended"
+              ]
+            }
+          },
+          "metadata": {
+            "description": "Product metadata for display and guidance. [用于展示与指导的产品元数据]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductMetadataRequestDto"
+              }
+            ]
+          },
+          "items": {
+            "description": "Product entitlement items. If omitted, product contains no entitlements initially. [产品权益项列表，不传则初始无权益项]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateProductItemRequestDto"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "code",
+          "price"
+        ]
+      },
+      "ProductFaqResponseDto": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "FAQ question. [常见问题-问题]",
+            "example": "What is included in this package?"
+          },
+          "answer": {
+            "type": "string",
+            "description": "FAQ answer. [常见问题-答案]",
+            "example": "You will receive 4 sessions and 1 resume review."
+          }
+        },
+        "required": [
+          "question",
+          "answer"
+        ]
+      },
+      "ProductMetadataResponseDto": {
+        "type": "object",
+        "properties": {
+          "features": {
+            "description": "Key product features. [产品亮点]",
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "faqs": {
+            "description": "Frequently asked questions. [常见问题列表]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductFaqResponseDto"
+            }
+          },
+          "deliverables": {
+            "description": "Deliverables. [交付物]",
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "duration": {
+            "type": "string",
+            "description": "Marketing duration text. [展示用时长文本]",
+            "example": "4 weeks"
+          },
+          "prerequisites": {
+            "description": "Prerequisites. [前置条件/准备事项]",
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          }
+        }
+      },
+      "ProductItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Product item ID (UUID). [产品项ID(UUID)]",
+            "format": "uuid"
+          },
+          "productId": {
+            "type": "string",
+            "description": "Product ID (UUID). [产品ID(UUID)]",
+            "format": "uuid"
+          },
+          "serviceTypeId": {
+            "type": "string",
+            "description": "Service type ID (UUID). [服务类型ID(UUID)]",
+            "format": "uuid"
+          },
+          "serviceTypeCode": {
+            "type": "string",
+            "description": "Service type code. Used for contract snapshots and entitlement aggregation. [服务类型编码，用于合同快照与权益汇总]",
+            "example": "resume_review"
+          },
+          "serviceTypeName": {
+            "type": "string",
+            "description": "Service type name for display. [服务类型名称(展示用)]",
+            "example": "Resume Review"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantity included. [包含次数]",
+            "example": 4
+          },
+          "sortOrder": {
+            "type": "number",
+            "description": "Sort order. [展示排序]",
+            "example": 0
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Created time (ISO 8601). [创建时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Updated time (ISO 8601). [更新时间(ISO 8601)]",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "productId",
+          "serviceTypeId",
+          "serviceTypeCode",
+          "serviceTypeName",
+          "quantity",
+          "sortOrder",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ProductResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Product ID (UUID). [产品ID(UUID)]",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "description": "Product name. [产品名称]"
+          },
+          "code": {
+            "type": "string",
+            "description": "Product code (unique). [产品编码(唯一)]"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description. [描述]"
+          },
+          "coverImage": {
+            "type": "string",
+            "description": "Cover image URL. [封面图URL]"
+          },
+          "targetUserPersonas": {
+            "type": "array",
+            "description": "Target user personas. [目标用户画像]",
+            "items": {
+              "type": "string",
+              "enum": [
+                "undergraduate",
+                "graduate",
+                "working"
+              ]
+            }
+          },
+          "price": {
+            "type": "string",
+            "description": "Price stored as decimal string (precision preserved). [价格(字符串，保留精度)]",
+            "example": "1999.00"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency. [币种]",
+            "enum": [
+              "USD",
+              "CNY",
+              "EUR",
+              "GBP",
+              "JPY"
+            ],
+            "example": "USD"
+          },
+          "marketingLabels": {
+            "type": "array",
+            "description": "Marketing labels. [营销标签]",
+            "items": {
+              "type": "string",
+              "enum": [
+                "hot",
+                "new",
+                "recommended"
+              ]
+            }
+          },
           "status": {
             "type": "string",
+            "description": "Product status. [产品状态]",
             "enum": [
               "DRAFT",
               "ACTIVE",
               "INACTIVE",
               "DELETED"
             ],
-            "description": "Target status for the product",
+            "example": "DRAFT"
+          },
+          "publishedAt": {
+            "type": "string",
+            "description": "Published time (ISO 8601). [发布时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "unpublishedAt": {
+            "type": "string",
+            "description": "Unpublished time (ISO 8601). [下架时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "metadata": {
+            "description": "Metadata for display. [展示用元数据]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductMetadataResponseDto"
+              }
+            ]
+          },
+          "items": {
+            "description": "Entitlement items. [权益项]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductItemResponseDto"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Created time (ISO 8601). [创建时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Updated time (ISO 8601). [更新时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "string",
+            "description": "Created by user ID (UUID). [创建人用户ID(UUID)]",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "code",
+          "price",
+          "currency",
+          "status",
+          "createdAt",
+          "updatedAt",
+          "createdBy"
+        ]
+      },
+      "ProductSnapshotItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "serviceTypeId": {
+            "type": "string",
+            "description": "Service type ID (UUID). [服务类型ID(UUID)]",
+            "format": "uuid"
+          },
+          "serviceTypeCode": {
+            "type": "string",
+            "description": "Service type code. [服务类型编码]",
+            "example": "resume_review"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantity included. [包含次数]",
+            "example": 4
+          }
+        },
+        "required": [
+          "serviceTypeId",
+          "serviceTypeCode",
+          "quantity"
+        ]
+      },
+      "ProductSnapshotResponseDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "description": "Product ID (UUID). [产品ID(UUID)]",
+            "format": "uuid"
+          },
+          "productName": {
+            "type": "string",
+            "description": "Product name. [产品名称]"
+          },
+          "productCode": {
+            "type": "string",
+            "description": "Product code. [产品编码]"
+          },
+          "price": {
+            "type": "string",
+            "description": "Price at snapshot time (decimal string). [快照价格(字符串)]",
+            "example": "1999.00"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency at snapshot time. [快照币种]",
+            "enum": [
+              "USD",
+              "CNY",
+              "EUR",
+              "GBP",
+              "JPY"
+            ]
+          },
+          "items": {
+            "description": "Snapshot items. [快照权益项]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductSnapshotItemResponseDto"
+            }
+          },
+          "snapshotAt": {
+            "type": "string",
+            "description": "Snapshot time (ISO 8601). [快照时间(ISO 8601)]",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "productId",
+          "productName",
+          "productCode",
+          "price",
+          "currency",
+          "items",
+          "snapshotAt"
+        ]
+      },
+      "ProductDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Product ID (UUID). [产品ID(UUID)]",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "description": "Product name. [产品名称]"
+          },
+          "code": {
+            "type": "string",
+            "description": "Product code (unique). [产品编码(唯一)]"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description. [描述]"
+          },
+          "coverImage": {
+            "type": "string",
+            "description": "Cover image URL. [封面图URL]"
+          },
+          "targetUserPersonas": {
+            "type": "array",
+            "description": "Target user personas. [目标用户画像]",
+            "items": {
+              "type": "string",
+              "enum": [
+                "undergraduate",
+                "graduate",
+                "working"
+              ]
+            }
+          },
+          "price": {
+            "type": "string",
+            "description": "Price stored as decimal string (precision preserved). [价格(字符串，保留精度)]",
+            "example": "1999.00"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency. [币种]",
+            "enum": [
+              "USD",
+              "CNY",
+              "EUR",
+              "GBP",
+              "JPY"
+            ],
+            "example": "USD"
+          },
+          "marketingLabels": {
+            "type": "array",
+            "description": "Marketing labels. [营销标签]",
+            "items": {
+              "type": "string",
+              "enum": [
+                "hot",
+                "new",
+                "recommended"
+              ]
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "Product status. [产品状态]",
+            "enum": [
+              "DRAFT",
+              "ACTIVE",
+              "INACTIVE",
+              "DELETED"
+            ],
+            "example": "DRAFT"
+          },
+          "publishedAt": {
+            "type": "string",
+            "description": "Published time (ISO 8601). [发布时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "unpublishedAt": {
+            "type": "string",
+            "description": "Unpublished time (ISO 8601). [下架时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "metadata": {
+            "description": "Metadata for display. [展示用元数据]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductMetadataResponseDto"
+              }
+            ]
+          },
+          "items": {
+            "description": "Enriched entitlement items with service type code/name. [带服务类型编码/名称的权益项]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductItemResponseDto"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Created time (ISO 8601). [创建时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Updated time (ISO 8601). [更新时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "string",
+            "description": "Created by user ID (UUID). [创建人用户ID(UUID)]",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "code",
+          "price",
+          "currency",
+          "status",
+          "createdAt",
+          "updatedAt",
+          "createdBy"
+        ]
+      },
+      "UpdateProductStatusRequestDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Target product status. Controls product availability in catalog. [目标产品状态，控制目录可见性/可售性]",
+            "enum": [
+              "DRAFT",
+              "ACTIVE",
+              "INACTIVE",
+              "DELETED"
+            ],
             "example": "ACTIVE"
           }
         },
@@ -6174,19 +7534,312 @@
           "status"
         ]
       },
-      "UpdateProductDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "CreateContractDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "UpdateContractStatusDto": {
+      "AddProductItemRequestDto": {
         "type": "object",
         "properties": {
+          "serviceTypeId": {
+            "type": "string",
+            "description": "Service type ID (UUID) to add. [要添加的服务类型ID(UUID)]",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantity to add. Must be >= 1. [要添加的次数，必须>=1]",
+            "minimum": 1,
+            "example": 2
+          },
+          "sortOrder": {
+            "type": "number",
+            "description": "Optional sort order for the added item. [新增权益项的展示排序，可选]",
+            "minimum": 0,
+            "example": 10
+          }
+        },
+        "required": [
+          "serviceTypeId",
+          "quantity"
+        ]
+      },
+      "ProductItemSortRequestDto": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "description": "Product item ID (UUID). [产品项ID(UUID)]",
+            "format": "uuid"
+          },
+          "sortOrder": {
+            "type": "number",
+            "description": "New sort order. Must be >= 0. [新的排序值，必须>=0]",
+            "minimum": 0,
+            "example": 0
+          }
+        },
+        "required": [
+          "itemId",
+          "sortOrder"
+        ]
+      },
+      "UpdateProductRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "New product name. [新的产品名称]"
+          },
+          "description": {
+            "type": "string",
+            "description": "New product description. [新的产品描述]"
+          },
+          "coverImage": {
+            "type": "string",
+            "description": "New cover image URL. [新的封面图URL]"
+          },
+          "targetUserPersonas": {
+            "type": "array",
+            "description": "Target user personas. [目标用户画像]",
+            "items": {
+              "type": "string",
+              "enum": [
+                "undergraduate",
+                "graduate",
+                "working"
+              ]
+            }
+          },
+          "price": {
+            "type": "number",
+            "description": "New price. Must be > 0. [新的价格，必须>0]",
+            "minimum": 0.01
+          },
+          "currency": {
+            "type": "string",
+            "description": "New currency. [新的币种]",
+            "enum": [
+              "USD",
+              "CNY",
+              "EUR",
+              "GBP",
+              "JPY"
+            ]
+          },
+          "marketingLabels": {
+            "type": "array",
+            "description": "New marketing labels. [新的营销标签]",
+            "items": {
+              "type": "string",
+              "enum": [
+                "hot",
+                "new",
+                "recommended"
+              ]
+            }
+          },
+          "metadata": {
+            "description": "Updated metadata. [更新后的元数据]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductMetadataRequestDto"
+              }
+            ]
+          },
+          "addItems": {
+            "description": "Add product items (entitlements). [新增产品项(权益项)]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddProductItemRequestDto"
+            }
+          },
+          "removeItems": {
+            "description": "Remove product items by item IDs (UUID array). [按产品项ID(UUID数组)删除产品项]",
+            "example": [
+              "123e4567-e89b-12d3-a456-426614174000"
+            ],
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "sortItems": {
+            "description": "Update sort order of existing items. [更新已存在产品项的排序]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductItemSortRequestDto"
+            }
+          }
+        }
+      },
+      "StudentContractProductSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Product ID (UUID). [产品ID(UUID)]"
+          },
+          "name": {
+            "type": "string",
+            "description": "Product name. [产品名称]"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "StudentContractResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Contract ID (UUID). [合同ID(UUID)]"
+          },
+          "contract_number": {
+            "type": "string",
+            "description": "Contract number. [合同编号]",
+            "example": "CONTRACT-2025-01-00001"
+          },
+          "product": {
+            "description": "Product summary in contract snapshot. [合同快照中的产品摘要]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StudentContractProductSummaryResponseDto"
+              }
+            ]
+          },
           "status": {
             "type": "string",
+            "description": "Contract status. [合同状态]",
+            "enum": [
+              "DRAFT",
+              "SIGNED",
+              "ACTIVE",
+              "SUSPENDED",
+              "COMPLETED",
+              "TERMINATED"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "contract_number",
+          "product",
+          "status"
+        ]
+      },
+      "ContractProductSnapshotItemRequestDto": {
+        "type": "object",
+        "properties": {
+          "productItemId": {
+            "type": "string",
+            "description": "Product item ID (UUID). Used for traceability of entitlement origin. [产品项ID(UUID)，用于权益来源追溯]",
+            "format": "uuid",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "serviceTypeCode": {
+            "type": "string",
+            "description": "Service type code from catalog snapshot. Used for entitlement aggregation. [服务类型编码，用于权益汇总]",
+            "example": "resume_review"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantity in this product item. Must be >= 1. [该产品项包含次数，必须>=1]",
+            "example": 4,
+            "minimum": 1
+          },
+          "sortOrder": {
+            "type": "number",
+            "description": "Sort order in snapshot. Must be >= 0. [快照内排序，必须>=0]",
+            "example": 0,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "productItemId",
+          "serviceTypeCode",
+          "quantity",
+          "sortOrder"
+        ]
+      },
+      "ContractProductSnapshotRequestDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "description": "Product ID (UUID). Identifies the purchased product at purchase time. [产品ID(UUID)，标识购买的产品]",
+            "format": "uuid"
+          },
+          "productName": {
+            "type": "string",
+            "description": "Product name at purchase time. [购买时的产品名称(快照)]"
+          },
+          "productCode": {
+            "type": "string",
+            "description": "Product code at purchase time. [购买时的产品编码(快照)]"
+          },
+          "price": {
+            "type": "string",
+            "description": "Product price at purchase time as decimal string. [购买时的产品价格(字符串)]",
+            "example": "1999.00"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency at purchase time (ISO 4217 3-letter code). [购买时币种(ISO 4217 三位码)]",
+            "example": "USD"
+          },
+          "validityDays": {
+            "type": "number",
+            "description": "Validity period days (optional). Used when product has time-based validity. [有效期天数(可选)，用于按天有效期的产品]",
+            "example": 365,
+            "minimum": 1
+          },
+          "items": {
+            "description": "Snapshot items representing entitlement composition. [权益组成快照项列表]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContractProductSnapshotItemRequestDto"
+            }
+          },
+          "snapshotAt": {
+            "type": "string",
+            "description": "Snapshot time (ISO 8601). [快照时间(ISO 8601)]",
+            "format": "date-time",
+            "example": "2025-12-01T00:00:00.000Z"
+          }
+        },
+        "required": [
+          "productId",
+          "productName",
+          "productCode",
+          "price",
+          "currency",
+          "items",
+          "snapshotAt"
+        ]
+      },
+      "CreateContractRequestDto": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "description": "Student ID (UUID). Contract owner. [学生ID(UUID)，合同所属学生]",
+            "format": "uuid"
+          },
+          "productId": {
+            "type": "string",
+            "description": "Product ID (UUID). Reference to catalog product (ACL: UUID string only). [产品ID(UUID)，目录域产品引用(防腐层：仅UUID字符串)]",
+            "format": "uuid"
+          },
+          "productSnapshot": {
+            "description": "Frozen product snapshot captured at purchase time. Used to keep contract immutable. [产品快照(购买时冻结)，用于保持合同不可变]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ContractProductSnapshotRequestDto"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "Initial contract status. Default: DRAFT. Only DRAFT or SIGNED is allowed at creation. [初始状态，默认DRAFT；创建时仅允许DRAFT或SIGNED]",
             "enum": [
               "DRAFT",
               "SIGNED",
@@ -6195,82 +7848,1996 @@
               "COMPLETED",
               "TERMINATED"
             ],
-            "description": "Target status for the contract [合同的目标状态]",
+            "default": "DRAFT",
+            "example": "DRAFT"
+          },
+          "title": {
+            "type": "string",
+            "description": "Contract title (optional). [合同标题(可选)]",
+            "example": "Premium Mentoring Contract"
+          }
+        },
+        "required": [
+          "studentId",
+          "productId",
+          "productSnapshot"
+        ]
+      },
+      "ContractProductSnapshotItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "productItemId": {
+            "type": "string",
+            "description": "Product item ID (UUID). [产品项ID(UUID)]",
+            "format": "uuid"
+          },
+          "serviceTypeCode": {
+            "type": "string",
+            "description": "Service type code. [服务类型编码]",
+            "example": "resume_review"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantity in snapshot item. [快照项包含次数]",
+            "example": 4
+          },
+          "sortOrder": {
+            "type": "number",
+            "description": "Sort order. [排序]",
+            "example": 0
+          }
+        },
+        "required": [
+          "productItemId",
+          "serviceTypeCode",
+          "quantity",
+          "sortOrder"
+        ]
+      },
+      "ContractProductSnapshotResponseDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "description": "Product ID (UUID). [产品ID(UUID)]",
+            "format": "uuid"
+          },
+          "productName": {
+            "type": "string",
+            "description": "Product name. [产品名称]"
+          },
+          "productCode": {
+            "type": "string",
+            "description": "Product code. [产品编码]"
+          },
+          "price": {
+            "type": "string",
+            "description": "Price at purchase time (decimal string). [购买时价格(字符串)]",
+            "example": "1999.00"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency at purchase time. [购买时币种]",
+            "example": "USD"
+          },
+          "validityDays": {
+            "type": "number",
+            "description": "Validity period in days. [有效期天数]",
+            "example": 365
+          },
+          "items": {
+            "description": "Snapshot items. [快照权益项]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContractProductSnapshotItemResponseDto"
+            }
+          },
+          "snapshotAt": {
+            "type": "string",
+            "description": "Snapshot time (ISO 8601). [快照时间(ISO 8601)]",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "productId",
+          "productName",
+          "productCode",
+          "price",
+          "currency",
+          "items",
+          "snapshotAt"
+        ]
+      },
+      "ContractResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Contract ID (UUID). [合同ID(UUID)]",
+            "format": "uuid"
+          },
+          "contractNumber": {
+            "type": "string",
+            "description": "Contract number (unique). Human-friendly identifier. [合同编号(唯一)，可读标识]",
+            "example": "CONTRACT-2025-01-00001"
+          },
+          "title": {
+            "type": "string",
+            "description": "Contract title. [合同标题]",
+            "example": "Premium Mentoring Contract"
+          },
+          "studentId": {
+            "type": "string",
+            "description": "Student ID (UUID). [学生ID(UUID)]",
+            "format": "uuid"
+          },
+          "productId": {
+            "type": "string",
+            "description": "Product ID (UUID). ACL: no foreign key to product table. [产品ID(UUID)，防腐层：不与目录表外键关联]",
+            "format": "uuid"
+          },
+          "productSnapshot": {
+            "description": "Frozen product snapshot. [产品快照(冻结)]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ContractProductSnapshotResponseDto"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "Contract status. [合同状态]",
+            "enum": [
+              "DRAFT",
+              "SIGNED",
+              "ACTIVE",
+              "SUSPENDED",
+              "COMPLETED",
+              "TERMINATED"
+            ],
+            "example": "DRAFT"
+          },
+          "totalAmount": {
+            "type": "string",
+            "description": "Total amount stored as decimal string. [合同总金额(字符串)]",
+            "example": "1999.00"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Contract currency. [合同币种]",
+            "enum": [
+              "USD",
+              "CNY",
+              "EUR",
+              "GBP",
+              "JPY"
+            ],
+            "example": "USD"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Created time (ISO 8601). [创建时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Updated time (ISO 8601). [更新时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "string",
+            "description": "Created by user ID (UUID). [创建人用户ID(UUID)]",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "contractNumber",
+          "studentId",
+          "productId",
+          "productSnapshot",
+          "status",
+          "totalAmount",
+          "currency",
+          "createdAt",
+          "updatedAt",
+          "createdBy"
+        ]
+      },
+      "UpdateContractStatusRequestDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Target contract status. [目标合同状态]",
+            "enum": [
+              "DRAFT",
+              "SIGNED",
+              "ACTIVE",
+              "SUSPENDED",
+              "COMPLETED",
+              "TERMINATED"
+            ],
             "example": "ACTIVE"
           },
           "reason": {
             "type": "string",
-            "description": "Reason for status change (required for suspend and terminate) [状态变更原因（暂停和终止时需要）]",
+            "description": "Reason for status change. Required for suspend/terminate. [状态变更原因：暂停/终止时必填]",
             "example": "Payment issue"
           },
           "signedBy": {
             "type": "string",
-            "description": "User ID who signed the contract (optional, will use current user if not provided) [签署合同的用户ID（可选，未提供时使用当前用户）]"
+            "description": "Signer user ID (UUID). When omitted, server uses current user from JWT. [签署人用户ID(UUID)，不传则使用JWT当前用户]",
+            "format": "uuid"
           }
         },
         "required": [
           "status"
         ]
       },
-      "UpdateContractDto": {
+      "UpdateContractRequestDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Contract title. [合同标题]"
+          },
+          "totalAmount": {
+            "type": "number",
+            "description": "Contract total amount (override). Must be >= 0. [合同总金额(覆盖)，必须>=0]",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "description": "Contract currency. Allowed values: USD/CNY/EUR/GBP/JPY. [合同币种，仅允许USD/CNY/EUR/GBP/JPY]",
+            "enum": [
+              "USD",
+              "CNY",
+              "EUR",
+              "GBP",
+              "JPY"
+            ],
+            "example": "USD"
+          },
+          "validityDays": {
+            "type": "number",
+            "description": "Validity period in days. 1~3650. [有效期天数，范围1~3650]",
+            "minimum": 1,
+            "maximum": 3650
+          },
+          "updatedBy": {
+            "type": "string",
+            "description": "Updater user ID (UUID). Ignored if set by server-side context. [更新人用户ID(UUID)，若服务端从上下文设置则忽略]",
+            "format": "uuid"
+          },
+          "updateReason": {
+            "type": "string",
+            "description": "Update reason (optional). [更新原因(可选)]"
+          }
+        }
       },
-      "ConsumeServiceDto": {
+      "ConsumeServiceRequestDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "description": "Student ID (UUID). Used to locate entitlement record. [学生ID(UUID)，用于定位权益记录]",
+            "format": "uuid"
+          },
+          "contractId": {
+            "type": "string",
+            "description": "Contract ID (UUID, optional). For audit only. [合同ID(UUID，可选)，仅用于审计]",
+            "format": "uuid"
+          },
+          "serviceType": {
+            "type": "string",
+            "description": "Service type code to consume (e.g., resume_review). [要消费的服务类型编码]",
+            "example": "resume_review"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantity to consume. Must be a positive number. [消费数量，必须为正数]",
+            "example": 1,
+            "minimum": 1
+          },
+          "relatedBookingId": {
+            "type": "string",
+            "description": "Related booking ID (UUID). Used to link consumption to a booking/session. [关联预约ID(UUID)，用于关联会话/预约]",
+            "format": "uuid"
+          },
+          "relatedHoldId": {
+            "type": "string",
+            "description": "Related hold ID (UUID). Used to link consumption to a hold record. [关联预占ID(UUID)，用于关联预占记录]",
+            "format": "uuid"
+          },
+          "bookingSource": {
+            "type": "string",
+            "description": "Booking source table name. Required when relatedBookingId is provided. [预约来源表名，relatedBookingId 存在时必填]",
+            "example": "regular_mentoring_sessions"
+          }
+        },
+        "required": [
+          "studentId",
+          "serviceType",
+          "quantity"
+        ]
       },
-      "AddAmendmentLedgerDto": {
+      "ConsumeServiceResponseDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the consume operation succeeded. [消费操作是否成功]",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable message. [可读消息]",
+            "example": "Service consumed successfully"
+          }
+        },
+        "required": [
+          "success",
+          "message"
+        ]
       },
-      "CreateAppealDto": {
+      "AddAmendmentLedgerRequestDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "description": "Student ID (UUID). Entitlements are maintained at student level. [学生ID(UUID)，权益按学生维度维护]",
+            "format": "uuid"
+          },
+          "contractId": {
+            "type": "string",
+            "description": "Contract ID (UUID, optional). For reference only. [合同ID(UUID，可选)，仅作参考]",
+            "format": "uuid"
+          },
+          "serviceType": {
+            "type": "string",
+            "description": "Service type code to adjust. [要调整的服务类型编码]",
+            "example": "resume_review"
+          },
+          "ledgerType": {
+            "type": "string",
+            "description": "Amendment ledger type. Explains why entitlements change. [台账类型，说明权益变更来源]",
+            "enum": [
+              "addon",
+              "promotion",
+              "compensation"
+            ],
+            "example": "addon"
+          },
+          "quantityChanged": {
+            "type": "number",
+            "description": "Quantity change. Must be positive. [变更数量，必须为正数]",
+            "example": 1,
+            "minimum": 1
+          },
+          "reason": {
+            "type": "string",
+            "description": "Reason for amendment. [调整原因]",
+            "example": "Promotion compensation"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional detailed description. [可选详细说明]"
+          },
+          "attachments": {
+            "description": "Optional attachment URLs. [可选附件URL列表]",
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "relatedBookingId": {
+            "type": "string",
+            "description": "Related booking ID (UUID). [关联预约ID(UUID)]",
+            "format": "uuid"
+          },
+          "bookingSource": {
+            "type": "string",
+            "description": "Booking source table name. Required when relatedBookingId is provided. [预约来源表名，relatedBookingId存在时必填]",
+            "example": "regular_mentoring_sessions"
+          },
+          "createdBy": {
+            "type": "string",
+            "description": "Created by user ID (UUID). Required. [创建人用户ID(UUID)，必填]",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "studentId",
+          "serviceType",
+          "ledgerType",
+          "quantityChanged",
+          "reason",
+          "createdBy"
+        ]
       },
-      "ApproveAppealDto": {
+      "ContractServiceEntitlementResponseDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Entitlement record ID (UUID). [权益记录ID(UUID)]",
+            "format": "uuid"
+          },
+          "studentId": {
+            "type": "string",
+            "description": "Student ID (UUID). [学生ID(UUID)]",
+            "format": "uuid"
+          },
+          "serviceType": {
+            "type": "string",
+            "description": "Service type code. [服务类型编码]",
+            "example": "resume_review"
+          },
+          "totalQuantity": {
+            "type": "number",
+            "description": "Total quantity. [总权益次数]",
+            "example": 10
+          },
+          "consumedQuantity": {
+            "type": "number",
+            "description": "Consumed quantity. [已消费次数]",
+            "example": 2
+          },
+          "heldQuantity": {
+            "type": "number",
+            "description": "Held quantity. [预占次数]",
+            "example": 1
+          },
+          "availableQuantity": {
+            "type": "number",
+            "description": "Available quantity. [可用次数]",
+            "example": 7
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Created time (ISO 8601). [创建时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Updated time (ISO 8601). [更新时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "string",
+            "description": "Created by user ID (UUID). [创建人用户ID(UUID)]",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "studentId",
+          "serviceType",
+          "totalQuantity",
+          "consumedQuantity",
+          "heldQuantity",
+          "availableQuantity",
+          "createdAt",
+          "updatedAt"
+        ]
       },
-      "RejectAppealDto": {
+      "DomesticTransferPaymentDetailsDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "bankName": {
+            "type": "string",
+            "description": "Bank name. [银行名称]",
+            "example": "Bank of America"
+          },
+          "accountNumber": {
+            "type": "string",
+            "description": "Bank account number. [银行卡号/账号]",
+            "example": "1234567890"
+          },
+          "accountHolder": {
+            "type": "string",
+            "description": "Account holder name. [开户人姓名]",
+            "example": "John Doe"
+          }
+        },
+        "required": [
+          "bankName",
+          "accountNumber",
+          "accountHolder"
+        ]
       },
-      "CreateMentorPriceDto": {
+      "GustoPaymentDetailsDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "description": "Gusto employee ID. [Gusto 员工ID]",
+            "example": "emp_123"
+          },
+          "companyId": {
+            "type": "string",
+            "description": "Gusto company ID. [Gusto 公司ID]",
+            "example": "comp_456"
+          }
+        },
+        "required": [
+          "employeeId",
+          "companyId"
+        ]
       },
-      "UpdateMentorPriceDto": {
+      "GustoInternationalPaymentDetailsDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "description": "Gusto employee ID. [Gusto 员工ID]",
+            "example": "emp_123"
+          },
+          "companyId": {
+            "type": "string",
+            "description": "Gusto company ID. [Gusto 公司ID]",
+            "example": "comp_456"
+          },
+          "extraNote": {
+            "type": "string",
+            "description": "Optional extra information for international payments. [国际支付可选补充信息]"
+          }
+        },
+        "required": [
+          "employeeId",
+          "companyId"
+        ]
       },
-      "UpdateMentorPriceStatusDto": {
+      "CheckPaymentDetailsDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "payee": {
+            "type": "string",
+            "description": "Payee name. [收款人姓名]",
+            "example": "John Doe"
+          },
+          "address": {
+            "type": "string",
+            "description": "Mailing address. [邮寄地址]",
+            "example": "123 Main St, San Jose, CA 95112, USA"
+          }
+        },
+        "required": [
+          "payee",
+          "address"
+        ]
       },
-      "BulkCreateMentorPriceDto": {
+      "ChannelBatchPayPaymentDetailsDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Payment channel identifier. [支付渠道标识]",
+            "example": "channel_vendor_x"
+          },
+          "accountIdentifier": {
+            "type": "string",
+            "description": "Account identifier in the channel system. [渠道系统内账号标识]",
+            "example": "acct_789"
+          },
+          "extra": {
+            "type": "string",
+            "description": "Optional extra data required by the channel. [渠道可选扩展字段]"
+          }
+        },
+        "required": [
+          "channel",
+          "accountIdentifier"
+        ]
       },
-      "BulkUpdateMentorPriceDto": {
+      "CreateMentorAppealRequestDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor ID (UUID). The mentor who submits the appeal. [导师ID(UUID)，提交申诉的导师]",
+            "format": "uuid"
+          },
+          "counselorId": {
+            "type": "string",
+            "description": "Counselor ID (UUID). The assigned counselor to process the appeal. [顾问ID(UUID)，负责处理该申诉]",
+            "format": "uuid"
+          },
+          "mentorPayableId": {
+            "type": "string",
+            "description": "Mentor payable ledger ID (UUID). Optional linkage to the disputed payable record. [关联应付账款ID(UUID，可选)，关联被争议账款]",
+            "format": "uuid"
+          },
+          "settlementId": {
+            "type": "string",
+            "description": "Settlement ledger ID (UUID). Optional linkage to a settlement batch. [关联结算ID(UUID，可选)，关联结算批次]",
+            "format": "uuid"
+          },
+          "appealType": {
+            "type": "string",
+            "description": "Appeal type (billing_error/missing_service/price_dispute/other). [申诉类型：费用错误/遗漏服务/价格争议/其他]",
+            "example": "billing_error"
+          },
+          "appealAmount": {
+            "type": "string",
+            "description": "Appeal amount as string to match database numeric type. [申诉金额(字符串，匹配数据库numeric)]",
+            "example": "100.00"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency (ISO 4217 3-letter code). [币种(ISO 4217 三位码)]",
+            "example": "USD"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Appeal reason. Provide detailed context and evidence references. [申诉理由，需提供充分上下文与证据线索]",
+            "example": "The payable ledger amount is incorrect for session #123."
+          }
+        },
+        "required": [
+          "mentorId",
+          "counselorId",
+          "appealType",
+          "appealAmount",
+          "currency",
+          "reason"
+        ]
       },
-      "CreateClassMentorPriceDto": {
+      "MentorAppealResponseDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Appeal ID (UUID). [申诉ID(UUID)]",
+            "format": "uuid"
+          },
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor ID (UUID). [导师ID(UUID)]",
+            "format": "uuid"
+          },
+          "counselorId": {
+            "type": "string",
+            "description": "Counselor ID (UUID). [顾问ID(UUID)]",
+            "format": "uuid"
+          },
+          "mentorPayableId": {
+            "type": "string",
+            "description": "Mentor payable ledger ID (UUID). [关联应付账款ID(UUID)]",
+            "format": "uuid"
+          },
+          "settlementId": {
+            "type": "string",
+            "description": "Settlement ledger ID (UUID). [关联结算ID(UUID)]",
+            "format": "uuid"
+          },
+          "appealType": {
+            "type": "string",
+            "description": "Appeal type. [申诉类型]",
+            "example": "billing_error"
+          },
+          "appealAmount": {
+            "type": "string",
+            "description": "Appeal amount as decimal string (DB numeric). [申诉金额(字符串，DB numeric)]",
+            "example": "100.00"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency (ISO 4217). [币种(ISO 4217)]",
+            "example": "USD"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Appeal reason. [申诉理由]"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status (PENDING/APPROVED/REJECTED). [状态：待处理/已批准/已驳回]",
+            "example": "PENDING"
+          },
+          "rejectionReason": {
+            "type": "string",
+            "description": "Rejection reason. [驳回理由]"
+          },
+          "comments": {
+            "type": "string",
+            "description": "Processing comments. [处理备注]"
+          },
+          "approvedBy": {
+            "type": "string",
+            "description": "Approved by user ID (UUID). [审批人用户ID(UUID)]",
+            "format": "uuid"
+          },
+          "approvedAt": {
+            "type": "string",
+            "description": "Approved time (ISO 8601). [审批时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "rejectedBy": {
+            "type": "string",
+            "description": "Rejected by user ID (UUID). [驳回人用户ID(UUID)]",
+            "format": "uuid"
+          },
+          "rejectedAt": {
+            "type": "string",
+            "description": "Rejected time (ISO 8601). [驳回时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "string",
+            "description": "Created by user ID (UUID). [创建人用户ID(UUID)]",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Created time (ISO 8601). [创建时间(ISO 8601)]",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "mentorId",
+          "counselorId",
+          "appealType",
+          "appealAmount",
+          "currency",
+          "reason",
+          "status",
+          "createdBy",
+          "createdAt"
+        ]
       },
-      "UpdateClassMentorPriceDto": {
+      "ApproveMentorAppealRequestDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "appealAmount": {
+            "type": "number",
+            "description": "New appeal amount (number). Only used when the original amount is invalid. [新申诉金额(数值)，仅在原金额无效时使用]",
+            "example": 100
+          },
+          "currency": {
+            "type": "string",
+            "description": "New currency (ISO 4217). Only used when the original currency is invalid. [新币种(ISO 4217)，仅在原币种无效时使用]",
+            "example": "USD"
+          },
+          "comments": {
+            "type": "string",
+            "description": "Approval comments (optional). [批准备注(可选)]",
+            "example": "Approved after manual verification."
+          }
+        }
       },
-      "UpdateClassMentorPriceStatusDto": {
+      "RejectMentorAppealRequestDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "rejectionReason": {
+            "type": "string",
+            "description": "Rejection reason. Required when rejecting. [驳回理由，驳回时必填]",
+            "example": "Insufficient evidence provided."
+          }
+        },
+        "required": [
+          "rejectionReason"
+        ]
       },
-      "AdjustPayableLedgerDto": {
+      "CreateSettlementRequestDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor ID (UUID). Settlement is generated per mentor and month. [导师ID(UUID)，按导师+月份生成结算]",
+            "format": "uuid"
+          },
+          "settlementMonth": {
+            "type": "string",
+            "description": "Settlement month in YYYY-MM format. [结算月份(YYYY-MM)]",
+            "example": "2025-11"
+          },
+          "exchangeRate": {
+            "type": "number",
+            "description": "Exchange rate used for currency conversion. [汇率，用于币种转换]",
+            "example": 7.2,
+            "minimum": 0
+          },
+          "deductionRate": {
+            "type": "number",
+            "description": "Deduction rate (e.g., 0.0500 for 5%). [扣除比率，如0.0500表示5%]",
+            "example": 0.05,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "mentorId",
+          "settlementMonth",
+          "exchangeRate",
+          "deductionRate"
+        ]
+      },
+      "SettlementDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Settlement ID (UUID). [结算ID(UUID)]"
+          },
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor ID (UUID). [导师ID(UUID)]"
+          },
+          "settlementMonth": {
+            "type": "string",
+            "description": "Settlement month (YYYY-MM). [结算月份(YYYY-MM)]",
+            "example": "2025-11"
+          },
+          "originalAmount": {
+            "type": "string",
+            "description": "Original amount (decimal string). [原始金额(字符串)]",
+            "example": "1000.00"
+          },
+          "targetAmount": {
+            "type": "string",
+            "description": "Target amount (decimal string). [目标金额(字符串)]",
+            "example": "950.00"
+          },
+          "originalCurrency": {
+            "type": "string",
+            "description": "Original currency. [原始币种]",
+            "example": "USD"
+          },
+          "targetCurrency": {
+            "type": "string",
+            "description": "Target currency. [目标币种]",
+            "example": "CNY"
+          },
+          "exchangeRate": {
+            "type": "string",
+            "description": "Exchange rate (decimal string). [汇率(字符串)]",
+            "example": "7.2"
+          },
+          "deductionRate": {
+            "type": "string",
+            "description": "Deduction rate (decimal string). [扣除比率(字符串)]",
+            "example": "0.0500"
+          },
+          "status": {
+            "type": "string",
+            "description": "Settlement status (always CONFIRMED). [结算状态(始终CONFIRMED)]",
+            "enum": [
+              "CONFIRMED"
+            ],
+            "example": "CONFIRMED"
+          },
+          "settlementMethod": {
+            "type": "string",
+            "description": "Settlement method. [结算方式]",
+            "enum": [
+              "DOMESTIC_TRANSFER",
+              "CHANNEL_BATCH_PAY",
+              "GUSTO",
+              "GUSTO_INTERNATIONAL",
+              "CHECK"
+            ],
+            "example": "DOMESTIC_TRANSFER"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Created time (ISO 8601). [创建时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "string",
+            "description": "Created by user ID (UUID). [创建人用户ID(UUID)]",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "mentorId",
+          "settlementMonth",
+          "originalAmount",
+          "targetAmount",
+          "originalCurrency",
+          "targetCurrency",
+          "exchangeRate",
+          "deductionRate",
+          "status",
+          "settlementMethod",
+          "createdAt",
+          "createdBy"
+        ]
+      },
+      "CreateMentorPriceRequestDto": {
+        "type": "object",
+        "properties": {
+          "mentorUserId": {
+            "type": "string",
+            "description": "Mentor user ID (UUID). [导师用户ID(UUID)]",
+            "format": "uuid"
+          },
+          "sessionTypeCode": {
+            "type": "string",
+            "description": "Session type code (e.g., regular_mentoring). [会话类型代码]",
+            "example": "regular_mentoring"
+          },
+          "price": {
+            "type": "number",
+            "description": "Price per session. [每次会话价格]",
+            "example": 200,
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency (ISO 4217). Default: USD. [币种(ISO 4217)，默认USD]",
+            "default": "USD",
+            "example": "USD"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status. Default: active. [状态，默认active]",
+            "default": "active",
+            "enum": [
+              "active",
+              "inactive"
+            ],
+            "example": "active"
+          },
+          "packageCode": {
+            "type": "string",
+            "description": "Package code (optional). [课程包编码(可选)]"
+          }
+        },
+        "required": [
+          "mentorUserId",
+          "sessionTypeCode",
+          "price"
+        ]
+      },
+      "MentorPriceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Mentor price ID (UUID). [导师价格ID(UUID)]"
+          },
+          "mentorUserId": {
+            "type": "string",
+            "description": "Mentor user ID (UUID). [导师用户ID(UUID)]",
+            "format": "uuid"
+          },
+          "serviceTypeId": {
+            "type": "string",
+            "description": "Service type ID (deprecated). [服务类型ID(已废弃)]"
+          },
+          "sessionTypeCode": {
+            "type": "string",
+            "description": "Session type code. [会话类型代码]",
+            "example": "regular_mentoring"
+          },
+          "packageCode": {
+            "type": "string",
+            "description": "Package code (optional). [课程包编码(可选)]"
+          },
+          "price": {
+            "type": "string",
+            "description": "Price stored as decimal string (DB numeric/decimal). [价格(字符串，DB numeric/decimal)]",
+            "example": "200.0"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency (ISO 4217). [币种(ISO 4217)]",
+            "example": "USD"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status (active/inactive). [状态：active/inactive]",
+            "example": "active"
+          },
+          "updatedBy": {
+            "type": "string",
+            "description": "Updated by user ID (UUID). [更新人用户ID(UUID)]",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Created time (ISO 8601). [创建时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Updated time (ISO 8601). [更新时间(ISO 8601)]",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "mentorUserId",
+          "price",
+          "currency",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "UpdateMentorPriceRequestDto": {
+        "type": "object",
+        "properties": {
+          "price": {
+            "type": "number",
+            "description": "New price per session. [新的每次会话价格]"
+          },
+          "currency": {
+            "type": "string",
+            "description": "New currency (ISO 4217). [新的币种(ISO 4217)]"
+          },
+          "status": {
+            "type": "string",
+            "description": "New status. [新的状态]",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          },
+          "packageCode": {
+            "type": "string",
+            "description": "New package code. [新的课程包编码]"
+          }
+        }
+      },
+      "UpdateMentorPriceStatusRequestDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Target status. [目标状态]",
+            "enum": [
+              "active",
+              "inactive"
+            ],
+            "example": "active"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "BulkCreateMentorPriceRequestDto": {
+        "type": "object",
+        "properties": {
+          "prices": {
+            "description": "Prices to create. [要创建的价格配置列表]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateMentorPriceRequestDto"
+            }
+          }
+        },
+        "required": [
+          "prices"
+        ]
+      },
+      "BulkUpdateMentorPriceItemRequestDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Mentor price ID (UUID). [导师价格ID(UUID)]",
+            "format": "uuid"
+          },
+          "dto": {
+            "description": "Update payload. [更新内容]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UpdateMentorPriceRequestDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "dto"
+        ]
+      },
+      "BulkUpdateMentorPriceRequestDto": {
+        "type": "object",
+        "properties": {
+          "updates": {
+            "description": "Batch updates. [批量更新列表]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BulkUpdateMentorPriceItemRequestDto"
+            }
+          }
+        },
+        "required": [
+          "updates"
+        ]
+      },
+      "CreateClassMentorPriceRequestDto": {
+        "type": "object",
+        "properties": {
+          "classId": {
+            "type": "string",
+            "description": "Class ID (UUID). [班级ID(UUID)]",
+            "format": "uuid"
+          },
+          "mentorUserId": {
+            "type": "string",
+            "description": "Mentor user ID (UUID). [导师用户ID(UUID)]",
+            "format": "uuid"
+          },
+          "pricePerSession": {
+            "type": "number",
+            "description": "Price per session (integer). [每次会话价格(整数)]",
+            "example": 200,
+            "minimum": 1
+          }
+        },
+        "required": [
+          "classId",
+          "mentorUserId",
+          "pricePerSession"
+        ]
+      },
+      "ClassMentorPriceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Record ID (UUID). [记录ID(UUID)]"
+          },
+          "classId": {
+            "type": "string",
+            "description": "Class ID (UUID). [班级ID(UUID)]"
+          },
+          "mentorUserId": {
+            "type": "string",
+            "description": "Mentor user ID (UUID). [导师用户ID(UUID)]"
+          },
+          "pricePerSession": {
+            "type": "number",
+            "description": "Price per session (integer). [每次会话价格(整数)]",
+            "example": 200
+          },
+          "status": {
+            "type": "string",
+            "description": "Status. [状态]",
+            "enum": [
+              "inactive",
+              "active"
+            ],
+            "example": "active"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Created time (ISO 8601). [创建时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Updated time (ISO 8601). [更新时间(ISO 8601)]",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "classId",
+          "mentorUserId",
+          "pricePerSession",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "MentorInfoResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Mentor user ID (UUID). [导师用户ID(UUID)]",
+            "format": "uuid"
+          },
+          "nameEn": {
+            "type": "string",
+            "description": "Mentor English name. [导师英文名]"
+          },
+          "nameZh": {
+            "type": "string",
+            "description": "Mentor Chinese name. [导师中文名]"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "ClassMentorPriceWithMentorResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Record ID (UUID). [记录ID(UUID)]"
+          },
+          "classId": {
+            "type": "string",
+            "description": "Class ID (UUID). [班级ID(UUID)]"
+          },
+          "mentor": {
+            "description": "Mentor object. [导师对象]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MentorInfoResponseDto"
+              }
+            ]
+          },
+          "pricePerSession": {
+            "type": "number",
+            "description": "Price per session. [每次会话价格]",
+            "example": 200
+          },
+          "status": {
+            "type": "string",
+            "description": "Status. [状态]",
+            "example": "active"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Created time (ISO 8601). [创建时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Updated time (ISO 8601). [更新时间(ISO 8601)]",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "classId",
+          "mentor",
+          "pricePerSession",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PaginatedClassMentorPriceResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Result list. [结果列表]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClassMentorPriceWithMentorResponseDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "Total count. [总数]",
+            "example": 100
+          },
+          "page": {
+            "type": "number",
+            "description": "Page number. [页码]",
+            "example": 1
+          },
+          "pageSize": {
+            "type": "number",
+            "description": "Page size. [每页条数]",
+            "example": 20
+          },
+          "totalPages": {
+            "type": "number",
+            "description": "Total pages. [总页数]",
+            "example": 5
+          }
+        },
+        "required": [
+          "data",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ]
+      },
+      "UpdateClassMentorPriceRequestDto": {
+        "type": "object",
+        "properties": {
+          "pricePerSession": {
+            "type": "number",
+            "description": "New price per session (integer). [新的每次会话价格(整数)]",
+            "minimum": 1,
+            "example": 220
+          }
+        }
+      },
+      "UpdateClassMentorPriceStatusRequestDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "New status. [新状态]",
+            "enum": [
+              "inactive",
+              "active"
+            ],
+            "example": "active"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "AdjustPayableLedgerRequestDto": {
+        "type": "object",
+        "properties": {
+          "adjustmentAmount": {
+            "type": "number",
+            "description": "Adjustment amount. Positive for increase, negative for decrease. [调整金额：正数增加，负数减少]",
+            "example": -50
+          },
+          "reason": {
+            "type": "string",
+            "description": "Reason for adjustment. [调整原因]",
+            "example": "Manual correction after appeal"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Optional metadata for audit/debug. [可选元数据，用于审计/调试]"
+          }
+        },
+        "required": [
+          "adjustmentAmount",
+          "reason"
+        ]
+      },
+      "PaymentParamUpdateRequestDto": {
+        "type": "object",
+        "properties": {
+          "defaultExchangeRate": {
+            "type": "number",
+            "description": "Default exchange rate. [默认汇率]",
+            "example": 7.2,
+            "minimum": 0
+          },
+          "defaultDeductionRate": {
+            "type": "number",
+            "description": "Default deduction rate. [默认扣除比率]",
+            "example": 0.05,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "defaultExchangeRate",
+          "defaultDeductionRate"
+        ]
+      },
+      "ModifyPaymentParamsRequestDto": {
+        "type": "object",
+        "properties": {
+          "defaultExchangeRate": {
+            "type": "number",
+            "description": "Default exchange rate (optional). [默认汇率(可选)]",
+            "example": 7.2,
+            "minimum": 0
+          },
+          "defaultDeductionRate": {
+            "type": "number",
+            "description": "Default deduction rate (optional). [默认扣除比率(可选)]",
+            "example": 0.05,
+            "minimum": 0
+          }
+        }
+      },
+      "CreateOrUpdateMentorPaymentInfoRequestDto": {
+        "type": "object",
+        "properties": {
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor ID (UUID). [导师ID(UUID)]",
+            "format": "uuid"
+          },
+          "paymentCurrency": {
+            "type": "string",
+            "description": "Payment currency (ISO 4217). [支付币种(ISO 4217)]",
+            "example": "USD"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "description": "Payment method. Controls the structure of paymentDetails. [支付方式，决定paymentDetails结构]",
+            "enum": [
+              "DOMESTIC_TRANSFER",
+              "CHANNEL_BATCH_PAY",
+              "GUSTO",
+              "GUSTO_INTERNATIONAL",
+              "CHECK"
+            ],
+            "example": "DOMESTIC_TRANSFER"
+          },
+          "paymentDetails": {
+            "description": "Payment details object. Must match the selected paymentMethod. [支付详情对象，需与paymentMethod匹配]",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DomesticTransferPaymentDetailsDto"
+              },
+              {
+                "$ref": "#/components/schemas/GustoPaymentDetailsDto"
+              },
+              {
+                "$ref": "#/components/schemas/GustoInternationalPaymentDetailsDto"
+              },
+              {
+                "$ref": "#/components/schemas/CheckPaymentDetailsDto"
+              },
+              {
+                "$ref": "#/components/schemas/ChannelBatchPayPaymentDetailsDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "mentorId",
+          "paymentCurrency",
+          "paymentMethod",
+          "paymentDetails"
+        ]
+      },
+      "MentorPaymentInfoResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Payment info ID (UUID). [支付信息ID(UUID)]"
+          },
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor ID (UUID). [导师ID(UUID)]"
+          },
+          "paymentCurrency": {
+            "type": "string",
+            "description": "Payment currency (ISO 4217). [支付币种]"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "description": "Payment method. [支付方式]",
+            "enum": [
+              "DOMESTIC_TRANSFER",
+              "CHANNEL_BATCH_PAY",
+              "GUSTO",
+              "GUSTO_INTERNATIONAL",
+              "CHECK"
+            ]
+          },
+          "paymentDetails": {
+            "description": "Payment details object (polymorphic). [支付详情对象(多态)]",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DomesticTransferPaymentDetailsDto"
+              },
+              {
+                "$ref": "#/components/schemas/GustoPaymentDetailsDto"
+              },
+              {
+                "$ref": "#/components/schemas/GustoInternationalPaymentDetailsDto"
+              },
+              {
+                "$ref": "#/components/schemas/CheckPaymentDetailsDto"
+              },
+              {
+                "$ref": "#/components/schemas/ChannelBatchPayPaymentDetailsDto"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "Status (ACTIVE/INACTIVE). [状态：ACTIVE/INACTIVE]",
+            "example": "ACTIVE"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Created time (ISO 8601). [创建时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Updated time (ISO 8601). [更新时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "updatedBy": {
+            "type": "string",
+            "description": "Updated by user ID (UUID). [更新人用户ID(UUID)]",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "mentorId",
+          "paymentCurrency",
+          "paymentMethod",
+          "paymentDetails",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "UpdateMentorPaymentInfoStatusRequestDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "New status. [新状态]",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ],
+            "example": "ACTIVE"
+          },
+          "operatorNote": {
+            "type": "string",
+            "description": "Optional operator note. [操作备注(可选)]"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "ExperienceRequirementRequestDto": {
+        "type": "object",
+        "properties": {
+          "min_years": {
+            "type": "number",
+            "description": "Minimum years of experience. [最低经验年数]",
+            "example": 1
+          },
+          "max_years": {
+            "type": "number",
+            "description": "Maximum years of experience. [最高经验年数]",
+            "example": 5
+          },
+          "unlimited": {
+            "type": "boolean",
+            "description": "Unlimited experience requirement. [经验不限标记]",
+            "example": false
+          }
+        }
+      },
+      "SalaryRangeRequestDto": {
+        "type": "object",
+        "properties": {
+          "min": {
+            "type": "number",
+            "description": "Min base salary. [最低基本工资]"
+          },
+          "max": {
+            "type": "number",
+            "description": "Max base salary. [最高基本工资]"
+          }
+        }
+      },
+      "SalaryDetailsRequestDto": {
+        "type": "object",
+        "properties": {
+          "base_salary": {
+            "description": "Base salary range. [基本工资范围]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SalaryRangeRequestDto"
+              }
+            ]
+          },
+          "bonus": {
+            "type": "object",
+            "description": "Bonus details (free-form JSON). [奖金详情(自由结构JSON)]"
+          }
+        }
+      },
+      "SkillRequestDto": {
+        "type": "object",
+        "properties": {
+          "skill": {
+            "type": "string",
+            "description": "Skill name. [技能名称]",
+            "example": "TypeScript"
+          },
+          "years_of_experience": {
+            "type": "number",
+            "description": "Years of experience for this skill. [该技能经验年数]",
+            "example": 2
+          }
+        },
+        "required": [
+          "skill"
+        ]
+      },
+      "MatchedTitleRequestDto": {
+        "type": "object",
+        "properties": {
+          "job_title": {
+            "type": "string",
+            "description": "Matched job title. [匹配的职位标题]"
+          },
+          "score": {
+            "type": "number",
+            "description": "Match score (0~1 or 0~100 depending on source). [匹配分数(随来源定义)]",
+            "example": 0.86
+          }
+        },
+        "required": [
+          "job_title",
+          "score"
+        ]
+      },
+      "CreateJobPositionRequestDto": {
+        "type": "object",
+        "properties": {
+          "objectId": {
+            "type": "string",
+            "description": "Idempotency key from source system (optional). [幂等键(可选)]",
+            "example": "obj_123"
+          },
+          "jobTitle": {
+            "type": "string",
+            "description": "Job title. [岗位标题]",
+            "example": "Software Engineer"
+          },
+          "companyName": {
+            "type": "string",
+            "description": "Company name. [公司名称]",
+            "example": "Example Inc."
+          },
+          "normJobTitles": {
+            "description": "Normalized job titles for search. [用于搜索的标准化职位标题列表]",
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "jobTypes": {
+            "description": "Job types. [职位类型分类]",
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "postDate": {
+            "type": "string",
+            "description": "Post date (ISO 8601). [发布日期(ISO 8601)]",
+            "format": "date-time",
+            "example": "2025-12-01T00:00:00.000Z"
+          },
+          "status": {
+            "type": "string",
+            "description": "Job status. Default: active. [岗位状态，默认active]",
+            "enum": [
+              "active",
+              "inactive",
+              "expired"
+            ],
+            "default": "active",
+            "example": "active"
+          },
+          "countryCode": {
+            "type": "string",
+            "description": "Country code (e.g., US). [国家代码]",
+            "example": "US"
+          },
+          "locations": {
+            "description": "Job locations. [工作地点列表]",
+            "example": [
+              "San Jose, CA"
+            ],
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "experienceRequirement": {
+            "description": "Experience requirement object. [经验要求对象]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ExperienceRequirementRequestDto"
+              }
+            ]
+          },
+          "salaryDetails": {
+            "description": "Salary details object. [薪资详情对象]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SalaryDetailsRequestDto"
+              }
+            ]
+          },
+          "skills": {
+            "description": "Skills list. [技能列表]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillRequestDto"
+            }
+          },
+          "responsibilities": {
+            "description": "Responsibilities list. [职责列表]",
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "matchedTitles": {
+            "description": "Matched titles with scores. [匹配职位标题及分数]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatchedTitleRequestDto"
+            }
+          },
+          "jobDescription": {
+            "type": "string",
+            "description": "Job description. [岗位描述]"
+          },
+          "h1b": {
+            "type": "string",
+            "description": "H1B visa support status. [H1B签证支持状态]",
+            "example": "yes"
+          },
+          "usCitizenship": {
+            "type": "string",
+            "description": "US citizenship requirement. [美国公民身份要求]",
+            "example": "no"
+          },
+          "jobApplicationType": {
+            "description": "Supported application types for this job. [支持的投递类型]",
+            "example": [
+              "direct",
+              "referral"
+            ],
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "source": {
+            "type": "string",
+            "description": "Source of the job data. [岗位数据来源]",
+            "enum": [
+              "web",
+              "bd"
+            ],
+            "example": "bd"
+          }
+        },
+        "required": [
+          "jobTitle",
+          "companyName",
+          "source"
+        ]
+      },
+      "ExperienceRequirementResponseDto": {
+        "type": "object",
+        "properties": {
+          "min_years": {
+            "type": "number",
+            "description": "Minimum years. [最低经验年数]"
+          },
+          "max_years": {
+            "type": "number",
+            "description": "Maximum years. [最高经验年数]"
+          },
+          "unlimited": {
+            "type": "boolean",
+            "description": "Unlimited flag. [不限标记]"
+          }
+        }
+      },
+      "SalaryRangeResponseDto": {
+        "type": "object",
+        "properties": {
+          "min": {
+            "type": "number",
+            "description": "Min base salary. [最低基本工资]"
+          },
+          "max": {
+            "type": "number",
+            "description": "Max base salary. [最高基本工资]"
+          }
+        }
+      },
+      "SalaryDetailsResponseDto": {
+        "type": "object",
+        "properties": {
+          "base_salary": {
+            "description": "Base salary range. [基本工资范围]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SalaryRangeResponseDto"
+              }
+            ]
+          },
+          "bonus": {
+            "type": "object",
+            "description": "Bonus details. [奖金详情]"
+          }
+        }
+      },
+      "SkillResponseDto": {
+        "type": "object",
+        "properties": {
+          "skill": {
+            "type": "string",
+            "description": "Skill name. [技能名称]"
+          },
+          "years_of_experience": {
+            "type": "number",
+            "description": "Years of experience. [经验年数]"
+          }
+        },
+        "required": [
+          "skill"
+        ]
+      },
+      "MatchedTitleResponseDto": {
+        "type": "object",
+        "properties": {
+          "job_title": {
+            "type": "string",
+            "description": "Job title. [职位标题]"
+          },
+          "score": {
+            "type": "number",
+            "description": "Score. [分数]"
+          }
+        },
+        "required": [
+          "job_title",
+          "score"
+        ]
+      },
+      "JobPositionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Job ID (UUID). [岗位ID(UUID)]",
+            "format": "uuid"
+          },
+          "jobId": {
+            "type": "string",
+            "description": "External job id. [外部岗位ID]"
+          },
+          "jobLink": {
+            "type": "string",
+            "description": "Job link URL. [岗位链接]"
+          },
+          "objectId": {
+            "type": "string",
+            "description": "Idempotency object id. [幂等对象ID]"
+          },
+          "normalizedJobTitles": {
+            "description": "Normalized job titles. [标准化职位标题]",
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "jobTypes": {
+            "description": "Job types. [职位类型]",
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "postDate": {
+            "type": "string",
+            "description": "Post date (ISO 8601). [发布日期(ISO 8601)]",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status (active/inactive/expired). [状态：active/inactive/expired]",
+            "example": "active"
+          },
+          "title": {
+            "type": "string",
+            "description": "Job title. [岗位标题]"
+          },
+          "countryCode": {
+            "type": "string",
+            "description": "Country code. [国家代码]"
+          },
+          "experienceRequirement": {
+            "description": "Experience requirement. [经验要求]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ExperienceRequirementResponseDto"
+              }
+            ]
+          },
+          "salaryDetails": {
+            "description": "Salary details. [薪资详情]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SalaryDetailsResponseDto"
+              }
+            ]
+          },
+          "skills": {
+            "description": "Skills list. [技能列表]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillResponseDto"
+            }
+          },
+          "jobResponsibilities": {
+            "description": "Responsibilities list. [职责列表]",
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "matchedJobTitles": {
+            "description": "Matched titles. [匹配标题]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatchedTitleResponseDto"
+            }
+          },
+          "jobLocations": {
+            "description": "Job locations list. [地点列表]",
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "jobDescription": {
+            "type": "string",
+            "description": "Job description. [岗位描述]"
+          },
+          "companyName": {
+            "type": "string",
+            "description": "Company name. [公司名称]"
+          },
+          "h1b": {
+            "type": "string",
+            "description": "H1B. [H1B]"
+          },
+          "usCitizenship": {
+            "type": "string",
+            "description": "US citizenship requirement. [美国公民要求]"
+          },
+          "level": {
+            "type": "string",
+            "description": "Level. [级别]"
+          },
+          "aiAnalysis": {
+            "type": "object",
+            "description": "AI analysis JSON. [AI分析JSON]"
+          },
+          "sourceDetails": {
+            "type": "object",
+            "description": "Source details JSON. [来源详情JSON]"
+          },
+          "jobApplicationType": {
+            "description": "Supported application types. [支持投递类型]",
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Created time (ISO 8601). [创建时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Updated time (ISO 8601). [更新时间(ISO 8601)]",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "title",
+          "companyName",
+          "createdAt",
+          "updatedAt"
+        ]
       },
       "PlacementJobApplicationUpdateStatusRequestDto": {
         "type": "object",
@@ -6296,13 +9863,268 @@
           "status"
         ]
       },
+      "JobApplicationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Application ID (UUID). [投递ID(UUID)]",
+            "format": "uuid"
+          },
+          "studentId": {
+            "type": "string",
+            "description": "Student ID (UUID string). [学生ID(UUID字符串)]"
+          },
+          "jobId": {
+            "type": "string",
+            "description": "Job ID (UUID). [岗位ID(UUID)]",
+            "format": "uuid"
+          },
+          "applicationType": {
+            "type": "string",
+            "description": "Application type. [投递类型]",
+            "example": "referral"
+          },
+          "coverLetter": {
+            "type": "string",
+            "description": "Cover letter. [求职信]"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status. [投递状态]",
+            "enum": [
+              "recommended",
+              "interested",
+              "not_interested",
+              "revoked",
+              "mentor_assigned",
+              "submitted",
+              "interviewed",
+              "got_offer",
+              "rejected"
+            ],
+            "example": "submitted"
+          },
+          "assignedMentorId": {
+            "type": "string",
+            "description": "Assigned mentor ID (UUID string). [分配导师ID(UUID字符串)]"
+          },
+          "recommendedBy": {
+            "type": "string",
+            "description": "Recommended by user ID (UUID string). [推荐人ID(UUID字符串)]"
+          },
+          "recommendedAt": {
+            "type": "string",
+            "description": "Recommended at (ISO 8601). [推荐时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "submittedAt": {
+            "type": "string",
+            "description": "Submitted at (ISO 8601). [提交时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Updated at (ISO 8601). [更新时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Internal notes. [内部备注]"
+          }
+        },
+        "required": [
+          "id",
+          "studentId",
+          "jobId",
+          "applicationType",
+          "status",
+          "submittedAt",
+          "updatedAt"
+        ]
+      },
+      "EventEnvelopeResponseDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Event type. [事件类型]"
+          },
+          "payload": {
+            "type": "object",
+            "description": "Event payload (free-form JSON). [事件载荷(自由结构JSON)]"
+          }
+        },
+        "required": [
+          "type",
+          "payload"
+        ]
+      },
+      "JobApplicationServiceResultResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Main data. [主数据]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/JobApplicationResponseDto"
+              }
+            ]
+          },
+          "event": {
+            "description": "Single event (optional). [单个事件(可选)]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EventEnvelopeResponseDto"
+              }
+            ]
+          },
+          "events": {
+            "description": "Multiple events (optional). [多个事件(可选)]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventEnvelopeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "RollbackJobApplicationStatusRequestDto": {
+        "type": "object",
+        "properties": {
+          "changedBy": {
+            "type": "string",
+            "description": "Changed by user ID (UUID). If omitted, server uses current user. [变更人用户ID(UUID)，不传则使用当前用户]",
+            "format": "uuid"
+          },
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor ID (UUID). Used to keep assignedMentorId consistent if needed. [导师ID(UUID)，用于必要时保持assignedMentorId一致]",
+            "format": "uuid"
+          }
+        }
+      },
+      "PaginatedJobResultsResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Job items. [岗位列表]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobPositionResponseDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "Total jobs. [总数]"
+          },
+          "page": {
+            "type": "number",
+            "description": "Current page. [当前页码]"
+          },
+          "pageSize": {
+            "type": "number",
+            "description": "Page size. [每页条数]"
+          },
+          "totalPages": {
+            "type": "number",
+            "description": "Total pages. [总页数]"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ]
+      },
+      "JobQueryResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Success flag. [是否成功]",
+            "example": true
+          },
+          "data": {
+            "description": "Paginated job results. [分页岗位结果]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaginatedJobResultsResponseDto"
+              }
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "Message. [消息]"
+          }
+        },
+        "required": [
+          "success",
+          "data",
+          "message"
+        ]
+      },
       "PlacementReferralBatchRecommendRequestDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "studentIds": {
+            "description": "Student IDs (UUID strings). Unique and non-empty. [学生ID(UUID字符串)列表，需去重且非空]",
+            "example": [
+              "123e4567-e89b-12d3-a456-426614174000"
+            ],
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "jobIds": {
+            "description": "Job IDs (UUID). Unique and non-empty. [岗位ID(UUID)列表，需去重且非空]",
+            "example": [
+              "123e4567-e89b-12d3-a456-426614174001"
+            ],
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "studentIds",
+          "jobIds"
+        ]
+      },
+      "BatchRecommendReferralApplicationsResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Created referral applications. [创建的内推投递记录]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobApplicationResponseDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
       },
       "PlacementReferralAssignMentorRequestDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor user ID (UUID string). Assigns mentor to a referral application. [导师用户ID(UUID字符串)，用于内推投递分配导师]",
+            "format": "uuid",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        },
+        "required": [
+          "mentorId"
+        ]
       }
     }
   }

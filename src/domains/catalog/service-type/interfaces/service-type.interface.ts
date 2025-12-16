@@ -5,6 +5,7 @@ import { ServiceType as DbServiceType } from "@infrastructure/database/schema/se
  * Represents the classification standard for services
  * [代表服务的分类标准]
  */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface IServiceType extends DbServiceType {
   // Extend the database type with any additional domain-specific properties if needed
 }

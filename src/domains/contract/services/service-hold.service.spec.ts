@@ -680,7 +680,7 @@ describe("ServiceHoldService Unit Tests [服务预占服务单元测试]", () =>
         status: HoldStatus.ACTIVE,
       };
 
-      const mockNewHold = {
+      const _mockNewHold = {
         id: randomUUID(),
         studentId: testStudentId,
         serviceType: testServiceType,

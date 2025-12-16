@@ -730,7 +730,7 @@ describe("ServiceLedgerService Unit Tests [服务台账服务单元测试]", () 
 
     it("should apply offset parameter [应该应用offset参数]", async () => {
       // Arrange
-      const mockLedgers = Array.from({ length: 10 }, (_, i) => ({
+      const mockLedgers = Array.from({ length: 10 }, () => ({
         id: randomUUID(),
         studentId: testStudentId,
         serviceType: testServiceType,

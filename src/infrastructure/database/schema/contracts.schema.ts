@@ -4,7 +4,6 @@ import {
   varchar,
   timestamp,
   numeric,
-  integer,
   json,
 } from "drizzle-orm/pg-core";
 import { ContractStatus } from "../../../shared/types/contract-enums";
