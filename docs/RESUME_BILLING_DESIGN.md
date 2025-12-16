@@ -33,7 +33,7 @@
 - ✅ 支持针对每个 Job Title 上传多份简历
 - ✅ 管理简历的最终版本（Set Final / Cancel Final）
 - ✅ 处理简历导师计费逻辑（每个 Job Title 仅允许计费一次）
-- ✅ 记录操作日志和原因说明（使用 jsonb 字段）
+- ✅ 记录计费时间和 Final 设置时间
 
 **不负责的职责：**
 
@@ -49,8 +49,7 @@
 2. **多版本简历**：每个 Job Title 可上传多份简历（存储在 AWS S3）
 3. **最终版本标记**：支持设置和取消最终版本（Set Final / Cancel Final）
 4. **单次计费约束**：每个 Job Title 只能为一份简历计费一次
-5. **操作日志记录**：使用 `logs: jsonb` 字段记录所有操作（含操作人姓名）
-6. **状态管理**：使用 `status` 字段管理简历状态（uploaded/final/deleted）
+5. **状态管理**：使用 `status` 字段管理简历状态（uploaded/final/deleted）
 
 ---
 
@@ -92,23 +91,17 @@
 ┌─────────────────────┐
 │  外部 Job Title模块  │
 └──────┬──────────────┘
-       │ 2. 选择 Job Title 并上传简历
+       │ 2. 选择 Job Title 并上传简历到 S3
        ▼
 ┌─────────────────────────────┐
 │  Resumes (简历表)            │
 │  - jobTitle (文本)           │
 │  - fileUrl (S3)             │
 │  - status (uploaded/final)  │
-│  - logs (jsonb操作日志)     │
-└──────┬──────────────────────┘
-       │ 3. 设置 Final / 计费
-       ▼
-┌────────────────────────────┐
-│  Logs (jsonb字段)          │
-│  - 记录所有操作            │
-│  - 含操作人姓名            │
-│  - 含原因说明              │
-└────────────────────────────┘
+│  - mentorUserId (计费导师)  │
+│  - billedAt (计费时间)      │
+│  - finalSetAt (Final时间)   │
+└─────────────────────────────┘
 ```
 
 #### 2.2.2 模块依赖
@@ -140,7 +133,7 @@
                    ▼
 ┌─────────────────────────────────────────────────────┐
 │  Database Layer (PostgreSQL)                        │
-│  - resumes (包含 logs jsonb 字段)                   │
+│  - resumes (简历核心信息)                            │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -154,7 +147,7 @@ Resume Domain 仅包含 1 张核心表：
 
 | 表名       | 类型   | 职责                              |
 | ---------- | ------ | --------------------------------- |
-| `resumes` | 实体表 | 简历信息（包含 logs jsonb 字段） |
+| `resumes` | 实体表 | 简历核心信息（文件、状态、计费） |
 
 #### 3.1.1 表设计说明
 
@@ -163,15 +156,14 @@ Resume Domain 仅包含 1 张核心表：
 │          resumes                 │
 ├──────────────────────────────────┤
 │  - id (主键)                     │
-│  - studentUserId                 │
+│  - studentUserId (外键→users)   │
 │  - jobTitle (文本)               │
 │  - fileUrl (S3 URL)             │
 │  - fileName (原始文件名)         │
 │  - status (状态枚举)             │
-│  - finalSetAt (最终版本时间)    │
+│  - finalSetAt (Final时间)       │
 │  - mentorUserId (计费导师)      │
 │  - billedAt (计费时间)          │
-│  - logs (jsonb 操作日志)        │
 │  - uploadedBy (上传人)          │
 │  - createdAt / updatedAt        │
 └──────────────────────────────────┘
@@ -186,74 +178,60 @@ Resume Domain 仅包含 1 张核心表：
 **Schema 定义：**
 
 ```typescript
-import { pgTable, uuid, varchar, timestamp, text, pgEnum, jsonb } from 'drizzle-orm/pg-core';
-import { users } from './user.schema';
-import { students } from './student.schema';
+import { pgTable, uuid, varchar, timestamp, index } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { userTable } from './user.schema';
 
-// 简历状态枚举
-export const resumeStatusEnum = pgEnum('resume_status', [
-  'uploaded',   // 已上传
-  'final',      // 最终版本
-  'deleted',    // 已删除
-]);
+export const resumes = pgTable(
+  'resumes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
 
-export const resumes = pgTable('resumes', {
-  id: uuid('id').defaultRandom().primaryKey(),
+    // 关联字段（参考 ai-career-sessions、regular-mentoring-sessions）
+    studentUserId: uuid('student_user_id')
+      .notNull()
+      .references(() => userTable.id),
+    
+    // Job Title 信息（直接存储文本）
+    jobTitle: varchar('job_title', { length: 200 }).notNull(),
 
-  // 关联字段
-  studentUserId: uuid('student_user_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
-  
-  // Job Title 信息（直接存储文本）
-  jobTitle: varchar('job_title', { length: 200 }).notNull(), // 职位类型文本，如 'Software Engineer'
+    // 文件信息（AWS S3）
+    fileUrl: varchar('file_url', { length: 1000 }).notNull(),
+    fileName: varchar('file_name', { length: 500 }).notNull(),
 
-  // 文件信息（AWS S3）
-  fileUrl: varchar('file_url', { length: 1000 }).notNull(), // S3 文件 URL
-  fileName: varchar('file_name', { length: 500 }).notNull(), // 原始文件名
+    // 状态信息
+    status: varchar('status', { length: 20 }).notNull().default('uploaded'), // 'uploaded' | 'final' | 'deleted'
+    finalSetAt: timestamp('final_set_at', { withTimezone: true }),
 
-  // 状态信息
-  status: resumeStatusEnum('status').notNull().default('uploaded'), // 简历状态
-  finalSetAt: timestamp('final_set_at', { withTimezone: true }), // 设置为最终版本的时间
+    // 计费信息
+    mentorUserId: uuid('mentor_user_id').references(() => userTable.id), // NULL = 未计费
+    billedAt: timestamp('billed_at', { withTimezone: true }),
 
-  // 计费信息
-  mentorUserId: uuid('mentor_user_id').references(() => users.id), // 计费导师ID（NULL = 未计费）
-  billedAt: timestamp('billed_at', { withTimezone: true }), // 计费时间
-
-  // 操作日志（jsonb 格式）
-  logs: jsonb('logs').$type<ResumeLog[]>().default([]), // 所有操作记录
-
-  // 审计字段
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  uploadedBy: uuid('uploaded_by').notNull().references(() => users.id), // 上传人
-});
-
-// Logs 字段结构定义
-export interface ResumeLog {
-  action: 'upload' | 'set_final' | 'cancel_final' | 'billing' | 'delete';
-  operatorId: string;
-  operatorName: string;
-  mentorUserId?: string;      // 仅 billing 时有值
-  mentorName?: string;        // 仅 billing 时有值
-  reason?: string;            // set_final/cancel_final/billing 时有值
-  timestamp: string;          // ISO8601 格式
-}
-
-// 索引
-// CREATE INDEX idx_resumes_student_user_id ON resumes(student_user_id);
-// CREATE INDEX idx_resumes_job_title ON resumes(job_title);
-// CREATE INDEX idx_resumes_status ON resumes(status);
-// CREATE INDEX idx_resumes_mentor_user_id ON resumes(mentor_user_id);
-// CREATE INDEX idx_resumes_student_job_title ON resumes(student_user_id, job_title);
-// CREATE INDEX idx_resumes_logs_gin ON resumes USING gin(logs); -- JSONB GIN 索引
+    // 审计字段
+    uploadedBy: uuid('uploaded_by').notNull().references(() => userTable.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_resumes_student_user_id').on(table.studentUserId),
+    index('idx_resumes_job_title').on(table.jobTitle),
+    index('idx_resumes_status').on(table.status),
+    index('idx_resumes_mentor_user_id').on(table.mentorUserId),
+    index('idx_resumes_student_job_title').on(table.studentUserId, table.jobTitle),
+    // 状态约束
+    check('resumes_status_check',
+      sql`status IN ('uploaded', 'final', 'deleted')`
+    ),
+  ],
+);
 
 // 唯一索引约束：同一学生+Job Title，只能有一个简历被计费
 // CREATE UNIQUE INDEX idx_resumes_unique_billed 
 // ON resumes(student_user_id, job_title) 
 // WHERE mentor_user_id IS NOT NULL;
 
-// 外键约束说明：
-// - studentUserId: CASCADE DELETE（学生删除时，自动删除其简历）
-// - mentorUserId: 引用 users 表（与 regular-mentoring-sessions 保持一致）
+export type Resume = typeof resumes.$inferSelect;
+export type NewResume = typeof resumes.$inferInsert;
 ```
 
 **字段说明：**
@@ -266,75 +244,12 @@ export interface ResumeLog {
 | `fileUrl`       | VARCHAR(1000) | S3 文件 URL                    | NOT NULL                                |
 | `fileName`      | VARCHAR(500)  | 原始文件名                     | NOT NULL                                |
 | `status`        | ENUM          | 简历状态                       | NOT NULL, DEFAULT 'uploaded'            |
-| `finalSetAt`    | TIMESTAMP     | 设置为最终版本的时间           | -                                       |
+| `finalSetAt`    | TIMESTAMP     | 设置为最终版本的时间           | 月度统计用                              |
 | `mentorUserId`  | UUID          | 计费导师ID（NULL=未计费）      | FK → users                             |
-| `billedAt`      | TIMESTAMP     | 计费时间                       | -                                       |
-| `logs`          | JSONB         | 操作日志（含操作人姓名和原因） | DEFAULT []                              |
+| `billedAt`      | TIMESTAMP     | 计费时间                       | 月度统计导师费用用                      |
+| `uploadedBy`    | UUID          | 上传人                         | NOT NULL, FK → users                   |
 | `createdAt`     | TIMESTAMP     | 创建时间                       | NOT NULL                                |
 | `updatedAt`     | TIMESTAMP     | 更新时间                       | NOT NULL                                |
-| `uploadedBy`    | UUID          | 上传人                         | NOT NULL, FK → users                   |
-
-#### 3.2.2 Logs 字段结构说明
-
-**Logs 字段类型定义：**
-
-```typescript
-// Logs 数组元素结构
-interface ResumeLog {
-  action: 'upload' | 'set_final' | 'cancel_final' | 'billing' | 'delete';
-  operatorId: string;       // 操作人 ID
-  operatorName: string;     // 操作人姓名（写入时获取，避免关联查询）
-  mentorUserId?: string;    // 导师 ID（仅 billing 时有值）
-  mentorName?: string;      // 导师姓名（仅 billing 时有值）
-  reason?: string;          // 操作原因（set_final/cancel_final/billing 时有值）
-  timestamp: string;        // ISO8601 格式时间戳
-}
-```
-
-**Logs 示例数据：**
-
-```json
-[
-  {
-    "action": "upload",
-    "operatorId": "uuid-123",
-    "operatorName": "Jennifer Zhang",
-    "timestamp": "2025-12-15T10:00:00Z"
-  },
-  {
-    "action": "set_final",
-    "operatorId": "uuid-123",
-    "operatorName": "Jennifer Zhang",
-    "reason": "已通过导师审核",
-    "timestamp": "2025-12-15T11:00:00Z"
-  },
-  {
-    "action": "cancel_final",
-    "operatorId": "uuid-123",
-    "operatorName": "Jennifer Zhang",
-    "reason": "需要进一步修改",
-    "timestamp": "2025-12-15T12:00:00Z"
-  },
-  {
-    "action": "billing",
-    "operatorId": "uuid-456",
-    "operatorName": "Admin User",
-    "mentorUserId": "uuid-789",
-    "mentorName": "Richard Zhang",
-    "reason": "完成简历修改服务",
-    "timestamp": "2025-12-15T13:00:00Z"
-  }
-]
-```
-
-**前端显示效果：**
-
-```
-2025-12-15 | Jennifer Zhang uploaded
-2025-12-15 | Jennifer Zhang set final: 已通过导师审核
-2025-12-15 | Jennifer Zhang canceled final: 需要进一步修改
-2025-12-15 | Admin User billed to Richard Zhang: 完成简历修改服务
-```
 
 ---
 
@@ -344,16 +259,15 @@ interface ResumeLog {
 
 **职责：** 管理简历的上传、查询、删除和操作
 
-**服务方法（6个）：**
+**服务方法（5个）：**
 
 | #  | 方法名              | 方法签名                                                                                      | 功能说明                                      |
 | -- | ------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| 1  | `upload`          | `upload(dto: UploadResumeDto, userId: string, userName: string): Promise<Resume>`          | 上传简历（自动记录到 logs）                   |
-| 2  | `findById`        | `findById(id: string): Promise<ResumeDetail \| null>`                                       | 根据ID查询简历详情                            |
-| 3  | `listByStudent`   | `listByStudent(studentUserId: string): Promise<Record<string, ResumeDetail[]>>`            | 查询学生的简历列表（按 Job Title 分组返回）   |
-| 4  | `setFinal`        | `setFinal(resumeId: string, reason: string, userId: string, userName: string): Promise<Resume>` | 设置为最终版本（自动取消旧 Final）     |
-| 5  | `cancelFinal`     | `cancelFinal(resumeId: string, reason: string, userId: string, userName: string): Promise<Resume>` | 取消最终版本                        |
-| 6  | `delete`          | `delete(resumeId: string, userId: string, userName: string): Promise<void>`                | 删除简历（软删除，已计费和 Final 状态不可删除）|
+| 1  | `upload`          | `upload(dto: UploadResumeDto, userId: string): Promise<Resume>`                            | 上传简历                                      |
+| 2  | `listByStudent`   | `listByStudent(studentUserId: string): Promise<Record<string, ResumeDetail[]>>`            | 查询学生的简历列表（按 Job Title 分组返回）   |
+| 3  | `setFinal`        | `setFinal(resumeId: string, userId: string): Promise<Resume>`                               | 设置为最终版本（自动取消旧 Final）            |
+| 4  | `cancelFinal`     | `cancelFinal(resumeId: string, userId: string): Promise<Resume>`                            | 取消最终版本                                  |
+| 5  | `delete`          | `delete(resumeId: string, userId: string): Promise<void>`                                   | 删除简历（软删除，已计费和 Final 状态不可删除）|
 
 **实现位置：** `src/domains/services/resume/services/resume.service.ts`
 
@@ -365,18 +279,15 @@ interface ResumeLog {
 
 | # | 方法名            | 方法签名                                                                                      | 功能说明                     |
 | - | ----------------- | --------------------------------------------------------------------------------------------- | ---------------------------- |
-| 1 | `billResume`    | `billResume(dto: BillResumeDto, userId: string, userName: string): Promise<Resume>`        | 为简历计费（每个职位类型仅一次，自动写入 service_references 表并发布事件）|
+| 1 | `billResume`    | `billResume(dto: BillResumeDto, userId: string): Promise<Resume>`                          | 为简历计费（每个职位类型仅一次，自动写入 service_references 表并发布事件）|
 
 **实现位置：** `src/domains/services/resume/services/resume-billing.service.ts`
 
-**计费流程：**
-1. 验证该 Job Title 是否已计费（唯一性约束）
+**计费流程（事务）：**
+1. 验证 Job Title 是否已计费（唯一索引 + 服务层校验）
 2. 更新简历计费状态（mentorUserId、billedAt）
-3. 追加操作日志到 logs 字段
-4. 写入 `service_references` 表（记录服务消耗）
-5. 发布 `resume.billed` 事件
-
-**说明：** 所有服务方法均需传入 `userName` 参数，用于写入 logs 字段，避免前端显示时需要关联查询用户表。
+3. 写入 `service_references` 表（记录服务消耗）
+4. 发布 `resume.billed` 事件
 
 ---
 
@@ -402,38 +313,12 @@ interface UploadResumeDto {
 - ✅ `fileName` 必填
 - ✅ `fileUrl` 必填，必须是有效的 S3 URL
 
-#### 5.1.2 SetFinalDto
-
-```typescript
-interface SetFinalDto {
-  reason: string;  // 设置原因（必填）
-}
-```
-
-**验证规则：**
-
-- ✅ `reason` 必填，长度不超过 2000 字符
-
-#### 5.1.3 CancelFinalDto
-
-```typescript
-interface CancelFinalDto {
-  reason: string;  // 取消原因（必填）
-}
-```
-
-**验证规则：**
-
-- ✅ `reason` 必填，长度不超过 2000 字符
-
-#### 5.1.4 BillResumeDto
+#### 5.1.2 BillResumeDto
 
 ```typescript
 interface BillResumeDto {
   resumeId: string;         // 简历ID
   mentorUserId: string;     // 导师ID（必填）
-  mentorName: string;       // 导师姓名（必填）
-  reason: string;           // 计费原因（必填）
 }
 ```
 
@@ -441,11 +326,9 @@ interface BillResumeDto {
 
 - ✅ `resumeId` 必填，必须存在
 - ✅ `mentorUserId` 必填，必须存在且为导师角色
-- ✅ `mentorName` 必填（写入 logs 字段）
-- ✅ `reason` 必填，长度不超过 2000 字符
 - ✅ 该简历所属的 Job Title 不能已计费过
 
-#### 5.1.5 ResumeDetail（响应接口）
+#### 5.1.3 ResumeDetail（响应接口）
 
 ```typescript
 interface ResumeDetail {
@@ -455,25 +338,12 @@ interface ResumeDetail {
   fileName: string;
   fileUrl: string;            // S3 URL
   status: 'uploaded' | 'final' | 'deleted';
-  finalSetAt?: Date;
+  finalSetAt?: Date;          // Final 时间（月度统计用）
   mentorUserId?: string;      // 计费导师ID（NULL = 未计费）
-  billedAt?: Date;
-  logs: ResumeLog[];          // 操作日志数组
+  billedAt?: Date;            // 计费时间（月度导师费用统计用）
+  uploadedBy: string;
   createdAt: Date;
   updatedAt: Date;
-  uploadedBy: string;
-}
-```
-
-#### 5.1.6 JobTitleBillingStatus（响应接口）
-
-```typescript
-interface JobTitleBillingStatus {
-  jobTitle: string;          // 职位类型文本
-  totalResumes: number;      // 该职位类型的简历总数
-  isBilled: boolean;         // 是否已计费（通过 mentorUserId 判断）
-  billedResume?: ResumeDetail; // 已计费的简历（如果有）
-  finalResume?: ResumeDetail;  // 最终版本简历（如果有）
 }
 ```
 
@@ -597,7 +467,7 @@ interface JobTitleBillingStatus {
 | 当前状态     | 允许操作        | 目标状态     | 备注                               |
 | ------------ | --------------- | ------------ | ---------------------------------- |
 | `uploaded` | `setFinal()`  | `final`    | 同一 Job Title 只能有一个 Final    |
-| `final`    | `cancelFinal()`| `uploaded` | finalSetAt 清空，logs 追加记录     |
+| `final`    | `cancelFinal()`| `uploaded` | finalSetAt 清空                    |
 | `uploaded` | `delete()`    | `deleted`  | 仅未计费的简历可删除               |
 | `final`    | `delete()`    | `deleted`  | 仅未计费的简历可删除               |
 | `任意状态`   | `billResume()`| 保持不变     | mentorUserId 设置，同一 Job Title 只能计费一次 |
@@ -699,13 +569,7 @@ interface JobTitleBillingStatus {
 
 **接口路径：** `POST /api/resume/resumes/:resumeId/set-final`
 
-**请求体：**
-
-```json
-{
-  "reason": "这是最新修改的版本，已通过导师审核"
-}
-```
+**请求体：** 无
 
 **响应示例：**
 
@@ -725,13 +589,7 @@ interface JobTitleBillingStatus {
 
 **接口路径：** `POST /api/resume/resumes/:resumeId/cancel-final`
 
-**请求体：**
-
-```json
-{
-  "reason": "需要进一步修改简历内容"
-}
-```
+**请求体：** 无
 
 **响应示例：**
 
@@ -756,9 +614,7 @@ interface JobTitleBillingStatus {
 ```json
 {
   "resumeId": "uuid",
-  "mentorUserId": "mentor-uuid",
-  "mentorName": "Richard Zhang",
-  "reason": "导师已完成简历修改服务"
+  "mentorUserId": "mentor-uuid"
 }
 ```
 
@@ -800,35 +656,20 @@ interface JobTitleBillingStatus {
 
 ```
 src/domains/services/resume/
-├── resume.module.ts                     # Resume 模块
-│
+├── resume.module.ts
 ├── services/
-│   ├── resume.service.ts               # 简历管理服务
-│   └── resume-billing.service.ts       # 简历计费服务
-│
+│   ├── resume.service.ts
+│   └── resume-billing.service.ts
 ├── repositories/
-│   └── resume.repository.ts            # 简历仓储
-│
+│   └── resume.repository.ts
 ├── dto/
 │   ├── upload-resume.dto.ts
-│   ├── set-final.dto.ts
-│   ├── cancel-final.dto.ts
 │   └── bill-resume.dto.ts
-│
-├── entities/                            # 实体定义（可选）
+├── entities/
 │   └── resume.entity.ts
-│
-├── mappers/                             # 映射器（可选）
-│   └── resume.mapper.ts
-│
-└── listeners/                           # 事件监听器（如果需要）
-    └── resume-event.listener.ts
+└── mappers/
+    └── resume.mapper.ts
 ```
-
-**说明：**
-- 删除 `interfaces/` 目录，类型定义放在 `entities/` 或 `dto/` 中
-- 删除 `exceptions/` 目录，异常处理统一使用项目的异常处理机制
-- 参考 `regular-mentoring` 的结构，保持一致性
 
 ### 9.2 模块依赖
 
@@ -836,25 +677,18 @@ src/domains/services/resume/
 // src/domains/services/resume/resume.module.ts
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '@infrastructure/database/database.module';
-import { JobTitleService } from './services/job-title.service';
 import { ResumeService } from './services/resume.service';
 import { ResumeBillingService } from './services/resume-billing.service';
-import { JobTitleRepository } from './repositories/job-title.repository';
 import { ResumeRepository } from './repositories/resume.repository';
-import { ResumeOperationLogRepository } from './repositories/resume-operation-log.repository';
 
 @Module({
   imports: [DatabaseModule],
   providers: [
-    JobTitleService,
     ResumeService,
     ResumeBillingService,
-    JobTitleRepository,
     ResumeRepository,
-    ResumeOperationLogRepository,
   ],
   exports: [
-    JobTitleService,
     ResumeService,
     ResumeBillingService,
   ],
@@ -866,8 +700,9 @@ export class ResumeModule {}
 
 #### 9.3.1 ResumeService 核心逻辑
 
-- **上传简历**：验证 S3 URL 格式，记录到 logs
-- **Set Final**：自动取消同一 Job Title 的旧 Final
+- **上传简历**：验证 S3 URL 格式
+- **Set Final**：自动取消同一 Job Title 的旧 Final（更新 status 和 finalSetAt）
+- **Cancel Final**：更新 status='uploaded'，清空 finalSetAt
 - **删除简历**：已计费和 Final 状态不可删除
 - **列表查询**：按 Job Title 分组返回（后端分组）
 
@@ -875,7 +710,7 @@ export class ResumeModule {}
 
 **计费流程（事务）：**
 1. 验证 Job Title 是否已计费（唯一索引 + 服务层校验）
-2. 更新简历计费状态
+2. 更新简历计费状态（mentorUserId、billedAt）
 3. 写入 `service_references` 表
 4. 发布 `resume.billed` 事件
 
@@ -918,23 +753,15 @@ export class ResumeModule {}
 #### 9.4.1 创建 Schema 文件
 
 ```bash
-# 创建 job_titles schema
-touch src/infrastructure/database/schema/job-titles.schema.ts
-
 # 创建 resumes schema
 touch src/infrastructure/database/schema/resumes.schema.ts
-
-# 创建 resume_operation_logs schema
-touch src/infrastructure/database/schema/resume-operation-logs.schema.ts
 ```
 
 #### 9.4.2 更新 schema/index.ts
 
 ```typescript
 // src/infrastructure/database/schema/index.ts
-export * from './job-titles.schema';
 export * from './resumes.schema';
-export * from './resume-operation-logs.schema';
 ```
 
 #### 9.4.3 生成 Drizzle 迁移
@@ -949,65 +776,21 @@ npm run db:generate
 
 ```sql
 -- ============================================
--- Resume Domain - 索引和触发器
+-- Resume Domain - 唯一索引约束
 -- ============================================
 
--- ============================================
--- Job Titles 表
--- ============================================
-
--- 索引
-CREATE INDEX IF NOT EXISTS idx_job_titles_code ON job_titles(code);
-CREATE INDEX IF NOT EXISTS idx_job_titles_is_active ON job_titles(is_active);
-CREATE INDEX IF NOT EXISTS idx_job_titles_category ON job_titles(category);
-CREATE INDEX IF NOT EXISTS idx_job_titles_sort_order ON job_titles(sort_order);
-
--- 触发器（自动更新 updated_at）
-CREATE TRIGGER update_job_titles_updated_at
-  BEFORE UPDATE ON job_titles
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- ============================================
--- Resumes 表
--- ============================================
-
--- 索引
-CREATE INDEX IF NOT EXISTS idx_resumes_student_id ON resumes(student_id);
-CREATE INDEX IF NOT EXISTS idx_resumes_job_title_id ON resumes(job_title_id);
-CREATE INDEX IF NOT EXISTS idx_resumes_is_final ON resumes(is_final);
-CREATE INDEX IF NOT EXISTS idx_resumes_is_billed ON resumes(is_billed);
-CREATE INDEX IF NOT EXISTS idx_resumes_student_job_title ON resumes(student_id, job_title_id);
-CREATE INDEX IF NOT EXISTS idx_resumes_billed_mentor_id ON resumes(billed_mentor_id);
+-- 唯一索引约束：同一学生+Job Title，只能有一个简历被计费
+CREATE UNIQUE INDEX IF NOT EXISTS idx_resumes_unique_billed 
+ON resumes(student_user_id, job_title) 
+WHERE mentor_user_id IS NOT NULL;
 
 -- 触发器（自动更新 updated_at）
 CREATE TRIGGER update_resumes_updated_at
   BEFORE UPDATE ON resumes
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- ============================================
--- Resume Operation Logs 表
--- ============================================
-
--- 索引
-CREATE INDEX IF NOT EXISTS idx_resume_operation_logs_resume_id ON resume_operation_logs(resume_id);
-CREATE INDEX IF NOT EXISTS idx_resume_operation_logs_student_id ON resume_operation_logs(student_id);
-CREATE INDEX IF NOT EXISTS idx_resume_operation_logs_operation_type ON resume_operation_logs(operation_type);
-CREATE INDEX IF NOT EXISTS idx_resume_operation_logs_mentor_id ON resume_operation_logs(mentor_id);
-CREATE INDEX IF NOT EXISTS idx_resume_operation_logs_created_at ON resume_operation_logs(created_at);
 ```
 
-#### 9.4.5 初始化 Job Titles 数据
-
-**文件：** `src/infrastructure/database/migrations/xxxx_seed_job_titles.sql`
-
-```sql
--- 创建唯一索引约束：同一学生+Job Title，只能有一个简历被计费
-CREATE UNIQUE INDEX IF NOT EXISTS idx_resumes_unique_billed 
-ON resumes(student_user_id, job_title) 
-WHERE mentor_user_id IS NOT NULL;
-```
-
-#### 9.4.6 应用迁移
+#### 9.4.5 应用迁移
 
 ```bash
 # 开发环境（直接推送，包含 Drizzle 迁移）
@@ -1022,94 +805,39 @@ npm run db:migrate
 
 ### 9.5 统一错误处理
 
-**定义自定义异常类：**
+**使用项目统一异常处理机制：**
 
 ```typescript
-// src/domains/services/resume/exceptions/resume.exception.ts
+// 使用 NestJS 内置异常
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
-// 错误消息映射表
-export const RESUME_ERROR_MESSAGES: Record<string, string> = {
-  // Job Title 相关错误
-  JOB_TITLE_NOT_FOUND: '职位类型不存在或未启用',
-  JOB_TITLE_NOT_ACTIVE: '职位类型未启用',
-
-  // Resume 相关错误
-  RESUME_NOT_FOUND: '简历不存在',
-  STUDENT_NOT_FOUND: '学生不存在',
-  MENTOR_NOT_FOUND: '导师不存在',
-  INVALID_FILE_TYPE: '文件类型无效（仅支持 PDF/DOCX）',
-  FILE_TOO_LARGE: '文件过大（最大 10MB）',
-  FINAL_ALREADY_EXISTS: '该职位类型已有最终版本简历',
-  RESUME_NOT_FINAL: '简历不是最终版本',
-  JOB_TITLE_ALREADY_BILLED: '该职位类型已计费，不能再次计费',
-  RESUME_ALREADY_BILLED: '该简历已计费',
-  BILLED_RESUME_CANNOT_DELETE: '已计费的简历不允许删除',
-  REASON_REQUIRED: '必须提供操作原因',
-};
-
-// 自定义异常基类
-export class ResumeException extends BadRequestException {
-  constructor(
-    public readonly code: string,
-    message?: string,
-  ) {
-    super({
-      statusCode: 400,
-      code,
-      message: message || RESUME_ERROR_MESSAGES[code] || '未知错误',
-    });
-  }
-}
-
-// 特定异常类
-export class ResumeNotFoundException extends NotFoundException {
-  constructor(
-    public readonly code: string,
-    message?: string,
-  ) {
-    super({
-      statusCode: 404,
-      code,
-      message: message || RESUME_ERROR_MESSAGES[code] || '资源不存在',
-    });
-  }
-}
+// 示例
+throw new NotFoundException('RESUME_NOT_FOUND');
+throw new BadRequestException('JOB_TITLE_ALREADY_BILLED');
 ```
 
-### 9.6 文件位置说明
+### 9.6 关键实现要点
 
-根据您的需求，建议将简历相关的数据库操作文件放置在以下位置：
+**数据库约束：**
+- 唯一索引确保同一 Job Title 单次计费
+- 外键引用 `userTable.id`（与 session 表保持一致）
+- status 字段 CHECK 约束
 
-```
-src/domains/services/resume/
-├── resume.module.ts
-├── services/
-│   ├── job-title.service.ts
-│   ├── resume.service.ts
-│   └── resume-billing.service.ts
-├── repositories/
-│   ├── job-title.repository.ts
-│   ├── resume.repository.ts
-│   └── resume-operation-log.repository.ts
-├── dto/
-├── interfaces/
-└── exceptions/
-```
+**事务处理：**
+- 计费操作必须在事务中完成
+- Set Final 操作需要事务（取消旧 Final + 设置新 Final）
 
-**说明：**
-- ✅ 与其他 service 域（如 `placement`）保持一致的目录结构
-- ✅ `services/` 目录包含业务逻辑层
-- ✅ `repositories/` 目录包含数据访问层（数据库操作）
-- ✅ 符合 DDD 分层架构原则
+**事件发布：**
+- 仅计费成功后发布 `resume.billed` 事件
+- 事件包含：resumeId、studentUserId、mentorUserId、jobTitle、billedAt
+
+**Service References：**
+- serviceType: `'resume_review'`
+- unitType: `'times'`
+- consumedUnits: `'1.00'`
 
 ---
 
 **文档结束**
 
----
-
-> **版本历史：**
->
-> - v1.0 (2025-12-15): 初始版本，完整的简历上传与导师计费功能设计
 
