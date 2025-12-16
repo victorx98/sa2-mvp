@@ -136,7 +136,6 @@ export const ALLOWED_APPLICATION_STATUS_TRANSITIONS: Partial<
   - `applicationType: ApplicationType`：申请类型（包括代投）
   - `coverLetter?: string`：求职信
   - `customAnswers?: Record<string, any>`：自定义问题回答
-  - `isUrgent?: boolean`：加急申请标记
 
 **返回值**：
 - `Promise<IServiceResult<Record<string, any>, Record<string, any>>>`：服务结果，包含创建的申请数据
@@ -229,7 +228,6 @@ export const ALLOWED_APPLICATION_STATUS_TRANSITIONS: Partial<
 | coverLetter | string | 求职信 |
 | customAnswers | jsonb | 自定义问题回答 |
 | status | string | 申请状态 |
-| isUrgent | boolean | 加急申请标记 |
 | submittedAt | timestamp | 提交时间 |
 | createdAt | timestamp | 创建时间 |
 | updatedAt | timestamp | 更新时间 |
@@ -285,8 +283,7 @@ Content-Type: application/json
   "jobId": "job-456",
   "applicationType": "counselor",
   "coverLetter": "Dear Hiring Manager...",
-  "customAnswers": { "question1": "answer1" },
-  "isUrgent": false
+  "customAnswers": { "question1": "answer1" }
 }
 ```
 

@@ -154,19 +154,28 @@ export class ErrorInterceptor implements NestInterceptor {
     // Check if it's a Drizzle ORM error [检查是否为Drizzle ORM错误]
     if (error && error.message && error.message.includes('Failed query')) {
       // Try to extract more information from Drizzle error [尝试从Drizzle错误中提取更多信息]
-      let detailedMessage = 'Database insert failed';
+      let detailedMessage = 'Database query failed';
+      
+      // Determine the query type from error message [从错误消息中确定查询类型]
+      const queryType = error.message.includes('select') ? 'select' : 
+                        error.message.includes('insert') ? 'insert' :
+                        error.message.includes('update') ? 'update' :
+                        error.message.includes('delete') ? 'delete' : 'query';
+      
+      // Generate appropriate message based on query type [根据查询类型生成适当的消息]
+      detailedMessage = `Database ${queryType} failed`;
       
       // Check if error message contains specific constraint violation patterns [检查错误消息是否包含特定的约束冲突模式]
       if (error.message.includes('duplicate key')) {
-        detailedMessage = 'Database insert failed: Unique constraint violated';
+        detailedMessage = `Database ${queryType} failed: Unique constraint violated`;
       } else if (error.message.includes('null value in column')) {
-        detailedMessage = 'Database insert failed: Required field cannot be null';
+        detailedMessage = `Database ${queryType} failed: Required field cannot be null`;
       } else if (error.message.includes('invalid input syntax')) {
-        detailedMessage = 'Database insert failed: Invalid data type';
+        detailedMessage = `Database ${queryType} failed: Invalid data type`;
       } else if (error.message.includes('violates check constraint')) {
-        detailedMessage = 'Database insert failed: Check constraint violated';
+        detailedMessage = `Database ${queryType} failed: Check constraint violated`;
       } else if (error.message.includes('violates foreign key constraint')) {
-        detailedMessage = 'Database insert failed: Foreign key constraint violated';
+        detailedMessage = `Database ${queryType} failed: Foreign key constraint violated`;
       }
       
       return {

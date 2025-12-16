@@ -34,28 +34,28 @@ export class ServiceTypeRepository {
       case "id":
         return orderDirection === "asc"
           ? serviceTypes.id
-          : sql`${serviceTypes.id} DESC`;
+          : desc(serviceTypes.id);
       case "code":
         return orderDirection === "asc"
           ? serviceTypes.code
-          : sql`${serviceTypes.code} DESC`;
+          : desc(serviceTypes.code);
       case "name":
         return orderDirection === "asc"
           ? serviceTypes.name
-          : sql`${serviceTypes.name} DESC`;
+          : desc(serviceTypes.name);
       case "status":
         return orderDirection === "asc"
           ? serviceTypes.status
-          : sql`${serviceTypes.status} DESC`;
+          : desc(serviceTypes.status);
       case "updatedAt":
         return orderDirection === "asc"
           ? serviceTypes.updatedAt
-          : sql`${serviceTypes.updatedAt} DESC`;
+          : desc(serviceTypes.updatedAt);
       case "createdAt":
       default:
         return orderDirection === "asc"
           ? serviceTypes.createdAt
-          : sql`${serviceTypes.createdAt} DESC`;
+          : desc(serviceTypes.createdAt);
     }
   }
 

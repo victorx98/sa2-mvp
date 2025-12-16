@@ -5,11 +5,19 @@ import { ApplicationStatus, ApplicationType } from "../types";
  */
 export interface ISubmitApplicationDto {
   studentId: string; // Student ID [学生ID]
-  jobId: string; // Job position ID [岗位ID]
+  jobId: string; // Job position ID (UUID) [岗位ID（UUID）]
   applicationType: ApplicationType; // Application type [申请类型]
   coverLetter?: string; // Cover letter [求职信]
-  customAnswers?: Record<string, unknown>; // Custom question answers [自定义问题回答]
-  isUrgent?: boolean; // Urgent application flag [加急申请标记]
+}
+
+/**
+ * DTO for batch recommending referral applications (counselor -> students) [批量内推推荐DTO（顾问 -> 学生）]
+ * - All-or-nothing transaction: any failure rolls back all inserts [全成功事务：任一失败则整体回滚]
+ */
+export interface IRecommendReferralApplicationsBatchDto {
+  recommendedBy: string; // Recommender user ID (counselor) [推荐人ID（顾问）]
+  studentIds: string[]; // Student IDs [学生ID列表]
+  jobIds: string[]; // Recommended job IDs [岗位ID列表]
 }
 
 /**
@@ -25,14 +33,24 @@ export interface IUpdateApplicationStatusDto {
 }
 
 /**
+ * Date range filter for recommendation time [推荐时间范围筛选]
+ */
+export interface IRecommendedAtRangeFilter {
+  start?: Date; // Start date [开始日期]
+  end?: Date; // End date [结束日期]
+}
+
+/**
  * Filter interface for searching job applications [搜索投递申请筛选接口]
  */
 export interface IJobApplicationSearchFilter {
   studentId?: string; // Filter by student [按学生筛选]
-  jobId?: string; // Filter by job [按岗位筛选]
+  jobId?: string; // Filter by job (UUID) [按岗位筛选（UUID）]
   status?: ApplicationStatus; // Filter by status [按状态筛选]
   applicationType?: ApplicationType; // Filter by application type [按申请类型筛选]
   assignedMentorId?: string; // Filter by assigned mentor [按分配的导师筛选]
+  recommendedBy?: string; // Filter by recommender [按推荐人筛选]
+  recommendedAtRange?: IRecommendedAtRangeFilter; // Filter by recommendation time range [按推荐时间范围筛选]
 }
 
 /**
@@ -40,7 +58,7 @@ export interface IJobApplicationSearchFilter {
  */
 export interface IQueryApplicationsDto {
   studentId?: string; // Filter by student [按学生筛选]
-  jobId?: string; // Filter by job [按岗位筛选]
+  jobId?: string; // Filter by job (UUID) [按岗位筛选（UUID）]
   status?: ApplicationStatus; // Filter by status [按状态筛选]
   applicationType?: ApplicationType; // Filter by application type [按申请类型筛选]
   offset?: number; // Pagination offset [分页偏移]

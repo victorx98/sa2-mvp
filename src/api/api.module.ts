@@ -21,6 +21,8 @@ import { ProductsController } from "./controllers/catalog/products.controller";
 import { ContractsController } from "./controllers/contract/contracts.controller";
 import { FinancialController } from "./controllers/financial/financial.controller";
 import { PlacementController } from "./controllers/placement/placement.controller";
+import { PlacementQueryController } from "./controllers/placement/placement-query.controller";
+import { PlacementReferralController } from "./controllers/placement/placement-referral.controller";
 import { SessionController as UnifiedSessionController } from "./controllers/services/session.controller";
 import { ClassController } from "./controllers/services/class.controller";
 import { ClassSessionController } from "./controllers/services/class-session.controller";
@@ -83,6 +85,8 @@ import { SessionTypesController } from "./controllers/services/session-types.con
 
     // Placement Controllers
     PlacementController,
+    PlacementQueryController,
+    PlacementReferralController,
   ],
 })
 export class ApiModule {}

@@ -713,6 +713,48 @@
         ]
       }
     },
+    "/api/services/session-types": {
+      "get": {
+        "description": "Retrieve session types, optionally filtered by service type code (e.g., External, Internal)",
+        "operationId": "SessionTypesController_getSessionTypes",
+        "parameters": [
+          {
+            "name": "serviceTypeCode",
+            "required": false,
+            "in": "query",
+            "description": "Filter by service type code (e.g., External, Internal)",
+            "schema": {
+              "example": "External",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session types retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SessionTypeDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get session types list",
+        "tags": [
+          "Session Types"
+        ]
+      }
+    },
     "/api/services/regular-mentoring": {
       "post": {
         "description": "\n      Creates a new regular mentoring session asynchronously.\n      \n      Sync Flow (returns immediately):\n      1. Create calendar slots for mentor and student\n      2. Create session record with PENDING_MEETING status\n      3. Return response with sessionId and status\n      \n      Async Flow (runs in background):\n      1. Create meeting link via third-party API\n      2. Update session with meeting_id and status=SCHEDULED\n      3. Publish SESSION_BOOKED_EVENT\n      \n      Response includes:\n      - sessionId: unique session identifier\n      - status: PENDING_MEETING (meeting creation in progress)\n      - scheduledAt: scheduled start time\n      \n      Client should poll GET /api/services/regular-mentoring/:id to check status and get meetingUrl\n    ",
@@ -2820,10 +2862,19 @@
         ]
       }
     },
-    "/api/students/profile": {
+    "/api/students/{studentId}/profile": {
       "get": {
         "operationId": "StudentProfileController_getProfile",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Student profile retrieved successfully"
@@ -2841,7 +2892,16 @@
       },
       "put": {
         "operationId": "StudentProfileController_updateProfile",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -4007,7 +4067,26 @@
     "/api/placement/job-applications/{id}/status": {
       "patch": {
         "operationId": "PlacementController_updateJobApplicationStatus",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlacementJobApplicationUpdateStatusRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Job application status updated successfully"
@@ -4049,6 +4128,85 @@
         "summary": "Rollback job application status",
         "tags": [
           "Admin Placement"
+        ]
+      }
+    },
+    "/query/placement/jobs": {
+      "get": {
+        "operationId": "PlacementQueryController_queryJobs",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PlacementQuery"
+        ]
+      }
+    },
+    "/api/placement/referrals/recommendations/batch": {
+      "post": {
+        "operationId": "PlacementReferralController_batchRecommendReferralApplications",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlacementReferralBatchRecommendRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Referral applications recommended"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Batch recommend referral applications",
+        "tags": [
+          "Placement Referral"
+        ]
+      }
+    },
+    "/api/placement/referrals/{applicationId}/mentor": {
+      "patch": {
+        "operationId": "PlacementReferralController_assignReferralMentor",
+        "parameters": [
+          {
+            "name": "applicationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlacementReferralAssignMentorRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Referral mentor assigned"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "summary": "Assign mentor for a referral application",
+        "tags": [
+          "Placement Referral"
         ]
       }
     }
@@ -4622,6 +4780,11 @@
               "ai_career"
             ]
           },
+          "serviceType": {
+            "type": "string",
+            "description": "Service Type (business-level)",
+            "example": "premium_mentoring"
+          },
           "studentId": {
             "type": "string",
             "description": "Student ID",
@@ -4704,6 +4867,57 @@
             "example": 60
           }
         }
+      },
+      "SessionTypeItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Session type ID",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "code": {
+            "type": "string",
+            "description": "Session type code",
+            "example": "regular_mentoring"
+          },
+          "name": {
+            "type": "string",
+            "description": "Session type name",
+            "example": "Regular Mentoring"
+          },
+          "isBilling": {
+            "type": "boolean",
+            "description": "Whether this session type is billable"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "isBilling"
+        ]
+      },
+      "SessionTypeDto": {
+        "type": "object",
+        "properties": {
+          "serviceTypeCode": {
+            "type": "string",
+            "description": "Service type code",
+            "example": "External"
+          },
+          "sessionTypes": {
+            "description": "List of session types",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionTypeItemDto"
+            }
+          }
+        },
+        "required": [
+          "serviceTypeCode",
+          "sessionTypes"
+        ]
       },
       "CreateRegularMentoringRequestDto": {
         "type": "object",
@@ -5517,9 +5731,15 @@
             "type": "string",
             "description": "Customer importance label"
           },
-          "graduationDate": {
+          "underGraduationDate": {
             "type": "string",
-            "description": "Graduation date",
+            "description": "Undergraduate graduation date",
+            "format": "date-time",
+            "nullable": true
+          },
+          "graduateGraduationDate": {
+            "type": "string",
+            "description": "Graduate graduation date",
             "format": "date-time",
             "nullable": true
           },
@@ -5583,7 +5803,8 @@
         "required": [
           "id",
           "status",
-          "graduationDate",
+          "underGraduationDate",
+          "graduateGraduationDate",
           "createdAt",
           "modifiedAt"
         ]
@@ -5627,9 +5848,15 @@
             "type": "string",
             "description": "Customer importance label"
           },
-          "graduationDate": {
+          "underGraduationDate": {
             "type": "string",
-            "description": "Graduation date",
+            "description": "Undergraduate graduation date",
+            "format": "date-time",
+            "nullable": true
+          },
+          "graduateGraduationDate": {
+            "type": "string",
+            "description": "Graduate graduation date",
             "format": "date-time",
             "nullable": true
           },
@@ -5733,7 +5960,8 @@
         "required": [
           "id",
           "status",
-          "graduationDate",
+          "underGraduationDate",
+          "graduateGraduationDate",
           "createdAt",
           "modifiedAt"
         ]
@@ -5847,9 +6075,15 @@
             "description": "Customer importance",
             "nullable": true
           },
-          "graduationDate": {
+          "underGraduationDate": {
             "type": "string",
-            "description": "Graduation date",
+            "description": "Undergraduate graduation date",
+            "nullable": true,
+            "format": "date"
+          },
+          "graduateGraduationDate": {
+            "type": "string",
+            "description": "Graduate graduation date",
             "nullable": true,
             "format": "date"
           },
@@ -5978,6 +6212,38 @@
         "properties": {}
       },
       "AdjustPayableLedgerDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "PlacementJobApplicationUpdateStatusRequestDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Target status of the application [目标投递状态]",
+            "enum": [
+              "recommended",
+              "interested",
+              "not_interested",
+              "revoked",
+              "mentor_assigned",
+              "submitted",
+              "interviewed",
+              "got_offer",
+              "rejected"
+            ],
+            "example": "interested"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "PlacementReferralBatchRecommendRequestDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "PlacementReferralAssignMentorRequestDto": {
         "type": "object",
         "properties": {}
       }

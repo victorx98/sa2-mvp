@@ -36,62 +36,31 @@ export class JobPositionService {
     IServiceResult<typeof recommendedJobs.$inferSelect, Record<string, unknown>>
   > {
     this.logger.log(
-      `Creating job position: ${dto.title} at ${dto.companyName}`,
+      `Creating job position: ${dto.jobTitle} at ${dto.companyName}`,
     );
 
     // Create job position record [创建岗位记录]
     const values: Partial<typeof recommendedJobs.$inferInsert> = {
-      title: dto.title,
+      title: dto.jobTitle,
       companyName: dto.companyName,
-      companyNameNormalized: dto.companyName.toLowerCase(), // Normalize company name [标准化公司名称]
-      source: dto.source,
-      status: "active",
-      createdBy: dto.createdBy,
-      updatedBy: dto.createdBy,
+      status: dto.status || "active",
     };
 
     // Add optional fields [添加可选字段]
-    if (dto.description) values.description = dto.description;
-    if (dto.responsibilities) values.responsibilities = dto.responsibilities;
-    if (dto.jobType) values.jobType = dto.jobType;
-    if (dto.experienceLevel) values.experienceLevel = dto.experienceLevel;
-    if (dto.industry) values.industry = dto.industry;
-    if (dto.remoteType) values.remoteType = dto.remoteType;
-    if (dto.sourceUrl) values.sourceUrl = dto.sourceUrl;
-    if (dto.sourceJobId) values.externalId = dto.sourceJobId; // Map sourceJobId to externalId [将sourceJobId映射到externalId]
-    // Map locations array to single location string [将地点数组映射为单个地点字符串]
-    if (dto.locations && dto.locations.length > 0) {
-      values.location = dto.locations
-        .map((loc) => loc.name || loc.city || "")
-        .filter(Boolean)
-        .join(", ");
-    }
-    // Map salaryMin, salaryMax, salaryCurrency to salaryRange string [将salaryMin, salaryMax, salaryCurrency映射为salaryRange字符串]
-    if (
-      dto.salaryMin !== undefined &&
-      dto.salaryMax !== undefined &&
-      dto.salaryCurrency
-    ) {
-      values.salaryRange = `${dto.salaryMin} - ${dto.salaryMax} ${dto.salaryCurrency}`;
-    } else if (dto.salaryMin !== undefined && dto.salaryCurrency) {
-      values.salaryRange = `${dto.salaryMin}+ ${dto.salaryCurrency}`;
-    } else if (dto.salaryMax !== undefined && dto.salaryCurrency) {
-      values.salaryRange = `Up to ${dto.salaryMax} ${dto.salaryCurrency}`;
-    }
-    // Map requirements object to array [将requirements对象映射为数组]
-    if (dto.requirements) {
-      // Extract skills array if available, otherwise use empty array
-      values.requirements = Array.isArray(dto.requirements)
-        ? (dto.requirements as string[])
-        : dto.requirements.skills
-          ? (dto.requirements.skills as string[])
-          : [];
-    } else {
-      values.requirements = [];
-    }
-    // Initialize empty arrays for array fields to avoid null errors
-    values.benefits = [];
-    values.skillsRequired = [];
+    if (dto.objectId) values.objectId = dto.objectId;
+    if (dto.normJobTitles) values.normalizedJobTitles = dto.normJobTitles;
+    if (dto.jobTypes) values.jobTypes = dto.jobTypes;
+    if (dto.postDate) values.postDate = dto.postDate;
+    if (dto.countryCode) values.countryCode = dto.countryCode;
+    if (dto.locations) values.jobLocations = dto.locations;
+    if (dto.experienceRequirement) values.experienceRequirement = dto.experienceRequirement;
+    if (dto.salaryDetails) values.salaryDetails = dto.salaryDetails;
+    if (dto.skills) values.skills = dto.skills;
+    if (dto.responsibilities) values.jobResponsibilities = dto.responsibilities;
+    if (dto.matchedTitles) values.matchedJobTitles = dto.matchedTitles;
+    if (dto.jobDescription) values.jobDescription = dto.jobDescription;
+    if (dto.h1b) values.h1b = dto.h1b;
+    if (dto.usCitizenship) values.usCitizenship = dto.usCitizenship;
 
     const [job] = await this.db
       .insert(recommendedJobs)
@@ -189,21 +158,12 @@ export class JobPositionService {
           sql`${recommendedJobs.companyName} ILIKE ${`%${filter.companyName}%`}`,
         );
       }
-
-      if (filter.jobType) {
-        conditions.push(eq(recommendedJobs.jobType, filter.jobType));
-      }
-
-      if (filter.experienceLevel) {
-        conditions.push(
-          eq(recommendedJobs.experienceLevel, filter.experienceLevel),
-        );
-      }
-
-      if (filter.industry) {
-        conditions.push(eq(recommendedJobs.industry, filter.industry));
-      }
+      
       // Add more filter conditions as needed
+      if (filter.locations && filter.locations.length > 0) {
+        // Filter by locations
+        conditions.push(sql`${recommendedJobs.jobLocations} && ${filter.locations}`);
+      }
     } else {
       // Default to active status if no filter provided
       conditions.push(eq(recommendedJobs.status, "active"));
@@ -226,7 +186,7 @@ export class JobPositionService {
       const direction = sort.direction === "desc" ? sql`desc` : sql`asc`;
       query = query.orderBy(
         sql`${recommendedJobs[sort.field as keyof typeof recommendedJobs]} ${direction}`,
-      ) as typeof query;
+      ) as any; // Use any to avoid complex Drizzle type issues [使用any避免复杂的Drizzle类型问题]
     }
 
     // Pagination [分页]
@@ -234,9 +194,7 @@ export class JobPositionService {
     const pageSize = pagination?.pageSize || 20;
     const offset = (page - 1) * pageSize;
     const limit = pageSize;
-    query = query.limit(limit).offset(offset) as typeof query;
-
-    const jobs = await query;
+    const jobs = await (query as any).limit(limit).offset(offset); // Use any for limit/offset methods [对limit/offset方法使用any]
 
     // Get total count [获取总数]
     const countQuery = this.db
@@ -280,7 +238,7 @@ export class JobPositionService {
         status: "expired",
         updatedAt: new Date(),
       })
-      .where(eq(recommendedJobs.id, dto.jobId))
+      .where(eq(recommendedJobs.id, dto.jobId)) // Changed from Number(dto.jobId) to dto.jobId [从Number(dto.jobId)改为dto.jobId]
       .returning();
 
     this.logger.log(`Job position marked as expired: ${dto.jobId}`);

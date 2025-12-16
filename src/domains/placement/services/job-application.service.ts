@@ -5,7 +5,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc, asc, getTableColumns, inArray } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { DrizzleDatabase } from "@shared/types/database.types";
 import {
@@ -19,6 +19,7 @@ import {
 } from "../events";
 import {
   ISubmitApplicationDto,
+  IRecommendReferralApplicationsBatchDto,
   IUpdateApplicationStatusDto,
   IJobApplicationSearchFilter,
   IRollbackApplicationStatusDto,
@@ -66,13 +67,18 @@ export class JobApplicationService implements IJobApplicationService {
     // Check for duplicate application [检查重复申请]
     await this.checkDuplicateApplication(dto.studentId, dto.jobId);
 
-    // Verify job exists [验证岗位存在]
-    const job = await this.db
+    // Verify job exists and is active [验证岗位存在且为active]
+    const [job] = await this.db
       .select()
       .from(recommendedJobs)
       .where(eq(recommendedJobs.id, dto.jobId));
-    if (job.length === 0) {
+    if (!job) {
       throw new NotFoundException(`Job position not found: ${dto.jobId}`);
+    }
+    if (job.status !== "active") {
+      throw new BadRequestException(
+        `Job position is not active: ${dto.jobId} (status: ${job.status})`,
+      );
     }
 
     // Wrap all operations in a transaction to ensure atomicity [将所有操作包裹在事务中以确保原子性]
@@ -85,12 +91,10 @@ export class JobApplicationService implements IJobApplicationService {
           jobId: dto.jobId,
           applicationType: dto.applicationType,
           coverLetter: dto.coverLetter,
-          customAnswers: dto.customAnswers,
           status:
             dto.applicationType === ApplicationType.REFERRAL
               ? "recommended"
               : "submitted",
-          isUrgent: dto.isUrgent || false,
         })
         .returning();
 
@@ -131,6 +135,124 @@ export class JobApplicationService implements IJobApplicationService {
   }
 
   /**
+   * Batch recommend referral applications (counselor -> students) [批量内推推荐（顾问 -> 学生）]
+   * - All-or-nothing transaction: any failure rolls back all inserts [全成功事务：任一失败则整体回滚]
+   */
+  async recommendReferralApplicationsBatch(
+    dto: IRecommendReferralApplicationsBatchDto,
+  ): Promise<IServiceResult<{ items: Record<string, unknown>[] }, Record<string, unknown>>> {
+    if (!dto) {
+      throw new BadRequestException(
+        "recommendReferralApplicationsBatch dto is required",
+      );
+    }
+
+    const studentIds = Array.from(new Set(dto.studentIds ?? []));
+    const jobIds = Array.from(new Set(dto.jobIds ?? []));
+
+    if (!dto.recommendedBy) {
+      throw new BadRequestException("recommendedBy is required");
+    }
+    if (studentIds.length === 0) {
+      throw new BadRequestException("studentIds must not be empty");
+    }
+    if (jobIds.length === 0) {
+      throw new BadRequestException("jobIds must not be empty");
+    }
+
+    const pairs = studentIds.flatMap((studentId) =>
+      jobIds.map((jobId) => ({ studentId, jobId })),
+    );
+
+    // Keep a reasonable cap to prevent accidental explosion (N*M) [限制组合数量避免误操作]
+    if (pairs.length > 5000) {
+      throw new BadRequestException(
+        `Too many combinations (${pairs.length}). Please reduce studentIds/jobIds.`,
+      );
+    }
+
+    // Validate jobs exist and are active [校验岗位存在且为active]
+    const jobs = await this.db
+      .select({ id: recommendedJobs.id, status: recommendedJobs.status })
+      .from(recommendedJobs)
+      .where(and(inArray(recommendedJobs.id, jobIds), eq(recommendedJobs.status, "active")));
+
+    const foundJobIdSet = new Set(jobs.map((j) => j.id));
+    const missingJobIds = jobIds.filter((id) => !foundJobIdSet.has(id));
+    if (missingJobIds.length > 0) {
+      throw new BadRequestException(
+        `Some jobs are missing or not active: ${missingJobIds.slice(0, 10).join(", ")}`,
+      );
+    }
+
+    // Detect duplicates (any existing studentId+jobId is forbidden) [检测重复申请（任一已存在则整体失败）]
+    const existing = await this.db
+      .select({ studentId: jobApplications.studentId, jobId: jobApplications.jobId })
+      .from(jobApplications)
+      .where(and(inArray(jobApplications.studentId, studentIds), inArray(jobApplications.jobId, jobIds)));
+
+    const existingPairSet = new Set(existing.map((x) => `${x.studentId}::${x.jobId}`));
+    const duplicatePairs = pairs.filter((p) => existingPairSet.has(`${p.studentId}::${p.jobId}`));
+    if (duplicatePairs.length > 0) {
+      const sample = duplicatePairs
+        .slice(0, 10)
+        .map((p) => `${p.studentId}/${p.jobId}`)
+        .join(", ");
+      throw new BadRequestException(`Duplicate applications detected: ${sample}`);
+    }
+
+    const recommendedAt = new Date();
+    const createdApplications = await this.db.transaction(async (tx) => {
+      const inserted = await tx
+        .insert(jobApplications)
+        .values(
+          pairs.map((p) => ({
+            studentId: p.studentId,
+            jobId: p.jobId,
+            applicationType: ApplicationType.REFERRAL,
+            status: "recommended" as const,
+            recommendedBy: dto.recommendedBy, // Set recommended_by field [设置推荐人字段]
+            recommendedAt: recommendedAt, // Set recommended_at field [设置推荐时间字段]
+          })),
+        )
+        .returning();
+
+      await tx.insert(applicationHistory).values(
+        inserted.map((app) => ({
+          applicationId: app.id,
+          previousStatus: null,
+          newStatus: app.status,
+          changedBy: dto.recommendedBy,
+          changeReason: "Counselor recommendation",
+          changeMetadata: {
+            recommendedBy: dto.recommendedBy,
+            recommendedAt: recommendedAt.toISOString(),
+          },
+        })),
+      );
+
+      return inserted;
+    });
+
+    const events = createdApplications.map((application) => {
+      const payload = {
+        applicationId: application.id,
+        previousStatus: null,
+        newStatus: application.status,
+        changedBy: dto.recommendedBy,
+        changedAt: application.submittedAt.toISOString(),
+      };
+      this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, payload);
+      return { type: JOB_APPLICATION_STATUS_CHANGED_EVENT, payload };
+    });
+
+    return {
+      data: { items: createdApplications },
+      events,
+    };
+  }
+
+  /**
    * Update application status [更新投递状态]
    * - Wraps all operations in a transaction to ensure atomicity [将所有操作包裹在事务中以确保原子性]
    * - Updates status, records history, and publishes event [更新状态、记录历史并发布事件]
@@ -159,6 +281,44 @@ export class JobApplicationService implements IJobApplicationService {
 
     const previousStatus = application.status as ApplicationStatus;
 
+    // ✅ 新增：分配导师场景验证
+    if (dto.newStatus === 'mentor_assigned') {
+      const mentorId = dto.mentorId as string | undefined;
+      if (!mentorId) {
+        throw new BadRequestException(
+          'mentorId is required when assigning mentor',
+        );
+      }
+
+      // Business rule: mentor assignment is only valid for referral applications [业务规则：仅内推申请允许分配导师]
+      if (application.applicationType !== "referral") {
+        throw new BadRequestException(
+          "mentor_assigned is only allowed for referral applications",
+        );
+      }
+    }
+
+    // Mentor handoff -> submission validation [导师交接 -> 已提交校验]
+    // - The API may choose not to send mentorId/screeningResult for status-only updates [API 可能仅做状态更新，不传 mentorId/评估结果]
+    // - When mentorId is omitted, we infer it from assignedMentorId [未传 mentorId 时从 assignedMentorId 推导]
+    if (previousStatus === "mentor_assigned" && dto.newStatus === "submitted") {
+      const effectiveMentorId =
+        (dto.mentorId as string | undefined) ?? application.assignedMentorId;
+
+      if (!effectiveMentorId) {
+        throw new BadRequestException(
+          "assignedMentorId is required when submitting after mentor assignment",
+        );
+      }
+
+      // Security check: verify mentor is assigned when mentorId is explicitly provided [当显式传 mentorId 时校验其必须为已分配导师]
+      if (dto.mentorId && application.assignedMentorId !== dto.mentorId) {
+        throw new BadRequestException(
+          `Only the assigned mentor (${application.assignedMentorId}) can submit screening results. Provided: ${dto.mentorId}`,
+        );
+      }
+    }
+
     // Validate status transition [验证状态转换]
     const allowedTransitions =
       ALLOWED_APPLICATION_STATUS_TRANSITIONS[previousStatus];
@@ -170,17 +330,30 @@ export class JobApplicationService implements IJobApplicationService {
 
     // Wrap all operations in a transaction to ensure atomicity [将所有操作包裹在事务中以确保原子性]
     const updatedApplication = await this.db.transaction(async (tx) => {
+      // Build update data [构建更新数据]
+      const updateData: {
+        status: ApplicationStatus;
+        assignedMentorId?: string | null;
+        updatedAt: Date;
+      } = {
+        status: dto.newStatus,
+        updatedAt: new Date(),
+      };
+
+      // Only update assignedMentorId when explicitly provided [仅在显式提供时更新assignedMentorId]
+      if (dto.newStatus === "mentor_assigned") {
+        // mentor_assigned status requires mentorId [mentor_assigned状态需要mentorId]
+        updateData.assignedMentorId = dto.mentorId as string;
+      } else if (dto.mentorId !== undefined) {
+        // Other statuses: only update if mentorId is explicitly provided [其他状态：仅在显式提供mentorId时更新]
+        updateData.assignedMentorId = dto.mentorId || null;
+      }
+      // If mentorId is undefined, keep the existing value [如果mentorId未定义，保持原值]
+
       // Update application status [更新申请状态]
       const [app] = await tx
         .update(jobApplications)
-        .set({
-          status: dto.newStatus,
-          result: this.getResultFromStatus(dto.newStatus),
-          // [新增] Record mentor assignment for referral applications [记录推荐申请的导师分配]
-          assignedMentorId: dto.mentorId || null,
-          // [新增] Update update timestamp [更新时间戳]
-          updatedAt: new Date(),
-        })
+        .set(updateData)
         .where(eq(jobApplications.id, dto.applicationId))
         .returning();
 
@@ -209,7 +382,9 @@ export class JobApplicationService implements IJobApplicationService {
       changedAt: new Date().toISOString(),
       changeMetadata: dto.changeMetadata,
       // [新增] Include mentor assignment in event payload [在事件payload中包含导师分配]
-      ...(dto.mentorId && { assignedMentorId: dto.mentorId }),
+      ...(application.assignedMentorId && {
+        assignedMentorId: application.assignedMentorId,
+      }),
     };
     this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
 
@@ -266,11 +441,32 @@ export class JobApplicationService implements IJobApplicationService {
         );
       }
 
-      // [新增] Filter by assigned mentor [按分配的导师筛选]
+      // Filter by assigned mentor [按分配的导师筛选]
       if (filter.assignedMentorId) {
         conditions.push(
           eq(jobApplications.assignedMentorId, filter.assignedMentorId),
         );
+      }
+
+      // Filter by recommender [按推荐人筛选]
+      if (filter.recommendedBy) {
+        conditions.push(
+          eq(jobApplications.recommendedBy, filter.recommendedBy),
+        );
+      }
+
+      // Filter by recommendation time range [按推荐时间范围筛选]
+      if (filter.recommendedAtRange) {
+        if (filter.recommendedAtRange.start) {
+          conditions.push(
+            sql`${jobApplications.recommendedAt} >= ${filter.recommendedAtRange.start}`,
+          );
+        }
+        if (filter.recommendedAtRange.end) {
+          conditions.push(
+            sql`${jobApplications.recommendedAt} <= ${filter.recommendedAtRange.end}`,
+          );
+        }
       }
     }
 
@@ -281,17 +477,19 @@ export class JobApplicationService implements IJobApplicationService {
     const limit = pageSize;
 
     // Build and execute main query [构建并执行主查询]
+    const columns = getTableColumns(jobApplications);
+    const sortColumn = sort?.field && sort.field in columns 
+      ? columns[sort.field] 
+      : columns.submittedAt;
+    const orderByClause = sort?.direction === "asc" 
+      ? asc(sortColumn) 
+      : desc(sortColumn);
+
     const applications = await this.db
       .select()
       .from(jobApplications)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(
-        sort?.field
-          ? sort.direction === "asc"
-            ? sql`${jobApplications[sort.field as keyof typeof jobApplications]} ASC`
-            : sql`${jobApplications[sort.field as keyof typeof jobApplications]} DESC`
-          : sql`${jobApplications.submittedAt} DESC`,
-      )
+      .orderBy(orderByClause)
       .limit(limit)
       .offset(offset);
 
@@ -408,17 +606,6 @@ export class JobApplicationService implements IJobApplicationService {
   }
 
   /**
-   * Get result from status [从状态获取结果]
-   *
-   * @param status - Application status [申请状态]
-   * @returns Result or null [结果或null]
-   */
-  private getResultFromStatus(status: ApplicationStatus): "rejected" | null {
-    const resultStatuses: ApplicationStatus[] = ["rejected"];
-    return resultStatuses.includes(status) ? (status as "rejected") : null;
-  }
-
-  /**
    * Rollback application status to previous state [回撤申请状态到上一个状态]
    * - Wraps all operations in a transaction to ensure atomicity [将所有操作包裹在事务中以确保原子性]
    * - Rolls back status, records history, and publishes event [回滚状态、记录历史并发布事件]
@@ -445,12 +632,13 @@ export class JobApplicationService implements IJobApplicationService {
       );
     }
 
-    // Get status history [获取状态历史]
+    // Get recent status history (last 2 records) [获取最近的状态历史（最后2条记录）]
     const statusHistory = await this.db
       .select()
       .from(applicationHistory)
       .where(eq(applicationHistory.applicationId, dto.applicationId))
-      .orderBy(applicationHistory.changedAt);
+      .orderBy(desc(applicationHistory.changedAt))
+      .limit(2);
 
     if (statusHistory.length < 2) {
       throw new BadRequestException(
@@ -458,9 +646,17 @@ export class JobApplicationService implements IJobApplicationService {
       );
     }
 
-    // Get previous status [获取上一个状态]
+    // Validate consistency: latest history record must match current status [验证一致性：最新历史记录必须匹配当前状态]
     const currentStatus = application.status as ApplicationStatus;
-    const previousStatusRecord = statusHistory[statusHistory.length - 2];
+    const latestHistoryRecord = statusHistory[0];
+    if (latestHistoryRecord.newStatus !== currentStatus) {
+      throw new BadRequestException(
+        `Status inconsistency: current status is ${currentStatus}, but latest history shows ${latestHistoryRecord.newStatus}`,
+      );
+    }
+
+    // Get previous status from second-to-last record [从倒数第二条记录获取上一个状态]
+    const previousStatusRecord = statusHistory[1];
     const previousStatus = previousStatusRecord.newStatus as ApplicationStatus;
 
     // Validate status transition [验证状态转换]
@@ -474,17 +670,26 @@ export class JobApplicationService implements IJobApplicationService {
 
     // Wrap all operations in a transaction to ensure atomicity [将所有操作包裹在事务中以确保原子性]
     const updatedApplication = await this.db.transaction(async (tx) => {
+      // Build update data [构建更新数据]
+      const updateData: {
+        status: ApplicationStatus;
+        assignedMentorId?: string | null;
+        updatedAt: Date;
+      } = {
+        status: previousStatus,
+        updatedAt: new Date(),
+      };
+
+      // Only update assignedMentorId if explicitly provided [仅在显式提供时更新assignedMentorId]
+      if (dto.mentorId !== undefined) {
+        updateData.assignedMentorId = dto.mentorId || null;
+      }
+      // If mentorId is undefined, keep the existing value [如果mentorId未定义，保持原值]
+
       // Update application status [更新申请状态]
       const [app] = await tx
         .update(jobApplications)
-        .set({
-          status: previousStatus,
-          result: this.getResultFromStatus(previousStatus),
-          // [新增] Record mentor assignment for referral applications [记录推荐申请的导师分配]
-          assignedMentorId: dto.mentorId || null,
-          // [新增] Update update timestamp [更新时间戳]
-          updatedAt: new Date(),
-        })
+        .set(updateData)
         .where(eq(jobApplications.id, dto.applicationId))
         .returning();
 

@@ -3,7 +3,11 @@ import { ConfigModule } from "@nestjs/config";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { JobApplicationService } from "./job-application.service";
-import { ISubmitApplicationDto, IUpdateApplicationStatusDto } from "../dto";
+import {
+  IRecommendReferralApplicationsBatchDto,
+  ISubmitApplicationDto,
+  IUpdateApplicationStatusDto,
+} from "../dto";
 import { ApplicationType } from "../types/application-type.enum";
 import { randomUUID } from "crypto";
 import { EventEmitter2 } from "@nestjs/event-emitter";
@@ -26,7 +30,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
   let mockDb: any;
   const testApplicationId = randomUUID();
   const testStudentId = randomUUID();
-  const testJobId = randomUUID();
+  const testJobId = randomUUID(); // Changed to UUID string to match new schema [改为UUID字符串以匹配新schema]
   const testMentorId = randomUUID();
 
   beforeEach(async () => {
@@ -113,8 +117,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         jobId: testJobId,
         applicationType: ApplicationType.DIRECT,
         coverLetter: "Test cover letter",
-        customAnswers: { question1: "answer1" },
-        isUrgent: false,
       };
 
       const createdApplication = {
@@ -123,9 +125,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         jobId: dto.jobId,
         applicationType: dto.applicationType,
         coverLetter: dto.coverLetter,
-        customAnswers: dto.customAnswers,
         status: "submitted",
-        isUrgent: dto.isUrgent,
         submittedAt: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -141,7 +141,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
               // First call: duplicate check - return empty array
               // Second call: job existence check - return job
               return Promise.resolve(
-                selectCallCount === 1 ? [] : [{ id: testJobId }],
+                selectCallCount === 1 ? [] : [{ id: testJobId, status: "active" }],
               );
             }),
           })),
@@ -178,8 +178,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         jobId: testJobId,
         applicationType: ApplicationType.DIRECT,
         coverLetter: "Test cover letter",
-        customAnswers: { question1: "answer1" },
-        isUrgent: false,
       };
 
       // Mock duplicate application found
@@ -205,8 +203,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         jobId: testJobId,
         applicationType: ApplicationType.DIRECT,
         coverLetter: "Test cover letter",
-        customAnswers: { question1: "answer1" },
-        isUrgent: false,
       };
 
       // Mock no job found
@@ -223,6 +219,157 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       await expect(
         jobApplicationService.submitApplication(dto),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should throw BadRequestException if job is not active [如果岗位非active应该抛出BadRequestException]", async () => {
+      // Arrange [准备]
+      const dto: ISubmitApplicationDto = {
+        studentId: testStudentId,
+        jobId: testJobId,
+        applicationType: ApplicationType.DIRECT,
+        coverLetter: "Test cover letter",
+      };
+
+      // Mock job found but not active
+      let callCount = 0;
+      mockDb.select = jest.fn(() => ({
+        from: jest.fn(() => ({
+          where: jest.fn(() => {
+            callCount++;
+            // First call: duplicate check (empty)
+            if (callCount === 1) {
+              return Promise.resolve([]);
+            }
+            // Second call: job existence check (found but inactive)
+            return Promise.resolve([{ id: testJobId, status: "inactive" }]);
+          }),
+        })),
+      }));
+
+      // Act & Assert [执行和断言]
+      await expect(
+        jobApplicationService.submitApplication(dto),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe("recommendReferralApplicationsBatch() [批量内推推荐]", () => {
+    it("should throw BadRequestException when studentIds is empty", async () => {
+      const dto: IRecommendReferralApplicationsBatchDto = {
+        recommendedBy: testMentorId,
+        studentIds: [],
+        jobIds: [testJobId],
+      };
+
+      await expect(
+        jobApplicationService.recommendReferralApplicationsBatch(dto),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should throw BadRequestException when jobIds is empty", async () => {
+      const dto: IRecommendReferralApplicationsBatchDto = {
+        recommendedBy: testMentorId,
+        studentIds: [testStudentId],
+        jobIds: [],
+      };
+
+      await expect(
+        jobApplicationService.recommendReferralApplicationsBatch(dto),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should create applications for all studentId x jobId pairs (all-or-nothing)", async () => {
+      const studentIds = [testStudentId, randomUUID()];
+      const jobIds = [testJobId, randomUUID()];
+
+      mockDb.select = jest
+        .fn()
+        // jobs validation query returns all jobIds as active [岗位校验：全部存在且active]
+        .mockReturnValueOnce({
+          from: jest.fn(() => ({
+            where: jest.fn(() =>
+              Promise.resolve(jobIds.map((id) => ({ id, status: "active" }))),
+            ),
+          })),
+        })
+        // duplicates query returns empty [重复校验：无重复]
+        .mockReturnValueOnce({
+          from: jest.fn(() => ({
+            where: jest.fn(() => Promise.resolve([])),
+          })),
+        });
+
+      const inserted = studentIds.flatMap((studentId) =>
+        jobIds.map((jobId) => ({
+          id: randomUUID(),
+          studentId,
+          jobId,
+          applicationType: "referral",
+          status: "recommended",
+          submittedAt: new Date(),
+          updatedAt: new Date(),
+        })),
+      );
+
+      const historyInsert = jest.fn().mockResolvedValue([]);
+      mockDb.insert = jest
+        .fn()
+        // insert job_applications
+        .mockImplementationOnce(() => ({
+          values: jest.fn(() => ({
+            returning: jest.fn().mockResolvedValue(inserted),
+          })),
+        }))
+        // insert application_history
+        .mockImplementationOnce(() => ({
+          values: historyInsert,
+        }));
+
+      const dto: IRecommendReferralApplicationsBatchDto = {
+        recommendedBy: testMentorId,
+        studentIds,
+        jobIds,
+      };
+
+      const result =
+        await jobApplicationService.recommendReferralApplicationsBatch(dto);
+
+      expect(result.data.items).toHaveLength(studentIds.length * jobIds.length);
+      expect(historyInsert).toHaveBeenCalledTimes(1);
+    });
+
+    it("should throw BadRequestException when any duplicate exists (all-or-nothing)", async () => {
+      const studentIds = [testStudentId];
+      const jobIds = [testJobId];
+
+      mockDb.select = jest
+        .fn()
+        // jobs validation ok
+        .mockReturnValueOnce({
+          from: jest.fn(() => ({
+            where: jest.fn(() =>
+              Promise.resolve(jobIds.map((id) => ({ id, status: "active" }))),
+            ),
+          })),
+        })
+        // duplicates found
+        .mockReturnValueOnce({
+          from: jest.fn(() => ({
+            where: jest.fn(() =>
+              Promise.resolve([{ studentId: testStudentId, jobId: testJobId }]),
+            ),
+          })),
+        });
+
+      const dto: IRecommendReferralApplicationsBatchDto = {
+        recommendedBy: testMentorId,
+        studentIds,
+        jobIds,
+      };
+
+      await expect(
+        jobApplicationService.recommendReferralApplicationsBatch(dto),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -247,8 +394,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const updatedApplication = {
         ...mockApplication,
         status: dto.newStatus,
-        result: null,
-        resultDate: null,
       };
 
       mockDb.select = jest.fn(() => ({
@@ -283,7 +428,294 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       expect(mockDb.update).toHaveBeenCalled();
     });
 
-    it("should update application status with result if applicable [如果适用应该更新投递状态并设置结果]", async () => {
+    it("should not clear assignedMentorId when mentorId is not provided [未提供mentorId时不应清空assignedMentorId]", async () => {
+      // Arrange [准备]
+      const dto: IUpdateApplicationStatusDto = {
+        applicationId: testApplicationId,
+        newStatus: "interviewed",
+        changedBy: testMentorId,
+        changeReason: "Moving to interview",
+        // mentorId is not provided
+      };
+
+      const mockApplication = {
+        id: testApplicationId,
+        studentId: testStudentId,
+        jobId: testJobId,
+        status: "submitted",
+        assignedMentorId: testMentorId, // Existing mentor assignment
+      };
+
+      const updatedApplication = {
+        ...mockApplication,
+        status: dto.newStatus,
+        assignedMentorId: testMentorId, // Should remain unchanged
+      };
+
+      mockDb.select = jest.fn(() => ({
+        from: jest.fn(() => ({
+          where: jest.fn(() => {
+            return Promise.resolve([mockApplication]);
+          }),
+        })),
+      }));
+
+      mockDb.insert = jest.fn(() => ({
+        values: jest.fn(() => ({
+          returning: jest.fn().mockResolvedValue([]),
+        })),
+      }));
+
+      mockDb.update = jest.fn(() => ({
+        set: jest.fn((updateData) => {
+          // Verify assignedMentorId is not in updateData (should remain unchanged)
+          expect(updateData).not.toHaveProperty("assignedMentorId");
+          return {
+            where: jest.fn(() => ({
+              returning: jest.fn().mockResolvedValue([updatedApplication]),
+            })),
+          };
+        }),
+      }));
+
+      // Act [执行]
+      await jobApplicationService.updateApplicationStatus(dto);
+
+      // Assert [断言]
+      expect(mockDb.update).toHaveBeenCalled();
+    });
+
+    it("should update assignedMentorId when mentorId is explicitly provided [显式提供mentorId时应更新assignedMentorId]", async () => {
+      // Arrange [准备]
+      const newMentorId = randomUUID();
+      const dto: IUpdateApplicationStatusDto = {
+        applicationId: testApplicationId,
+        newStatus: "mentor_assigned",
+        changedBy: testMentorId,
+        changeReason: "Assigning new mentor",
+        mentorId: newMentorId, // Explicitly provided
+      };
+
+      const mockApplication = {
+        id: testApplicationId,
+        studentId: testStudentId,
+        jobId: testJobId,
+        applicationType: "referral",
+        status: "interested",
+        assignedMentorId: testMentorId, // Existing mentor
+      };
+
+      const updatedApplication = {
+        ...mockApplication,
+        status: dto.newStatus,
+        assignedMentorId: newMentorId, // Should be updated
+      };
+
+      mockDb.select = jest.fn(() => ({
+        from: jest.fn(() => ({
+          where: jest.fn(() => {
+            return Promise.resolve([mockApplication]);
+          }),
+        })),
+      }));
+
+      mockDb.insert = jest.fn(() => ({
+        values: jest.fn(() => ({
+          returning: jest.fn().mockResolvedValue([]),
+        })),
+      }));
+
+      mockDb.update = jest.fn(() => ({
+        set: jest.fn((updateData) => {
+          // Verify assignedMentorId is updated
+          expect(updateData.assignedMentorId).toBe(newMentorId);
+          return {
+            where: jest.fn(() => ({
+              returning: jest.fn().mockResolvedValue([updatedApplication]),
+            })),
+          };
+        }),
+      }));
+
+      // Act [执行]
+      await jobApplicationService.updateApplicationStatus(dto);
+
+      // Assert [断言]
+      expect(mockDb.update).toHaveBeenCalled();
+    });
+
+    it("should allow mentor_assigned -> submitted without mentorId and screeningResult [允许mentor_assigned->submitted不传mentorId和评估结果]", async () => {
+      // Arrange [准备]
+      const dto: IUpdateApplicationStatusDto = {
+        applicationId: testApplicationId,
+        newStatus: "submitted",
+        changedBy: testMentorId,
+        // mentorId is omitted; API may be status-only [未传mentorId；API可能仅做状态更新]
+        // changeMetadata.screeningResult is omitted by design [按需求不传评估结果]
+      };
+
+      const mockApplication = {
+        id: testApplicationId,
+        studentId: testStudentId,
+        jobId: testJobId,
+        applicationType: "referral",
+        status: "mentor_assigned",
+        assignedMentorId: testMentorId,
+      };
+
+      const updatedApplication = {
+        ...mockApplication,
+        status: dto.newStatus,
+      };
+
+      mockDb.select = jest.fn(() => ({
+        from: jest.fn(() => ({
+          where: jest.fn(() => Promise.resolve([mockApplication])),
+        })),
+      }));
+
+      mockDb.insert = jest.fn(() => ({
+        values: jest.fn(() => ({
+          returning: jest.fn().mockResolvedValue([]),
+        })),
+      }));
+
+      mockDb.update = jest.fn(() => ({
+        set: jest.fn(() => ({
+          where: jest.fn(() => ({
+            returning: jest.fn().mockResolvedValue([updatedApplication]),
+          })),
+        })),
+      }));
+
+      // Act [执行]
+      const result = await jobApplicationService.updateApplicationStatus(dto);
+
+      // Assert [断言]
+      expect(result.data).toEqual(updatedApplication);
+      expect(mockDb.update).toHaveBeenCalled();
+    });
+
+    it("should allow recommended -> revoked [允许recommended->revoked]", async () => {
+      const dto: IUpdateApplicationStatusDto = {
+        applicationId: testApplicationId,
+        newStatus: "revoked",
+        changedBy: testMentorId,
+      };
+
+      const mockApplication = {
+        id: testApplicationId,
+        studentId: testStudentId,
+        jobId: testJobId,
+        status: "recommended",
+      };
+
+      const updatedApplication = {
+        ...mockApplication,
+        status: dto.newStatus,
+      };
+
+      mockDb.select = jest.fn(() => ({
+        from: jest.fn(() => ({
+          where: jest.fn(() => Promise.resolve([mockApplication])),
+        })),
+      }));
+
+      mockDb.insert = jest.fn(() => ({
+        values: jest.fn(() => ({
+          returning: jest.fn().mockResolvedValue([]),
+        })),
+      }));
+
+      mockDb.update = jest.fn(() => ({
+        set: jest.fn(() => ({
+          where: jest.fn(() => ({
+            returning: jest.fn().mockResolvedValue([updatedApplication]),
+          })),
+        })),
+      }));
+
+      const result = await jobApplicationService.updateApplicationStatus(dto);
+      expect(result.data).toEqual(updatedApplication);
+      expect(mockDb.update).toHaveBeenCalled();
+    });
+
+    it("should allow interested -> revoked [允许interested->revoked]", async () => {
+      const dto: IUpdateApplicationStatusDto = {
+        applicationId: testApplicationId,
+        newStatus: "revoked",
+        changedBy: testMentorId,
+      };
+
+      const mockApplication = {
+        id: testApplicationId,
+        studentId: testStudentId,
+        jobId: testJobId,
+        status: "interested",
+      };
+
+      const updatedApplication = {
+        ...mockApplication,
+        status: dto.newStatus,
+      };
+
+      mockDb.select = jest.fn(() => ({
+        from: jest.fn(() => ({
+          where: jest.fn(() => Promise.resolve([mockApplication])),
+        })),
+      }));
+
+      mockDb.insert = jest.fn(() => ({
+        values: jest.fn(() => ({
+          returning: jest.fn().mockResolvedValue([]),
+        })),
+      }));
+
+      mockDb.update = jest.fn(() => ({
+        set: jest.fn(() => ({
+          where: jest.fn(() => ({
+            returning: jest.fn().mockResolvedValue([updatedApplication]),
+          })),
+        })),
+      }));
+
+      const result = await jobApplicationService.updateApplicationStatus(dto);
+      expect(result.data).toEqual(updatedApplication);
+      expect(mockDb.update).toHaveBeenCalled();
+    });
+
+    it("should throw BadRequestException when assigning mentor for non-referral application [非内推申请分配导师应抛出BadRequestException]", async () => {
+      // Arrange [准备]
+      const newMentorId = randomUUID();
+      const dto: IUpdateApplicationStatusDto = {
+        applicationId: testApplicationId,
+        newStatus: "mentor_assigned",
+        changedBy: testMentorId,
+        changeReason: "Assigning mentor",
+        mentorId: newMentorId,
+      };
+
+      const mockApplication = {
+        id: testApplicationId,
+        studentId: testStudentId,
+        jobId: testJobId,
+        applicationType: "direct",
+        status: "interested",
+      };
+
+      mockDb.select = jest.fn(() => ({
+        from: jest.fn(() => ({
+          where: jest.fn(() => Promise.resolve([mockApplication])),
+        })),
+      }));
+
+      // Act & Assert [执行和断言]
+      await expect(jobApplicationService.updateApplicationStatus(dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it("should update application status when reaching terminal state [终态时应成功更新投递状态]", async () => {
       // Arrange [准备]
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
@@ -303,8 +735,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const updatedApplication = {
         ...mockApplication,
         status: dto.newStatus,
-        result: null,
-        resultDate: null,
       };
 
       mockDb.select = jest.fn(() => ({
@@ -709,34 +1139,31 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         status: "interviewed",
       };
 
+      // Status history ordered by changed_at DESC (latest first) [状态历史按changed_at降序排列（最新在前）]
       const statusHistory = [
         {
           id: randomUUID(),
           applicationId: testApplicationId,
-          previousStatus: null,
-          newStatus: "submitted",
-          changedBy: testStudentId,
-          changedByType: "student",
-          changeReason: "Initial submission",
-          changedAt: new Date(Date.now() - 30000),
+          previousStatus: "submitted",
+          newStatus: "interviewed", // Latest status (matches current application status)
+          changedBy: testMentorId,
+          changeReason: "Moving to interview",
+          changedAt: new Date(),
         },
         {
           id: randomUUID(),
           applicationId: testApplicationId,
-          previousStatus: "submitted",
-          newStatus: "interviewed",
-          changedBy: testMentorId,
-          changedByType: "mentor",
-          changeReason: "Moving to interview",
-          changedAt: new Date(),
+          previousStatus: null,
+          newStatus: "submitted", // Previous status (to rollback to)
+          changedBy: testStudentId,
+          changeReason: "Initial submission",
+          changedAt: new Date(Date.now() - 30000),
         },
       ];
 
       const updatedApplication = {
         ...mockApplication,
         status: "submitted",
-        result: null,
-        resultDate: null,
       };
 
       // Mock database operations
@@ -753,21 +1180,21 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         return {
           from: jest.fn(() => ({
             where: jest.fn(() => {
-              // Return an object that supports both direct await and orderBy chaining
+              // Return an object that supports both direct await and orderBy/limit chaining
               return {
-                // For status history query with orderBy
-                orderBy: jest.fn(() => {
-                  return Promise.resolve(statusHistory);
-                }),
+                // For status history query with orderBy and limit
+                orderBy: jest.fn(() => ({
+                  limit: jest.fn(() => Promise.resolve(statusHistory)),
+                })),
                 // For direct await (application existence check)
                 then: jest.fn((resolve) => {
                   resolve([mockApplication]);
                 }),
               };
             }),
-            orderBy: jest.fn(() => {
-              return Promise.resolve(statusHistory);
-            }),
+            orderBy: jest.fn(() => ({
+              limit: jest.fn(() => Promise.resolve(statusHistory)),
+            })),
           })),
         };
       });
@@ -838,7 +1265,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
           previousStatus: null,
           newStatus: "submitted",
           changedBy: testStudentId,
-          changedByType: "student",
           changeReason: "Initial submission",
           changedAt: new Date(),
         },
@@ -847,20 +1273,20 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       mockDb.select = jest.fn(() => ({
         from: jest.fn(() => ({
           where: jest.fn(() => {
-            // Return an object that supports orderBy chaining for status history query
+            // Return an object that supports orderBy/limit chaining for status history query
             return {
-              orderBy: jest.fn(() => {
-                return Promise.resolve(statusHistory);
-              }),
+              orderBy: jest.fn(() => ({
+                limit: jest.fn(() => Promise.resolve(statusHistory)),
+              })),
               // For direct await (application existence check)
               then: jest.fn((resolve) => {
                 resolve([mockApplication]);
               }),
             };
           }),
-          orderBy: jest.fn(() => {
-            return Promise.resolve(statusHistory);
-          }),
+          orderBy: jest.fn(() => ({
+            limit: jest.fn(() => Promise.resolve(statusHistory)),
+          })),
         })),
       }));
 
@@ -871,6 +1297,148 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
           changedBy: testStudentId,
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should throw error if status inconsistency detected [如果检测到状态不一致应该抛出错误]", async () => {
+      // Arrange [准备]
+      const mockApplication = {
+        id: testApplicationId,
+        studentId: testStudentId,
+        jobId: testJobId,
+        status: "interviewed", // Current status
+      };
+
+      // Status history where latest status doesn't match current status [状态历史中最新状态与当前状态不匹配]
+      const statusHistory = [
+        {
+          id: randomUUID(),
+          applicationId: testApplicationId,
+          previousStatus: "submitted",
+          newStatus: "submitted", // Doesn't match current "interviewed"
+          changedBy: testMentorId,
+          changeReason: "Some change",
+          changedAt: new Date(),
+        },
+        {
+          id: randomUUID(),
+          applicationId: testApplicationId,
+          previousStatus: null,
+          newStatus: "submitted",
+          changedBy: testStudentId,
+          changeReason: "Initial submission",
+          changedAt: new Date(Date.now() - 30000),
+        },
+      ];
+
+      mockDb.select = jest.fn(() => ({
+        from: jest.fn(() => ({
+          where: jest.fn(() => {
+            return {
+              orderBy: jest.fn(() => ({
+                limit: jest.fn(() => Promise.resolve(statusHistory)),
+              })),
+              then: jest.fn((resolve) => {
+                resolve([mockApplication]);
+              }),
+            };
+          }),
+          orderBy: jest.fn(() => ({
+            limit: jest.fn(() => Promise.resolve(statusHistory)),
+          })),
+        })),
+      }));
+
+      // Act & Assert [执行和断言]
+      await expect(
+        jobApplicationService.rollbackApplicationStatus({
+          applicationId: testApplicationId,
+          changedBy: testStudentId,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should not clear assignedMentorId when mentorId is not provided [未提供mentorId时不应清空assignedMentorId]", async () => {
+      // Arrange [准备]
+      const mockApplication = {
+        id: testApplicationId,
+        studentId: testStudentId,
+        jobId: testJobId,
+        status: "interviewed",
+        assignedMentorId: testMentorId, // Existing mentor assignment
+      };
+
+      const statusHistory = [
+        {
+          id: randomUUID(),
+          applicationId: testApplicationId,
+          previousStatus: "submitted",
+          newStatus: "interviewed",
+          changedBy: testMentorId,
+          changeReason: "Moving to interview",
+          changedAt: new Date(),
+        },
+        {
+          id: randomUUID(),
+          applicationId: testApplicationId,
+          previousStatus: null,
+          newStatus: "submitted",
+          changedBy: testStudentId,
+          changeReason: "Initial submission",
+          changedAt: new Date(Date.now() - 30000),
+        },
+      ];
+
+      const updatedApplication = {
+        ...mockApplication,
+        status: "submitted",
+        assignedMentorId: testMentorId, // Should remain unchanged
+      };
+
+      mockDb.select = jest.fn(() => ({
+        from: jest.fn(() => ({
+          where: jest.fn(() => {
+            return {
+              orderBy: jest.fn(() => ({
+                limit: jest.fn(() => Promise.resolve(statusHistory)),
+              })),
+              then: jest.fn((resolve) => {
+                resolve([mockApplication]);
+              }),
+            };
+          }),
+          orderBy: jest.fn(() => ({
+            limit: jest.fn(() => Promise.resolve(statusHistory)),
+          })),
+        })),
+      }));
+
+      mockDb.update = jest.fn(() => ({
+        set: jest.fn((updateData) => {
+          // Verify assignedMentorId is not in updateData (should remain unchanged)
+          expect(updateData).not.toHaveProperty("assignedMentorId");
+          return {
+            where: jest.fn(() => ({
+              returning: jest.fn().mockResolvedValue([updatedApplication]),
+            })),
+          };
+        }),
+      }));
+
+      mockDb.insert = jest.fn(() => ({
+        values: jest.fn(() => ({
+          returning: jest.fn().mockResolvedValue([]),
+        })),
+      }));
+
+      // Act [执行]
+      await jobApplicationService.rollbackApplicationStatus({
+        applicationId: testApplicationId,
+        changedBy: testStudentId,
+        // mentorId is not provided
+      });
+
+      // Assert [断言]
+      expect(mockDb.update).toHaveBeenCalled();
     });
   });
 });
