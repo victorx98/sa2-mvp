@@ -4,7 +4,7 @@
  * This DTO defines the data structure for updating mentor price records[此DTO定义了更新导师价格记录的数据结构]
  */
 
-import { IsString, IsNumber, IsOptional, IsEnum } from "class-validator";
+import { IsString, IsNumber, IsOptional } from "class-validator";
 
 export class UpdateMentorPriceDto {
   @IsNumber()

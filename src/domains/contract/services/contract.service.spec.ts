@@ -34,7 +34,7 @@ import * as schema from "@infrastructure/database/schema";
 describe("ContractService Unit Tests [合约服务单元测试]", () => {
   let moduleRef: TestingModule;
   let contractService: ContractService;
-  let eventEmitter: EventEmitter2;
+  let _eventEmitter: EventEmitter2;
   let mockDb: any;
   const testStudentId = randomUUID();
   const testProductId = randomUUID();
@@ -149,7 +149,7 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
     }).compile();
 
     contractService = moduleRef.get<ContractService>(ContractService);
-    eventEmitter = moduleRef.get<EventEmitter2>(EventEmitter2);
+    _eventEmitter = moduleRef.get<EventEmitter2>(EventEmitter2);
   });
 
   afterEach(() => {
@@ -1312,7 +1312,7 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
     it("should create entitlements for second contract with new service types [应该为第二份合约创建新服务类型的权益]", async () => {
       // Arrange
       const secondContractId = randomUUID();
-      const newServiceTypeId = randomUUID();
+      const _newServiceTypeId = randomUUID();
       const existingServiceType = "CONSULTATION";
       const newServiceType = "RESUME_REVIEW";
 

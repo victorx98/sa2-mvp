@@ -1,4 +1,4 @@
-import { Injectable, Inject } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { ServiceTypeRepository } from "../service-type.repository";
 import { ServiceTypeFilterDto } from "../dto/service-type-filter.dto";
 import { PaginationDto } from "../../common/dto/pagination.dto";

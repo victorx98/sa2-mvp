@@ -8,7 +8,16 @@ import {
   Logger,
   Get,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from "@nestjs/swagger";
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from "@nestjs/swagger";
 import { ApiPrefix } from "@api/api.constants";
 import { JwtAuthGuard as AuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
@@ -19,15 +28,29 @@ import { CreateContractCommand } from "@application/commands/contract/create-con
 import { UpdateContractCommand } from "@application/commands/contract/update-contract.command";
 import { ConsumeServiceCommand } from "@application/commands/contract/consume-service.command";
 import { AddAmendmentLedgerCommand } from "@application/commands/contract/add-amendment-ledger.command";
-import { CreateContractDto } from "@domains/contract/dto/create-contract.dto";
-import { UpdateContractDto } from "@domains/contract/dto/update-contract.dto";
-import { UpdateContractStatusDto } from "@domains/contract/dto/update-contract-status.dto";
-import { ConsumeServiceDto } from "@domains/contract/dto/consume-service.dto";
-import { AddAmendmentLedgerDto } from "@domains/contract/dto/add-amendment-ledger.dto";
+import type { CreateContractDto } from "@domains/contract/dto/create-contract.dto";
+import type { UpdateContractDto } from "@domains/contract/dto/update-contract.dto";
+import type { UpdateContractStatusDto } from "@domains/contract/dto/update-contract-status.dto";
+import type { ConsumeServiceDto } from "@domains/contract/dto/consume-service.dto";
+import type { AddAmendmentLedgerDto } from "@domains/contract/dto/add-amendment-ledger.dto";
 import { UpdateContractStatusCommand } from "@application/commands/contract/update-contract-status.command";
 import { StudentContractsQuery } from "@application/queries/contract/student-contracts.query";
 import { ServiceBalanceQuery } from "@application/queries/contract/service-balance.query";
-import type { StudentContractResponseDto } from "@domains/contract/dto/student-contracts-query.dto";
+import { ServiceBalanceResponseDto } from "@api/dto/response/service-balance-response.dto";
+import {
+  AddAmendmentLedgerRequestDto,
+  ConsumeServiceRequestDto,
+  CreateContractRequestDto,
+  UpdateContractRequestDto,
+  UpdateContractStatusRequestDto,
+} from "@api/dto/request/contract/contract.request.dto";
+import {
+  ConsumeServiceResponseDto,
+  ContractResponseDto,
+  ContractServiceEntitlementResponseDto,
+  StudentContractResponseDto,
+} from "@api/dto/response/contract/contract.response.dto";
+import { ContractStatus } from "@shared/types/contract-enums";
 
 /**
  * Admin Contracts Controller
@@ -43,6 +66,7 @@ import type { StudentContractResponseDto } from "@domains/contract/dto/student-c
 @ApiTags("Admin Contracts")
 @UseGuards(AuthGuard, RolesGuard)
 @Roles("admin", "manager", "counselor")
+@ApiBearerAuth()
 export class ContractsController {
   private readonly logger = new Logger(ContractsController.name);
 
@@ -59,49 +83,28 @@ export class ContractsController {
   @Get("students/:studentId/service-balance")
   @ApiOperation({
     summary: "Get service entitlements for a specific student",
-    description: "Retrieve all service entitlements (balance information) for a student",
+    description:
+      "Retrieve all service entitlements (balance information) for a student. [获取学生的服务权益余额信息]",
   })
   @ApiParam({
     name: "studentId",
     required: true,
-    description: "Student ID (UUID)",
+    description: "Student ID (UUID). [学生ID(UUID)]",
     type: String,
   })
-  @ApiResponse({
-    status: 200,
+  @ApiOkResponse({
     description: "Service entitlements retrieved successfully",
-    schema: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          studentId: { type: "string", format: "uuid" },
-          serviceType: { type: "string" },
-          totalQuantity: { type: "number" },
-          consumedQuantity: { type: "number" },
-          heldQuantity: { type: "number" },
-          availableQuantity: { type: "number" },
-        },
-      },
-    },
+    type: ServiceBalanceResponseDto,
+    isArray: true,
   })
   @ApiResponse({ status: 400, description: "Invalid student ID format" })
   @ApiResponse({ status: 404, description: "Student not found" })
   async getStudentServiceBalance(
     @Param("studentId") studentId: string,
-  ): Promise<
-    Array<{
-      studentId: string;
-      serviceType: string;
-      totalQuantity: number;
-      consumedQuantity: number;
-      heldQuantity: number;
-      availableQuantity: number;
-    }>
-  > {
+  ): Promise<ServiceBalanceResponseDto[]> {
     this.logger.log(`Getting service balance for student: ${studentId}`);
     const result = await this.serviceBalanceQuery.getServiceBalance(studentId);
-    const mappedResult = result.map((item) => ({
+    const mappedResult: ServiceBalanceResponseDto[] = result.map((item) => ({
       studentId: item.studentId,
       serviceType: item.serviceType,
       totalQuantity: item.totalQuantity,
@@ -118,35 +121,19 @@ export class ContractsController {
   @Get("students/:studentId")
   @ApiOperation({
     summary: "Get contracts purchased by a specific student",
-    description: "Retrieve all contracts purchased by a student with product information and contract status",
+    description:
+      "Retrieve all contracts purchased by a student with product information and contract status. [查询学生购买的合同列表，包含产品摘要与合同状态]",
   })
   @ApiParam({
     name: "studentId",
     required: true,
-    description: "Student ID (UUID)",
+    description: "Student ID (UUID). [学生ID(UUID)]",
     type: String,
   })
-  @ApiResponse({
-    status: 200,
+  @ApiOkResponse({
     description: "Student contracts retrieved successfully",
-    schema: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          id: { type: "string", format: "uuid" },
-          contract_number: { type: "string" },
-          product: {
-            type: "object",
-            properties: {
-              id: { type: "string", format: "uuid" },
-              name: { type: "string" },
-            },
-          },
-          status: { type: "string", enum: ["DRAFT", "SIGNED", "ACTIVE", "SUSPENDED", "COMPLETED", "TERMINATED"] },
-        },
-      },
-    },
+    type: StudentContractResponseDto,
+    isArray: true,
   })
   @ApiResponse({ status: 400, description: "Invalid student ID format" })
   @ApiResponse({ status: 404, description: "Student not found" })
@@ -160,19 +147,31 @@ export class ContractsController {
     this.logger.log(
       `Retrieved ${result.length} contract(s) for student: ${studentId}`,
     );
-    return result;
+    return result.map(item => ({
+      ...item,
+      status: item.status as ContractStatus,
+    }));
   }
 
   @Post()
-  @ApiOperation({ summary: "Create a new contract" })
-  @ApiResponse({ status: 201, description: "Contract created successfully" })
+  @ApiOperation({
+    summary: "Create a new contract",
+    description:
+      "Creates a contract from a frozen product snapshot. [基于产品快照创建合同]",
+  })
+  @ApiBody({ type: CreateContractRequestDto })
+  @ApiCreatedResponse({
+    description: "Contract created successfully",
+    type: ContractResponseDto,
+  })
   @ApiResponse({ status: 400, description: "Bad request" })
   async create(
     @CurrentUser() user: IJwtUser,
-    @Body() createContractDto: CreateContractDto,
-  ) {
+    @Body() body: CreateContractRequestDto,
+  ): Promise<ContractResponseDto> {
     // Guard ensures user is authenticated and has valid structure [守卫确保用户已认证且结构有效]
     const userId = String((user as unknown as { id: string }).id);
+    const createContractDto: CreateContractDto = body as unknown as CreateContractDto;
     //  Log request (without sensitive data) [记录请求（不包含敏感数据）]
     this.logger.log(
       `Creating contract for student: ${createContractDto.studentId}, product: ${createContractDto.productId}`,
@@ -182,66 +181,126 @@ export class ContractsController {
       userId,
     );
     this.logger.log(`Contract created successfully: ${result.id}`);
-    return result;
+    return {
+      ...result,
+      createdAt: result.createdAt.toISOString(),
+      updatedAt: result.updatedAt.toISOString(),
+      productSnapshot: {
+        ...result.productSnapshot,
+        snapshotAt: result.productSnapshot.snapshotAt.toISOString(),
+      },
+    };
   }
 
 
 
   @Patch(":id/status")
-  @ApiOperation({ summary: "Update contract status" })
-  @ApiResponse({
-    status: 200,
+  @ApiOperation({
+    summary: "Update contract status",
+    description:
+      "Updates contract status with optional reason/signer. [更新合同状态，可选原因/签署人]",
+  })
+  @ApiParam({
+    name: "id",
+    required: true,
+    description: "Contract ID (UUID). [合同ID(UUID)]",
+    type: String,
+  })
+  @ApiBody({ type: UpdateContractStatusRequestDto })
+  @ApiOkResponse({
     description: "Contract status updated successfully",
+    type: ContractResponseDto,
   })
   @ApiResponse({ status: 400, description: "Invalid status transition" })
   @ApiResponse({ status: 404, description: "Contract not found" })
   async updateStatus(
     @Param("id") id: string,
-    @Body() updateStatusDto: UpdateContractStatusDto,
+    @Body() body: UpdateContractStatusRequestDto,
     @CurrentUser() user: IJwtUser,
-  ) {
+  ): Promise<ContractResponseDto> {
     //  Log request (without sensitive data) [记录请求（不包含敏感数据）]
     this.logger.log(
-      `Updating contract status - contractId: ${id}, status: ${updateStatusDto.status}`,
+      `Updating contract status - contractId: ${id}, status: ${body.status}`,
     );
+    const updateStatusDto: UpdateContractStatusDto = body as unknown as UpdateContractStatusDto;
     const result = await this.updateContractStatusCommand.execute(
       id,
       updateStatusDto,
       String((user as unknown as { id: string }).id),
     );
     this.logger.log(`Contract status updated successfully: ${id}`);
-    return result;
+    return {
+      ...result,
+      createdAt: result.createdAt.toISOString(),
+      updatedAt: result.updatedAt.toISOString(),
+      productSnapshot: {
+        ...result.productSnapshot,
+        snapshotAt: result.productSnapshot.snapshotAt.toISOString(),
+      },
+    };
   }
 
   @Patch(":id")
-  @ApiOperation({ summary: "Update contract" })
-  @ApiResponse({ status: 200, description: "Contract updated successfully" })
+  @ApiOperation({
+    summary: "Update contract",
+    description:
+      "Updates contract core fields (title/amount/currency/validity). [更新合同核心字段(标题/金额/币种/有效期)]",
+  })
+  @ApiParam({
+    name: "id",
+    required: true,
+    description: "Contract ID (UUID). [合同ID(UUID)]",
+    type: String,
+  })
+  @ApiBody({ type: UpdateContractRequestDto })
+  @ApiOkResponse({
+    description: "Contract updated successfully",
+    type: ContractResponseDto,
+  })
   @ApiResponse({ status: 404, description: "Contract not found" })
   async update(
     @Param("id") id: string,
-    @Body() updateContractDto: UpdateContractDto,
-  ) {
+    @Body() body: UpdateContractRequestDto,
+  ): Promise<ContractResponseDto> {
     //  Log request (without sensitive data) [记录请求（不包含敏感数据）]
     this.logger.log(`Updating contract: ${id}`);
+    const updateContractDto: UpdateContractDto = body as unknown as UpdateContractDto;
     const result = await this.updateContractCommand.execute(
       id,
       updateContractDto,
     );
     this.logger.log(`Contract updated successfully: ${id}`);
-    return result;
+    return {
+      ...result,
+      createdAt: result.createdAt.toISOString(),
+      updatedAt: result.updatedAt.toISOString(),
+      productSnapshot: {
+        ...result.productSnapshot,
+        snapshotAt: result.productSnapshot.snapshotAt.toISOString(),
+      },
+    };
   }
 
   @Post("consume")
-  @ApiOperation({ summary: "Consume service" })
-  @ApiResponse({ status: 200, description: "Service consumed successfully" })
+  @ApiOperation({
+    summary: "Consume service",
+    description:
+      "Consumes student entitlements when a service is delivered (e.g., session completed). [在服务交付后消费学生权益，例如会话完成]",
+  })
+  @ApiBody({ type: ConsumeServiceRequestDto })
+  @ApiOkResponse({
+    description: "Service consumed successfully",
+    type: ConsumeServiceResponseDto,
+  })
   @ApiResponse({ status: 400, description: "Bad request" })
   @ApiResponse({ status: 404, description: "Student or entitlement not found" })
   async consumeService(
-    @Body() consumeServiceDto: ConsumeServiceDto,
+    @Body() body: ConsumeServiceRequestDto,
     @CurrentUser() user: IJwtUser,
-  ) {
+  ): Promise<ConsumeServiceResponseDto> {
     // Guard ensures user is authenticated and has valid structure [守卫确保用户已认证且结构有效]
     const userId = String((user as unknown as { id: string }).id);
+    const consumeServiceDto: ConsumeServiceDto = body as unknown as ConsumeServiceDto;
     //  Log request (without sensitive data) [记录请求（不包含敏感数据）]
     this.logger.log(
       `Consuming service - studentId: ${consumeServiceDto.studentId}, serviceType: ${consumeServiceDto.serviceType}, quantity: ${consumeServiceDto.quantity}`,
@@ -257,16 +316,23 @@ export class ContractsController {
   }
 
   @Post("amendment-ledger")
-  @ApiOperation({ summary: "Add amendment ledger" })
-  @ApiResponse({
-    status: 201,
+  @ApiOperation({
+    summary: "Add amendment ledger",
+    description:
+      "Adds entitlement amendment ledger entry and returns updated entitlement record. [添加权益变更台账并返回更新后的权益记录]",
+  })
+  @ApiBody({ type: AddAmendmentLedgerRequestDto })
+  @ApiCreatedResponse({
     description: "Amendment ledger added successfully",
+    type: ContractServiceEntitlementResponseDto,
   })
   @ApiResponse({ status: 400, description: "Bad request" })
   async addAmendmentLedger(
-    @Body() addAmendmentLedgerDto: AddAmendmentLedgerDto,
-  ) {
+    @Body() body: AddAmendmentLedgerRequestDto,
+  ): Promise<ContractServiceEntitlementResponseDto> {
     //  Log request (without sensitive data) [记录请求（不包含敏感数据）]
+    const addAmendmentLedgerDto: AddAmendmentLedgerDto =
+      body as unknown as AddAmendmentLedgerDto;
     this.logger.log(
       `Adding amendment ledger - contractId: ${addAmendmentLedgerDto.contractId}, studentId: ${addAmendmentLedgerDto.studentId}, serviceType: ${addAmendmentLedgerDto.serviceType}`,
     );
@@ -274,6 +340,10 @@ export class ContractsController {
       addAmendmentLedgerDto,
     );
     this.logger.log(`Amendment ledger added successfully`);
-    return result;
+    return {
+      ...result,
+      createdAt: result.createdAt.toISOString(),
+      updatedAt: result.updatedAt.toISOString(),
+    };
   }
 }

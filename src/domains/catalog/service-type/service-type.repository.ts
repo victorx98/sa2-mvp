@@ -1,5 +1,5 @@
 import { Injectable, Inject } from "@nestjs/common";
-import { eq, like, ne, and, sql, count, asc, desc } from "drizzle-orm";
+import { eq, like, ne, and, count, desc } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { DrizzleDatabase } from "@shared/types/database.types";
 import { serviceTypes } from "@infrastructure/database/schema/service-types.schema";
