@@ -544,7 +544,7 @@ Content-Type: application/json
 | P-2025-12-02-REF-02 | 终态时间使用 `application_history.changed_at`（终态那条记录），不新增 `resultDate` 字段 | ✅ 已确认 | 终态时间从 `application_history` 表中查询，避免冗余字段 |
 | P-2025-12-02-REF-03 | `submitApplication` 只确认岗位记录存在，未校验 `recommended_jobs.status === 'active'`，停用岗位仍能接收内推申请 | ✅ 已完成 | 已在 `submitApplication` 中添加岗位 `status === 'active'` 校验 |
 | P-2025-12-02-REF-04 | `updateApplicationStatus` 与 `rollbackApplicationStatus` 在未传 `mentorId` 的情况下仍将 `assignedMentorId` 置空，后续状态修改会丢失导师分配 | ✅ 已完成 | 已修复：仅在显式提供 `mentorId` 时更新该字段，其他情况保持原值 |
-| P-2025-12-02-REF-05 | `/query/placement/jobs` 接口必须携带单值 `jobApplicationType` 参数（`direct`/`proxy`/`referral`/`bd` 之一），不能为数组或集合 | ✅ 已确认 | 查询条件强制应用，使用 PostgreSQL 数组包含操作符 `@>` 过滤岗位 |
+| P-2025-12-02-REF-05 | `/api/query/placement/jobs` 接口必须携带单值 `jobApplicationType` 参数（`direct`/`proxy`/`referral`/`bd` 之一），不能为数组或集合 | ✅ 已确认 | 查询条件强制应用，使用 PostgreSQL 数组包含操作符 `@>` 过滤岗位 |
 | P-2025-12-15-REF-06 | 批量内推推荐（多学生×多岗位）采用全成功事务语义：任一失败则整体回滚 | ✅ 已确认 | 避免部分推荐导致业务状态不一致，失败原因由 API 返回 |
 | P-2025-12-15-REF-07 | 顾问侧“指定内推导师”提供独立 API：`PATCH /api/placement/referrals/{applicationId}/mentor`，请求体仅包含 `mentorId`（`changedBy` 从 JWT 用户注入） | ✅ 已确认 | 从顾问侧移除对通用状态更新接口的依赖，便于权限与审计收敛 |
 | P-2025-12-15-REF-08 | 禁止使用 `/api/placement/job-applications/{id}/status` 将状态更新为 `mentor_assigned`（强制走 REF-07 新接口） | ✅ 已确认 | admin/manager 也需改走新接口，旧接口直接返回 400 |

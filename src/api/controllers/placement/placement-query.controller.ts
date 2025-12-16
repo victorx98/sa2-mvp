@@ -8,7 +8,7 @@ import { JobQueryDto } from '@api/dto/request/placement-query.request.dto';
 import { IJobQueryFilter } from '@domains/query/placement/dto/placement-query.dto';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 
-@Controller('query/placement')
+@Controller('api/query/placement')
 export class PlacementQueryController {
   private readonly logger = new Logger(PlacementQueryController.name);
 
