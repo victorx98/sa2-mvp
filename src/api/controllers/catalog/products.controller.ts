@@ -163,6 +163,15 @@ export class ProductsController {
     } as ProductDetailResponseDto;
   }
 
+  @Get(":id")
+  @ApiOperation({ summary: "Get product detail (with entitlements)" })
+  @ApiResponse({ status: 200, description: "Product detail returned successfully" })
+  @ApiResponse({ status: 404, description: "Product not found" })
+  @Roles("student", "mentor", "counselor", "admin", "manager")
+  async getProductDetail(@Param("id") id: string) {
+    return this.getProductDetailQuery.execute(id);
+  }
+
   @Patch(":id/status")
   @ApiOperation({
     summary: "Update product status",
