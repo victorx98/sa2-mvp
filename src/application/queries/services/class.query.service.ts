@@ -101,5 +101,39 @@ export class ClassQueryService {
     this.logger.debug(`Getting counselors for class: classId=${classId}`);
     return this.classRepository.getCounselors(classId);
   }
+
+  /**
+   * Get all classes with mentors and counselors details
+   * Aggregates: classes + mentors with names + counselors with names
+   */
+  async getAllClassesWithMembers(filters: {
+    status?: ClassStatus;
+    type?: ClassType;
+    limit?: number;
+    offset?: number;
+  } = {}) {
+    this.logger.debug(`Getting all classes with members, filters: ${JSON.stringify(filters)}`);
+    
+    // Get classes list
+    const classes = await this.getClasses(filters);
+    
+    // For each class, fetch mentors and counselors with names
+    const classesWithMembers = await Promise.all(
+      classes.map(async (classEntity) => {
+        const [mentors, counselors] = await Promise.all([
+          this.domainCrossQueryService.getClassMentorsWithNames(classEntity.id),
+          this.domainCrossQueryService.getClassCounselorsWithNames(classEntity.id),
+        ]);
+        
+        return {
+          ...classEntity,
+          mentors,
+          counselors,
+        };
+      })
+    );
+    
+    return classesWithMembers;
+  }
 }
 

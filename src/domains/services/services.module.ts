@@ -4,6 +4,7 @@ import { SessionTypesModule } from './session-types/session-types.module';
 import { ServiceRegistryModule } from './service-registry/service-registry.module';
 import { ClassModule } from './class/class.module';
 import { CommSessionsModule } from './comm-sessions/comm-sessions.module';
+import { ResumeModule } from './resume/resume.module';
 
 /**
  * Services Domain Module
@@ -17,6 +18,7 @@ import { CommSessionsModule } from './comm-sessions/comm-sessions.module';
     ServiceRegistryModule,
     ClassModule,
     CommSessionsModule,
+    ResumeModule,
   ],
   exports: [
     SessionsModule,
@@ -24,6 +26,7 @@ import { CommSessionsModule } from './comm-sessions/comm-sessions.module';
     ServiceRegistryModule,
     ClassModule,
     CommSessionsModule,
+    ResumeModule,
   ],
 })
 export class ServicesModule {}

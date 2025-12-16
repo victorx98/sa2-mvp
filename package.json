@@ -24,6 +24,7 @@
     "db:introspect": "NODE_OPTIONS='--dns-result-order=ipv4first' drizzle-kit introspect"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.952.0",
     "@kubiks/otel-drizzle": "^2.1.0",
     "@nestjs/common": "~11.1.8",
     "@nestjs/config": "~4.0.2",
@@ -69,6 +70,7 @@
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.5",
     "@types/jest": "^30.0.0",
+    "@types/multer": "^2.0.0",
     "@types/node": "^24.10.0",
     "@types/nodemailer": "^7.0.3",
     "@types/passport-jwt": "^4.0.1",
