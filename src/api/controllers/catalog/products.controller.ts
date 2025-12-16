@@ -163,6 +163,42 @@ export class ProductsController {
     } as ProductDetailResponseDto;
   }
 
+  @Get(":id")
+  @ApiOperation({
+    summary: "Get product detail (with entitlements)",
+    description:
+      "Returns product detail with enriched entitlement items (service type code/name). [返回产品详情，包含补全后的权益项(服务类型编码/名称)]",
+  })
+  @ApiParam({
+    name: "id",
+    required: true,
+    description: "Product ID (UUID). [产品ID(UUID)]",
+    type: String,
+  })
+  @ApiOkResponse({
+    description: "Product detail returned successfully",
+    type: ProductDetailResponseDto,
+  })
+  @ApiResponse({ status: 404, description: "Product not found" })
+  @Roles("student", "mentor", "counselor", "admin", "manager")
+  async getProductDetail(@Param("id") id: string): Promise<ProductDetailResponseDto> {
+    const detail = await this.getProductDetailQuery.execute(id);
+    return {
+      ...detail,
+      targetUserPersonas: detail.targetUserPersonas as string[],
+      marketingLabels: detail.marketingLabels as string[],
+      publishedAt: detail.publishedAt?.toISOString(),
+      unpublishedAt: detail.unpublishedAt?.toISOString(),
+      createdAt: detail.createdAt.toISOString(),
+      updatedAt: detail.updatedAt.toISOString(),
+      items: detail.items.map(item => ({
+        ...item,
+        createdAt: item.createdAt.toISOString(),
+        updatedAt: item.updatedAt.toISOString(),
+      })) as ProductItemResponseDto[],
+    } as ProductDetailResponseDto;
+  }
+
   @Patch(":id/status")
   @ApiOperation({
     summary: "Update product status",
