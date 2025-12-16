@@ -16,6 +16,7 @@ import { CreateProductCommand } from "@application/commands/product/create-produ
 import { UpdateProductCommand } from "@application/commands/product/update-product.command";
 import { UpdateProductStatusCommand } from "@application/commands/product/update-product-status.command";
 import { CreateProductSnapshotCommand } from "@application/commands/product/create-snapshot.command";
+import { GetProductDetailQuery } from "@application/queries/product/get-product-detail.query";
 import { CreateProductDto } from "@domains/catalog/product/dto/create-product.dto";
 import { UpdateProductDto } from "@domains/catalog/product/dto/update-product.dto";
 import { UpdateProductStatusDto } from "@domains/catalog/product/dto/update-product-status.dto";
@@ -40,6 +41,7 @@ export class ProductsController {
     private readonly updateProductCommand: UpdateProductCommand,
     private readonly updateProductStatusCommand: UpdateProductStatusCommand,
     private readonly createProductSnapshotCommand: CreateProductSnapshotCommand,
+    private readonly getProductDetailQuery: GetProductDetailQuery,
   ) {}
 
   @Post()
@@ -70,6 +72,15 @@ export class ProductsController {
   @ApiResponse({ status: 404, description: "Product not found" })
   async createSnapshot(@Param("id") id: string) {
     return this.createProductSnapshotCommand.execute(id);
+  }
+
+  @Get(":id")
+  @ApiOperation({ summary: "Get product detail (with entitlements)" })
+  @ApiResponse({ status: 200, description: "Product detail returned successfully" })
+  @ApiResponse({ status: 404, description: "Product not found" })
+  @Roles("student", "mentor", "counselor", "admin", "manager")
+  async getProductDetail(@Param("id") id: string) {
+    return this.getProductDetailQuery.execute(id);
   }
 
   @Patch(":id/status")

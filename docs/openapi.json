@@ -1971,6 +1971,89 @@
         ]
       }
     },
+    "/api/services/classes/{id}/counselors": {
+      "get": {
+        "description": "Retrieve list of counselors assigned to the class with their names",
+        "operationId": "ClassController_getClassCounselors",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Counselors retrieved successfully"
+          },
+          "404": {
+            "description": "Class not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get class counselors with names",
+        "tags": [
+          "Services - Class Management"
+        ]
+      },
+      "post": {
+        "description": "Add a counselor to the class",
+        "operationId": "ClassController_addCounselor",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Class ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCounselorRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Counselor added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddMemberResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Class not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add counselor to class",
+        "tags": [
+          "Services - Class Management"
+        ]
+      }
+    },
     "/api/services/classes/{id}": {
       "get": {
         "description": "Retrieve detailed information about a specific class",
@@ -2253,57 +2336,6 @@
           }
         ],
         "summary": "Remove student from class",
-        "tags": [
-          "Services - Class Management"
-        ]
-      }
-    },
-    "/api/services/classes/{id}/counselors": {
-      "post": {
-        "description": "Add a counselor to the class",
-        "operationId": "ClassController_addCounselor",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Class ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AddCounselorRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Counselor added successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AddMemberResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Class not found"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Add counselor to class",
         "tags": [
           "Services - Class Management"
         ]
@@ -2983,6 +3015,68 @@
         ]
       }
     },
+    "/api/products/{id}": {
+      "get": {
+        "operationId": "ProductsController_getProductDetail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product detail returned successfully"
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        },
+        "summary": "Get product detail (with entitlements)",
+        "tags": [
+          "Catalog Products"
+        ]
+      },
+      "patch": {
+        "operationId": "ProductsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Product updated successfully"
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        },
+        "summary": "Update product",
+        "tags": [
+          "Catalog Products"
+        ]
+      }
+    },
     "/api/products/{id}/status": {
       "patch": {
         "operationId": "ProductsController_updateStatus",
@@ -3018,43 +3112,6 @@
           }
         },
         "summary": "Update product status",
-        "tags": [
-          "Catalog Products"
-        ]
-      }
-    },
-    "/api/products/{id}": {
-      "patch": {
-        "operationId": "ProductsController_update",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateProductDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Product updated successfully"
-          },
-          "404": {
-            "description": "Product not found"
-          }
-        },
-        "summary": "Update product",
         "tags": [
           "Catalog Products"
         ]
@@ -4131,7 +4188,7 @@
         ]
       }
     },
-    "/query/placement/jobs": {
+    "/api/query/placement/jobs": {
       "get": {
         "operationId": "PlacementQueryController_queryJobs",
         "parameters": [],
