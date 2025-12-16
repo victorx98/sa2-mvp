@@ -237,6 +237,34 @@ export class RemoveMemberResponseDto {
   counselorId?: string;
 }
 
+export class ClassListItemDto {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  startDate: Date;
+  endDate: Date;
+  description?: string;
+  totalSessions: number;
+  mentors: Array<{
+    userId: string;
+    name: { en: string; zh: string };
+    pricePerSession: number;
+    addedAt: Date;
+  }>;
+  counselors: Array<{
+    userId: string;
+    name: { en: string; zh: string };
+    addedAt: Date;
+  }>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export class GetAllClassesResponseDto {
+  classes: ClassListItemDto[];
+}
+
 // ============================================================================
 // Controller
 // ============================================================================
@@ -294,6 +322,23 @@ export class ClassController {
       description: dto.description,
       totalSessions: dto.totalSessions,
     });
+  }
+
+  /**
+   * Get all classes with mentors and counselors
+   * GET /api/services/classes
+   */
+  @Get()
+  @ApiOperation({
+    summary: 'Get all classes with members',
+    description: 'Retrieve list of all classes with mentors and counselors details',
+  })
+  @ApiOkResponse({
+    description: 'Classes retrieved successfully',
+    type: [ClassListItemDto],
+  })
+  async getAllClasses(): Promise<ClassListItemDto[]> {
+    return this.classQueryService.getAllClassesWithMembers();
   }
 
   /**
