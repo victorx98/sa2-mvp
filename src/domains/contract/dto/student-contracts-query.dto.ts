@@ -12,7 +12,7 @@ export class StudentContractsQueryDto {
 /**
  * Response DTO for student contracts query (学生合同查询响应DTO)
  */
-export interface StudentContractResponseDto {
+export type StudentContractResponseDto = {
   id: string; // Contract ID (合同ID)
   contract_number: string; // Contract number (合同编号)
   product: {
@@ -20,5 +20,5 @@ export interface StudentContractResponseDto {
     name: string; // Product name (产品名称)
   };
   status: string; // Contract status (合同状态)
-}
+};
 

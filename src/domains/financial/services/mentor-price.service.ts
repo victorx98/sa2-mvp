@@ -339,26 +339,28 @@ export class MentorPriceService implements IMentorPriceService {
       const sortOptions = [];
       if (sort?.field) {
         const sortFn = sort.order === "desc" ? desc : asc;
-        // Handle sorting safely for dynamic fields
-        // Only allow sorting on known columns
-        const sortableColumns = [
-          "id",
-          "mentorUserId",
-          "sessionTypeCode",
-          "price",
-          "currency",
-          "status",
-          "packageCode",
-          "updatedBy",
-          "createdAt",
-          "updatedAt",
-        ];
-        if (sortableColumns.includes(sort.field)) {
-          // Cast to a valid column name to make TypeScript happy
-          const column = sort.field as keyof typeof schema.mentorPrices;
-          sortOptions.push(sortFn(schema.mentorPrices[column] as any));
+        // Handle sorting safely for dynamic fields[安全处理动态排序字段]
+        const sortableColumnMap = {
+          id: schema.mentorPrices.id,
+          mentorUserId: schema.mentorPrices.mentorUserId,
+          sessionTypeCode: schema.mentorPrices.sessionTypeCode,
+          price: schema.mentorPrices.price,
+          currency: schema.mentorPrices.currency,
+          status: schema.mentorPrices.status,
+          packageCode: schema.mentorPrices.packageCode,
+          updatedBy: schema.mentorPrices.updatedBy,
+          createdAt: schema.mentorPrices.createdAt,
+          updatedAt: schema.mentorPrices.updatedAt,
+        } as const;
+
+        type SortField = keyof typeof sortableColumnMap;
+        const isSortField = (field: string): field is SortField =>
+          Object.prototype.hasOwnProperty.call(sortableColumnMap, field);
+
+        if (isSortField(sort.field)) {
+          sortOptions.push(sortFn(sortableColumnMap[sort.field]));
         } else {
-          // Default sort if invalid field is provided
+          // Default sort if invalid field is provided[字段不合法时使用默认排序]
           sortOptions.push(desc(schema.mentorPrices.updatedAt));
         }
       } else {

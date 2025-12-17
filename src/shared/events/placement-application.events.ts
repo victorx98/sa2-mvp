@@ -10,6 +10,7 @@ import { ApplicationStatus } from "@domains/placement/types/application-status.t
 import {
   JOB_APPLICATION_STATUS_CHANGED_EVENT,
   JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
+  PLACEMENT_APPLICATION_SUBMITTED_EVENT,
 } from "./event-constants";
 
 /**
@@ -122,4 +123,74 @@ export interface IJobApplicationStatusRolledBackEvent
    * Event type constant
    */
   type: typeof JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT;
+}
+
+/**
+ * Payload for placement application submitted integration event
+ * 投递申请提交（集成事件）载荷
+ *
+ * This payload must be sufficient for Service Registry registration without querying Placement tables
+ * 该载荷需满足 Service Registry 登记需要，避免 Services 域反查 Placement 表
+ */
+export interface IPlacementApplicationSubmittedPayload {
+  /**
+   * Shared primary key (job_applications.id == service_references.id)
+   * 共享主键（job_applications.id == service_references.id）
+   */
+  id: string;
+
+  /**
+   * Service type for Service Registry
+   * Service Registry 的服务类型
+   */
+  service_type: "job_application";
+
+  /**
+   * Student user ID
+   * 学生用户ID
+   */
+  student_user_id: string;
+
+  /**
+   * Provider user ID (mentor/counselor/operator)
+   * 服务提供者用户ID（导师/顾问/操作者）
+   */
+  provider_user_id: string;
+
+  /**
+   * Consumed units (fixed to 1 for job application)
+   * 消耗单位数量（投递固定为 1）
+   */
+  consumed_units: 1;
+
+  /**
+   * Unit type (fixed to count for job application)
+   * 单位类型（投递固定为 count）
+   */
+  unit_type: "count";
+
+  /**
+   * Completed/submitted time
+   * 完成/提交时间
+   */
+  completed_time: Date;
+
+  /**
+   * Human-readable title for reconciliation (optional)
+   * 对账用标题（可选）
+   */
+  title?: string;
+}
+
+/**
+ * Placement Application Submitted Event
+ * 投递申请提交事件
+ */
+export interface IPlacementApplicationSubmittedEvent
+  extends IEvent<IPlacementApplicationSubmittedPayload> {
+  /**
+   * Event type constant
+   * 事件类型常量
+   */
+  type: typeof PLACEMENT_APPLICATION_SUBMITTED_EVENT;
 }
