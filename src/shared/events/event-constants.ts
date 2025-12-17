@@ -77,6 +77,7 @@ export const MENTOR_APPEAL_REJECTED_EVENT = "financial.appeal.rejected";
 // Placement Application Events (投递申请事件)
 export const JOB_APPLICATION_STATUS_CHANGED_EVENT = "placement.application.status_changed";
 export const JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT = "placement.application.status_rolled_back";
+export const PLACEMENT_APPLICATION_SUBMITTED_EVENT = "placement.application.submitted";
 
 // Resume Billing Events
 export const RESUME_BILLED_EVENT = "resume.billed";

@@ -11,7 +11,11 @@ import {
 import { ApplicationType } from "../types/application-type.enum";
 import { randomUUID } from "crypto";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT } from "../events";
+import {
+  JOB_APPLICATION_STATUS_CHANGED_EVENT,
+  JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
+  PLACEMENT_APPLICATION_SUBMITTED_EVENT,
+} from "../events";
 
 /**
  * Unit Tests for JobApplicationService
@@ -28,10 +32,11 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
   let moduleRef: TestingModule;
   let jobApplicationService: JobApplicationService;
   let mockDb: any;
+  let mockEventEmitter: { emit: jest.Mock };
   const testApplicationId = randomUUID();
-  const testStudentId = randomUUID();
+  const testStudentId = "bc9c587e-8206-4b93-9e2c-fdc92d13f40b";
   const testJobId = randomUUID(); // Changed to UUID string to match new schema [改为UUID字符串以匹配新schema]
-  const testMentorId = randomUUID();
+  const testMentorId = "70394110-4442-4004-a89e-e4bc2d6b030e";
 
   beforeEach(async () => {
     // Create a simple mock that directly returns a promise resolving to an array
@@ -78,6 +83,10 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }),
     };
 
+    mockEventEmitter = {
+      emit: jest.fn(),
+    };
+
     moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({
@@ -92,9 +101,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         },
         {
           provide: EventEmitter2,
-          useValue: {
-            emit: jest.fn(),
-          },
+          useValue: mockEventEmitter,
         },
         JobApplicationService,
       ],
@@ -141,7 +148,9 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
               // First call: duplicate check - return empty array
               // Second call: job existence check - return job
               return Promise.resolve(
-                selectCallCount === 1 ? [] : [{ id: testJobId, status: "active" }],
+                selectCallCount === 1
+                  ? []
+                  : [{ id: testJobId, status: "active", title: "Test Job" }],
               );
             }),
           })),
@@ -169,6 +178,23 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       expect(result.event).toBeDefined();
       expect(result.event?.type).toBe("placement.application.status_changed");
       expect(mockDb.insert).toHaveBeenCalled();
+
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        JOB_APPLICATION_STATUS_CHANGED_EVENT,
+        expect.any(Object),
+      );
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        PLACEMENT_APPLICATION_SUBMITTED_EVENT,
+        expect.objectContaining({
+          id: testApplicationId,
+          service_type: "job_application",
+          student_user_id: testStudentId,
+          provider_user_id: testStudentId,
+          consumed_units: 1,
+          unit_type: "count",
+          title: "Test Job",
+        }),
+      );
     });
 
     it("should throw error if duplicate application exists [如果存在重复申请应该抛出错误]", async () => {
@@ -542,6 +568,12 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
       // Assert [断言]
       expect(mockDb.update).toHaveBeenCalled();
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        JOB_APPLICATION_STATUS_CHANGED_EVENT,
+        expect.objectContaining({
+          assignedMentorId: newMentorId,
+        }),
+      );
     });
 
     it("should allow mentor_assigned -> submitted without mentorId and screeningResult [允许mentor_assigned->submitted不传mentorId和评估结果]", async () => {
@@ -566,13 +598,23 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const updatedApplication = {
         ...mockApplication,
         status: dto.newStatus,
+        updatedAt: new Date(),
       };
 
-      mockDb.select = jest.fn(() => ({
-        from: jest.fn(() => ({
-          where: jest.fn(() => Promise.resolve([mockApplication])),
-        })),
-      }));
+      mockDb.select = jest
+        .fn()
+        // First select: load application [第一次查询：获取申请]
+        .mockReturnValueOnce({
+          from: jest.fn(() => ({
+            where: jest.fn(() => Promise.resolve([mockApplication])),
+          })),
+        })
+        // Second select: load job title [第二次查询：获取岗位标题]
+        .mockReturnValueOnce({
+          from: jest.fn(() => ({
+            where: jest.fn(() => Promise.resolve([{ title: "Referral Job" }])),
+          })),
+        });
 
       mockDb.insert = jest.fn(() => ({
         values: jest.fn(() => ({
@@ -594,6 +636,15 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Assert [断言]
       expect(result.data).toEqual(updatedApplication);
       expect(mockDb.update).toHaveBeenCalled();
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        PLACEMENT_APPLICATION_SUBMITTED_EVENT,
+        expect.objectContaining({
+          id: testApplicationId,
+          student_user_id: testStudentId,
+          provider_user_id: testMentorId,
+          title: "Referral Job",
+        }),
+      );
     });
 
     it("should allow recommended -> revoked [允许recommended->revoked]", async () => {

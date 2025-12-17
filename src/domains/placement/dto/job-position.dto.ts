@@ -38,21 +38,6 @@ export interface ICreateJobPositionDto {
     bonus?: Record<string, unknown>; // Bonus details [奖金详情]
   };
 
-  // Skills as JSONB array [技能JSONB数组]
-  skills?: Array<{
-    skill: string; // Skill name [技能名称]
-    years_of_experience?: number; // Years of experience with this skill [该技能的经验年数]
-  }>;
-
-  // Responsibilities as JSONB array [职责JSONB数组]
-  responsibilities?: string[]; // Job responsibilities list [岗位职责列表]
-
-  // Matched job titles with scores [匹配职位标题及分数]
-  matchedTitles?: Array<{
-    job_title: string; // Matched job title [匹配的职位标题]
-    score: number; // Matching score [匹配分数]
-  }>;
-
   // Job description [岗位描述]
   jobDescription?: string; // Full job description [完整的岗位描述]
 

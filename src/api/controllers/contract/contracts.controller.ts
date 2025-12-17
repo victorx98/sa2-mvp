@@ -7,6 +7,7 @@ import {
   UseGuards,
   Logger,
   Get,
+  Query,
 } from "@nestjs/common";
 import {
   ApiBearerAuth,
@@ -50,6 +51,8 @@ import {
   ContractServiceEntitlementResponseDto,
   StudentContractResponseDto,
 } from "@api/dto/response/contract/contract.response.dto";
+import { ContractListQueryDto } from "@api/dto/request/contract/contract-list.request.dto";
+import { ContractListResponseDto } from "@api/dto/response/contract/contract-list.response.dto";
 import { ContractStatus } from "@shared/types/contract-enums";
 
 /**
@@ -151,6 +154,43 @@ export class ContractsController {
       ...item,
       status: item.status as ContractStatus,
     }));
+  }
+
+  @Get()
+  @ApiOperation({ summary: "Get contracts list with pagination and filters", description: "Retrieve paginated contracts list with various filter options" })
+  @ApiOkResponse({
+    description: "Contracts retrieved successfully",
+    type: ContractListResponseDto,
+  })
+  async getContracts(
+    @Query() queryDto: ContractListQueryDto,
+  ): Promise<ContractListResponseDto> {
+    const result = await this.studentContractsQuery.getContractsWithPagination(
+      {
+        studentId: queryDto.studentId,
+        status: queryDto.status,
+        productId: queryDto.productId,
+        startDate: queryDto.startDate,
+        endDate: queryDto.endDate,
+        keyword: queryDto.keyword,
+      },
+      {
+        page: queryDto.page || 1,
+        pageSize: queryDto.pageSize || 20,
+      },
+    );
+
+    // Map status to ContractStatus enum
+    return {
+      data: result.data.map((item: any) => ({
+        ...item,
+        status: item.status as ContractStatus,
+      })),
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      totalPages: result.totalPages,
+    };
   }
 
   @Post()

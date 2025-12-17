@@ -35,25 +35,6 @@ class SalaryDetailsResponseDto {
   bonus?: Record<string, unknown>;
 }
 
-class SkillResponseDto {
-  @ApiProperty({ description: "Skill name. [技能名称]", type: String })
-  skill!: string;
-
-  @ApiPropertyOptional({
-    description: "Years of experience. [经验年数]",
-    type: Number,
-  })
-  years_of_experience?: number;
-}
-
-class MatchedTitleResponseDto {
-  @ApiProperty({ description: "Job title. [职位标题]", type: String })
-  job_title!: string;
-
-  @ApiProperty({ description: "Score. [分数]", type: Number })
-  score!: number;
-}
-
 export class JobPositionResponseDto {
   @ApiProperty({ description: "Job ID (UUID). [岗位ID(UUID)]", type: String, format: "uuid" })
   id!: string;
@@ -88,6 +69,13 @@ export class JobPositionResponseDto {
   })
   postDate?: string | null;
 
+  @ApiPropertyOptional({
+    description: "Application deadline (ISO 8601). [投递截止时间(ISO 8601)]",
+    type: String,
+    format: "date-time",
+  })
+  application_deadline?: string | null;
+
   @ApiProperty({
     description: "Status (active/inactive/expired). [状态：active/inactive/expired]",
     type: String,
@@ -112,27 +100,6 @@ export class JobPositionResponseDto {
     type: () => SalaryDetailsResponseDto,
   })
   salaryDetails?: SalaryDetailsResponseDto | null;
-
-  @ApiPropertyOptional({
-    description: "Skills list. [技能列表]",
-    type: () => SkillResponseDto,
-    isArray: true,
-  })
-  skills?: SkillResponseDto[] | null;
-
-  @ApiPropertyOptional({
-    description: "Responsibilities list. [职责列表]",
-    type: [String],
-    isArray: true,
-  })
-  jobResponsibilities?: string[] | null;
-
-  @ApiPropertyOptional({
-    description: "Matched titles. [匹配标题]",
-    type: () => MatchedTitleResponseDto,
-    isArray: true,
-  })
-  matchedJobTitles?: MatchedTitleResponseDto[] | null;
 
   @ApiPropertyOptional({
     description: "Job locations list. [地点列表]",
@@ -161,12 +128,6 @@ export class JobPositionResponseDto {
     type: Object,
   })
   aiAnalysis?: Record<string, unknown> | null;
-
-  @ApiPropertyOptional({
-    description: "Source details JSON. [来源详情JSON]",
-    type: Object,
-  })
-  sourceDetails?: Record<string, unknown> | null;
 
   @ApiPropertyOptional({
     description: "Supported application types. [支持投递类型]",
@@ -298,13 +259,13 @@ export class BatchRecommendReferralApplicationsResponseDto {
   items!: JobApplicationResponseDto[];
 }
 
-export class PaginatedJobResultsResponseDto {
+export class JobQueryResponseDto {
   @ApiProperty({
     description: "Job items. [岗位列表]",
     type: () => JobPositionResponseDto,
     isArray: true,
   })
-  items!: JobPositionResponseDto[];
+  data!: JobPositionResponseDto[];
 
   @ApiProperty({ description: "Total jobs. [总数]", type: Number })
   total!: number;
@@ -317,19 +278,5 @@ export class PaginatedJobResultsResponseDto {
 
   @ApiProperty({ description: "Total pages. [总页数]", type: Number })
   totalPages!: number;
-}
-
-export class JobQueryResponseDto {
-  @ApiProperty({ description: "Success flag. [是否成功]", type: Boolean, example: true })
-  success!: boolean;
-
-  @ApiProperty({
-    description: "Paginated job results. [分页岗位结果]",
-    type: () => PaginatedJobResultsResponseDto,
-  })
-  data!: PaginatedJobResultsResponseDto;
-
-  @ApiProperty({ description: "Message. [消息]", type: String })
-  message!: string;
 }
 

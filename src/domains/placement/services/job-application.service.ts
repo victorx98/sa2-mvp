@@ -16,7 +16,9 @@ import {
 import {
   JOB_APPLICATION_STATUS_CHANGED_EVENT,
   JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
+  PLACEMENT_APPLICATION_SUBMITTED_EVENT,
 } from "../events";
+import type { IPlacementApplicationSubmittedPayload } from "../events";
 import {
   ISubmitApplicationDto,
   IRecommendReferralApplicationsBatchDto,
@@ -46,6 +48,16 @@ export class JobApplicationService implements IJobApplicationService {
     private readonly db: DrizzleDatabase,
     private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  private isUuid(value: string | undefined): value is string {
+    // Simple UUID v4-ish validation to protect Service Registry FK constraints (English only) [简单 UUID 校验以保护 Service Registry 外键约束]
+    return (
+      typeof value === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        value,
+      )
+    );
+  }
 
   /**
    * Submit a job application [提交投递申请]
@@ -124,6 +136,26 @@ export class JobApplicationService implements IJobApplicationService {
       changedAt: application.submittedAt.toISOString(),
     };
     this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
+
+    if (application.status === "submitted") {
+      const providerCandidate = dto.studentId;
+      const submittedPayload: IPlacementApplicationSubmittedPayload = {
+        id: application.id,
+        service_type: "job_application",
+        student_user_id: application.studentId,
+        provider_user_id: this.isUuid(providerCandidate)
+          ? providerCandidate
+          : application.studentId,
+        consumed_units: 1,
+        unit_type: "count",
+        completed_time: application.submittedAt,
+        title: job.title ?? undefined,
+      };
+      this.eventEmitter.emit(
+        PLACEMENT_APPLICATION_SUBMITTED_EVENT,
+        submittedPayload,
+      );
+    }
 
     return {
       data: application,
@@ -382,11 +414,42 @@ export class JobApplicationService implements IJobApplicationService {
       changedAt: new Date().toISOString(),
       changeMetadata: dto.changeMetadata,
       // [新增] Include mentor assignment in event payload [在事件payload中包含导师分配]
-      ...(application.assignedMentorId && {
-        assignedMentorId: application.assignedMentorId,
+      ...(updatedApplication.assignedMentorId && {
+        assignedMentorId: updatedApplication.assignedMentorId,
       }),
     };
     this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
+
+    if (dto.newStatus === "submitted") {
+      const [job] = await this.db
+        .select({ title: recommendedJobs.title })
+        .from(recommendedJobs)
+        .where(eq(recommendedJobs.id, application.jobId));
+
+      const providerCandidate =
+        dto.mentorId ??
+        updatedApplication.assignedMentorId ??
+        application.recommendedBy ??
+        dto.changedBy ??
+        updatedApplication.studentId;
+
+      const submittedPayload: IPlacementApplicationSubmittedPayload = {
+        id: updatedApplication.id,
+        service_type: "job_application",
+        student_user_id: updatedApplication.studentId,
+        provider_user_id: this.isUuid(providerCandidate)
+          ? providerCandidate
+          : updatedApplication.studentId,
+        consumed_units: 1,
+        unit_type: "count",
+        completed_time: updatedApplication.updatedAt,
+        title: job?.title ?? undefined,
+      };
+      this.eventEmitter.emit(
+        PLACEMENT_APPLICATION_SUBMITTED_EVENT,
+        submittedPayload,
+      );
+    }
 
     return {
       data: updatedApplication,

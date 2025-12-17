@@ -1,5 +1,5 @@
 import { Injectable, Logger, Inject, NotFoundException } from "@nestjs/common";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, asc, desc } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { DrizzleDatabase } from "@shared/types/database.types";
 import { recommendedJobs } from "@infrastructure/database/schema";
@@ -55,9 +55,6 @@ export class JobPositionService {
     if (dto.locations) values.jobLocations = dto.locations;
     if (dto.experienceRequirement) values.experienceRequirement = dto.experienceRequirement;
     if (dto.salaryDetails) values.salaryDetails = dto.salaryDetails;
-    if (dto.skills) values.skills = dto.skills;
-    if (dto.responsibilities) values.jobResponsibilities = dto.responsibilities;
-    if (dto.matchedTitles) values.matchedJobTitles = dto.matchedTitles;
     if (dto.jobDescription) values.jobDescription = dto.jobDescription;
     if (dto.h1b) values.h1b = dto.h1b;
     if (dto.usCitizenship) values.usCitizenship = dto.usCitizenship;
@@ -178,15 +175,26 @@ export class JobPositionService {
     }
 
     // Apply sorting if provided
-    if (
-      sort &&
-      sort.field &&
-      recommendedJobs[sort.field as keyof typeof recommendedJobs]
-    ) {
-      const direction = sort.direction === "desc" ? sql`desc` : sql`asc`;
-      query = query.orderBy(
-        sql`${recommendedJobs[sort.field as keyof typeof recommendedJobs]} ${direction}`,
-      ) as any; // Use any to avoid complex Drizzle type issues [使用any避免复杂的Drizzle类型问题]
+    if (sort?.field) {
+      const sortableColumnMap = {
+        id: recommendedJobs.id,
+        jobId: recommendedJobs.jobId,
+        status: recommendedJobs.status,
+        title: recommendedJobs.title,
+        companyName: recommendedJobs.companyName,
+        postDate: recommendedJobs.postDate,
+        createdAt: recommendedJobs.createdAt,
+        updatedAt: recommendedJobs.updatedAt,
+      } as const;
+
+      type SortField = keyof typeof sortableColumnMap;
+      const isSortField = (field: string): field is SortField =>
+        Object.prototype.hasOwnProperty.call(sortableColumnMap, field);
+
+      if (isSortField(sort.field)) {
+        const sortFn = sort.direction === "desc" ? desc : asc;
+        query = query.orderBy(sortFn(sortableColumnMap[sort.field])) as typeof query;
+      }
     }
 
     // Pagination [分页]
@@ -194,15 +202,15 @@ export class JobPositionService {
     const pageSize = pagination?.pageSize || 20;
     const offset = (page - 1) * pageSize;
     const limit = pageSize;
-    const jobs = await (query as any).limit(limit).offset(offset); // Use any for limit/offset methods [对limit/offset方法使用any]
+    const jobs = await query.limit(limit).offset(offset).execute();
 
     // Get total count [获取总数]
     const countQuery = this.db
-      .select({ count: sql`count(*)` })
+      .select({ count: sql<number>`count(*)` })
       .from(recommendedJobs)
       .where(and(...conditions));
 
-    const countResult = await countQuery;
+    const countResult = await countQuery.execute();
     const count = countResult[0]?.count || 0;
 
     return {

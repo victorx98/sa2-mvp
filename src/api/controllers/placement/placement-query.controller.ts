@@ -85,16 +85,35 @@ export class PlacementQueryController {
 
       this.logger.log(`Job query completed successfully, returned ${results.items.length} items out of ${results.total}`);
 
-      return {
-        success: true,
-        data: {
-          items: results.items as unknown as JobPositionResponseDto[],
-          total: results.total,
-          page: results.page,
-          pageSize: results.pageSize,
-          totalPages: results.totalPages,
+      // Map DB column application_deadline to API field application_deadline
+      // [将数据库列application_deadline映射到接口字段application_deadline]
+      const mappedItems = (results.items as Array<Record<string, unknown>>).map(
+        (item) => {
+          const { applicationDeadline, ...rest } = item as {
+            applicationDeadline?: Date | string | null;
+            [key: string]: unknown;
+          };
+
+          const deadline =
+            applicationDeadline instanceof Date
+              ? applicationDeadline.toISOString()
+              : typeof applicationDeadline === "string"
+                ? applicationDeadline
+                : null;
+
+          return {
+            ...rest,
+            application_deadline: deadline,
+          };
         },
-        message: 'Job query completed successfully',
+      );
+
+      return {
+        data: mappedItems as unknown as JobPositionResponseDto[],
+        total: results.total,
+        page: results.page,
+        pageSize: results.pageSize,
+        totalPages: results.totalPages,
       };
     } catch (error) {
       this.logger.error(`Job query failed: ${error.message}`, error.stack);
