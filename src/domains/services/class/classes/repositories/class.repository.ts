@@ -269,6 +269,28 @@ export class ClassRepository {
     return !!result;
   }
 
+  async hasStudent(classId: string, studentId: string): Promise<boolean> {
+    const result = await this.db.query.classStudents.findFirst({
+      where: and(
+        eq(classStudents.classId, classId as any),
+        eq(classStudents.studentUserId, studentId as any),
+      ),
+    });
+
+    return !!result;
+  }
+
+  async hasCounselor(classId: string, counselorId: string): Promise<boolean> {
+    const result = await this.db.query.classCounselors.findFirst({
+      where: and(
+        eq(classCounselors.classId, classId as any),
+        eq(classCounselors.counselorUserId, counselorId as any),
+      ),
+    });
+
+    return !!result;
+  }
+
   private mapToEntity(row: any): ClassEntity {
     return new ClassEntity({
       id: row.id,
