@@ -36,6 +36,7 @@ export class ClassService {
       endDate: new Date(dto.endDate),
       description: dto.description,
       totalSessions: dto.totalSessions,
+      createdByCounselorId: dto.createdByCounselorId,
       createdAt: new Date(),
       updatedAt: new Date(),
     });

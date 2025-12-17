@@ -1,4 +1,5 @@
 import { pgTable, uuid, varchar, text, timestamp, integer, index } from 'drizzle-orm/pg-core';
+import { userTable } from './user.schema';
 
 export const classes = pgTable(
   'classes',
@@ -11,6 +12,7 @@ export const classes = pgTable(
     endDate: timestamp('end_date').notNull(),
     description: text('description'),
     totalSessions: integer('total_sessions').notNull().default(0),
+    createdByCounselorId: uuid('created_by_counselor_id').references(() => userTable.id),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },

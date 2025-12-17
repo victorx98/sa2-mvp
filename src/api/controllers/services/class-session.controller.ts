@@ -254,6 +254,7 @@ export class ClassSessionController {
       scheduledAt: new Date(dto.scheduledAt),
       duration: dto.duration,
       meetingProvider: dto.meetingProvider,
+      createdByCounselorId: user.id, // Set current user as creator
     });
 
     return {

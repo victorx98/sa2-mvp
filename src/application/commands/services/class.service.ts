@@ -16,6 +16,7 @@ export interface CreateClassDto {
   endDate?: Date;
   description?: string;
   totalSessions?: number;
+  createdByCounselorId?: string; // Counselor who created the class
 }
 
 export interface UpdateClassDto {
@@ -85,6 +86,7 @@ export class ClassService {
         endDate: dto.endDate,
         description: dto.description,
         totalSessions: dto.totalSessions,
+        createdByCounselorId: dto.createdByCounselorId,
       } as any);
 
       const duration = Date.now() - startTime;

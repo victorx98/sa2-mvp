@@ -31,6 +31,7 @@ export interface CreateClassSessionDto {
   meetingProvider?: string;
   serviceType?: string;
   counselorId?: string;
+  createdByCounselorId?: string; // Counselor who created the session
 }
 
 export interface UpdateClassSessionDto {
@@ -147,6 +148,7 @@ export class ClassSessionService {
           sessionType: ClassSessionType.CLASS_SESSION,
           classId: dto.classId,
           mentorUserId: dto.mentorId,
+          createdByCounselorId: dto.createdByCounselorId,
           title: dto.title,
           description: dto.description,
           scheduledAt: scheduledAtIso, // Pass ISO string

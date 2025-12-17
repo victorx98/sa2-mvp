@@ -17,6 +17,7 @@ export class ClassEntity {
   endDate: Date;
   description?: string;
   totalSessions: number;
+  createdByCounselorId?: string; // Counselor who created the class
   createdAt: Date;
   updatedAt: Date;
 

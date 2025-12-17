@@ -113,6 +113,8 @@ export class ClassQueryService {
     sortOrder?: 'asc' | 'desc';
     status?: ClassStatus;
     type?: ClassType;
+    createdByCounselorId?: string;
+    name?: string;
   } = {}) {
     const {
       page = 1,
@@ -121,6 +123,8 @@ export class ClassQueryService {
       sortOrder = 'desc',
       status,
       type,
+      createdByCounselorId,
+      name,
     } = params;
 
     this.logger.debug(`Getting all classes with members, params: ${JSON.stringify(params)}`);
@@ -129,13 +133,13 @@ export class ClassQueryService {
     const offset = (page - 1) * pageSize;
 
     // Get total count
-    const total = await this.classRepository.count({ status, type });
+    const total = await this.classRepository.count({ status, type, createdByCounselorId, name });
 
     // Get classes list with pagination
     const classes = await this.classRepository.findAll(
       pageSize,
       offset,
-      { status, type },
+      { status, type, createdByCounselorId, name },
       sortBy,
       sortOrder,
     );
@@ -158,20 +162,15 @@ export class ClassQueryService {
 
     // Calculate pagination metadata
     const totalPages = Math.ceil(total / pageSize);
-    const hasNext = page < totalPages;
-    const hasPrev = page > 1;
 
     return {
       data: classesWithMembers,
-      pagination: {
-        page,
-        pageSize,
-        total,
-        totalPages,
-        hasNext,
-        hasPrev,
-      },
+      total,
+      totalPages,
+      pageSize,
+      page,
     };
   }
+
 }
 
