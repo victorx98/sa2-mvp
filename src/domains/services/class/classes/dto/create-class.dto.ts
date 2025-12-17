@@ -42,6 +42,10 @@ export class CreateClassDto {
   @Min(1)
   totalSessions: number;
 
+  @IsOptional()
+  @IsString()
+  createdByCounselorId?: string; // Counselor who created the class
+
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })

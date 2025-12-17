@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, and, desc, asc, ne, count } from 'drizzle-orm';
+import { eq, and, desc, asc, ne, count, like } from 'drizzle-orm';
 import type { DrizzleDatabase } from '@shared/types/database.types';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import { classes, classMentorsPrices, classStudents, classCounselors } from '@infrastructure/database/schema';
@@ -25,6 +25,7 @@ export class ClassRepository {
         endDate: entity.endDate,
         description: entity.description,
         totalSessions: entity.totalSessions,
+        createdByCounselorId: entity.createdByCounselorId,
         createdAt: entity.createdAt,
         updatedAt: entity.updatedAt,
       } as any)
@@ -55,6 +56,8 @@ export class ClassRepository {
     filters?: {
       status?: ClassStatus;
       type?: ClassType;
+      createdByCounselorId?: string;
+      name?: string;
     },
     sortBy: string = 'createdAt',
     sortOrder: 'asc' | 'desc' = 'desc',
@@ -67,6 +70,15 @@ export class ClassRepository {
 
     if (filters?.type) {
       whereConditions.push(eq(classes.type, filters.type));
+    }
+
+    if (filters?.createdByCounselorId) {
+      whereConditions.push(eq(classes.createdByCounselorId, filters.createdByCounselorId as any));
+    }
+
+    // Fuzzy search by name using LIKE
+    if (filters?.name) {
+      whereConditions.push(like(classes.name, `%${filters.name}%`));
     }
 
     // Determine sort column
@@ -86,6 +98,8 @@ export class ClassRepository {
   async count(filters?: {
     status?: ClassStatus;
     type?: ClassType;
+    createdByCounselorId?: string;
+    name?: string;
   }): Promise<number> {
     const whereConditions: any[] = [];
 
@@ -95,6 +109,15 @@ export class ClassRepository {
 
     if (filters?.type) {
       whereConditions.push(eq(classes.type, filters.type));
+    }
+
+    if (filters?.createdByCounselorId) {
+      whereConditions.push(eq(classes.createdByCounselorId, filters.createdByCounselorId as any));
+    }
+
+    // Fuzzy search by name using LIKE
+    if (filters?.name) {
+      whereConditions.push(like(classes.name, `%${filters.name}%`));
     }
 
     const result = await this.db
@@ -256,6 +279,7 @@ export class ClassRepository {
       endDate: row.endDate || row.end_date,
       description: row.description,
       totalSessions: row.totalSessions || row.total_sessions,
+      createdByCounselorId: row.createdByCounselorId || row.created_by_counselor_id,
       createdAt: row.createdAt || row.created_at,
       updatedAt: row.updatedAt || row.updated_at,
     });
