@@ -80,3 +80,7 @@ export const JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT = "placement.application.s
 
 // Resume Billing Events
 export const RESUME_BILLED_EVENT = "resume.billed";
+
+// Class Student Events
+export const CLASS_STUDENT_ADDED_EVENT = "class.student.added";
+export const CLASS_STUDENT_REMOVED_EVENT = "class.student.removed";
