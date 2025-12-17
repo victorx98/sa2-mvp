@@ -3,6 +3,7 @@ export interface ResumeEntity {
   studentUserId: string;
   jobTitle: string;
   sessionType: string;
+  description?: string;
   fileName: string;
   fileUrl: string;
   status: 'uploaded' | 'final' | 'deleted';
@@ -19,6 +20,7 @@ export interface ResumeDetail {
   studentUserId: string;
   jobTitle: string;
   sessionType: string;
+  description?: string;
   fileName: string;
   fileUrl: string;
   status: 'uploaded' | 'final' | 'deleted';

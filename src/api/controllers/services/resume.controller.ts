@@ -23,25 +23,35 @@ import { Roles } from '@shared/decorators/roles.decorator';
 import { CurrentUser } from '@shared/decorators/current-user.decorator';
 import { User } from '@domains/identity/user/user-interface';
 import { ApiPrefix } from '@api/api.constants';
-import { ResumeService } from '@domains/services/resume/services/resume.service';
-import { ResumeBillingService } from '@domains/services/resume/services/resume-billing.service';
+import { ResumeService as DomainResumeService } from '@domains/services/resume/services/resume.service';
+import { ResumeService as ApplicationResumeService } from '@application/commands/services/resume.service';
 import { UploadResumeDto } from '@domains/services/resume/dto/upload-resume.dto';
-import { BillResumeDto } from '@domains/services/resume/dto/bill-resume.dto';
+import { BillResumeDto, CancelBillResumeDto } from '@domains/services/resume/dto/bill-resume.dto';
+import { IsString, IsOptional, MaxLength } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+
+export class SetFinalDto {
+  @ApiProperty({ description: 'Description', required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(1000)
+  description?: string;
+}
 
 @ApiTags('Resume Management')
-@Controller(`${ApiPrefix}/resume`)
+@Controller(`${ApiPrefix}/services/resumes`)
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class ResumeController {
   constructor(
-    private readonly resumeService: ResumeService,
-    private readonly resumeBillingService: ResumeBillingService,
+    private readonly domainResumeService: DomainResumeService,
+    private readonly applicationResumeService: ApplicationResumeService,
   ) {}
 
   /**
    * Upload resume
    */
-  @Post('resumes')
+  @Post('upload')
   @Roles('admin', 'counselor', 'student')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Upload resume' })
@@ -50,7 +60,7 @@ export class ResumeController {
     @Body() dto: UploadResumeDto,
     @CurrentUser() user: User,
   ) {
-    const data = await this.resumeService.upload(dto, user.id);
+    const data = await this.domainResumeService.upload(dto, user.id);
     return {
       code: HttpStatus.CREATED,
       message: 'Resume uploaded successfully',
@@ -61,7 +71,7 @@ export class ResumeController {
   /**
    * List resumes by student (grouped by job title)
    */
-  @Get('resumes/student/:studentUserId')
+  @Get('student/:studentUserId')
   @Roles('admin', 'counselor', 'mentor', 'student')
   @ApiOperation({ summary: 'Get student resumes grouped by job title' })
   @ApiParam({ name: 'studentUserId', description: 'Student user ID' })
@@ -69,7 +79,7 @@ export class ResumeController {
   async listResumesByStudent(
     @Param('studentUserId') studentUserId: string,
   ) {
-    const data = await this.resumeService.listByStudent(studentUserId);
+    const data = await this.domainResumeService.listByStudent(studentUserId);
     return {
       code: HttpStatus.OK,
       message: 'Success',
@@ -80,7 +90,7 @@ export class ResumeController {
   /**
    * Set resume as final
    */
-  @Post('resumes/:resumeId/set-final')
+  @Post(':resumeId/set-final')
   @Roles('admin', 'counselor', 'student')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Set resume as final version' })
@@ -88,9 +98,10 @@ export class ResumeController {
   @ApiOkResponse({ description: 'Resume set as final successfully' })
   async setFinal(
     @Param('resumeId') resumeId: string,
+    @Body() dto: SetFinalDto,
     @CurrentUser() user: User,
   ) {
-    const data = await this.resumeService.setFinal(resumeId, user.id);
+    const data = await this.domainResumeService.setFinal(resumeId, user.id, dto.description);
     return {
       code: HttpStatus.OK,
       message: 'Resume set as final successfully',
@@ -101,7 +112,7 @@ export class ResumeController {
   /**
    * Cancel final status
    */
-  @Post('resumes/:resumeId/cancel-final')
+  @Post(':resumeId/cancel-final')
   @Roles('admin', 'counselor', 'student')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cancel final status' })
@@ -109,9 +120,10 @@ export class ResumeController {
   @ApiOkResponse({ description: 'Final status canceled successfully' })
   async cancelFinal(
     @Param('resumeId') resumeId: string,
+    @Body() dto: SetFinalDto,
     @CurrentUser() user: User,
   ) {
-    const data = await this.resumeService.cancelFinal(resumeId, user.id);
+    const data = await this.domainResumeService.cancelFinal(resumeId, user.id, dto.description);
     return {
       code: HttpStatus.OK,
       message: 'Final status canceled successfully',
@@ -122,16 +134,18 @@ export class ResumeController {
   /**
    * Bill resume
    */
-  @Post('billing')
+  @Post(':resumeId/bill')
   @Roles('admin', 'counselor')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Bill resume to mentor' })
+  @ApiParam({ name: 'resumeId', description: 'Resume ID' })
   @ApiOkResponse({ description: 'Resume billed successfully' })
   async billResume(
+    @Param('resumeId') resumeId: string,
     @Body() dto: BillResumeDto,
     @CurrentUser() user: User,
   ) {
-    const data = await this.resumeBillingService.billResume(dto, user.id);
+    const data = await this.applicationResumeService.billResume(resumeId, dto, user.id);
     return {
       code: HttpStatus.OK,
       message: 'Resume billed successfully',
@@ -140,9 +154,31 @@ export class ResumeController {
   }
 
   /**
+   * Cancel bill resume
+   */
+  @Post(':resumeId/cancel-bill')
+  @Roles('admin', 'counselor')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancel resume billing' })
+  @ApiParam({ name: 'resumeId', description: 'Resume ID' })
+  @ApiOkResponse({ description: 'Resume billing cancelled successfully' })
+  async cancelBillResume(
+    @Param('resumeId') resumeId: string,
+    @Body() dto: CancelBillResumeDto,
+    @CurrentUser() user: User,
+  ) {
+    const data = await this.applicationResumeService.cancelBillResume(resumeId, dto, user.id);
+    return {
+      code: HttpStatus.OK,
+      message: 'Resume billing cancelled successfully',
+      data,
+    };
+  }
+
+  /**
    * Delete resume (soft delete)
    */
-  @Delete('resumes/:resumeId')
+  @Delete(':resumeId')
   @Roles('admin', 'counselor', 'student')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete resume' })
@@ -152,7 +188,7 @@ export class ResumeController {
     @Param('resumeId') resumeId: string,
     @CurrentUser() user: User,
   ) {
-    await this.resumeService.delete(resumeId, user.id);
+    await this.domainResumeService.delete(resumeId, user.id);
     return {
       code: HttpStatus.OK,
       message: 'Resume deleted successfully',

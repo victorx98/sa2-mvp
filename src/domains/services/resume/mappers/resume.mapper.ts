@@ -8,6 +8,7 @@ export class ResumeMapper {
       studentUserId: resume.studentUserId,
       jobTitle: resume.jobTitle,
       sessionType: resume.sessionType,
+      description: resume.description ?? undefined,
       fileName: resume.fileName,
       fileUrl: resume.fileUrl,
       status: resume.status as 'uploaded' | 'final' | 'deleted',
