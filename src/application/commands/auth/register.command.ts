@@ -23,8 +23,7 @@ import type {
 import { StudentProfileService } from "@domains/identity/student/student-profile.service";
 import { MentorProfileService } from "@domains/identity/mentor/mentor-profile.service";
 import { CounselorProfileService } from "@domains/identity/counselor/counselor-profile.service";
-import { AuthResultDto } from "./dto/auth-result.dto";
-import { RegisterInput } from "./dto/register.input";
+import { RegisterInput, AuthResult } from "@shared/types/auth.types";
 
 /**
  * Application Layer - Register Command
@@ -55,7 +54,7 @@ export class RegisterCommand {
     private readonly counselorProfileService: CounselorProfileService,
   ) {}
 
-  async execute(input: RegisterInput): Promise<AuthResultDto> {
+  async execute(input: RegisterInput): Promise<AuthResult> {
     // Step 1: 输入验证（角色合法性）
     const role = input.role;
     if (!USER_ROLES.includes(role as (typeof USER_ROLES)[number])) {

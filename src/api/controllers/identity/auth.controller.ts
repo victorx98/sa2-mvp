@@ -4,12 +4,10 @@ import { RegisterCommand } from "@application/commands/auth/register.command";
 import { LoginCommand } from "@application/commands/auth/login.command";
 import { RegisterDto } from "@api/dto/request/register.dto";
 import { LoginDto } from "@api/dto/request/login.dto";
-import { AuthResultDto } from "@application/commands/auth/dto/auth-result.dto";
-import { RegisterInput } from "@application/commands/auth/dto/register.input";
-import { LoginInput } from "@application/commands/auth/dto/login.input";
 import { Public } from "@shared/decorators/public.decorator";
 import { ApiPrefix } from "@api/api.constants";
 import { AuthResponseDto } from "@api/dto/response/auth-response.dto";
+import { RegisterInput, LoginInput, AuthResult } from "@shared/types/auth.types";
 import { plainToInstance } from "class-transformer";
 
 /**
@@ -47,17 +45,9 @@ export class AuthController {
   })
   async register(@Body() registerDto: RegisterDto): Promise<AuthResponseDto> {
     this.logger.log(`[API]register: ${registerDto.email}`);
-    // ✅ 将 API DTO 映射为 UseCase Input
-    const input: RegisterInput = {
-      email: registerDto.email,
-      password: registerDto.password,
-      nameEn: registerDto.nameEn,
-      nameZh: registerDto.nameZh,
-      gender: registerDto.gender,
-      country: registerDto.country,
-      role: registerDto.role,
-    };
-    // ✅ 调用 Application Layer 服务
+    // ✅ 将 API DTO 转换为 UseCase Input（DTO implements Input，类型兼容）
+    // ValidationPipe 已经校验过 DTO，这里进行显式类型转换以明确意图
+    const input: RegisterInput = registerDto;
     const result = await this.registerCommand.execute(input);
     return this.toAuthResponseDto(result);
   }
@@ -73,17 +63,14 @@ export class AuthController {
   })
   async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
     this.logger.log(`[API]login: ${loginDto.email}`);
-    // ✅ 将 API DTO 映射为 UseCase Input
-    const input: LoginInput = {
-      email: loginDto.email,
-      password: loginDto.password,
-    };
-    // ✅ 调用 Application Layer 服务
+    // ✅ 将 API DTO 转换为 UseCase Input（DTO implements Input，类型兼容）
+    // ValidationPipe 已经校验过 DTO，这里进行显式类型转换以明确意图
+    const input: LoginInput = loginDto;
     const result = await this.loginCommand.execute(input);
     return this.toAuthResponseDto(result);
   }
 
-  private toAuthResponseDto(authResult: AuthResultDto): AuthResponseDto {
+  private toAuthResponseDto(authResult: AuthResult): AuthResponseDto {
     return plainToInstance(AuthResponseDto, authResult, {
       enableImplicitConversion: false,
     });
