@@ -46,6 +46,7 @@ import { ClassService } from "./commands/services/class.service";
 import { ClassSessionService } from "./commands/services/class-session.service";
 import { ClassSessionCreatedEventHandler } from "./commands/services/class-session-event.handler";
 import { SessionOrchestratorService } from "./commands/services/session-orchestrator.service";
+import { ResumeService } from "./commands/services/resume.service";
 import { CreateProductCommand } from "./commands/product/create-product.command";
 import { UpdateProductCommand } from "./commands/product/update-product.command";
 import { UpdateProductStatusCommand } from "./commands/product/update-product-status.command";
@@ -155,6 +156,7 @@ import { QueryModule } from "@domains/query/query.module";
     ClassService,
     ClassSessionService,
     SessionOrchestratorService,
+    ResumeService,
 
     // Event Handlers
     RegularMentoringCreatedEventHandler,
@@ -252,6 +254,7 @@ import { QueryModule } from "@domains/query/query.module";
     ClassService,
     ClassSessionService,
     SessionOrchestratorService,
+    ResumeService,
 
     // Event Handlers
     RegularMentoringCreatedEventHandler,

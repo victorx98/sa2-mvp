@@ -19,12 +19,13 @@ export class ServiceRegistryService {
   /**
    * Register a completed service
    * Uses shared primary key to prevent duplicate billing
+   * Supports transaction for atomicity
    */
-  async registerService(dto: RegisterServiceDto): Promise<ServiceReferenceEntity> {
+  async registerService(dto: RegisterServiceDto, tx?: any): Promise<ServiceReferenceEntity> {
     this.logger.log(`Registering service: ${dto.service_type} (ID: ${dto.id})`);
 
     try {
-      const serviceReference = await this.serviceReferenceRepository.create(dto);
+      const serviceReference = await this.serviceReferenceRepository.create(dto, tx);
       
       this.logger.log(
         `Successfully registered service ${dto.service_type} with ID ${dto.id}`,

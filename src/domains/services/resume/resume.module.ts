@@ -1,19 +1,20 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '@infrastructure/database/database.module';
 import { ResumeService } from './services/resume.service';
-import { ResumeBillingService } from './services/resume-billing.service';
 import { ResumeRepository } from './repositories/resume.repository';
+import { ServiceRegistryModule } from '@domains/services/service-registry/service-registry.module';
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [
+    DatabaseModule,
+    ServiceRegistryModule,
+  ],
   providers: [
     ResumeService,
-    ResumeBillingService,
     ResumeRepository,
   ],
   exports: [
     ResumeService,
-    ResumeBillingService,
   ],
 })
 export class ResumeModule {}

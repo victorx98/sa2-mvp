@@ -1,12 +1,32 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, MaxLength } from 'class-validator';
 
 export class BillResumeDto {
   @IsString()
   @IsNotEmpty()
-  resumeId: string;
+  studentId: string;
 
   @IsString()
   @IsNotEmpty()
-  mentorUserId: string;
+  mentorId: string;
+
+  @IsString()
+  @IsOptional()
+  serviceType?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(1000)
+  description?: string;
+}
+
+export class CancelBillResumeDto {
+  @IsString()
+  @IsOptional()
+  serviceType?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(1000)
+  description?: string;
 }
 
