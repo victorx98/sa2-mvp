@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -34,7 +35,8 @@ import { ClassType, ClassStatus } from '@domains/services/class/classes/entities
 // ============================================================================
 
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsDateString, IsInt, Min, IsNumber } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsDateString, IsInt, Min, IsNumber, Max } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateClassRequestDto {
   @ApiProperty({
@@ -200,6 +202,72 @@ export class AddCounselorRequestDto {
   counselorUserId: string;
 }
 
+export class GetClassesQueryDto {
+  @ApiProperty({
+    description: 'Page number',
+    example: 1,
+    required: false,
+    default: 1,
+  })
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  page?: number = 1;
+
+  @ApiProperty({
+    description: 'Page size (max 100)',
+    example: 10,
+    required: false,
+    default: 10,
+  })
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  pageSize?: number = 10;
+
+  @ApiProperty({
+    description: 'Sort field',
+    example: 'createdAt',
+    required: false,
+    default: 'createdAt',
+  })
+  @IsString()
+  @IsOptional()
+  sortBy?: string = 'createdAt';
+
+  @ApiProperty({
+    description: 'Sort order',
+    enum: ['asc', 'desc'],
+    example: 'desc',
+    required: false,
+    default: 'desc',
+  })
+  @IsEnum(['asc', 'desc'])
+  @IsOptional()
+  sortOrder?: 'asc' | 'desc' = 'desc';
+
+  @ApiProperty({
+    description: 'Filter by status',
+    enum: ClassStatus,
+    required: false,
+  })
+  @IsEnum(ClassStatus)
+  @IsOptional()
+  status?: ClassStatus;
+
+  @ApiProperty({
+    description: 'Filter by type',
+    enum: ClassType,
+    required: false,
+  })
+  @IsEnum(ClassType)
+  @IsOptional()
+  type?: ClassType;
+}
+
 // ============================================================================
 // DTOs - Response
 // ============================================================================
@@ -261,8 +329,18 @@ export class ClassListItemDto {
   updatedAt: Date;
 }
 
+export class PaginationDto {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
 export class GetAllClassesResponseDto {
-  classes: ClassListItemDto[];
+  data: ClassListItemDto[];
+  pagination: PaginationDto;
 }
 
 // ============================================================================
@@ -325,20 +403,20 @@ export class ClassController {
   }
 
   /**
-   * Get all classes with mentors and counselors
+   * Get all classes with mentors and counselors (with pagination)
    * GET /api/services/classes
    */
   @Get()
   @ApiOperation({
-    summary: 'Get all classes with members',
-    description: 'Retrieve list of all classes with mentors and counselors details',
+    summary: 'Get all classes with members (paginated)',
+    description: 'Retrieve paginated list of classes with mentors and counselors details',
   })
   @ApiOkResponse({
     description: 'Classes retrieved successfully',
-    type: [ClassListItemDto],
+    type: GetAllClassesResponseDto,
   })
-  async getAllClasses(): Promise<ClassListItemDto[]> {
-    return this.classQueryService.getAllClassesWithMembers();
+  async getAllClasses(@Query() query: GetClassesQueryDto): Promise<GetAllClassesResponseDto> {
+    return this.classQueryService.getAllClassesWithMembers(query);
   }
 
   /**

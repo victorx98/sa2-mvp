@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, and, desc, asc, ne } from 'drizzle-orm';
+import { eq, and, desc, asc, ne, count } from 'drizzle-orm';
 import type { DrizzleDatabase } from '@shared/types/database.types';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import { classes, classMentorsPrices, classStudents, classCounselors } from '@infrastructure/database/schema';
@@ -56,6 +56,8 @@ export class ClassRepository {
       status?: ClassStatus;
       type?: ClassType;
     },
+    sortBy: string = 'createdAt',
+    sortOrder: 'asc' | 'desc' = 'desc',
   ): Promise<ClassEntity[]> {
     const whereConditions: any[] = [];
 
@@ -67,14 +69,40 @@ export class ClassRepository {
       whereConditions.push(eq(classes.type, filters.type));
     }
 
+    // Determine sort column
+    const sortColumn = sortBy === 'startDate' ? classes.startDate : classes.createdAt;
+    const orderByClause = sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
+
     const results = await this.db.query.classes.findMany({
       where: whereConditions.length > 0 ? and(...whereConditions) : undefined,
       limit,
       offset,
-      orderBy: desc(classes.startDate),
+      orderBy: orderByClause,
     });
 
     return results.map((row) => this.mapToEntity(row));
+  }
+
+  async count(filters?: {
+    status?: ClassStatus;
+    type?: ClassType;
+  }): Promise<number> {
+    const whereConditions: any[] = [];
+
+    if (filters?.status) {
+      whereConditions.push(eq(classes.status, filters.status));
+    }
+
+    if (filters?.type) {
+      whereConditions.push(eq(classes.type, filters.type));
+    }
+
+    const result = await this.db
+      .select({ count: count() })
+      .from(classes)
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
+
+    return result[0]?.count || 0;
   }
 
   async update(id: string, entity: Partial<ClassEntity>): Promise<ClassEntity> {

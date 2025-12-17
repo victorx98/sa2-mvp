@@ -6,6 +6,10 @@ import { ClassEntity, ClassStatus, ClassType } from '../entities/class.entity';
 import { CreateClassDto } from '../dto/create-class.dto';
 import { UpdateClassDto } from '../dto/update-class.dto';
 import { ClassNotFoundException } from '../../shared/exceptions/class-not-found.exception';
+import { 
+  CLASS_STUDENT_ADDED_EVENT, 
+  CLASS_STUDENT_REMOVED_EVENT 
+} from '@shared/events/event-constants';
 
 @Injectable()
 export class ClassService {
@@ -133,10 +137,26 @@ export class ClassService {
     this.logger.log(`Adding student ${studentUserId} to class ${classId}`);
 
     // Verify class exists
-    await this.classRepository.findByIdOrThrow(classId);
+    const classEntity = await this.classRepository.findByIdOrThrow(classId);
 
     await this.classRepository.addStudent(classId, studentUserId);
     this.logger.log(`Student added successfully to class ${classId}`);
+
+    // Publish event
+    const eventPayload = {
+      classId: classEntity.id,
+      name: classEntity.name,
+      type: classEntity.type,
+      status: classEntity.status,
+      startDate: classEntity.startDate,
+      endDate: classEntity.endDate,
+      description: classEntity.description,
+      totalSessions: classEntity.totalSessions,
+      studentId: studentUserId,
+      operatedAt: new Date(),
+    };
+    this.logger.log(`Publishing event: ${CLASS_STUDENT_ADDED_EVENT}, payload: ${JSON.stringify(eventPayload)}`);
+    this.eventEmitter.emit(CLASS_STUDENT_ADDED_EVENT, eventPayload);
   }
 
   /**
@@ -146,10 +166,26 @@ export class ClassService {
     this.logger.log(`Removing student ${studentUserId} from class ${classId}`);
 
     // Verify class exists
-    await this.classRepository.findByIdOrThrow(classId);
+    const classEntity = await this.classRepository.findByIdOrThrow(classId);
 
     await this.classRepository.removeStudent(classId, studentUserId);
     this.logger.log(`Student removed successfully from class ${classId}`);
+
+    // Publish event
+    const eventPayload = {
+      classId: classEntity.id,
+      name: classEntity.name,
+      type: classEntity.type,
+      status: classEntity.status,
+      startDate: classEntity.startDate,
+      endDate: classEntity.endDate,
+      description: classEntity.description,
+      totalSessions: classEntity.totalSessions,
+      studentId: studentUserId,
+      operatedAt: new Date(),
+    };
+    this.logger.log(`Publishing event: ${CLASS_STUDENT_REMOVED_EVENT}, payload: ${JSON.stringify(eventPayload)}`);
+    this.eventEmitter.emit(CLASS_STUDENT_REMOVED_EVENT, eventPayload);
   }
 
   /**
