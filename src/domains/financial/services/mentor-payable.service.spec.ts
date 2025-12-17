@@ -13,6 +13,11 @@ describe("MentorPayableService", () => {
     mockDb = {
       insert: jest.fn().mockReturnThis(),
       values: jest.fn().mockReturnThis(),
+      // [修复] Add transaction method for testing concurrent adjustment fix
+      transaction: jest.fn().mockImplementation(async (callback) => {
+        return callback(mockDb);
+      }),
+      execute: jest.fn(),
       query: {
         mentorPayableLedgers: {
           findFirst: jest.fn(),
@@ -207,9 +212,10 @@ describe("MentorPayableService", () => {
     };
 
     it("should adjust payable ledger successfully", async () => {
-      mockDb.query.mentorPayableLedgers.findFirst.mockResolvedValue(
-        mockOriginalLedger,
-      );
+      // [修复] Mock transaction execute to return the ledger (mock事务execute返回ledger)
+      mockDb.execute.mockResolvedValue({
+        rows: [mockOriginalLedger],
+      });
       mockDb.insert.mockReturnValue({
         values: jest.fn().mockResolvedValue(undefined),
       });
@@ -221,11 +227,16 @@ describe("MentorPayableService", () => {
         createdBy: "user-123",
       });
 
+      expect(mockDb.transaction).toHaveBeenCalled();
+      expect(mockDb.execute).toHaveBeenCalled();
       expect(mockDb.insert).toHaveBeenCalled();
     });
 
     it("should throw error when original ledger not found", async () => {
-      mockDb.query.mentorPayableLedgers.findFirst.mockResolvedValue(null);
+      // [修复] Mock transaction execute to return empty result (mock事务execute返回空结果)
+      mockDb.execute.mockResolvedValue({
+        rows: [],
+      });
 
       await expect(
         service.adjustPayableLedger({
@@ -235,6 +246,35 @@ describe("MentorPayableService", () => {
           createdBy: "user-123",
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should throw error when trying to adjust a settled ledger", async () => {
+      // [修复] Test settled ledger check (测试已结算账款检查)
+      const settledLedger = {
+        ...mockOriginalLedger,
+        settlementId: "settlement-123", // Ledger is already settled (账款已结算)
+      };
+
+      mockDb.execute.mockResolvedValue({
+        rows: [settledLedger],
+      });
+
+      await expect(
+        service.adjustPayableLedger({
+          originalLedgerId: "ledger-123",
+          adjustmentAmount: 50,
+          reason: "Adjustment reason",
+          createdBy: "user-123",
+        }),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.adjustPayableLedger({
+          originalLedgerId: "ledger-123",
+          adjustmentAmount: 50,
+          reason: "Adjustment reason",
+          createdBy: "user-123",
+        }),
+      ).rejects.toThrow("Cannot adjust a settled ledger");
     });
   });
 
