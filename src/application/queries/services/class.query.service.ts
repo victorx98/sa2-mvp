@@ -103,20 +103,43 @@ export class ClassQueryService {
   }
 
   /**
-   * Get all classes with mentors and counselors details
+   * Get all classes with mentors and counselors details (paginated)
    * Aggregates: classes + mentors with names + counselors with names
    */
-  async getAllClassesWithMembers(filters: {
+  async getAllClassesWithMembers(params: {
+    page?: number;
+    pageSize?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
     status?: ClassStatus;
     type?: ClassType;
-    limit?: number;
-    offset?: number;
   } = {}) {
-    this.logger.debug(`Getting all classes with members, filters: ${JSON.stringify(filters)}`);
-    
-    // Get classes list
-    const classes = await this.getClasses(filters);
-    
+    const {
+      page = 1,
+      pageSize = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      status,
+      type,
+    } = params;
+
+    this.logger.debug(`Getting all classes with members, params: ${JSON.stringify(params)}`);
+
+    // Calculate offset
+    const offset = (page - 1) * pageSize;
+
+    // Get total count
+    const total = await this.classRepository.count({ status, type });
+
+    // Get classes list with pagination
+    const classes = await this.classRepository.findAll(
+      pageSize,
+      offset,
+      { status, type },
+      sortBy,
+      sortOrder,
+    );
+
     // For each class, fetch mentors and counselors with names
     const classesWithMembers = await Promise.all(
       classes.map(async (classEntity) => {
@@ -124,7 +147,7 @@ export class ClassQueryService {
           this.domainCrossQueryService.getClassMentorsWithNames(classEntity.id),
           this.domainCrossQueryService.getClassCounselorsWithNames(classEntity.id),
         ]);
-        
+
         return {
           ...classEntity,
           mentors,
@@ -132,8 +155,23 @@ export class ClassQueryService {
         };
       })
     );
-    
-    return classesWithMembers;
+
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(total / pageSize);
+    const hasNext = page < totalPages;
+    const hasPrev = page > 1;
+
+    return {
+      data: classesWithMembers,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages,
+        hasNext,
+        hasPrev,
+      },
+    };
   }
 }
 
