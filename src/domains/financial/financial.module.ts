@@ -11,6 +11,7 @@ import { ServiceSessionCompletedListener } from "./events/listeners/service-sess
 import { SettlementConfirmedListener } from "./events/listeners/settlement-confirmed.listener";
 import { PlacementApplicationStatusChangedListener } from "./events/listeners/placement-application-status-changed.listener";
 import { PlacementApplicationStatusRolledBackListener } from "./events/listeners/placement-application-status-rolled-back.listener";
+import { AppealApprovedListener } from "./events/listeners/appeal-approved.listener";
 
 /**
  * Financial Domain Module(财务领域模块)
@@ -74,6 +75,7 @@ import { PlacementApplicationStatusRolledBackListener } from "./events/listeners
     SettlementConfirmedListener,
     PlacementApplicationStatusChangedListener,
     PlacementApplicationStatusRolledBackListener,
+    AppealApprovedListener,
   ],
   exports: [
     // Export services with custom token for interface-based injection

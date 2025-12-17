@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject } from "@nestjs/common";
+import { Injectable, Logger, Inject, BadRequestException } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import {
   IServiceSessionCompletedEvent,
@@ -60,7 +60,10 @@ export class ServiceSessionCompletedListener {
         this.logger.error(
           `Missing required fields in event payload: sessionId=${sessionId}, studentId=${studentId}, mentorId=${mentorId}, sessionTypeCode=${sessionTypeCode}`,
         );
-        return;
+        // [修复] Throw error instead of silently returning to allow event retry and make issues visible (抛出错误而不是静默返回，允许事件重试并使问题可见)
+        throw new BadRequestException(
+          `Missing required fields in event payload: sessionId=${sessionId}, studentId=${studentId}, mentorId=${mentorId}, sessionTypeCode=${sessionTypeCode}`,
+        );
       }
 
       this.logger.log(
@@ -98,7 +101,10 @@ export class ServiceSessionCompletedListener {
         this.logger.error(
           `No active price found for mentor: ${mentorId} and session type: ${sessionTypeCode}`,
         );
-        return;
+        // [修复] Throw error instead of silently returning to make issues visible and allow retry (抛出错误而不是静默返回，使问题可见并允许重试)
+        throw new BadRequestException(
+          `No active price found for mentor: ${mentorId} and session type: ${sessionTypeCode}`,
+        );
       }
 
       this.logger.log(
