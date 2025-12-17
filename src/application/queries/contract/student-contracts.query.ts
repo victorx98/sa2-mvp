@@ -39,5 +39,64 @@ export class StudentContractsQuery {
       status: contract.status,
     }));
   }
+
+  /**
+   * Get paginated contracts list with filters (获取带筛选的分页合同列表)
+   * @param filters Filter conditions (筛选条件)
+   * @param pagination Pagination parameters (分页参数)
+   * @returns Paginated contracts list (分页合同列表)
+   */
+  async getContractsWithPagination(filters: {
+    studentId?: string;
+    status?: string;
+    productId?: string;
+    startDate?: string;
+    endDate?: string;
+    keyword?: string;
+  }, pagination: { page: number; pageSize: number }) {
+    const { studentId, status, productId, startDate, endDate, keyword } = filters;
+
+    // Build date filters
+    const dateFilters: { signedAfter?: Date; signedBefore?: Date } = {};
+    if (startDate) {
+      dateFilters.signedAfter = new Date(startDate);
+    }
+    if (endDate) {
+      dateFilters.signedBefore = new Date(endDate);
+    }
+
+    const result = await this.contractService.search(
+      {
+        studentId,
+        status,
+        productId,
+        keyword,
+        ...dateFilters,
+      },
+      pagination,
+      { field: "createdAt", order: "desc" },
+    );
+
+    return {
+      data: result.data.map((contract) => ({
+        id: contract.id,
+        contract_number: contract.contractNumber,
+        product: {
+          id: contract.productSnapshot.productId,
+          name: contract.productSnapshot.productName,
+        },
+        status: contract.status,
+        studentId: contract.studentId,
+        totalAmount: contract.totalAmount,
+        currency: contract.currency,
+        createdAt: contract.createdAt.toISOString(),
+        updatedAt: contract.updatedAt.toISOString(),
+      })),
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      totalPages: result.totalPages,
+    };
+  }
 }
 

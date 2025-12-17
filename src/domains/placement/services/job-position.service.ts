@@ -55,9 +55,6 @@ export class JobPositionService {
     if (dto.locations) values.jobLocations = dto.locations;
     if (dto.experienceRequirement) values.experienceRequirement = dto.experienceRequirement;
     if (dto.salaryDetails) values.salaryDetails = dto.salaryDetails;
-    if (dto.skills) values.skills = dto.skills;
-    if (dto.responsibilities) values.jobResponsibilities = dto.responsibilities;
-    if (dto.matchedTitles) values.matchedJobTitles = dto.matchedTitles;
     if (dto.jobDescription) values.jobDescription = dto.jobDescription;
     if (dto.h1b) values.h1b = dto.h1b;
     if (dto.usCitizenship) values.usCitizenship = dto.usCitizenship;

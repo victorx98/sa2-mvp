@@ -205,7 +205,6 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
           min_years: 3,
           max_years: 5,
         },
-        responsibilities: ["Develop software and collaborate with team"], // Changed to array type [改为数组类型]
         jobTypes: ["Full-time"], // Use valid enum values [使用有效枚举值]
         locations: ["Beijing", "Shanghai"],
         salaryDetails: { // Changed from individual salary fields to salaryDetails object [从单独的salary字段改为salaryDetails对象]

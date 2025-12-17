@@ -3,7 +3,7 @@
  * Used for validating and transforming job query requests [用于验证和转换岗位查询请求]
  */
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsOptional, IsString, IsArray, IsInt, Min, IsEnum, IsDateString, IsNotEmpty } from 'class-validator';
+import { IsOptional, IsString, IsArray, IsInt, Min, Max, IsEnum, IsDateString, IsNotEmpty } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApplicationType, JobLevel } from '@domains/placement/types';
 
@@ -55,12 +55,14 @@ export class JobQueryDto {
     required: false,
     default: 20,
     minimum: 1,
+    maximum: 100,
     example: 20,
   })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   pageSize?: number = 20;
 
   // Sorting parameters [排序参数]
