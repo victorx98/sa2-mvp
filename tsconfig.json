@@ -25,7 +25,8 @@
       "@infrastructure/*": ["src/infrastructure/*"],
       "@api/*": ["src/api/*"],
       "@shared/*": ["src/shared/*"],
-      "@telemetry/*": ["src/telemetry/*"]
+      "@telemetry/*": ["src/telemetry/*"],
+      "@events/*": ["src/events/*"]
     }
   }
 }
