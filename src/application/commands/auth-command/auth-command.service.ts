@@ -3,9 +3,7 @@ import {
   IUserService,
   USER_SERVICE,
 } from "@domains/identity/user/user-interface";
-import { AuthResultDto } from "@application/commands/auth/dto/auth-result.dto";
-import { RegisterInput } from "@application/commands/auth/dto/register.input";
-import { LoginInput } from "@application/commands/auth/dto/login.input";
+import { RegisterInput, LoginInput, AuthResult } from "@shared/types/auth.types";
 import { RegisterCommand } from "@application/commands/auth/register.command";
 import { LoginCommand } from "@application/commands/auth/login.command";
 
@@ -31,7 +29,7 @@ export class AuthCommandService {
    * @deprecated 此方法接受 API DTO，建议新代码在 Controller 层映射后直接调用 Command
    * 为了向后兼容，此方法内部进行映射
    */
-  async register(registerDto: any): Promise<AuthResultDto> {
+  async register(registerDto: any): Promise<AuthResult> {
     const input: RegisterInput = {
       email: registerDto.email,
       password: registerDto.password,
@@ -48,7 +46,7 @@ export class AuthCommandService {
    * @deprecated 此方法接受 API DTO，建议新代码在 Controller 层映射后直接调用 Command
    * 为了向后兼容，此方法内部进行映射
    */
-  async login(loginDto: any): Promise<AuthResultDto> {
+  async login(loginDto: any): Promise<AuthResult> {
     const input: LoginInput = {
       email: loginDto.email,
       password: loginDto.password,

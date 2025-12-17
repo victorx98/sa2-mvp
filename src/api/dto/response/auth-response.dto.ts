@@ -1,6 +1,11 @@
 import { ApiProperty } from "@nestjs/swagger";
+import { UserProfile, AuthResult } from "@shared/types/auth.types";
 
-export class AuthUserResponseDto {
+/**
+ * 用户档案响应 DTO
+ * 实现 UserProfile 接口，确保字段一致性，并添加 Swagger 文档装饰器
+ */
+export class AuthUserResponseDto implements UserProfile {
   @ApiProperty({ description: "Supabase user ID" })
   id: string;
 
@@ -27,7 +32,11 @@ export class AuthUserResponseDto {
   roles: string[];
 }
 
-export class AuthResponseDto {
+/**
+ * 认证响应 DTO
+ * 实现 AuthResult 接口，确保字段一致性，并添加 Swagger 文档装饰器
+ */
+export class AuthResponseDto implements AuthResult {
   @ApiProperty({ description: "JWT access token" })
   accessToken: string;
 

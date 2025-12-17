@@ -12,8 +12,7 @@ import {
   SupabaseAuthException,
   SupabaseAuthService,
 } from "@infrastructure/auth/supabase-auth.service";
-import { AuthResultDto } from "./dto/auth-result.dto";
-import { LoginInput } from "./dto/login.input";
+import { LoginInput, AuthResult } from "@shared/types/auth.types";
 
 /**
  * Application Layer - Login Command
@@ -37,7 +36,7 @@ export class LoginCommand {
     private readonly supabaseAuthService: SupabaseAuthService,
   ) {}
 
-  async execute(input: LoginInput): Promise<AuthResultDto> {
+  async execute(input: LoginInput): Promise<AuthResult> {
     // Step 1: 调用 Supabase 进行密码认证
     let signInResult;
     try {
