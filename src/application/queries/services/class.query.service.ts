@@ -101,5 +101,76 @@ export class ClassQueryService {
     this.logger.debug(`Getting counselors for class: classId=${classId}`);
     return this.classRepository.getCounselors(classId);
   }
+
+  /**
+   * Get all classes with mentors and counselors details (paginated)
+   * Aggregates: classes + mentors with names + counselors with names
+   */
+  async getAllClassesWithMembers(params: {
+    page?: number;
+    pageSize?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    status?: ClassStatus;
+    type?: ClassType;
+    createdByCounselorId?: string;
+    name?: string;
+  } = {}) {
+    const {
+      page = 1,
+      pageSize = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      status,
+      type,
+      createdByCounselorId,
+      name,
+    } = params;
+
+    this.logger.debug(`Getting all classes with members, params: ${JSON.stringify(params)}`);
+
+    // Calculate offset
+    const offset = (page - 1) * pageSize;
+
+    // Get total count
+    const total = await this.classRepository.count({ status, type, createdByCounselorId, name });
+
+    // Get classes list with pagination
+    const classes = await this.classRepository.findAll(
+      pageSize,
+      offset,
+      { status, type, createdByCounselorId, name },
+      sortBy,
+      sortOrder,
+    );
+
+    // For each class, fetch mentors and counselors with names
+    const classesWithMembers = await Promise.all(
+      classes.map(async (classEntity) => {
+        const [mentors, counselors] = await Promise.all([
+          this.domainCrossQueryService.getClassMentorsWithNames(classEntity.id),
+          this.domainCrossQueryService.getClassCounselorsWithNames(classEntity.id),
+        ]);
+
+        return {
+          ...classEntity,
+          mentors,
+          counselors,
+        };
+      })
+    );
+
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(total / pageSize);
+
+    return {
+      data: classesWithMembers,
+      total,
+      totalPages,
+      pageSize,
+      page,
+    };
+  }
+
 }
 

@@ -8,6 +8,7 @@ import { User } from "@domains/identity/user/user-interface";
 import { ApiPrefix } from "@api/api.constants";
 import { UpdateMentorProfileDto } from "@api/dto/request/update-mentor-profile.dto";
 import { UpdateMentorProfileCommand } from "@application/commands/profile/update-mentor-profile.command";
+import { UpdateMentorProfileInput } from "@application/commands/profile/dto/update-mentor-profile.input";
 import { MentorProfileQuery } from "@application/queries/mentor/mentor-profile.query";
 
 /**
@@ -53,7 +54,27 @@ export class MentorProfileController {
     @CurrentUser() user: User,
     @Body() dto: UpdateMentorProfileDto,
   ): Promise<{ message: string }> {
-    await this.updateMentorProfileCommand.execute(user.id, dto);
+    // ✅ 将 API DTO 映射为 UseCase Input
+    const input: UpdateMentorProfileInput = {
+      nameEn: dto.nameEn,
+      nameZh: dto.nameZh,
+      gender: dto.gender,
+      country: dto.country,
+      status: dto.status,
+      type: dto.type,
+      company: dto.company,
+      companyTitle: dto.companyTitle,
+      briefIntro: dto.briefIntro,
+      highSchool: dto.highSchool,
+      location: dto.location,
+      level: dto.level,
+      rating: dto.rating,
+      underCollege: dto.underCollege,
+      underMajor: dto.underMajor,
+      graduateCollege: dto.graduateCollege,
+      graduateMajor: dto.graduateMajor,
+    };
+    await this.updateMentorProfileCommand.execute(user.id, input);
     return { message: "Mentor profile updated successfully" };
   }
 }

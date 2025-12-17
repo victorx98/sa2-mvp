@@ -47,6 +47,7 @@ export class ClassSessionService {
       sessionType: SessionType.CLASS_SESSION,
       serviceType: dto.serviceType, // Business-level service type
       mentorUserId: dto.mentorUserId,
+      createdByCounselorId: dto.createdByCounselorId,
       title: dto.title,
       description: dto.description,
       status: dto.status || (dto.meetingId ? ClassSessionStatus.SCHEDULED : ClassSessionStatus.PENDING_MEETING),

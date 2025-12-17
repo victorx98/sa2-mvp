@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -34,7 +35,8 @@ import { ClassType, ClassStatus } from '@domains/services/class/classes/entities
 // ============================================================================
 
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsDateString, IsInt, Min, IsNumber } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsDateString, IsInt, Min, IsNumber, Max } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateClassRequestDto {
   @ApiProperty({
@@ -200,6 +202,90 @@ export class AddCounselorRequestDto {
   counselorUserId: string;
 }
 
+export class GetClassesQueryDto {
+  @ApiProperty({
+    description: 'Page number',
+    example: 1,
+    required: false,
+    default: 1,
+  })
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  page?: number = 1;
+
+  @ApiProperty({
+    description: 'Page size (max 100)',
+    example: 10,
+    required: false,
+    default: 10,
+  })
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  pageSize?: number = 10;
+
+  @ApiProperty({
+    description: 'Sort field',
+    example: 'createdAt',
+    required: false,
+    default: 'createdAt',
+  })
+  @IsString()
+  @IsOptional()
+  sortBy?: string = 'createdAt';
+
+  @ApiProperty({
+    description: 'Sort order',
+    enum: ['asc', 'desc'],
+    example: 'desc',
+    required: false,
+    default: 'desc',
+  })
+  @IsEnum(['asc', 'desc'])
+  @IsOptional()
+  sortOrder?: 'asc' | 'desc' = 'desc';
+
+  @ApiProperty({
+    description: 'Filter by status',
+    enum: ClassStatus,
+    required: false,
+  })
+  @IsEnum(ClassStatus)
+  @IsOptional()
+  status?: ClassStatus;
+
+  @ApiProperty({
+    description: 'Filter by type',
+    enum: ClassType,
+    required: false,
+  })
+  @IsEnum(ClassType)
+  @IsOptional()
+  type?: ClassType;
+
+  @ApiProperty({
+    description: 'Filter by created by me (current user)',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  createdByMe?: boolean;
+
+  @ApiProperty({
+    description: 'Filter by class name (fuzzy search)',
+    example: '春季',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
+}
+
 // ============================================================================
 // DTOs - Response
 // ============================================================================
@@ -235,6 +321,38 @@ export class RemoveMemberResponseDto {
   mentorId?: string;
   studentId?: string;
   counselorId?: string;
+}
+
+export class ClassListItemDto {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  startDate: Date;
+  endDate: Date;
+  description?: string;
+  totalSessions: number;
+  mentors: Array<{
+    userId: string;
+    name: { en: string; zh: string };
+    pricePerSession: number;
+    addedAt: Date;
+  }>;
+  counselors: Array<{
+    userId: string;
+    name: { en: string; zh: string };
+    addedAt: Date;
+  }>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export class GetAllClassesResponseDto {
+  data: ClassListItemDto[];
+  total: number;
+  totalPages: number;
+  pageSize: number;
+  page: number;
 }
 
 // ============================================================================
@@ -293,7 +411,50 @@ export class ClassController {
       endDate: dto.endDate ? new Date(dto.endDate) : undefined,
       description: dto.description,
       totalSessions: dto.totalSessions,
+      createdByCounselorId: user.id, // Set current user as creator
     });
+  }
+
+  /**
+   * Get classes with pagination and filters
+   * GET /api/services/classes
+   * 
+   * Examples:
+   * - All classes: GET /api/services/classes
+   * - My classes: GET /api/services/classes?createdByMe=true
+   */
+  @Get()
+  @ApiOperation({
+    summary: 'Get classes with pagination and filters',
+    description: `
+      Retrieve paginated list of classes with mentors and counselors details.
+      
+      Query Parameters:
+      - createdByMe: Filter by classes created by current user (true/false)
+      - name: Filter by class name (fuzzy search)
+      - status: Filter by status
+      - type: Filter by type
+      - page, pageSize, sortBy, sortOrder: Pagination and sorting
+      
+      Examples:
+      - GET /api/services/classes (all classes)
+      - GET /api/services/classes?createdByMe=true (my classes)
+      - GET /api/services/classes?name=春季 (search by name)
+    `,
+  })
+  @ApiOkResponse({
+    description: 'Classes retrieved successfully',
+    type: GetAllClassesResponseDto,
+  })
+  async getAllClasses(
+    @CurrentUser() user: User,
+    @Query() query: GetClassesQueryDto,
+  ): Promise<GetAllClassesResponseDto> {
+    const filters = {
+      ...query,
+      createdByCounselorId: query.createdByMe ? user.id : undefined,
+    };
+    return this.classQueryService.getAllClassesWithMembers(filters);
   }
 
   /**
@@ -538,6 +699,10 @@ export class ClassController {
     status: 404,
     description: 'Class not found',
   })
+  @ApiResponse({
+    status: 409,
+    description: 'Mentor already exists in this class',
+  })
   async addMentor(
     @Param('id') classId: string,
     @Body() dto: AddMentorRequestDto,
@@ -655,6 +820,10 @@ export class ClassController {
     status: 404,
     description: 'Class not found',
   })
+  @ApiResponse({
+    status: 409,
+    description: 'Student already exists in this class',
+  })
   async addStudent(
     @Param('id') classId: string,
     @Body() dto: AddStudentRequestDto,
@@ -733,6 +902,10 @@ export class ClassController {
   @ApiResponse({
     status: 404,
     description: 'Class not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Counselor already exists in this class',
   })
   async addCounselor(
     @Param('id') classId: string,

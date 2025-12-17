@@ -11,7 +11,6 @@ import {
   USER_SERVICE,
 } from "@domains/identity/user/user-interface";
 import { USER_ROLES } from "@domains/identity/user/user.constants";
-import { RegisterDto } from "@api/dto/request/register.dto";
 import {
   SupabaseAuthException,
   SupabaseAuthService,
@@ -24,7 +23,7 @@ import type {
 import { StudentProfileService } from "@domains/identity/student/student-profile.service";
 import { MentorProfileService } from "@domains/identity/mentor/mentor-profile.service";
 import { CounselorProfileService } from "@domains/identity/counselor/counselor-profile.service";
-import { AuthResultDto } from "./dto/auth-result.dto";
+import { RegisterInput, AuthResult } from "@shared/types/auth.types";
 
 /**
  * Application Layer - Register Command
@@ -55,9 +54,9 @@ export class RegisterCommand {
     private readonly counselorProfileService: CounselorProfileService,
   ) {}
 
-  async execute(registerDto: RegisterDto): Promise<AuthResultDto> {
+  async execute(input: RegisterInput): Promise<AuthResult> {
     // Step 1: 输入验证（角色合法性）
-    const role = registerDto.role;
+    const role = input.role;
     if (!USER_ROLES.includes(role as (typeof USER_ROLES)[number])) {
       throw new BadRequestException(`Invalid role: ${role}`);
     }
@@ -65,7 +64,7 @@ export class RegisterCommand {
 
     // Step 1: 检查用户是否已存在
     const existingUserByEmail = await this.userService.findByEmail(
-      registerDto.email,
+      input.email,
     );
     if (existingUserByEmail) {
       throw new ConflictException("Email already exists");
@@ -75,8 +74,8 @@ export class RegisterCommand {
     let authUserId: string | null = null;
     try {
       const authUser = await this.supabaseAuthService.createUser({
-        email: registerDto.email,
-        password: registerDto.password,
+        email: input.email,
+        password: input.password,
       });
       authUserId = authUser.id;
     } catch (error) {
@@ -93,11 +92,11 @@ export class RegisterCommand {
         const createdUser = await this.userService.createWithRoles(
           {
             id: authUserId,
-            email: registerDto.email,
-            nameEn: registerDto.nameEn,
-            nameZh: registerDto.nameZh,
-            gender: registerDto.gender,
-            country: registerDto.country,
+            email: input.email,
+            nameEn: input.nameEn,
+            nameZh: input.nameZh,
+            gender: input.gender,
+            country: input.country,
             status: "active",
           },
           roles,
@@ -111,8 +110,8 @@ export class RegisterCommand {
       // Step 4: 登录获取访问令牌（保持与旧接口兼容）
       const signInResult =
         await this.supabaseAuthService.signInWithPassword({
-          email: registerDto.email,
-          password: registerDto.password,
+          email: input.email,
+          password: input.password,
         });
 
       return {

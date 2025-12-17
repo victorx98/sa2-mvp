@@ -78,3 +78,11 @@ export const MENTOR_APPEAL_REJECTED_EVENT = "financial.appeal.rejected";
 export const JOB_APPLICATION_STATUS_CHANGED_EVENT = "placement.application.status_changed";
 export const JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT = "placement.application.status_rolled_back";
 export const PLACEMENT_APPLICATION_SUBMITTED_EVENT = "placement.application.submitted";
+
+// Resume Billing Events
+export const RESUME_BILLED_EVENT = "resume.billed";
+export const RESUME_BILL_CANCELLED_EVENT = "resume.bill.cancelled";
+
+// Class Student Events
+export const CLASS_STUDENT_ADDED_EVENT = "class.student.added";
+export const CLASS_STUDENT_REMOVED_EVENT = "class.student.removed";

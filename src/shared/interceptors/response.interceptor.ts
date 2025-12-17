@@ -27,15 +27,14 @@ export class ResponseInterceptor implements NestInterceptor {
         }
 
         // 处理分页数据 [Handle paginated data]
+        // Return flat structure with pagination fields at top level
         if (data && typeof data === 'object' && 'data' in data && data.total !== undefined) {
           return {
             data: data.data,
-            meta: {
               total: data.total,
-              page: data.page || 1,
-              pageSize: data.pageSize || 20,
-              totalPages: data.totalPages || Math.ceil(data.total / (data.pageSize || 20))
-            }
+            totalPages: data.totalPages,
+            pageSize: data.pageSize,
+            page: data.page
           };
         }
 

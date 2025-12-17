@@ -2,8 +2,13 @@ import { IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, MinLength, IsEnum } fr
 import { ApiProperty } from "@nestjs/swagger";
 import { USER_ROLES } from "@domains/identity/user/user.constants";
 import { Gender, Country } from "@shared/types/identity-enums";
+import { RegisterInput } from "@shared/types/auth.types";
 
-export class RegisterDto {
+/**
+ * 注册请求 DTO
+ * 实现 RegisterInput 接口，确保字段一致性，并添加 HTTP 校验装饰器
+ */
+export class RegisterDto implements RegisterInput {
   @ApiProperty({ description: "User email address", example: "user@example.com" })
   @IsEmail()
   @IsNotEmpty()

@@ -2,6 +2,7 @@ import { pgTable, uuid, varchar, text, timestamp, jsonb, uniqueIndex, index, for
 import { sql } from 'drizzle-orm';
 import { classes } from './classes.schema';
 import { classMentorsPrices } from './class-mentors-prices.schema';
+import { userTable } from './user.schema';
 
 export const classSessions = pgTable(
   'class_sessions',
@@ -14,6 +15,7 @@ export const classSessions = pgTable(
     sessionType: varchar('session_type', { length: 50 }).notNull().default('class_session'),
     serviceType: varchar('service_type', { length: 50 }), // Business-level service type
     mentorUserId: uuid('mentor_user_id').notNull(),
+    createdByCounselorId: uuid('created_by_counselor_id').references(() => userTable.id),
     title: varchar('title', { length: 255 }).notNull(),
     description: text('description'),
     status: varchar('status', { length: 20 }).notNull().default('scheduled'),

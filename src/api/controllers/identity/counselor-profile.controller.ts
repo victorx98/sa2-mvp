@@ -8,6 +8,7 @@ import { User } from "@domains/identity/user/user-interface";
 import { ApiPrefix } from "@api/api.constants";
 import { UpdateCounselorProfileDto } from "@api/dto/request/update-counselor-profile.dto";
 import { UpdateCounselorProfileCommand } from "@application/commands/profile/update-counselor-profile.command";
+import { UpdateCounselorProfileInput } from "@application/commands/profile/dto/update-counselor-profile.input";
 
 /**
  * API Layer - Counselor Profile Controller
@@ -42,7 +43,11 @@ export class CounselorProfileController {
     @CurrentUser() user: User,
     @Body() dto: UpdateCounselorProfileDto,
   ): Promise<{ message: string }> {
-    await this.updateCounselorProfileCommand.execute(user.id, dto);
+    // ✅ 将 API DTO 映射为 UseCase Input
+    const input: UpdateCounselorProfileInput = {
+      status: dto.status,
+    };
+    await this.updateCounselorProfileCommand.execute(user.id, input);
     return { message: "Counselor profile updated successfully" };
   }
 }

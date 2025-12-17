@@ -27,6 +27,9 @@ import { SessionController as UnifiedSessionController } from "./controllers/ser
 import { ClassController } from "./controllers/services/class.controller";
 import { ClassSessionController } from "./controllers/services/class-session.controller";
 import { SessionTypesController } from "./controllers/services/session-types.controller";
+import { ResumeController } from "./controllers/services/resume.controller";
+import { FileController } from "./controllers/file.controller";
+import { FileModule } from "@core/file/file.module";
 
 /**
  * API Layer - Root Module
@@ -41,6 +44,9 @@ import { SessionTypesController } from "./controllers/services/session-types.con
 
     // Webhook Module for receiving webhook events from Feishu and Zoom
     WebhookModule,
+
+    // File Module for file upload (AWS S3)
+    FileModule,
   ],
   controllers: [
     // Common Controllers
@@ -66,6 +72,7 @@ import { SessionTypesController } from "./controllers/services/session-types.con
     CommSessionController,
     ClassController, // Class management
     ClassSessionController, // Class session management
+    ResumeController, // Resume management
     // Mentor Controllers
     MentorsController,
     MentorProfileController,
@@ -87,6 +94,9 @@ import { SessionTypesController } from "./controllers/services/session-types.con
     PlacementController,
     PlacementQueryController,
     PlacementReferralController,
+
+    // File Controllers
+    FileController,
   ],
 })
 export class ApiModule {}

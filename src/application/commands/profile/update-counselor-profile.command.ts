@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { CounselorProfileService } from "@domains/identity/counselor/counselor-profile.service";
-import { UpdateCounselorProfileDto } from "@api/dto/request/update-counselor-profile.dto";
+import { UpdateCounselorProfileInput } from "./dto/update-counselor-profile.input";
 
 /**
  * Application Layer - Update Counselor Profile Command
@@ -19,14 +19,14 @@ export class UpdateCounselorProfileCommand {
 
   async execute(
     userId: string,
-    dto: UpdateCounselorProfileDto,
+    input: UpdateCounselorProfileInput,
   ): Promise<void> {
     this.logger.log(`Updating counselor profile for user: ${userId}`);
 
     await this.counselorProfileService.update(
       userId,
       {
-        status: dto.status,
+        status: input.status,
       },
       userId, // updatedBy
     );

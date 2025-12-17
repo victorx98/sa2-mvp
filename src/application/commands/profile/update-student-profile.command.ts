@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { StudentProfileService } from "@domains/identity/student/student-profile.service";
-import { UpdateStudentProfileDto } from "@api/dto/request/update-student-profile.dto";
 import type { UpdateStudentProfileAggregateInput } from "@domains/identity/student/student-profile.service";
+import { UpdateStudentProfileInput } from "./dto/update-student-profile.input";
 
 /**
  * Application Layer - Update Student Profile Command
@@ -20,50 +20,50 @@ export class UpdateStudentProfileCommand {
 
   async execute(
     userId: string,
-    dto: UpdateStudentProfileDto,
+    input: UpdateStudentProfileInput,
   ): Promise<void> {
     this.logger.log(`Updating student profile for user: ${userId}`);
 
-    const input: UpdateStudentProfileAggregateInput = {
+    const aggregateInput: UpdateStudentProfileAggregateInput = {
       user: {},
       profile: {},
     };
 
     // User 基础信息
-    if (dto.nameEn !== undefined) {
-      input.user!.nameEn = dto.nameEn;
+    if (input.nameEn !== undefined) {
+      aggregateInput.user!.nameEn = input.nameEn;
     }
-    if (dto.nameZh !== undefined) {
-      input.user!.nameZh = dto.nameZh;
+    if (input.nameZh !== undefined) {
+      aggregateInput.user!.nameZh = input.nameZh;
     }
-    if (dto.gender !== undefined) {
-      input.user!.gender = dto.gender;
+    if (input.gender !== undefined) {
+      aggregateInput.user!.gender = input.gender;
     }
-    if (dto.country !== undefined) {
-      input.user!.country = dto.country;
+    if (input.country !== undefined) {
+      aggregateInput.user!.country = input.country;
     }
 
     // Student Profile 信息
-    if (dto.status !== undefined) input.profile!.status = dto.status;
-    if (dto.highSchool !== undefined) input.profile!.highSchool = dto.highSchool;
-    if (dto.underCollege !== undefined)
-      input.profile!.underCollege = dto.underCollege;
-    if (dto.underMajor !== undefined) input.profile!.underMajor = dto.underMajor;
-    if (dto.graduateCollege !== undefined)
-      input.profile!.graduateCollege = dto.graduateCollege;
-    if (dto.graduateMajor !== undefined)
-      input.profile!.graduateMajor = dto.graduateMajor;
-    if (dto.aiResumeSummary !== undefined)
-      input.profile!.aiResumeSummary = dto.aiResumeSummary;
-    if (dto.customerImportance !== undefined)
-      input.profile!.customerImportance = dto.customerImportance;
-    if (dto.underGraduationDate !== undefined)
-      input.profile!.underGraduationDate = dto.underGraduationDate;
-    if (dto.graduateGraduationDate !== undefined)
-      input.profile!.graduateGraduationDate = dto.graduateGraduationDate;
-    if (dto.grades !== undefined) input.profile!.grades = dto.grades;
+    if (input.status !== undefined) aggregateInput.profile!.status = input.status;
+    if (input.highSchool !== undefined) aggregateInput.profile!.highSchool = input.highSchool;
+    if (input.underCollege !== undefined)
+      aggregateInput.profile!.underCollege = input.underCollege;
+    if (input.underMajor !== undefined) aggregateInput.profile!.underMajor = input.underMajor;
+    if (input.graduateCollege !== undefined)
+      aggregateInput.profile!.graduateCollege = input.graduateCollege;
+    if (input.graduateMajor !== undefined)
+      aggregateInput.profile!.graduateMajor = input.graduateMajor;
+    if (input.aiResumeSummary !== undefined)
+      aggregateInput.profile!.aiResumeSummary = input.aiResumeSummary;
+    if (input.customerImportance !== undefined)
+      aggregateInput.profile!.customerImportance = input.customerImportance;
+    if (input.underGraduationDate !== undefined)
+      aggregateInput.profile!.underGraduationDate = input.underGraduationDate;
+    if (input.graduateGraduationDate !== undefined)
+      aggregateInput.profile!.graduateGraduationDate = input.graduateGraduationDate;
+    if (input.grades !== undefined) aggregateInput.profile!.grades = input.grades;
 
-    await this.studentProfileService.updateAggregate(userId, input);
+    await this.studentProfileService.updateAggregate(userId, aggregateInput);
   }
 }
 

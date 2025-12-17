@@ -8,12 +8,11 @@ import {
   IUserService,
   USER_SERVICE,
 } from "@domains/identity/user/user-interface";
-import { LoginDto } from "@api/dto/request/login.dto";
 import {
   SupabaseAuthException,
   SupabaseAuthService,
 } from "@infrastructure/auth/supabase-auth.service";
-import { AuthResultDto } from "./dto/auth-result.dto";
+import { LoginInput, AuthResult } from "@shared/types/auth.types";
 
 /**
  * Application Layer - Login Command
@@ -37,13 +36,13 @@ export class LoginCommand {
     private readonly supabaseAuthService: SupabaseAuthService,
   ) {}
 
-  async execute(loginDto: LoginDto): Promise<AuthResultDto> {
+  async execute(input: LoginInput): Promise<AuthResult> {
     // Step 1: 调用 Supabase 进行密码认证
     let signInResult;
     try {
       signInResult = await this.supabaseAuthService.signInWithPassword({
-        email: loginDto.email,
-        password: loginDto.password,
+        email: input.email,
+        password: input.password,
       });
     } catch (error) {
       throw this.transformSupabaseError(error);

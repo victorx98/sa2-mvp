@@ -18,6 +18,7 @@ export class ClassSessionEntity {
   sessionType: SessionType;
   serviceType?: string; // Business-level service type
   mentorUserId: string;
+  createdByCounselorId?: string; // Counselor who created the session
   title: string;
   description?: string;
   status: ClassSessionStatus;
