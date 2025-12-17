@@ -25,6 +25,10 @@ export class CreateClassSessionDto {
   @IsUUID()
   mentorUserId: string;
 
+  @IsOptional()
+  @IsUUID()
+  createdByCounselorId?: string; // Counselor who created the session
+
   @IsNotEmpty()
   @IsString()
   title: string;

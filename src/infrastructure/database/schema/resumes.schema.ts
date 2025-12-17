@@ -22,6 +22,9 @@ export const resumes = pgTable(
     
     // Session type for billing
     sessionType: varchar('session_type', { length: 50 }).notNull(),
+    
+    // Description for operations (set final, bill, etc.)
+    description: varchar('description', { length: 1000 }),
 
     // File information (AWS S3)
     fileUrl: varchar('file_url', { length: 1000 }).notNull(),

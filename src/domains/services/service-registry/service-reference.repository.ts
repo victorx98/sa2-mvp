@@ -20,7 +20,9 @@ export class ServiceReferenceRepository {
     return result || null;
   }
 
-  async create(dto: RegisterServiceDto): Promise<ServiceReferenceEntity> {
+  async create(dto: RegisterServiceDto, tx?: any): Promise<ServiceReferenceEntity> {
+    const executor = tx ?? this.db;
+    
     const existing = await this.findById(dto.id);
     if (existing) {
       throw new ConflictException(
@@ -29,7 +31,7 @@ export class ServiceReferenceRepository {
     }
 
     // Map DTO fields (snake_case) to schema fields (camelCase)
-    const [result] = await this.db
+    const [result] = await executor
       .insert(serviceReferences)
       .values({
         id: dto.id,

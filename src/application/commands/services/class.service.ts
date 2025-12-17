@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, ConflictException } from '@nestjs/common';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type {
   DrizzleDatabase,
@@ -16,6 +16,7 @@ export interface CreateClassDto {
   endDate?: Date;
   description?: string;
   totalSessions?: number;
+  createdByCounselorId?: string; // Counselor who created the class
 }
 
 export interface UpdateClassDto {
@@ -85,6 +86,7 @@ export class ClassService {
         endDate: dto.endDate,
         description: dto.description,
         totalSessions: dto.totalSessions,
+        createdByCounselorId: dto.createdByCounselorId,
       } as any);
 
       const duration = Date.now() - startTime;
@@ -176,6 +178,12 @@ export class ClassService {
     });
 
     try {
+      // Check if mentor already exists in class
+      const exists = await this.domainClassService.hasMentor(classId, dto.mentorUserId);
+      if (exists) {
+        throw new ConflictException('Mentor already exists in this class');
+      }
+
       await this.domainClassService.addMentor(classId, dto.mentorUserId, dto.pricePerSession);
 
       this.logger.log(`Mentor added successfully to class: classId=${classId}`);
@@ -261,6 +269,12 @@ export class ClassService {
     });
 
     try {
+      // Check if student already exists in class
+      const exists = await this.domainClassService.hasStudent(classId, dto.studentUserId);
+      if (exists) {
+        throw new ConflictException('Student already exists in this class');
+      }
+
       await this.domainClassService.addStudent(classId, dto.studentUserId);
 
       this.logger.log(`Student added successfully to class: classId=${classId}`);
@@ -317,6 +331,12 @@ export class ClassService {
     });
 
     try {
+      // Check if counselor already exists in class
+      const exists = await this.domainClassService.hasCounselor(classId, dto.counselorUserId);
+      if (exists) {
+        throw new ConflictException('Counselor already exists in this class');
+      }
+
       await this.domainClassService.addCounselor(classId, dto.counselorUserId);
 
       this.logger.log(`Counselor added successfully to class: classId=${classId}`);
