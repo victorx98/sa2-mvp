@@ -230,5 +230,21 @@ export class ClassService {
     this.logger.log(`Checking if mentor ${mentorId} is in class ${classId}`);
     return this.classRepository.hasMentor(classId, mentorId);
   }
+
+  /**
+   * Check if student is enrolled in class (for write operations validation)
+   */
+  async hasStudent(classId: string, studentId: string): Promise<boolean> {
+    this.logger.log(`Checking if student ${studentId} is in class ${classId}`);
+    return this.classRepository.hasStudent(classId, studentId);
+  }
+
+  /**
+   * Check if counselor is assigned to class (for write operations validation)
+   */
+  async hasCounselor(classId: string, counselorId: string): Promise<boolean> {
+    this.logger.log(`Checking if counselor ${counselorId} is in class ${classId}`);
+    return this.classRepository.hasCounselor(classId, counselorId);
+  }
 }
 

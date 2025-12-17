@@ -699,6 +699,10 @@ export class ClassController {
     status: 404,
     description: 'Class not found',
   })
+  @ApiResponse({
+    status: 409,
+    description: 'Mentor already exists in this class',
+  })
   async addMentor(
     @Param('id') classId: string,
     @Body() dto: AddMentorRequestDto,
@@ -816,6 +820,10 @@ export class ClassController {
     status: 404,
     description: 'Class not found',
   })
+  @ApiResponse({
+    status: 409,
+    description: 'Student already exists in this class',
+  })
   async addStudent(
     @Param('id') classId: string,
     @Body() dto: AddStudentRequestDto,
@@ -894,6 +902,10 @@ export class ClassController {
   @ApiResponse({
     status: 404,
     description: 'Class not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Counselor already exists in this class',
   })
   async addCounselor(
     @Param('id') classId: string,
