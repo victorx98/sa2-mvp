@@ -126,18 +126,26 @@ export const recommendedJobs = pgTable(
     // External job ID index [外部岗位ID索引]
     index("idx_recommended_jobs_job_id").on(table.jobId),
 
-    // New indexes [新增索引]
+    // JSON field GIN indexes [JSON字段GIN索引]
     index("idx_jobs_ai_analysis").using("gin", table.aiAnalysis),
     index("idx_jobs_normalized_titles").using("gin", table.normalizedJobTitles),
     index("idx_jobs_job_types").using("gin", table.jobTypes),
-    index("idx_jobs_active_posted").on(table.status, table.postDate),
-    index("idx_jobs_company_title").on(table.companyName, table.title),
-    index("idx_jobs_country_code").on(table.countryCode),
     index("idx_gin_job_locations").using("gin", table.jobLocations),
     index("idx_recommended_jobs_application_type").using(
       "gin",
       table.jobApplicationType,
     ),
+
+    // Composite indexes [复合索引]
+    index("idx_jobs_active_posted").on(table.status, table.postDate),
+    index("idx_jobs_company_title").on(table.companyName, table.title),
+    index("idx_jobs_country_code").on(table.countryCode),
+
+    // Full-text search index for large text fields [大文本字段全文搜索索引]
+    index("idx_recommended_jobs_job_description_gin").using(
+      "gin",
+      sql`to_tsvector('english', ${table.jobDescription})`,
+    ), // Full-text search index on jobDescription using English language [使用英语对jobDescription创建全文搜索索引]
 
     // JSON type constraints to ensure data integrity [JSON类型约束确保数据完整性]
     // Type check for experience_requirement to ensure it's an object [检查experience_requirement是否为对象]
@@ -197,6 +205,16 @@ export const jobApplications = pgTable(
 
     // Business fields [业务字段]
     notes: text("notes"), // Internal notes [内部备注]
+
+    // Manual creation fields (for counselor manual job application creation) [手工创建字段（用于顾问手工创建投递申请）]
+    jobType: varchar("job_type", { length: 100 }), // Job type [职位类型]
+    jobTitle: varchar("job_title", { length: 500 }), // Job title [职位标题]
+    jobLink: text("job_link"), // Job posting link [职位链接]
+    companyName: varchar("company_name", { length: 500 }), // Company name [公司名称]
+    location: text("location"), // Job location [工作地点]
+    jobCategories: text("job_categories").array(), // Job categories array [职位类别数组]
+    normalJobTitle: varchar("normal_job_title", { length: 500 }), // Normalized job title for search [标准化职位标题（用于搜索）]
+    level: varchar("level", { length: 100 }), // Job level [职位级别]
   },
   (table) => [
     // Unique constraint [唯一约束]

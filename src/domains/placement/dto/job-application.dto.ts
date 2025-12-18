@@ -73,3 +73,23 @@ export interface IRollbackApplicationStatusDto {
   changedBy: string; // User ID who initiated the rollback [发起回撤的用户ID]
   mentorId?: string; // Mentor assigned to this referral application (optional) [推荐申请的导师ID（可选）]
 }
+
+/**
+ * DTO for manually creating a job application [手工创建投递申请DTO]
+ * - Used for counselor to manually create job applications with mentor assigned status [用于顾问手工创建内推投递记录，状态默认设置为mentor_assigned]
+ */
+export interface ICreateManualJobApplicationDto {
+  studentId: string; // Student ID [学生ID]
+  mentorId: string; // Mentor ID [导师ID]
+  jobType: string; // Job type [职位类型]
+  resumeSubmittedDate: Date; // Resume submitted date [简历提交日期]
+  jobTitle: string; // Job title [职位标题]
+  jobLink: string; // Job link URL [职位链接]
+  jobId?: string; // Job ID (external job identifier) [职位ID（外部职位标识符）]
+  companyName: string; // Company name [公司名称]
+  location?: string; // Job location [工作地点]
+  jobCategories?: string[]; // Job categories [职位类别]
+  normalJobTitle?: string; // Normalized job title [标准化职位标题]
+  level?: string; // Job level [职位级别]
+  createdBy: string; // Creator user ID (counselor) [创建人ID（顾问）]
+}

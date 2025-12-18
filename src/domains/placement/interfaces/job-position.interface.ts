@@ -4,6 +4,18 @@ import {
   IJobPositionSearchFilter,
 } from "../dto";
 import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
+import { JobStatus } from "@domains/placement/types";
+
+/**
+ * Strict query parameters for finding job positions [岗位严格查询参数]
+ * Defines allowed fields for findOne operations [定义findOne操作允许的字段]
+ */
+export interface IJobPositionQueryParams {
+  id?: string; // Job ID [岗位ID]
+  title?: string; // Job title [岗位标题]
+  companyName?: string; // Company name [公司名称]
+  status?: JobStatus; // Job status [岗位状态]
+}
 
 /**
  * Service result with event [带事件的服务结果]
@@ -47,13 +59,10 @@ export interface IJobPositionService {
   /**
    * Find a job position [查找岗位]
    *
-   * @param params - Search parameters [搜索参数]
+   * @param params - Query parameters [查询参数]
    * @returns Job position [岗位]
    */
-  findOne(params: {
-    id?: string;
-    [key: string]: unknown;
-  }): Promise<IJobPositionSearchFilter>;
+  findOne(params: IJobPositionQueryParams): Promise<Record<string, unknown>>;
 
   /**
    * Search job positions [搜索岗位]

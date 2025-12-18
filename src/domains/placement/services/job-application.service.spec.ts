@@ -7,6 +7,7 @@ import {
   IRecommendReferralApplicationsBatchDto,
   ISubmitApplicationDto,
   IUpdateApplicationStatusDto,
+  ICreateManualJobApplicationDto,
 } from "../dto";
 import { ApplicationType } from "../types/application-type.enum";
 import { randomUUID } from "crypto";
@@ -1490,6 +1491,113 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
       // Assert [断言]
       expect(mockDb.update).toHaveBeenCalled();
+    });
+  });
+
+  describe("createManualJobApplication() [手工创建投递申请]", () => {
+    it("should create manual job application successfully with mentor assigned status [应该成功创建手工投递申请，状态为mentor_assigned]", async () => {
+      // Arrange [准备]
+      const dto: ICreateManualJobApplicationDto = {
+        studentId: testStudentId,
+        mentorId: testMentorId,
+        jobType: "full-time",
+        resumeSubmittedDate: new Date(),
+        jobTitle: "Software Engineer",
+        jobLink: "https://example.com/job/123",
+        jobId: "EXT-123",
+        companyName: "Example Company",
+        location: "San Francisco, CA",
+        jobCategories: ["ADMIN"],
+        normalJobTitle: "Software Engineer",
+        level: "Entry Level",
+        createdBy: testMentorId,
+      };
+
+      const createdApplication = {
+        id: testApplicationId,
+        studentId: dto.studentId,
+        jobId: dto.jobId,
+        applicationType: ApplicationType.REFERRAL,
+        status: "mentor_assigned",
+        assignedMentorId: dto.mentorId,
+        recommendedBy: dto.createdBy,
+        recommendedAt: new Date(),
+        submittedAt: dto.resumeSubmittedDate,
+        updatedAt: new Date(),
+      };
+
+      // Mock the database operations
+      mockDb.select = jest.fn(() => ({
+        from: jest.fn(() => ({
+          where: jest.fn(() => {
+            // Return empty array for duplicate check
+            return Promise.resolve([]);
+          }),
+        })),
+      }));
+
+      mockDb.insert = jest.fn()
+        // First call: insert job_applications
+        .mockImplementationOnce(() => ({
+          values: jest.fn(() => ({
+            returning: jest.fn().mockResolvedValue([createdApplication]),
+          })),
+        }))
+        // Second call: insert application_history
+        .mockImplementationOnce(() => ({
+          values: jest.fn().mockResolvedValue([]),
+        }));
+
+      // Act [执行]
+      const result = await jobApplicationService.createManualJobApplication(dto);
+
+      // Assert [断言]
+      expect(result.data).toEqual(createdApplication);
+      expect(result.event).toBeDefined();
+      expect(result.event?.type).toBe(JOB_APPLICATION_STATUS_CHANGED_EVENT);
+      expect(mockDb.insert).toHaveBeenCalledTimes(2); // Insert application and history
+      
+      // Verify event payload
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        JOB_APPLICATION_STATUS_CHANGED_EVENT,
+        expect.objectContaining({
+          applicationId: createdApplication.id,
+          previousStatus: null,
+          newStatus: "mentor_assigned",
+          changedBy: dto.createdBy,
+          assignedMentorId: dto.mentorId,
+        }),
+      );
+    });
+
+    it("should throw error if duplicate application exists [如果存在重复申请应该抛出错误]", async () => {
+      // Arrange [准备]
+      const dto: ICreateManualJobApplicationDto = {
+        studentId: testStudentId,
+        mentorId: testMentorId,
+        jobType: "full-time",
+        resumeSubmittedDate: new Date(),
+        jobTitle: "Software Engineer",
+        jobLink: "https://example.com/job/123",
+        jobId: "EXT-123",
+        companyName: "Example Company",
+        createdBy: testMentorId,
+      };
+
+      // Mock duplicate application found
+      mockDb.select = jest.fn(() => ({
+        from: jest.fn(() => ({
+          where: jest.fn(() => {
+            // Return existing application to simulate duplicate
+            return Promise.resolve([{ id: testApplicationId }]);
+          }),
+        })),
+      }));
+
+      // Act & Assert [执行和断言]
+      await expect(
+        jobApplicationService.createManualJobApplication(dto),
+      ).rejects.toThrow(/already applied/);
     });
   });
 });

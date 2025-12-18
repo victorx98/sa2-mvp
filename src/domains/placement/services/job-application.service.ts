@@ -25,6 +25,7 @@ import {
   IUpdateApplicationStatusDto,
   IJobApplicationSearchFilter,
   IRollbackApplicationStatusDto,
+  ICreateManualJobApplicationDto,
 } from "../dto";
 import { IJobApplicationService, IServiceResult } from "../interfaces";
 import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
@@ -76,7 +77,7 @@ export class JobApplicationService implements IJobApplicationService {
       `Submitting job application: student=${dto.studentId}, job=${dto.jobId}`,
     );
 
-    // Check for duplicate application [检查重复申请]
+    // Check for duplicate application using studentId and jobId [检查学生ID和岗位ID的重复申请]
     await this.checkDuplicateApplication(dto.studentId, dto.jobId);
 
     // Verify job exists and is active [验证岗位存在且为active]
@@ -107,6 +108,15 @@ export class JobApplicationService implements IJobApplicationService {
             dto.applicationType === ApplicationType.REFERRAL
               ? "recommended"
               : "submitted",
+          // Job information from recommendedJobs [从recommendedJobs表获取职位信息]
+          jobType: job.jobTypes?.[0] || null, // Take first job type [取第一个职位类型]
+          jobTitle: job.title,
+          jobLink: job.jobLink || null,
+          companyName: job.companyName,
+          location: job.jobLocations ? JSON.stringify(job.jobLocations) : null, // Convert JSONB to string [转换JSONB为字符串]
+          jobCategories: job.jobTypes || [], // Use job types as categories [使用职位类型作为类别]
+          normalJobTitle: job.normalizedJobTitles?.[0] || null, // Take first normalized title [取第一个标准化标题]
+          level: job.level || null,
         })
         .returning();
 
@@ -205,7 +215,17 @@ export class JobApplicationService implements IJobApplicationService {
 
     // Validate jobs exist and are active [校验岗位存在且为active]
     const jobs = await this.db
-      .select({ id: recommendedJobs.id, status: recommendedJobs.status })
+      .select({
+        id: recommendedJobs.id,
+        status: recommendedJobs.status,
+        title: recommendedJobs.title,
+        jobLink: recommendedJobs.jobLink,
+        companyName: recommendedJobs.companyName,
+        jobLocations: recommendedJobs.jobLocations,
+        jobTypes: recommendedJobs.jobTypes,
+        normalizedJobTitles: recommendedJobs.normalizedJobTitles,
+        level: recommendedJobs.level,
+      })
       .from(recommendedJobs)
       .where(and(inArray(recommendedJobs.id, jobIds), eq(recommendedJobs.status, "active")));
 
@@ -216,6 +236,9 @@ export class JobApplicationService implements IJobApplicationService {
         `Some jobs are missing or not active: ${missingJobIds.slice(0, 10).join(", ")}`,
       );
     }
+
+    // Create job info map for fast lookup [创建职位信息映射表用于快速查找]
+    const jobInfoMap = new Map(jobs.map((job) => [job.id, job]));
 
     // Detect duplicates (any existing studentId+jobId is forbidden) [检测重复申请（任一已存在则整体失败）]
     const existing = await this.db
@@ -238,14 +261,26 @@ export class JobApplicationService implements IJobApplicationService {
       const inserted = await tx
         .insert(jobApplications)
         .values(
-          pairs.map((p) => ({
-            studentId: p.studentId,
-            jobId: p.jobId,
-            applicationType: ApplicationType.REFERRAL,
-            status: "recommended" as const,
-            recommendedBy: dto.recommendedBy, // Set recommended_by field [设置推荐人字段]
-            recommendedAt: recommendedAt, // Set recommended_at field [设置推荐时间字段]
-          })),
+          pairs.map((p) => {
+            const job = jobInfoMap.get(p.jobId);
+            return {
+              studentId: p.studentId,
+              jobId: p.jobId,
+              applicationType: ApplicationType.REFERRAL,
+              status: "recommended" as const,
+              recommendedBy: dto.recommendedBy, // Set recommended_by field [设置推荐人字段]
+              recommendedAt: recommendedAt, // Set recommended_at field [设置推荐时间字段]
+              // Job information from recommendedJobs [从recommendedJobs表获取职位信息]
+              jobType: job?.jobTypes?.[0] || null, // Take first job type [取第一个职位类型]
+              jobTitle: job?.title || null,
+              jobLink: job?.jobLink || null,
+              companyName: job?.companyName || null,
+              location: job?.jobLocations ? JSON.stringify(job.jobLocations) : null, // Convert JSONB to string [转换JSONB为字符串]
+              jobCategories: job?.jobTypes || [], // Use job types as categories [使用职位类型作为类别]
+              normalJobTitle: job?.normalizedJobTitles?.[0] || null, // Take first normalized title [取第一个标准化标题]
+              level: job?.level || null,
+            };
+          }),
         )
         .returning();
 
@@ -575,21 +610,14 @@ export class JobApplicationService implements IJobApplicationService {
   /**
    * Get application [获取投递申请]
    *
-   * @param params - Search parameters [搜索参数]
+   * @param params - Query parameters [查询参数]
    * @returns Application [投递申请]
    */
-  async findOne(params: {
-    id?: string;
-    studentId?: string;
-    jobId?: string;
-    status?: string;
-    applicationType?: ApplicationType;
-    [key: string]: unknown;
-  }): Promise<Record<string, unknown>> {
+  async findOne(params: { id?: string; studentId?: string; jobId?: string; status?: ApplicationStatus; applicationType?: ApplicationType }): Promise<Record<string, unknown>> {
     // Build conditions based on provided params
     const conditions = [];
 
-    // Handle known columns explicitly to avoid TypeScript errors
+    // Handle known columns explicitly
     if (params.id) {
       conditions.push(eq(jobApplications.id, params.id));
     }
@@ -600,18 +628,11 @@ export class JobApplicationService implements IJobApplicationService {
       conditions.push(eq(jobApplications.jobId, params.jobId));
     }
     if (params.status) {
-      // Use type assertion for enum column to avoid TypeScript error
-      conditions.push(
-        eq(jobApplications.status, params.status as ApplicationStatus),
-      );
+      conditions.push(eq(jobApplications.status, params.status));
     }
     if (params.applicationType) {
-      // Use enum type directly without type assertion
-      conditions.push(
-        eq(jobApplications.applicationType, params.applicationType),
-      );
+      conditions.push(eq(jobApplications.applicationType, params.applicationType));
     }
-    // Add more known columns as needed
 
     const [application] = await this.db
       .select()
@@ -647,11 +668,13 @@ export class JobApplicationService implements IJobApplicationService {
    * Check for duplicate application [检查重复申请]
    *
    * @param studentId - Student ID [学生ID]
-   * @param jobId - Job position ID [岗位ID]
+   * @param jobId - Job ID [岗位ID]
    * @throws Error if duplicate application exists [如果存在重复申请则抛出错误]
    */
   private async checkDuplicateApplication(studentId: string, jobId: string) {
-    const [existing] = await this.db
+    // Check for duplicate application using studentId and jobId combination
+    // This ensures a student can't apply to the same job multiple times
+    const [existingApplication] = await this.db
       .select()
       .from(jobApplications)
       .where(
@@ -661,7 +684,7 @@ export class JobApplicationService implements IJobApplicationService {
         ),
       );
 
-    if (existing) {
+    if (existingApplication) {
       throw new Error(
         `Student ${studentId} has already applied for job ${jobId}`,
       );
@@ -723,7 +746,7 @@ export class JobApplicationService implements IJobApplicationService {
     const previousStatus = previousStatusRecord.newStatus as ApplicationStatus;
 
     // Validate status transition [验证状态转换]
-    const allowedTransitions =
+    const allowedTransitions = 
       ALLOWED_APPLICATION_STATUS_TRANSITIONS[previousStatus];
     if (!allowedTransitions || !allowedTransitions.includes(currentStatus)) {
       throw new BadRequestException(
@@ -793,6 +816,91 @@ export class JobApplicationService implements IJobApplicationService {
       data: updatedApplication,
       event: {
         type: JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
+        payload: eventPayload,
+      },
+    };
+  }
+
+  /**
+   * Create manual job application [手工创建投递申请]
+   * - Used for counselor to manually create job applications with mentor assigned status [用于顾问手工创建内推投递记录，状态默认设置为mentor_assigned]
+   * - Wraps all operations in a transaction to ensure atomicity [将所有操作包裹在事务中以确保原子性]
+   *
+   * @param dto - Create manual job application DTO [手工创建投递申请DTO]
+   * @returns Created application and events [创建的申请和事件]
+   */
+  async createManualJobApplication(
+    dto: ICreateManualJobApplicationDto,
+  ): Promise<IServiceResult<typeof jobApplications.$inferSelect, Record<string, unknown>>> {
+    this.logger.log(
+      `Creating manual job application: student=${dto.studentId}, mentor=${dto.mentorId}, jobTitle=${dto.jobTitle}`,
+    );
+
+    // Check for duplicate application using studentId and jobId [检查学生ID和岗位ID的重复申请]
+    // Note: For manual creation, jobId is preferred if available, otherwise we rely on business logic
+    const duplicateCheckId = dto.jobId || dto.jobLink;
+    if (!duplicateCheckId) {
+      throw new BadRequestException("Either jobId or jobLink is required for duplicate checking");
+    }
+    await this.checkDuplicateApplication(dto.studentId, duplicateCheckId);
+
+    // Wrap all operations in a transaction to ensure atomicity [将所有操作包裹在事务中以确保原子性]
+    const application = await this.db.transaction(async (tx) => {
+      // Create application record [创建申请记录]
+      const [newApplication] = await tx
+        .insert(jobApplications)
+        .values({
+          studentId: dto.studentId,
+          jobId: dto.jobId,
+          applicationType: ApplicationType.REFERRAL,
+          status: "mentor_assigned" as const,
+          assignedMentorId: dto.mentorId,
+          recommendedBy: dto.createdBy,
+          recommendedAt: new Date(),
+          submittedAt: dto.resumeSubmittedDate,
+          updatedAt: new Date(),
+          // Manual creation fields [手工创建字段]
+          jobType: dto.jobType,
+          jobTitle: dto.jobTitle,
+          jobLink: dto.jobLink,
+          companyName: dto.companyName,
+          location: dto.location,
+          jobCategories: dto.jobCategories,
+          normalJobTitle: dto.normalJobTitle,
+          level: dto.level,
+        })
+        .returning();
+
+      this.logger.log(`Manual job application created: ${newApplication.id}`);
+
+      // Record status change history [记录状态变更历史]
+      await tx.insert(applicationHistory).values({
+        applicationId: newApplication.id,
+        previousStatus: null,
+        newStatus: newApplication.status,
+        changedBy: dto.createdBy,
+        changeReason: "Manual creation by counselor",
+      });
+
+      return newApplication;
+    });
+
+    // Publish application status changed event AFTER transaction (在事务后发布投递状态变更事件) [在事务成功后发布事件]
+    // Event is published after transaction commits to ensure data consistency [事件在事务提交后发布以确保数据一致性]
+    const eventPayload = {
+      applicationId: application.id,
+      previousStatus: null,
+      newStatus: application.status,
+      changedBy: dto.createdBy,
+      changedAt: application.submittedAt.toISOString(),
+      assignedMentorId: application.assignedMentorId,
+    };
+    this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
+
+    return {
+      data: application,
+      event: {
+        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
         payload: eventPayload,
       },
     };
