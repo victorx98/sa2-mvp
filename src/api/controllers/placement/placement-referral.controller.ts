@@ -25,7 +25,7 @@ import { BatchRecommendReferralApplicationsResponseDto, JobApplicationResponseDt
  * - Counselor recommends jobs to students by creating referral applications [顾问给学生推荐岗位，创建内推投递记录]
  */
 @Controller("api/placement")
-@ApiTags("Placement Referral")
+@ApiTags("Placement")
 @UseGuards(AuthGuard, RolesGuard)
 @Roles("counselor")
 @ApiBearerAuth()

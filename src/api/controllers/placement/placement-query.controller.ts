@@ -26,7 +26,7 @@ import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { JobQueryResponseDto, JobPositionResponseDto } from '@api/dto/response/placement/placement.response.dto';
 
 @Controller('api/query/placement')
-@ApiTags('Placement Query')
+@ApiTags('Placement')
 @ApiBearerAuth()
 export class PlacementQueryController {
   private readonly logger = new Logger(PlacementQueryController.name);

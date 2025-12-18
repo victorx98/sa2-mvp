@@ -118,7 +118,7 @@ describe('Placement Query API Integration Tests', () => {
     });
 
     it('should return job results with custom pagination', async () => {
-      const response = await request(app.getHttpServer())
+      const _response = await request(app.getHttpServer())
         .get('/api/query/placement/jobs?jobApplicationType=direct&page=2&pageSize=10')
         .set('Authorization', 'Bearer mock-token')
         .expect(200);
@@ -131,7 +131,7 @@ describe('Placement Query API Integration Tests', () => {
     });
 
     it('should return job results with sorting', async () => {
-      const response = await request(app.getHttpServer())
+      const _response = await request(app.getHttpServer())
         .get('/api/query/placement/jobs?jobApplicationType=direct&sortField=title&sortDirection=asc')
         .set('Authorization', 'Bearer mock-token')
         .expect(200);
@@ -157,7 +157,7 @@ describe('Placement Query API Integration Tests', () => {
     });
 
     it('should filter jobs by keyword', async () => {
-      const response = await request(app.getHttpServer())
+      const _response = await request(app.getHttpServer())
         .get('/api/query/placement/jobs?jobApplicationType=direct&keyword=算法')
         .set('Authorization', 'Bearer mock-token')
         .expect(200);
