@@ -174,8 +174,8 @@ export class GapAnalysisService {
         mentorId: session.mentorUserId,
         refrenceId: sessionId, // shared primary key with service_references table
         sessionTypeCode: session.serviceType,
-        actualDurationHours: payload.actualDuration / 3600,
-        durationHours: payload.scheduleDuration / 60,
+        actualDurationMinutes: payload.actualDuration,
+        durationMinutes: payload.scheduleDuration,
         allowBilling: sessionType.isBilling,
       },
     });

@@ -183,6 +183,8 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
         sessionTypeCode: HARD_CODED_SERVICE_TYPE,
         actualDurationHours: 0.9, // 0.9 hours = 1 unit consumption [0.9小时 = 1单位消耗]
         durationHours: 2,
+        actualDurationMinutes: 54,
+        durationMinutes: 120,
         allowBilling: true,
       },
     };
