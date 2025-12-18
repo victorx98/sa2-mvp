@@ -4,7 +4,7 @@ import {
   Logger,
   BadRequestException,
 } from "@nestjs/common";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import * as schema from "@infrastructure/database/schema";
 import { DrizzleDatabase } from "@shared/types/database.types";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
@@ -173,36 +173,50 @@ export class MentorPayableService {
     reason: string;
     createdBy: string;
   }): Promise<void> {
+    const { originalLedgerId, adjustmentAmount, reason, createdBy } = params;
+
+    this.logger.log(`Adjusting payable ledger: ${originalLedgerId}`);
+
     try {
-      const { originalLedgerId, adjustmentAmount, reason, createdBy } = params;
+      // [修复] Use transaction to ensure atomicity and prevent race conditions (使用事务确保原子性并防止竞态条件)
+      await this.db.transaction(async (tx) => {
+        // [修复] Use SELECT FOR UPDATE to lock the original ledger and prevent concurrent modifications (使用SELECT FOR UPDATE锁定原始账款，防止并发修改)
+        const result = await tx.execute(sql`
+          SELECT * FROM mentor_payable_ledgers
+          WHERE id = ${originalLedgerId}
+          FOR UPDATE
+        `);
 
-      this.logger.log(`Adjusting payable ledger: ${originalLedgerId}`);
+        const originalLedger = result.rows[0] as
+          | (typeof schema.mentorPayableLedgers.$inferSelect)
+          | undefined;
 
-      // Query original record
-      const originalLedger = await this.db.query.mentorPayableLedgers.findFirst(
-        {
-          where: eq(schema.mentorPayableLedgers.id, originalLedgerId),
-        },
-      );
+        if (!originalLedger) {
+          throw new BadRequestException(
+            `Original ledger not found: ${originalLedgerId}`,
+          );
+        }
 
-      if (!originalLedger) {
-        throw new BadRequestException(
-          `Original ledger not found: ${originalLedgerId}`,
-        );
-      }
+        // [修复] Check if the ledger is already settled (检查账款是否已结算)
+        if (originalLedger.settlementId) {
+          throw new BadRequestException(
+            "Cannot adjust a settled ledger. Please create a new compensation record.", // 已结算的账款不允许调整，需创建新的补偿记录
+          );
+        }
 
-      // Create adjustment record
-      await this.db.insert(schema.mentorPayableLedgers).values({
-        referenceId: originalLedger.referenceId,
-        mentorId: originalLedger.mentorId,
-        studentId: originalLedger.studentId,
-        sessionTypeCode: originalLedger.sessionTypeCode,
-        price: originalLedger.price,
-        amount: String(adjustmentAmount), // Convert to string to match numeric type
-        currency: originalLedger.currency,
-        originalId: originalLedgerId,
-        adjustmentReason: reason,
-        createdBy,
+        // Create adjustment record
+        await tx.insert(schema.mentorPayableLedgers).values({
+          referenceId: originalLedger.referenceId,
+          mentorId: originalLedger.mentorId,
+          studentId: originalLedger.studentId,
+          sessionTypeCode: originalLedger.sessionTypeCode,
+          price: originalLedger.price,
+          amount: String(adjustmentAmount), // Convert to string to match numeric type
+          currency: originalLedger.currency,
+          originalId: originalLedgerId,
+          adjustmentReason: reason,
+          createdBy,
+        });
       });
 
       this.logger.log(

@@ -40,10 +40,13 @@ export type {
 export {
   JOB_APPLICATION_STATUS_CHANGED_EVENT,
   JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
+  PLACEMENT_APPLICATION_SUBMITTED_EVENT,
 } from "./event-constants";
 export type {
   IJobApplicationStatusChangedPayload,
   IJobApplicationStatusChangedEvent,
   IJobApplicationStatusRolledBackPayload,
   IJobApplicationStatusRolledBackEvent,
+  IPlacementApplicationSubmittedPayload,
+  IPlacementApplicationSubmittedEvent,
 } from "./placement-application.events";

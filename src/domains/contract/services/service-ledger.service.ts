@@ -310,13 +310,10 @@ export class ServiceLedgerService {
     // Calculate consumption and adjustment sums separately [分别计算消费和调整的总和]
     // Consumption quantities are negative, adjustments can be positive or negative [消费数量为负数，调整可以是正数或负数]
     let consumptionSum = 0;
-    const adjustmentSum = 0;
 
     for (const ledger of ledgers) {
       if (ledger.type === "consumption") {
         consumptionSum += ledger.quantity; // Negative values [负值]
-      } else if (ledger.type === "adjustment") {
-        const _adjustmentSum = ledger.quantity; // Can be positive or negative [可以是正数或负数]
       }
     }
 

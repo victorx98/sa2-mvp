@@ -61,6 +61,11 @@ export const recommendedJobs = pgTable(
     // Post date [发布日期]
     postDate: timestamp("post_date"), // Job posting date [岗位发布日期]
 
+    // Application deadline [投递截止时间]
+    applicationDeadline: timestamp("application_deadline", {
+      withTimezone: true,
+    }), // Application deadline (timestamptz) [投递截止时间(timestamptz)]
+
     // Job status [岗位状态]
     status: varchar("status", { length: 50 }).notNull().default("active"), // Job status (active/inactive/expired) [岗位状态]
 
@@ -75,15 +80,6 @@ export const recommendedJobs = pgTable(
 
     // Salary details as JSONB object [薪资详情JSONB对象]
     salaryDetails: jsonb("salary_details"),
-
-    // Skills as JSONB array [技能JSONB数组]
-    skills: jsonb("skills").default('[]'),
-
-    // Responsibilities as JSONB array [职责JSONB数组]
-    jobResponsibilities: jsonb("responsibilities").default('[]'),
-
-    // Matched job titles with scores [匹配职位标题及分数]
-    matchedJobTitles: jsonb("matched_titles").default('[]'),
 
     // Job locations as JSONB array [工作地点JSONB数组]
     jobLocations: jsonb("locations").default('[]'),
@@ -105,9 +101,6 @@ export const recommendedJobs = pgTable(
 
     // AI analysis results [AI分析结果]
     aiAnalysis: jsonb("ai_analysis"),
-
-    // Source details [来源详情]
-    sourceDetails: jsonb("source_details"),
 
     // Job application types supported by this position [此岗位支持的投递类型]
     jobApplicationType: text("job_application_type")
@@ -141,10 +134,6 @@ export const recommendedJobs = pgTable(
     index("idx_jobs_company_title").on(table.companyName, table.title),
     index("idx_jobs_country_code").on(table.countryCode),
     index("idx_gin_job_locations").using("gin", table.jobLocations),
-    index("idx_gin_job_responsibilities").using("gin", table.jobResponsibilities),
-    index("idx_gin_matched_job_titles").using("gin", table.matchedJobTitles),
-    index("idx_gin_skills").using("gin", table.skills),
-    index("idx_gin_source_details").using("gin", table.sourceDetails),
     index("idx_recommended_jobs_application_type").using(
       "gin",
       table.jobApplicationType,
@@ -155,16 +144,8 @@ export const recommendedJobs = pgTable(
     sql`CHECK (experience_requirement IS NULL OR jsonb_typeof(experience_requirement) = 'object')`,
     // Type check for salary_details to ensure it's an object [检查salary_details是否为对象]
     sql`CHECK (salary_details IS NULL OR jsonb_typeof(salary_details) = 'object')`,
-    // Type check for skills to ensure it's an array [检查skills是否为数组]
-    sql`CHECK (jsonb_typeof(skills) = 'array')`,
-    // Type check for responsibilities to ensure it's an array [检查responsibilities是否为数组]
-    sql`CHECK (jsonb_typeof(responsibilities) = 'array')`,
-    // Type check for matched_titles to ensure it's an array [检查matched_titles是否为数组]
-    sql`CHECK (jsonb_typeof(matched_titles) = 'array')`,
     // Type check for locations to ensure it's an array [检查locations是否为数组]
     sql`CHECK (jsonb_typeof(locations) = 'array')`,
-    // Type check for source_details to ensure it's an object [检查source_details是否为对象]
-    sql`CHECK (source_details IS NULL OR jsonb_typeof(source_details) = 'object')`,
     // Type check for ai_analysis to ensure it's an object [检查ai_analysis是否为对象]
     sql`CHECK (ai_analysis IS NULL OR jsonb_typeof(ai_analysis) = 'object')`,
     // Check ai_analysis structure [检查ai_analysis结构]

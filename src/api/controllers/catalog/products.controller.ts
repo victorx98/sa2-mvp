@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   UseGuards,
+  Query,
 } from "@nestjs/common";
 import {
   ApiBearerAuth,
@@ -27,10 +28,13 @@ import { UpdateProductCommand } from "@application/commands/product/update-produ
 import { UpdateProductStatusCommand } from "@application/commands/product/update-product-status.command";
 import { CreateProductSnapshotCommand } from "@application/commands/product/create-snapshot.command";
 import { GetProductDetailQuery } from "@application/queries/product/get-product-detail.query";
+import { ProductService } from "@domains/catalog/product/services/product.service";
 import type { CreateProductDto } from "@domains/catalog/product/dto/create-product.dto";
 import type { UpdateProductDto } from "@domains/catalog/product/dto/update-product.dto";
 import { CreateProductRequestDto, UpdateProductRequestDto, UpdateProductStatusRequestDto } from "@api/dto/request/catalog/product.request.dto";
 import { ProductDetailResponseDto, ProductItemResponseDto, ProductResponseDto, ProductSnapshotResponseDto } from "@api/dto/response/catalog/product.response.dto";
+import { ProductListQueryDto } from "@api/dto/request/catalog/product-list.request.dto";
+import { ProductListResponseDto, ProductListItemResponseDto } from "@api/dto/response/catalog/product-list.response.dto";
 
 /**
  * Admin Products Controller
@@ -54,6 +58,7 @@ export class ProductsController {
     private readonly updateProductStatusCommand: UpdateProductStatusCommand,
     private readonly createProductSnapshotCommand: CreateProductSnapshotCommand,
     private readonly getProductDetailQuery: GetProductDetailQuery,
+    private readonly productService: ProductService,
   ) {}
 
   @Post()
@@ -161,6 +166,54 @@ export class ProductsController {
         updatedAt: item.updatedAt.toISOString(),
       })) as ProductItemResponseDto[],
     } as ProductDetailResponseDto;
+  }
+
+  @Get()
+  @ApiOperation({
+    summary: "Get products list with pagination",
+    description:
+      "Retrieve paginated products list with filtering and sorting. [获取分页产品列表，支持筛选和排序]",
+  })
+  @ApiOkResponse({
+    description: "Products retrieved successfully",
+    type: ProductListResponseDto,
+  })
+  async getProducts(
+    @Query() queryDto: ProductListQueryDto,
+  ): Promise<ProductListResponseDto> {
+    const result = await this.productService.search(
+      {
+        includeDeleted: false,
+        status: queryDto.status,
+        name: queryDto.keyword,
+      },
+      {
+        page: queryDto.page || 1,
+        pageSize: queryDto.pageSize || 20,
+      },
+      {
+        orderField: "createdAt",
+        orderDirection: "desc",
+      },
+    );
+
+    return {
+      data: result.data.map((product) => ({
+        id: product.id,
+        name: product.name,
+        status: product.status,
+        price: Number(product.price),
+        currency: product.currency,
+        code: product.code,
+        itemCount: product.items?.length || 0,
+        createdAt: product.createdAt.toISOString(),
+        updatedAt: product.updatedAt.toISOString(),
+      })),
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      totalPages: result.totalPages,
+    };
   }
 
   @Patch(":id/status")

@@ -70,46 +70,6 @@ class SalaryDetailsRequestDto {
   bonus?: Record<string, unknown>;
 }
 
-class SkillRequestDto {
-  @ApiProperty({
-    description: "Skill name. [技能名称]",
-    type: String,
-    required: true,
-    example: "TypeScript",
-  })
-  @IsString()
-  @IsNotEmpty()
-  skill!: string;
-
-  @ApiPropertyOptional({
-    description: "Years of experience for this skill. [该技能经验年数]",
-    type: Number,
-    required: false,
-    example: 2,
-  })
-  @IsOptional()
-  years_of_experience?: number;
-}
-
-class MatchedTitleRequestDto {
-  @ApiProperty({
-    description: "Matched job title. [匹配的职位标题]",
-    type: String,
-    required: true,
-  })
-  @IsString()
-  @IsNotEmpty()
-  job_title!: string;
-
-  @ApiProperty({
-    description: "Match score (0~1 or 0~100 depending on source). [匹配分数(随来源定义)]",
-    type: Number,
-    required: true,
-    example: 0.86,
-  })
-  score!: number;
-}
-
 export class CreateJobPositionRequestDto {
   @ApiPropertyOptional({
     description:
@@ -230,41 +190,6 @@ export class CreateJobPositionRequestDto {
   @ValidateNested()
   @Type(() => SalaryDetailsRequestDto)
   salaryDetails?: SalaryDetailsRequestDto;
-
-  @ApiPropertyOptional({
-    description: "Skills list. [技能列表]",
-    type: () => SkillRequestDto,
-    isArray: true,
-    required: false,
-  })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => SkillRequestDto)
-  skills?: SkillRequestDto[];
-
-  @ApiPropertyOptional({
-    description: "Responsibilities list. [职责列表]",
-    type: [String],
-    isArray: true,
-    required: false,
-  })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  responsibilities?: string[];
-
-  @ApiPropertyOptional({
-    description: "Matched titles with scores. [匹配职位标题及分数]",
-    type: () => MatchedTitleRequestDto,
-    isArray: true,
-    required: false,
-  })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => MatchedTitleRequestDto)
-  matchedTitles?: MatchedTitleRequestDto[];
 
   @ApiPropertyOptional({
     description: "Job description. [岗位描述]",

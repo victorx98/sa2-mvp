@@ -1,5 +1,9 @@
 import { ClassMentorPrice } from "@infrastructure/database/schema";
 import { ClassMentorPriceStatus } from "@shared/types/financial-enums";
+import type {
+  CreateClassMentorPriceDto,
+  UpdateClassMentorPriceDto,
+} from "../dto";
 
 /**
  * Class Mentor Price Service Interface
@@ -47,35 +51,4 @@ export interface IClassMentorPriceService {
     updatedBy?: string,
   ): Promise<ClassMentorPrice>;
 
-}
-
-/**
- * Create Class Mentor Price DTO
- *
- * This DTO defines the data structure for creating class mentor price records
- */
-export interface CreateClassMentorPriceDto {
-  classId: string;
-  mentorUserId: string;
-  pricePerSession: number;
-}
-
-/**
- * Update Class Mentor Price DTO
- *
- * This DTO defines the data structure for updating class mentor price records
- */
-export interface UpdateClassMentorPriceDto {
-  pricePerSession?: number;
-}
-
-/**
- * Class Mentor Price Filter DTO
- *
- * This DTO defines the data structure for filtering class mentor price records
- */
-export interface ClassMentorPriceFilterDto {
-  classId?: string;
-  mentorUserId?: string;
-  status?: string;
 }

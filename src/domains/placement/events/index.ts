@@ -8,6 +8,7 @@
 export {
   JOB_APPLICATION_STATUS_CHANGED_EVENT,
   JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
+  PLACEMENT_APPLICATION_SUBMITTED_EVENT,
 } from "@shared/events/event-constants";
 
 // Re-export placement event interfaces from shared events
@@ -17,4 +18,6 @@ export type {
   IJobApplicationStatusChangedEvent,
   IJobApplicationStatusRolledBackPayload,
   IJobApplicationStatusRolledBackEvent,
+  IPlacementApplicationSubmittedPayload,
+  IPlacementApplicationSubmittedEvent,
 } from "@shared/events/placement-application.events";

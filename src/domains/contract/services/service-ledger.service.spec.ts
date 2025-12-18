@@ -11,7 +11,6 @@ import {
   IRecordAdjustmentDto,
 } from "../interfaces/service-ledger.interface";
 import { randomUUID } from "crypto";
-import * as schema from "@infrastructure/database/schema";
 
 /**
  * Unit Tests for ServiceLedgerService - CORRECTED VERSION

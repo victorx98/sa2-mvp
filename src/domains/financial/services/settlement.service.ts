@@ -153,20 +153,29 @@ export class SettlementService implements ISettlementService {
         );
       }
 
-      // 4. [修复] Calculate amounts with consistent rounding (使用一致的四舍五入计算金额)
+      // 4. [修复] Calculate amounts using integer arithmetic to avoid floating-point precision issues (使用整数运算避免浮点数精度问题)
+      // Convert to cents (convert to integer) for accurate calculation, then convert back to dollars (转换为分(整数)进行精确计算，然后再转换回元)
       // First calculate rounded detail amounts, then sum for header (先计算四舍五入的明细金额，再求和得到头金额)
       // This ensures header total matches sum of detail totals (这确保头总额与明细总额之和匹配)
 
       // Calculate each detail's target amount with rounding [计算每个明细的目标金额并四舍五入]
       const detailCalculations = payableLedgers.map((ledger) => {
-        const originalAmt = Number(ledger.amount);
-        const targetAmt =
-          originalAmt * (1 - Number(deductionRate)) * Number(exchangeRate);
+        // Convert to cents to avoid floating-point precision issues (转换为分以避免浮点数精度问题)
+        const originalAmtCents = Math.round(Number(ledger.amount) * 100);
+        const exchangeRateNum = Number(exchangeRate);
+        const deductionRateNum = Number(deductionRate);
+
+        // Calculate in cents (in integer) (以分为单位进行计算(整数))
+        const targetAmtCents = Math.round(
+          originalAmtCents *
+            (1 - deductionRateNum) *
+            exchangeRateNum
+        );
 
         return {
           ...ledger,
-          originalAmount: originalAmt,
-          targetAmount: Number(targetAmt.toFixed(2)), // Round to 2 decimals [四舍五入到2位小数]
+          originalAmount: originalAmtCents / 100, // Convert back to dollars (转换回元)
+          targetAmount: targetAmtCents / 100, // Convert back to dollars (转换回元)
         };
       });
 

@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { eq, and, sql, SQL, inArray, asc, desc } from "drizzle-orm";
+import { eq, and, sql, SQL, inArray, asc, desc, gte, lte } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import { DrizzleDatabase } from "@shared/types/database.types";
@@ -874,6 +874,7 @@ export class ContractService {
       productId?: string;
       signedAfter?: Date;
       signedBefore?: Date;
+      keyword?: string;
     },
     pagination?: { page: number; pageSize: number },
     sort?: { field: string; order: "asc" | "desc" },
@@ -884,7 +885,7 @@ export class ContractService {
     pageSize: number;
     totalPages: number;
   }> {
-    const { studentId, status, productId } = filter;
+    const { studentId, status, productId, signedAfter, signedBefore, keyword } = filter;
     const page = pagination?.page || 1;
     const pageSize = pagination?.pageSize || 20;
     const sortField = sort?.field || "createdAt";
@@ -900,6 +901,20 @@ export class ContractService {
     }
     if (productId) {
       conditions.push(eq(schema.contracts.productId, productId));
+    }
+    if (signedAfter) {
+      // Filter by contract creation date (signedAfter maps to createdAt >=) [按合同创建日期筛选]
+      conditions.push(gte(schema.contracts.createdAt, signedAfter));
+    }
+    if (signedBefore) {
+      // Filter by contract creation date (signedBefore maps to createdAt <=) [按合同创建日期筛选]
+      conditions.push(lte(schema.contracts.createdAt, signedBefore));
+    }
+    if (keyword) {
+      // Search in productSnapshot.productName field (JSON field) [在产品快照的产品名称字段中搜索]
+      conditions.push(
+        sql`${schema.contracts.productSnapshot}::jsonb->>'productName' ILIKE ${`%${keyword}%`}`,
+      );
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

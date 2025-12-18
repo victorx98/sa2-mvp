@@ -8,6 +8,7 @@ import {
   IsString,
   IsUUID,
   Min,
+  Max,
 } from "class-validator";
 import { ClassMentorPriceStatus } from "@shared/types/financial-enums";
 
@@ -122,12 +123,14 @@ export class SearchClassMentorPricesQueryDto {
     required: false,
     default: 20,
     minimum: 1,
+    maximum: 100,
     example: 20,
   })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   pageSize: number = 20;
 
   @ApiPropertyOptional({
