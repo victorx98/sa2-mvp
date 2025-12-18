@@ -7,6 +7,7 @@ import {
   ContractNotFoundException,
 } from "../common/exceptions/contract.exception";
 import { CreateHoldDto } from "../dto/create-hold.dto";
+import { UpdateHoldDto } from "../dto/update-hold.dto";
 import { HoldStatus } from "@shared/types/contract-enums";
 import { randomUUID } from "crypto";
 
@@ -876,6 +877,433 @@ describe("ServiceHoldService Unit Tests [服务预占服务单元测试]", () =>
       // Assert
       expect(result).toEqual([]);
       expect(result.length).toBe(0);
+    });
+  });
+
+  describe("updateHold() [更新预占]", () => {
+    it("should update hold successfully [应该成功更新预占]", async () => {
+      // Arrange
+      const updateDto: UpdateHoldDto = {
+        holdId: testHoldId,
+        quantity: 3,
+        expiryAt: new Date(Date.now() + 7200000),
+        reason: "Update booking with new quantity",
+        updatedBy: testCreatedBy,
+      };
+
+      const mockOriginalHold = {
+        id: testHoldId,
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 2,
+        status: HoldStatus.ACTIVE,
+        expiryAt: new Date(Date.now() + 3600000),
+      };
+
+      const mockCancelledHold = {
+        ...mockOriginalHold,
+        status: HoldStatus.RELEASED,
+        releaseReason: updateDto.reason,
+        releasedAt: new Date(),
+      };
+
+      const newHoldId = randomUUID();
+      const mockNewHold = {
+        id: newHoldId,
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: updateDto.quantity,
+        status: HoldStatus.ACTIVE,
+        expiryAt: updateDto.expiryAt,
+        createdBy: updateDto.updatedBy,
+        relatedBookingId: null,
+      };
+
+      const mockEntitlements = [
+        {
+          studentId: testStudentId,
+          serviceType: testServiceType,
+          availableQuantity: 10,
+        },
+      ];
+
+      // Setup the select mock more carefully to handle multiple calls
+      const selectMock = jest.fn();
+      selectMock
+        // First call - find original hold (updateHold)
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockOriginalHold]),
+            }),
+          }),
+        })
+        // Second call - find original hold for cancelling (cancelHold)
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockOriginalHold]),
+            }),
+          }),
+        })
+        // Third call - check entitlements for new hold (createHold)
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              for: jest.fn().mockResolvedValue(mockEntitlements),
+            }),
+          }),
+        });
+
+      mockDb.select = selectMock;
+
+      mockDb.update = jest.fn(() => ({
+        set: jest.fn(() => ({
+          where: jest.fn(() => ({
+            returning: jest.fn().mockResolvedValue([mockCancelledHold]),
+          })),
+        })),
+      }));
+
+      mockDb.insert = jest.fn(() => ({
+        values: jest.fn(() => ({
+          returning: jest.fn().mockResolvedValue([mockNewHold]),
+        })),
+      }));
+
+      // Act
+      const result = await serviceHoldService.updateHold(updateDto);
+
+      // Assert
+      expect(result).toEqual(mockNewHold);
+      expect(result.quantity).toBe(updateDto.quantity);
+      expect(result.expiryAt).toEqual(updateDto.expiryAt);
+      expect(mockDb.select).toHaveBeenCalledTimes(3);
+      expect(mockDb.update).toHaveBeenCalled();
+      expect(mockDb.insert).toHaveBeenCalled();
+    });
+
+    it("should use original values when optional fields not provided [当可选字段未提供时使用原值]", async () => {
+      // Arrange
+      const updateDto: UpdateHoldDto = {
+        holdId: testHoldId,
+        reason: "No changes needed",
+        updatedBy: testCreatedBy,
+      };
+
+      const mockOriginalHold = {
+        id: testHoldId,
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 2,
+        status: HoldStatus.ACTIVE,
+        expiryAt: new Date(Date.now() + 3600000),
+      };
+
+      const mockCancelledHold = {
+        ...mockOriginalHold,
+        status: HoldStatus.RELEASED,
+        releaseReason: updateDto.reason,
+      };
+
+      const newHoldId = randomUUID();
+      const mockNewHold = {
+        id: newHoldId,
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: mockOriginalHold.quantity, // Using original quantity
+        status: HoldStatus.ACTIVE,
+        expiryAt: mockOriginalHold.expiryAt, // Using original expiryAt
+        createdBy: updateDto.updatedBy,
+        relatedBookingId: null,
+      };
+
+      const mockEntitlements = [
+        {
+          studentId: testStudentId,
+          serviceType: testServiceType,
+          availableQuantity: 10,
+        },
+      ];
+
+      const selectMock = jest.fn();
+      selectMock
+        // First call - find original hold (updateHold)
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockOriginalHold]),
+            }),
+          }),
+        })
+        // Second call - find original hold for cancelling (cancelHold)
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockOriginalHold]),
+            }),
+          }),
+        })
+        // Third call - check entitlements for new hold (createHold)
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              for: jest.fn().mockResolvedValue(mockEntitlements),
+            }),
+          }),
+        });
+
+      mockDb.select = selectMock;
+      mockDb.update = jest.fn(() => ({
+        set: jest.fn(() => ({
+          where: jest.fn(() => ({
+            returning: jest.fn().mockResolvedValue([mockCancelledHold]),
+          })),
+        })),
+      }));
+      mockDb.insert = jest.fn(() => ({
+        values: jest.fn(() => ({
+          returning: jest.fn().mockResolvedValue([mockNewHold]),
+        })),
+      }));
+
+      // Act
+      const result = await serviceHoldService.updateHold(updateDto);
+
+      // Assert
+      expect(result.quantity).toBe(mockOriginalHold.quantity);
+      expect(result.expiryAt).toEqual(mockOriginalHold.expiryAt);
+    });
+
+    it("should throw error if original hold not found [如果原 hold 未找到应该抛出错误]", async () => {
+      // Arrange
+      const updateDto: UpdateHoldDto = {
+        holdId: "non-existent-id",
+        quantity: 3,
+        reason: "Update booking",
+        updatedBy: testCreatedBy,
+      };
+
+      mockDb.select = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue([]),
+          }),
+        }),
+      });
+
+      // Act & Assert
+      await expect(
+        serviceHoldService.updateHold(updateDto),
+      ).rejects.toThrow(ContractNotFoundException);
+    });
+
+    it("should throw error if original hold is not ACTIVE [如果原 hold 不是 ACTIVE 应该抛出错误]", async () => {
+      // Arrange
+      const updateDto: UpdateHoldDto = {
+        holdId: testHoldId,
+        quantity: 3,
+        reason: "Update booking",
+        updatedBy: testCreatedBy,
+      };
+
+      const mockNonActiveHold = {
+        id: testHoldId,
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 2,
+        status: HoldStatus.RELEASED, // Not ACTIVE
+        expiryAt: new Date(),
+      };
+
+      mockDb.select = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue([mockNonActiveHold]),
+          }),
+        }),
+      });
+
+      // Act & Assert
+      await expect(
+        serviceHoldService.updateHold(updateDto),
+      ).rejects.toThrow(ContractException);
+    });
+
+    it("should support transaction parameter [应该支持事务参数]", async () => {
+      // Arrange
+      const updateDto: UpdateHoldDto = {
+        holdId: testHoldId,
+        quantity: 3,
+        reason: "Update booking",
+        updatedBy: testCreatedBy,
+      };
+
+      const mockOriginalHold = {
+        id: testHoldId,
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 2,
+        status: HoldStatus.ACTIVE,
+        expiryAt: new Date(),
+      };
+
+      const mockCancelledHold = {
+        ...mockOriginalHold,
+        status: HoldStatus.RELEASED,
+        releaseReason: updateDto.reason,
+      };
+
+      const newHoldId = randomUUID();
+      const mockNewHold = {
+        id: newHoldId,
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: updateDto.quantity,
+        status: HoldStatus.ACTIVE,
+        expiryAt: new Date(),
+        createdBy: updateDto.updatedBy,
+        relatedBookingId: null,
+      };
+
+      const mockEntitlements = [
+        {
+          studentId: testStudentId,
+          serviceType: testServiceType,
+          availableQuantity: 10,
+        },
+      ];
+
+      const mockTx = {
+        select: jest.fn(),
+        update: jest.fn(),
+        insert: jest.fn(),
+      };
+
+      mockTx.select
+        // First call - find original hold (updateHold)
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockOriginalHold]),
+            }),
+          }),
+        })
+        // Second call - find original hold for cancelling (cancelHold inside updateHold)
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockOriginalHold]),
+            }),
+          }),
+        })
+        // Third call - check entitlements for new hold (createHold inside updateHold)
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              for: jest.fn().mockResolvedValue(mockEntitlements),
+            }),
+          }),
+        });
+
+      mockTx.update = jest.fn(() => ({
+        set: jest.fn(() => ({
+          where: jest.fn(() => ({
+            returning: jest.fn().mockResolvedValue([mockCancelledHold]),
+          })),
+        })),
+      }));
+
+      mockTx.insert = jest.fn(() => ({
+        values: jest.fn(() => ({
+          returning: jest.fn().mockResolvedValue([mockNewHold]),
+        })),
+      }));
+
+      // Act
+      const result = await serviceHoldService.updateHold(
+        updateDto,
+        mockTx as any,
+      );
+
+      // Assert
+      expect(result).toEqual(mockNewHold);
+      expect(mockDb.select).not.toHaveBeenCalled();
+      expect(mockTx.select).toHaveBeenCalledTimes(3);
+    });
+
+    it("should handle insufficient balance during new hold creation [在新hold创建期间处理余额不足]", async () => {
+      // Arrange
+      const updateDto: UpdateHoldDto = {
+        holdId: testHoldId,
+        quantity: 100, // Large quantity that will exceed available balance
+        reason: "Update booking",
+        updatedBy: testCreatedBy,
+      };
+
+      const mockOriginalHold = {
+        id: testHoldId,
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 2,
+        status: HoldStatus.ACTIVE,
+        expiryAt: new Date(),
+      };
+
+      const mockCancelledHold = {
+        ...mockOriginalHold,
+        status: HoldStatus.RELEASED,
+        releaseReason: updateDto.reason,
+      };
+
+      const mockEntitlements = [
+        {
+          studentId: testStudentId,
+          serviceType: testServiceType,
+          availableQuantity: 5, // Insufficient for quantity 100
+        },
+      ];
+
+      const selectMock = jest.fn();
+      selectMock
+        // First call - find original hold (updateHold)
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockOriginalHold]),
+            }),
+          }),
+        })
+        // Second call - find original hold for cancelling (cancelHold)
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockOriginalHold]),
+            }),
+          }),
+        })
+        // Third call - check entitlements for new hold (createHold)
+        .mockReturnValueOnce({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              for: jest.fn().mockResolvedValue(mockEntitlements),
+            }),
+          }),
+        });
+
+      mockDb.select = selectMock;
+      mockDb.update = jest.fn(() => ({
+        set: jest.fn(() => ({
+          where: jest.fn(() => ({
+            returning: jest.fn().mockResolvedValue([mockCancelledHold]),
+          })),
+        })),
+      }));
+
+      // Act & Assert
+      await expect(
+        serviceHoldService.updateHold(updateDto),
+      ).rejects.toThrow(ContractException);
     });
   });
 });

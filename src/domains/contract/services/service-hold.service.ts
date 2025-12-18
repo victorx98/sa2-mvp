@@ -5,13 +5,13 @@ import * as schema from "@infrastructure/database/schema";
 import {
   DrizzleDatabase,
   DrizzleExecutor,
-  DrizzleTransaction,
 } from "@shared/types/database.types";
 import {
   ContractException,
   ContractNotFoundException,
 } from "../common/exceptions/contract.exception";
 import { CreateHoldDto } from "../dto/create-hold.dto";
+import { UpdateHoldDto } from "../dto/update-hold.dto";
 import type { ServiceHold } from "@infrastructure/database/schema";
 import { HoldStatus } from "@shared/types/contract-enums";
 
@@ -34,7 +34,7 @@ export class ServiceHoldService {
    */
   async createHold(
     dto: CreateHoldDto,
-    tx?: DrizzleTransaction,
+    tx?: DrizzleExecutor,
   ): Promise<ServiceHold> {
     const { studentId, serviceType, quantity, expiryAt, createdBy } = dto;
     const executor = tx ?? this.db;
@@ -91,7 +91,7 @@ export class ServiceHoldService {
   async releaseHold(
     id: string,
     reason: string,
-    tx?: DrizzleTransaction,
+    tx?: DrizzleExecutor,
   ): Promise<ServiceHold> {
     const executor: DrizzleExecutor = tx ?? this.db;
 
@@ -136,7 +136,7 @@ export class ServiceHoldService {
    */
   async getLongUnreleasedHolds(
     hoursOld = 24,
-    tx?: DrizzleTransaction,
+    tx?: DrizzleExecutor,
   ): Promise<ServiceHold[]> {
     const cutoffTime = new Date(Date.now() - hoursOld * 60 * 60 * 1000);
     const executor: DrizzleExecutor = tx ?? this.db;
@@ -184,7 +184,7 @@ export class ServiceHoldService {
   async cancelHold(
     id: string,
     reason: string,
-    tx?: DrizzleTransaction,
+    tx?: DrizzleExecutor,
   ): Promise<ServiceHold> {
     const executor: DrizzleExecutor = tx ?? this.db;
 
@@ -330,7 +330,7 @@ export class ServiceHoldService {
   async updateRelatedBooking(
     holdId: string,
     bookingId: string,
-    tx?: DrizzleTransaction,
+    tx?: DrizzleExecutor,
   ): Promise<void> {
     const executor: DrizzleExecutor = tx ?? this.db;
 
@@ -341,5 +341,69 @@ export class ServiceHoldService {
         updatedAt: new Date(),
       })
       .where(eq(schema.serviceHolds.id, holdId));
+  }
+
+  /**
+   * Update hold with cancel-then-create pattern (先取消再创建模式更新 hold)
+   * - First cancels the original hold with the provided reason (首先使用提供的原因取消原 hold)
+   * - Then creates a new hold with updated or original values (然后使用更新或原值创建新 hold)
+   *
+   * @param dto - Update hold DTO with new values and cancellation reason (包含新值和取消原因的更新 DTO)
+   * @param tx - Optional transaction for atomic operations (可选事务以确保原子性)
+   * @returns Newly created service hold (新创建的服务预占)
+   */
+  async updateHold(
+    dto: UpdateHoldDto,
+    tx?: DrizzleExecutor,
+  ): Promise<ServiceHold> {
+    const { holdId, quantity, expiryAt, reason, updatedBy } = dto;
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    this.logger.log(`Starting hold update for holdId: ${holdId}`);
+
+    /* 1. Find the original hold to get its details (查找原始 hold 以获取其详细信息) */
+    const [originalHold] = await executor
+      .select()
+      .from(schema.serviceHolds)
+      .where(eq(schema.serviceHolds.id, holdId))
+      .limit(1);
+
+    if (!originalHold) {
+      throw new ContractNotFoundException("HOLD_NOT_FOUND");
+    }
+
+    if (originalHold.status !== HoldStatus.ACTIVE) {
+      throw new ContractException("HOLD_NOT_ACTIVE");
+    }
+
+    this.logger.log(
+      `Original hold found: id=${originalHold.id}, quantity=${originalHold.quantity}, expiryAt=${originalHold.expiryAt}`,
+    );
+
+    /* 2. Cancel the original hold (取消原 hold) */
+    this.logger.log(`Cancelling original hold: ${holdId}`);
+    await this.cancelHold(holdId, reason, executor);
+
+    /* 3. Prepare data for new hold (准备新 hold 数据) */
+    const createDto: CreateHoldDto = {
+      studentId: originalHold.studentId,
+      serviceType: originalHold.serviceType,
+      quantity: quantity ?? originalHold.quantity,
+      expiryAt: expiryAt ?? originalHold.expiryAt,
+      createdBy: updatedBy,
+    };
+
+    this.logger.log(
+      `Creating new hold with quantity: ${createDto.quantity}, expiryAt: ${createDto.expiryAt}`,
+    );
+
+    /* 4. Create new hold (创建新 hold) */
+    const newHold = await this.createHold(createDto, executor);
+
+    this.logger.log(
+      `Hold update completed: original=${holdId}, new=${newHold.id}`,
+    );
+
+    return newHold;
   }
 }
