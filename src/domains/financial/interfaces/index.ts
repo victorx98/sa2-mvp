@@ -7,4 +7,4 @@ export * from "./mentor-payment-info.interface";
 export * from "./mentor-payment-param.interface";
 export * from "./mentor-appeal.interface";
 export * from "./mentor-price.interface";
-export * from "./class-mentor-price.interface";
+

@@ -6,7 +6,7 @@ import { MentorPaymentInfoService } from "./services/mentor-payment-info.service
 import { MentorPaymentParamService } from "./services/mentor-payment-param.service";
 import { MentorAppealService } from "./services/mentor-appeal.service";
 import { MentorPriceService } from "./services/mentor-price.service";
-import { ClassMentorPriceService } from "./services/class-mentor-price.service";
+
 import { ServiceSessionCompletedListener } from "./events/listeners/service-session-completed-listener";
 import { SettlementConfirmedListener } from "./events/listeners/settlement-confirmed.listener";
 import { PlacementApplicationStatusChangedListener } from "./events/listeners/placement-application-status-changed.listener";
@@ -23,7 +23,7 @@ import { AppealApprovedListener } from "./events/listeners/appeal-approved.liste
  * - Payment information management(支付信息管理)
  * - Payment parameter management(支付参数管理)
  * - Mentor appeal management(导师申诉管理)
- * - Class mentor price management(班级导师价格管理)
+
  * - Financial event handling(财务事件处理)
  *
  * Design Patterns(设计模式):
@@ -41,7 +41,7 @@ import { AppealApprovedListener } from "./events/listeners/appeal-approved.liste
     MentorPaymentParamService,
     MentorAppealService,
     MentorPriceService,
-    ClassMentorPriceService,
+
     {
       provide: "IMentorPayableService",
       useClass: MentorPayableService,
@@ -66,10 +66,7 @@ import { AppealApprovedListener } from "./events/listeners/appeal-approved.liste
       provide: "IMentorPriceService",
       useClass: MentorPriceService,
     },
-    {
-      provide: "IClassMentorPriceService",
-      useClass: ClassMentorPriceService,
-    },
+
     // Event listeners
     ServiceSessionCompletedListener,
     SettlementConfirmedListener,
@@ -85,7 +82,7 @@ import { AppealApprovedListener } from "./events/listeners/appeal-approved.liste
     "IMentorPaymentParamService",
     "IMentorAppealService",
     "IMentorPriceService",
-    "IClassMentorPriceService",
+
     // Export concrete service classes for direct injection in commands/queries
     MentorPayableService,
     SettlementService,
@@ -93,7 +90,7 @@ import { AppealApprovedListener } from "./events/listeners/appeal-approved.liste
     MentorPaymentParamService,
     MentorAppealService,
     MentorPriceService,
-    ClassMentorPriceService,
+
   ],
 })
 export class FinancialModule {}
