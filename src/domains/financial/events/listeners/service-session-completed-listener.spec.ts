@@ -44,6 +44,8 @@ describe("ServiceSessionCompletedListener", () => {
         sessionTypeCode: "consultation",
         actualDurationHours: 2,
         durationHours: 2,
+        actualDurationMinutes: 120,
+        durationMinutes: 120,
         allowBilling: true,
       },
     };
