@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, Inject, NotFoundException, BadRequestException } from "@nestjs/common";
 import { eq, and, sql, asc, desc } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { DrizzleDatabase } from "@shared/types/database.types";
@@ -229,7 +229,7 @@ export class JobPositionService {
     const job = await this.findOne({ id: dto.jobId });
 
     if (job.status === "expired") {
-      throw new Error(`Job position is already expired: ${dto.jobId}`);
+      throw new BadRequestException(`Job position is already expired: ${dto.jobId}`);
     }
 
     // Update job status [更新岗位状态]

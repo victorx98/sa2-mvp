@@ -229,6 +229,9 @@ export const jobApplications = pgTable(
     index("idx_job_applications_assigned_mentor").on(table.assignedMentorId), // Index for mentor queries [导师查询索引]
     index("idx_job_applications_recommended_by").on(table.recommendedBy), // Index for recommender queries [推荐人查询索引]
     index("idx_job_applications_recommended_at").on(table.recommendedAt), // Index for recommendation time queries [推荐时间查询索引]
+
+    // Index for job_link duplicate checking [job_link重复检查索引]
+    index("idx_job_applications_job_link").on(table.jobLink), // Index for job link queries [职位链接查询索引]
   ],
 );
 

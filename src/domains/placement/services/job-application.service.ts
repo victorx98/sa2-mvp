@@ -77,9 +77,6 @@ export class JobApplicationService implements IJobApplicationService {
       `Submitting job application: student=${dto.studentId}, job=${dto.jobId}`,
     );
 
-    // Check for duplicate application using studentId and jobId [检查学生ID和岗位ID的重复申请]
-    await this.checkDuplicateApplication(dto.studentId, dto.jobId);
-
     // Verify job exists and is active [验证岗位存在且为active]
     const [job] = await this.db
       .select()
@@ -93,6 +90,9 @@ export class JobApplicationService implements IJobApplicationService {
         `Job position is not active: ${dto.jobId} (status: ${job.status})`,
       );
     }
+
+    // Check for duplicate application using studentId and jobId [检查学生ID和岗位ID的重复申请]
+    await this.checkDuplicateApplication(dto.studentId, dto.jobId, job.jobLink || undefined);
 
     // Wrap all operations in a transaction to ensure atomicity [将所有操作包裹在事务中以确保原子性]
     const application = await this.db.transaction(async (tx) => {
@@ -669,24 +669,66 @@ export class JobApplicationService implements IJobApplicationService {
    *
    * @param studentId - Student ID [学生ID]
    * @param jobId - Job ID [岗位ID]
+   * @param jobLink - Job link URL [职位链接]
    * @throws Error if duplicate application exists [如果存在重复申请则抛出错误]
    */
-  private async checkDuplicateApplication(studentId: string, jobId: string) {
-    // Check for duplicate application using studentId and jobId combination
-    // This ensures a student can't apply to the same job multiple times
-    const [existingApplication] = await this.db
-      .select()
-      .from(jobApplications)
-      .where(
-        and(
-          eq(jobApplications.studentId, studentId),
-          eq(jobApplications.jobId, jobId),
-        ),
+  private async checkDuplicateApplication(
+    studentId: string,
+    jobId: string,
+    jobLink: string | undefined = undefined,
+  ) {
+    this.logger.debug(
+      `checkDuplicateApplication called: studentId=${studentId}, jobId=${jobId}, jobLink=${jobLink}`,
+    );
+
+    // Check if jobId is a valid UUID before querying [查询前检查jobId是否为有效UUID]
+    const isUuidFormat =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        jobId,
       );
 
-    if (existingApplication) {
-      throw new Error(
-        `Student ${studentId} has already applied for job ${jobId}`,
+    this.logger.debug(`isUuidFormat: ${isUuidFormat}`);
+
+    // For UUID jobId: check duplicate using studentId + jobId [对于UUID格式的jobId：使用studentId + jobId检查重复]
+    if (isUuidFormat) {
+      const [existingApplication] = await this.db
+        .select()
+        .from(jobApplications)
+        .where(
+          and(
+            eq(jobApplications.studentId, studentId),
+            eq(jobApplications.jobId, jobId),
+          ),
+        );
+
+      if (existingApplication) {
+        throw new BadRequestException(
+          `Student ${studentId} has already applied for job ${jobId}`,
+        );
+      }
+    }
+    // For non-UUID jobId (external job IDs): check duplicate using studentId + job_link [对于非UUID格式的jobId（外部职位ID）：使用studentId + job_link检查重复]
+    else if (jobLink) {
+      const [existingApplication] = await this.db
+        .select()
+        .from(jobApplications)
+        .where(
+          and(
+            eq(jobApplications.studentId, studentId),
+            eq(jobApplications.jobLink, jobLink),
+          ),
+        );
+
+      if (existingApplication) {
+        throw new BadRequestException(
+          `Student ${studentId} has already applied for job using the same link: ${jobLink}`,
+        );
+      }
+    }
+    // For non-UUID jobId without jobLink: skip duplicate check [对于非UUID格式且没有jobLink的jobId：跳过重复检查]
+    else {
+      this.logger.warn(
+        `Skipping duplicate check for non-UUID jobId without jobLink: ${jobId}`,
       );
     }
   }
@@ -836,13 +878,22 @@ export class JobApplicationService implements IJobApplicationService {
       `Creating manual job application: student=${dto.studentId}, mentor=${dto.mentorId}, jobTitle=${dto.jobTitle}`,
     );
 
-    // Check for duplicate application using studentId and jobId [检查学生ID和岗位ID的重复申请]
-    // Note: For manual creation, jobId is preferred if available, otherwise we rely on business logic
-    const duplicateCheckId = dto.jobId || dto.jobLink;
-    if (!duplicateCheckId) {
-      throw new BadRequestException("Either jobId or jobLink is required for duplicate checking");
+    // Check for duplicate application using studentId and jobId/jobLink [检查学生ID和岗位ID/职位链接的重复申请]
+    // Strategy: Always prefer jobLink for duplicate checking when available [策略：当jobLink可用时，始终优先使用jobLink进行重复检查]
+    // This avoids UUID type errors when jobId is a non-UUID external ID [这避免了当jobId是非UUID外部ID时的类型错误]
+    if (!dto.jobId && !dto.jobLink) {
+      throw new BadRequestException(
+        "Either jobId or jobLink is required for duplicate checking",
+      );
     }
-    await this.checkDuplicateApplication(dto.studentId, duplicateCheckId);
+
+    // Use jobLink as the primary identifier for duplicate checking if available [如果jobLink可用，则将其用作重复检查的主要标识符]
+    const identifierForCheck = dto.jobLink || dto.jobId!;
+    await this.checkDuplicateApplication(
+      dto.studentId,
+      identifierForCheck,
+      dto.jobLink,
+    );
 
     // Wrap all operations in a transaction to ensure atomicity [将所有操作包裹在事务中以确保原子性]
     const application = await this.db.transaction(async (tx) => {

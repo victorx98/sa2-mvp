@@ -139,19 +139,21 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         updatedAt: new Date(),
       };
 
-      // Mock the database operations - first call (duplicate check) returns empty, second call (job existence) returns job
+      // Mock the database operations
+      // First call (lines 81-84): query recommendedJobs for job existence check
+      // Second call (inside checkDuplicateApplication): query jobApplications for duplicate check
       let selectCallCount = 0;
       mockDb.select = jest.fn((_columns?: any) => {
         return {
           from: jest.fn(() => ({
             where: jest.fn(() => {
               selectCallCount++;
-              // First call: duplicate check - return empty array
-              // Second call: job existence check - return job
+              // First call: job existence check - return job
+              // Second call: duplicate check - return empty array
               return Promise.resolve(
                 selectCallCount === 1
-                  ? []
-                  : [{ id: testJobId, status: "active", title: "Test Job" }],
+                  ? [{ id: testJobId, status: "active", title: "Test Job", jobLink: "https://example.com/job" }]
+                  : [],
               );
             }),
           })),
@@ -207,20 +209,29 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         coverLetter: "Test cover letter",
       };
 
-      // Mock duplicate application found
-      mockDb.select = jest.fn(() => ({
-        from: jest.fn(() => ({
-          where: jest.fn(() => {
-            // Return existing application to simulate duplicate
-            return Promise.resolve([{ id: testApplicationId }]);
-          }),
-        })),
-      }));
+      // Mock duplicate application found - first call returns job (existence check), second call returns duplicate
+      let selectCallCount = 0;
+      mockDb.select = jest.fn((_columns?: any) => {
+        return {
+          from: jest.fn(() => ({
+            where: jest.fn(() => {
+              selectCallCount++;
+              // First call: job existence check - return job
+              // Second call: duplicate check - return existing application
+              return Promise.resolve(
+                selectCallCount === 1
+                  ? [{ id: testJobId, status: "active", title: "Test Job", jobLink: "https://example.com/job" }]
+                  : [{ id: testApplicationId }],
+              );
+            }),
+          })),
+        };
+      });
 
       // Act & Assert [执行和断言]
       await expect(
         jobApplicationService.submitApplication(dto),
-      ).rejects.toThrow(/already applied/);
+      ).rejects.toThrow(BadRequestException);
     });
 
     it("should throw NotFoundException if job not found [如果岗位未找到应该抛出NotFoundException]", async () => {
@@ -258,20 +269,22 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       };
 
       // Mock job found but not active
-      let callCount = 0;
-      mockDb.select = jest.fn(() => ({
-        from: jest.fn(() => ({
-          where: jest.fn(() => {
-            callCount++;
-            // First call: duplicate check (empty)
-            if (callCount === 1) {
-              return Promise.resolve([]);
-            }
-            // Second call: job existence check (found but inactive)
-            return Promise.resolve([{ id: testJobId, status: "inactive" }]);
-          }),
-        })),
-      }));
+      mockDb.select = jest.fn((_columns?: any) => {
+        return {
+          from: jest.fn((table: any) => ({
+            where: jest.fn(() => {
+              const isJobApplicationsTable = table && table[Symbol.for('drizzle:Name')] === 'job_applications';
+              // First call: duplicate check on job_applications - return empty
+              // Second call: job existence check on recommended_jobs - return job with inactive status
+              return Promise.resolve(
+                isJobApplicationsTable
+                  ? []
+                  : [{ id: testJobId, status: "inactive" }]
+              );
+            }),
+          })),
+        };
+      });
 
       // Act & Assert [执行和断言]
       await expect(
@@ -911,8 +924,8 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
       const mockCountResult = [{ count: 1 }];
 
-      mockDb.select = jest.fn((columns?: any) => {
-        if (columns && columns.count) {
+      mockDb.select = jest.fn((_columns?: any) => {
+        if (_columns && _columns.count) {
           return {
             from: jest.fn(() => ({
               where: jest.fn(() => {
@@ -967,8 +980,8 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const mockApplications: any[] = [];
       const mockCountResult = [{ count: 0 }];
 
-      mockDb.select = jest.fn((columns?: any) => {
-        if (columns && columns.count) {
+      mockDb.select = jest.fn((_columns?: any) => {
+        if (_columns && _columns.count) {
           return {
             from: jest.fn(() => ({
               where: jest.fn(() => {
@@ -1031,8 +1044,8 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
       const mockCountResult = [{ count: 1 }];
 
-      mockDb.select = jest.fn((columns?: any) => {
-        if (columns && columns.count) {
+      mockDb.select = jest.fn((_columns?: any) => {
+        if (_columns && _columns.count) {
           return {
             from: jest.fn(() => ({
               where: jest.fn(() => {
@@ -1219,8 +1232,8 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       };
 
       // Mock database operations
-      mockDb.select = jest.fn((columns?: any) => {
-        if (columns && columns.count) {
+      mockDb.select = jest.fn((_columns?: any) => {
+        if (_columns && _columns.count) {
           return {
             from: jest.fn(() => ({
               where: jest.fn(() => {
@@ -1572,6 +1585,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
     it("should throw error if duplicate application exists [如果存在重复申请应该抛出错误]", async () => {
       // Arrange [准备]
+      const testJobId = randomUUID(); // Use real UUID format for duplicate check to work [使用真正的UUID格式使重复检查生效]
       const dto: ICreateManualJobApplicationDto = {
         studentId: testStudentId,
         mentorId: testMentorId,
@@ -1579,7 +1593,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         resumeSubmittedDate: new Date(),
         jobTitle: "Software Engineer",
         jobLink: "https://example.com/job/123",
-        jobId: "EXT-123",
+        jobId: testJobId, // Use UUID format so duplicate check will execute [使用UUID格式以便重复检查会执行]
         companyName: "Example Company",
         createdBy: testMentorId,
       };
@@ -1597,7 +1611,59 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Act & Assert [执行和断言]
       await expect(
         jobApplicationService.createManualJobApplication(dto),
-      ).rejects.toThrow(/already applied/);
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should successfully create application with non-UUID jobId (skips duplicate check) [应该成功创建非UUID格式的jobId（跳过重复检查）]", async () => {
+      // Arrange [准备]
+      const dto: ICreateManualJobApplicationDto = {
+        studentId: testStudentId,
+        mentorId: testMentorId,
+        jobType: "full-time",
+        resumeSubmittedDate: new Date(),
+        jobTitle: "Software Engineer",
+        jobLink: "https://example.com/job/123",
+        jobId: "EXT-123", // Non-UUID format should skip duplicate check [非UUID格式应跳过重复检查]
+        companyName: "Example Company",
+        createdBy: testMentorId,
+      };
+
+      const createdApplication = {
+        id: testApplicationId,
+        studentId: dto.studentId,
+        jobId: dto.jobId,
+        applicationType: ApplicationType.REFERRAL,
+        status: "mentor_assigned",
+        assignedMentorId: dto.mentorId,
+        recommendedBy: dto.createdBy,
+        recommendedAt: new Date(),
+        submittedAt: dto.resumeSubmittedDate,
+        updatedAt: new Date(),
+      };
+
+      // Mock empty for duplicate check (should be called but return empty)
+      mockDb.select = jest.fn(() => ({
+        from: jest.fn(() => ({
+          where: jest.fn(() => Promise.resolve([])),
+        })),
+      }));
+
+      mockDb.insert = jest.fn()
+        .mockImplementationOnce(() => ({
+          values: jest.fn(() => ({
+            returning: jest.fn().mockResolvedValue([createdApplication]),
+          })),
+        }))
+        .mockImplementationOnce(() => ({
+          values: jest.fn().mockResolvedValue([]),
+        }));
+
+      // Act [执行]
+      const result = await jobApplicationService.createManualJobApplication(dto);
+
+      // Assert [断言]
+      expect(result.data).toEqual(createdApplication);
+      expect(mockDb.insert).toHaveBeenCalledTimes(2);
     });
   });
 });
