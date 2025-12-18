@@ -605,18 +605,24 @@ export class CalendarService {
     meetingUrl: string,
     mentorSlotId: string,
     studentSlotId: string,
+    mentorName: string,
+    studentName: string,
     tx?: DrizzleTransaction,
   ): Promise<void> {
     const executor: DrizzleExecutor = tx ?? this.db;
 
     try {
-      // Update mentor slot
+      // Update mentor slot with student name as otherPartyName
       const mentorSlot = await this.getSlotById(mentorSlotId, tx);
       if (!mentorSlot) {
         throw new Error(`Mentor slot not found: ${mentorSlotId}`);
       }
 
-      const mentorMetadata = { ...mentorSlot.metadata, meetingUrl };
+      const mentorMetadata = { 
+        ...mentorSlot.metadata, 
+        meetingUrl,
+        otherPartyName: studentName, // Mentor sees student name
+      };
       const mentorMetadataJson = JSON.stringify(mentorMetadata);
 
       await executor.execute(sql`
@@ -629,13 +635,17 @@ export class CalendarService {
         WHERE id = ${mentorSlotId}
       `);
 
-      // Update student slot
+      // Update student slot with mentor name as otherPartyName
       const studentSlot = await this.getSlotById(studentSlotId, tx);
       if (!studentSlot) {
         throw new Error(`Student slot not found: ${studentSlotId}`);
       }
 
-      const studentMetadata = { ...studentSlot.metadata, meetingUrl };
+      const studentMetadata = { 
+        ...studentSlot.metadata, 
+        meetingUrl,
+        otherPartyName: mentorName, // Student sees mentor name
+      };
       const studentMetadataJson = JSON.stringify(studentMetadata);
 
       await executor.execute(sql`
@@ -650,6 +660,59 @@ export class CalendarService {
     } catch (error) {
       throw new Error(
         `Failed to update slots with session and meeting: ${error}`,
+      );
+    }
+  }
+
+  /**
+   * Update single calendar slot with session, meeting, and metadata
+   * Used for class sessions where only one slot exists (mentor only)
+   * 
+   * @param sessionId - Session ID
+   * @param meetingId - Meeting ID
+   * @param meetingUrl - Meeting URL
+   * @param slotId - Calendar slot ID
+   * @param otherPartyName - Display name for otherPartyName field
+   * @param tx - Optional transaction
+   */
+  async updateSingleSlotWithSessionAndMeeting(
+    sessionId: string,
+    meetingId: string,
+    meetingUrl: string,
+    slotId: string,
+    otherPartyName: string,
+    tx?: DrizzleTransaction,
+  ): Promise<void> {
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    try {
+      // Get existing slot
+      const slot = await this.getSlotById(slotId, tx);
+      if (!slot) {
+        throw new Error(`Slot not found: ${slotId}`);
+      }
+
+      // Update metadata with meeting URL and otherPartyName
+      const metadata = { 
+        ...slot.metadata, 
+        meetingUrl,
+        otherPartyName,
+      };
+      const metadataJson = JSON.stringify(metadata);
+
+      // Update slot with session, meeting, and metadata
+      await executor.execute(sql`
+        UPDATE calendar
+        SET 
+          session_id = ${sessionId},
+          meeting_id = ${meetingId},
+          metadata = ${metadataJson}::jsonb,
+          updated_at = NOW()
+        WHERE id = ${slotId}
+      `);
+    } catch (error) {
+      throw new Error(
+        `Failed to update single slot with session and meeting: ${error}`,
       );
     }
   }

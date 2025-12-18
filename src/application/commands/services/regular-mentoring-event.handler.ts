@@ -10,32 +10,25 @@ import {
   REGULAR_MENTORING_SESSION_UPDATED_EVENT,
   REGULAR_MENTORING_SESSION_CANCELLED_EVENT,
   REGULAR_MENTORING_SESSION_MEETING_OPERATION_RESULT_EVENT,
-  SESSION_BOOKED_EVENT,
-  SESSION_RESCHEDULED_COMPLETED,
 } from '@shared/events/event-constants';
 import type { RegularMentoringSessionCreatedEvent } from '@shared/events';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase } from '@shared/types/database.types';
 import { FEISHU_DEFAULT_HOST_USER_ID } from 'src/constants';
 import { retryWithBackoff } from '@shared/utils/retry.util';
+import { UserService } from '@domains/identity/user/user-service';
 
 /**
  * Regular Mentoring Session Created Event Handler
  * 
- * Handles the asynchronous meeting creation flow triggered by RegularMentoringService.createSession()
+ * Handles async meeting creation flow triggered by RegularMentoringService.createSession()
  * 
  * Responsibilities:
- * 1. Listen to REGULAR_MENTORING_SESSION_CREATED_EVENT (precise subscription, no filtering needed)
- * 2. Call MeetingManagerService to create meeting on third-party platform
- * 3. Update session with meeting_id and status in database transaction
- * 4. Update calendar slots with session_id, meeting_id, and meetingUrl
- * 5. Publish SESSION_BOOKED_EVENT to trigger notification flows
- * 
- * Design principles:
- * - No type-based filtering (event name is already type-specific)
- * - Graceful error handling (update session status to MEETING_FAILED if creation fails)
- * - Atomic operations (use transactions for consistency)
- * - Loosely coupled (only depends on public interfaces)
+ * 1. Listen to REGULAR_MENTORING_SESSION_CREATED_EVENT
+ * 2. Create meeting via MeetingManagerService
+ * 3. Update session (meeting_id, status=SCHEDULED) in transaction
+ * 4. Update calendar slots with meeting info
+ * 5. Publish MEETING_OPERATION_RESULT_EVENT (operation: create)
  */
 @Injectable()
 export class RegularMentoringCreatedEventHandler {
@@ -48,6 +41,7 @@ export class RegularMentoringCreatedEventHandler {
     private readonly domainRegularMentoringService: DomainRegularMentoringService,
     private readonly calendarService: CalendarService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly userService: UserService,
   ) {}
 
   /**
@@ -87,9 +81,13 @@ export class RegularMentoringCreatedEventHandler {
         `Meeting created successfully: meetingId=${meeting.id}, meetingNo=${meeting.meetingNo}, meetingUrl=${meeting.meetingUrl}`,
       );
 
-      // Step 2: Update session and calendar slots in a transaction
+      // Step 2: Query user display names for calendar metadata
+      const mentorName = await this.userService.getDisplayName(event.mentorId);
+      const studentName = await this.userService.getDisplayName(event.studentId);
+
+      // Step 3: Update session and calendar slots in a transaction
       await this.db.transaction(async (tx) => {
-        // 2.1: Complete meeting setup for session (update meeting_id and status)
+        // 3.1: Complete meeting setup for session (update meeting_id and status)
         await this.domainRegularMentoringService.completeMeetingSetup(
           event.sessionId,
           meeting.id,
@@ -98,13 +96,15 @@ export class RegularMentoringCreatedEventHandler {
 
         this.logger.debug(`Session meeting setup completed: sessionId=${event.sessionId}`);
 
-        // 2.2: Update calendar slots with session_id, meeting_id, and meetingUrl
+        // 3.2: Update calendar slots with session_id, meeting_id, meetingUrl, and otherPartyName
         await this.calendarService.updateSlotWithSessionAndMeeting(
           event.sessionId,
           meeting.id,
           meeting.meetingUrl,
           event.mentorCalendarSlotId,
           event.studentCalendarSlotId,
+          mentorName,
+          studentName,
           tx,
         );
 
@@ -113,28 +113,7 @@ export class RegularMentoringCreatedEventHandler {
         );
       });
 
-      // Step 3: Publish SESSION_BOOKED_EVENT (outside transaction)
-      this.eventEmitter.emit(SESSION_BOOKED_EVENT, {
-        sessionId: event.sessionId,
-        studentId: event.studentId,
-        mentorId: event.mentorId,
-        counselorId: event.counselorId,
-        serviceType: 'regular_mentoring',
-        mentorCalendarSlotId: event.mentorCalendarSlotId,
-        studentCalendarSlotId: event.studentCalendarSlotId,
-        serviceHoldId: null, // TODO: Implement service hold if needed
-        scheduledStartTime: event.scheduledStartTime,
-        duration: event.duration,
-        meetingProvider: event.meetingProvider,
-        meetingPassword: null, // Not implemented in current meeting providers
-        meetingUrl: meeting.meetingUrl,
-      });
-
-      this.logger.log(
-        `SESSION_BOOKED_EVENT published: sessionId=${event.sessionId}, meetingUrl=${meeting.meetingUrl}`,
-      );
-
-      // Step 4: Publish unified result event (success - notify all parties)
+      // Step 3: Publish result event (success - notify all parties)
       this.eventEmitter.emit(REGULAR_MENTORING_SESSION_MEETING_OPERATION_RESULT_EVENT, {
         operation: 'create',
         status: 'success',
@@ -143,7 +122,9 @@ export class RegularMentoringCreatedEventHandler {
         mentorId: event.mentorId,
         counselorId: event.counselorId,
         scheduledAt: event.scheduledStartTime,
+        duration: event.duration,
         meetingUrl: meeting.meetingUrl,
+        meetingProvider: event.meetingProvider,
         notifyRoles: ['counselor', 'mentor', 'student'],
       });
 
@@ -157,7 +138,7 @@ export class RegularMentoringCreatedEventHandler {
         error.stack,
       );
 
-      // Publish unified result event (failed - notify counselor only)
+      // Publish result event (failed - notify counselor only)
       this.eventEmitter.emit(REGULAR_MENTORING_SESSION_MEETING_OPERATION_RESULT_EVENT, {
         operation: 'create',
         status: 'failed',
@@ -179,14 +160,12 @@ export class RegularMentoringCreatedEventHandler {
 
   /**
    * Handle REGULAR_MENTORING_SESSION_UPDATED_EVENT
-   * Executes the async meeting update flow when session is rescheduled
+   * Executes async meeting update flow when session is rescheduled
    * 
    * Responsibilities:
-   * 1. Update meeting on third-party platform (Feishu/Zoom) with retry logic
+   * 1. Update meeting on third-party platform with retry logic
    * 2. Update meetings table with new schedule info
-   * 3. Publish SESSION_RESCHEDULED_NOTIFICATION event for downstream notifications
-   * 
-   * @param event - Session update event containing meeting and schedule details
+   * 3. Publish MEETING_OPERATION_RESULT_EVENT (operation: update)
    */
   @OnEvent(REGULAR_MENTORING_SESSION_UPDATED_EVENT)
   async handleSessionUpdated(event: any): Promise<void> {
@@ -252,7 +231,7 @@ export class RegularMentoringCreatedEventHandler {
       );
     }
 
-    // Step 4: Publish unified result event based on result
+    // Step 4: Publish result event based on result
     this.eventEmitter.emit(REGULAR_MENTORING_SESSION_MEETING_OPERATION_RESULT_EVENT, {
       operation: 'update',
       status: updateSuccess ? 'success' : 'failed',
@@ -271,36 +250,16 @@ export class RegularMentoringCreatedEventHandler {
     this.logger.log(
       `MEETING_OPERATION_RESULT_EVENT published: operation=update, status=${updateSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
     );
-
-    // Step 5: Emit legacy notification event (for backward compatibility)
-    this.eventEmitter.emit(SESSION_RESCHEDULED_COMPLETED, {
-      sessionId: event.sessionId,
-      meetingUpdateSuccess: updateSuccess,
-      errorMessage,
-      mentorId: event.mentorId,
-      studentId: event.studentId,
-      counselorId: event.counselorId,
-      newScheduledAt: event.newScheduledAt,
-      newDuration: event.newDuration,
-    });
-
-    this.logger.log(
-      `SESSION_RESCHEDULED_COMPLETED published for session ${event.sessionId}, updateSuccess=${updateSuccess}`,
-    );
   }
 
   /**
    * Handle REGULAR_MENTORING_SESSION_CANCELLED_EVENT
-   * Executes the async meeting cancellation flow
+   * Executes async meeting cancellation flow
    * 
    * Responsibilities:
-   * 1. Cancel meeting on third-party platform (Feishu/Zoom) with retry logic (max 3 times)
+   * 1. Cancel meeting on third-party platform with retry logic
    * 2. Update meetings table status to CANCELLED
-   * 3. Publish success/failed event based on result:
-   *    - Success: Notify counselor + mentor + student
-   *    - Failed: Notify counselor only (requires manual retry)
-   * 
-   * @param event - Session cancellation event
+   * 3. Publish MEETING_OPERATION_RESULT_EVENT (operation: cancel)
    */
   @OnEvent(REGULAR_MENTORING_SESSION_CANCELLED_EVENT)
   async handleSessionCancelled(event: any): Promise<void> {
@@ -358,7 +317,7 @@ export class RegularMentoringCreatedEventHandler {
       );
     }
 
-    // Step 4: Publish unified result event based on result
+    // Step 4: Publish result event based on result
     this.eventEmitter.emit(REGULAR_MENTORING_SESSION_MEETING_OPERATION_RESULT_EVENT, {
       operation: 'cancel',
       status: cancelSuccess ? 'success' : 'failed',

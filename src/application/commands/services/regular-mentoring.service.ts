@@ -23,7 +23,6 @@ import {
   REGULAR_MENTORING_SESSION_CREATED_EVENT,
   REGULAR_MENTORING_SESSION_UPDATED_EVENT,
   REGULAR_MENTORING_SESSION_CANCELLED_EVENT,
-  SESSION_RESCHEDULED_COMPLETED,
 } from '@shared/events/event-constants';
 
 // DTOs
@@ -144,9 +143,6 @@ export class RegularMentoringService {
             sessionType: CalendarSessionType.REGULAR_MENTORING,
             title: dto.title,
             sessionId: undefined, // Will be filled in async flow
-            metadata: {
-              otherPartyName: 'studentName',
-            },
           },
           tx,
         );
@@ -166,9 +162,6 @@ export class RegularMentoringService {
             sessionType: CalendarSessionType.REGULAR_MENTORING,
             title: dto.title,
             sessionId: undefined, // Will be filled in async flow
-            metadata: {
-              otherPartyName: 'mentorName',
-            },
           },
           tx,
         );
@@ -344,9 +337,6 @@ export class RegularMentoringService {
               sessionType: CalendarSessionType.REGULAR_MENTORING,
               title: dto.title || oldSession.title,
               sessionId: sessionId,
-              metadata: {
-                otherPartyName: 'studentName',
-              },
             },
             tx,
           );
@@ -364,9 +354,6 @@ export class RegularMentoringService {
               sessionType: CalendarSessionType.REGULAR_MENTORING,
               title: dto.title || oldSession.title,
               sessionId: sessionId,
-              metadata: {
-                otherPartyName: 'mentorName',
-              },
             },
             tx,
           );
@@ -408,15 +395,14 @@ export class RegularMentoringService {
       // Step 6: Extract meeting provider from oldSession
       const meetingProvider = oldSessionData.meetingProvider || 'feishu';
 
-      // Step 7: Emit event based on what changed
+      // Step 7: Emit event to trigger async meeting update (only when time or duration changes)
       if (timeChanged || durationChanged) {
-        // Emit event to trigger async meeting update (when time or duration changes)
         this.eventEmitter.emit(REGULAR_MENTORING_SESSION_UPDATED_EVENT, {
           sessionId: sessionId,
           meetingId: oldSession.meetingId,
-          oldScheduledAt: meetingScheduleStartTime, // Use actual meeting schedule time
+          oldScheduledAt: meetingScheduleStartTime,
           newScheduledAt: scheduledAtIso,
-          oldDuration: meetingScheduleDuration, // Use actual meeting duration
+          oldDuration: meetingScheduleDuration,
           newDuration: newDuration,
           newTitle: dto.title || oldSession.title,
           mentorId: oldSession.mentorUserId,
@@ -426,19 +412,6 @@ export class RegularMentoringService {
         } as any);
         this.logger.log(`Published REGULAR_MENTORING_SESSION_UPDATED_EVENT for session ${sessionId}`);
       }
-
-      // Always emit notification event (for both metadata and time changes)
-      this.eventEmitter.emit(SESSION_RESCHEDULED_COMPLETED, {
-        sessionId: sessionId,
-        changeType: timeChanged ? 'TIME' : 'METADATA',
-        mentorId: oldSession.mentorUserId,
-        studentId: oldSession.studentUserId,
-        counselorId: oldSession.createdByCounselorId,
-        newScheduledAt: scheduledAtIso,
-        newTitle: dto.title || oldSession.title,
-        meetingProvider: meetingProvider,
-      } as any);
-      this.logger.log(`Published SESSION_RESCHEDULED_COMPLETED for session ${sessionId}`);
 
       // Construct response with all updated values including meeting info
       // Meeting URL does not change when rescheduling, so include it from oldSession
