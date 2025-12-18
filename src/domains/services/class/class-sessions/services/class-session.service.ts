@@ -211,7 +211,7 @@ export class ClassSessionService {
       classId: session.classId,
       classType: classEntity.type,
       mentorId: session.mentorUserId,
-      refrenceId: sessionId,
+      refrenceId: sessionId, // shared primary key with service_references table
       actualDurationHours,
       durationHours,
       allowBilling: true, // All class sessions require mentor billing

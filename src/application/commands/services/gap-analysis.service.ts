@@ -117,7 +117,7 @@ export class GapAnalysisService {
           {
             studentId: dto.studentId,
             serviceType: dto.serviceType,
-            quantity: 1,
+            quantity: parseFloat((dto.duration/60).toFixed(1)),
             createdBy: dto.counselorId,
           },
           tx,
@@ -178,6 +178,8 @@ export class GapAnalysisService {
             meetingId: undefined,
             sessionType: SessionType.GAP_ANALYSIS,
             sessionTypeId: dto.sessionTypeId,
+            serviceType: dto.serviceType,
+            serviceHoldId: hold.id, // Link to service hold
             studentUserId: dto.studentId,
             mentorUserId: dto.mentorId,
             createdByCounselorId: dto.counselorId,
@@ -297,6 +299,24 @@ export class GapAnalysisService {
 
       // Step 3: Transaction - Update calendar and session
       const updatedSession = await this.db.transaction(async (tx: DrizzleTransaction) => {
+
+        // Update service hold when duration changes (rescheduling consumes credits)
+        // if (durationChanged) {
+        //   const oldHoldId = (oldSession as any).serviceHoldId;
+        //   if (oldHoldId) {
+        //     await this.serviceHoldService.updateHold(
+        //       oldHoldId,
+        //       {
+        //         studentId: oldSession.studentUserId,
+        //         serviceType: oldSession.serviceType,
+        //         quantity: parseFloat((dto.duration/60).toFixed(1)),
+        //       },
+        //       tx,
+        //     );
+        //     this.logger.debug(`Service hold updated for rescheduling: ${oldHoldId}`);
+        //   }
+        // }
+
         if (timeChanged || durationChanged) {
           // Cancel old calendar slots (update status to 'cancelled' instead of deleting)
           await this.calendarService.updateSlots(
@@ -471,6 +491,9 @@ export class GapAnalysisService {
 
       // Step 3: Execute transaction to update session and calendar
       await this.db.transaction(async (tx: DrizzleTransaction) => {
+        // Release service hold when session is cancelled
+        await this.serviceHoldService.releaseHold(session.serviceHoldId, reason);
+
         // Update session status to CANCELLED
         await this.domainGapAnalysisService.cancelSession(sessionId, reason);
 

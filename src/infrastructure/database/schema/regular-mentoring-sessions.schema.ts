@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { meetings } from './meetings.schema';
 import { userTable } from './user.schema';
 import { sessionTypes } from './session-types.schema';
+import { serviceHolds } from './service-holds.schema';
 
 /**
  * Regular Mentoring Sessions Schema
@@ -29,6 +30,7 @@ export const regularMentoringSessions = pgTable(
       .notNull()
       .references(() => userTable.id),
     createdByCounselorId: uuid('created_by_counselor_id').references(() => userTable.id),
+    serviceHoldId: uuid('service_hold_id').references(() => serviceHolds.id), // Initial booking hold
     title: varchar('title', { length: 255 }).notNull(),
     description: text('description'),
     status: varchar('status', { length: 20 }).notNull().default('scheduled'),
@@ -54,6 +56,7 @@ export const regularMentoringSessions = pgTable(
       table.scheduledAt,
     ),
     index('idx_regular_session_service_type').on(table.serviceType),
+    index('idx_regular_session_service_hold').on(table.serviceHoldId),
     check('regular_mentoring_sessions_status_check',
       sql`status IN ('pending_meeting', 'scheduled', 'completed', 'cancelled', 'deleted', 'meeting_failed')`
     ),

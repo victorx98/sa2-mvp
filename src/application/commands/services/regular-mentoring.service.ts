@@ -124,7 +124,7 @@ export class RegularMentoringService {
           {
             studentId: dto.studentId,
             serviceType: dto.serviceType,
-            quantity: 1,
+            quantity: parseFloat((dto.duration/60).toFixed(1)),
             createdBy: dto.counselorId,
           },
           tx,
@@ -186,6 +186,7 @@ export class RegularMentoringService {
             sessionType: SessionType.REGULAR_MENTORING,
             sessionTypeId: dto.sessionTypeId,
             serviceType: dto.serviceType, // Pass serviceType to domain layer
+            serviceHoldId: hold.id, // Link to service hold
             studentUserId: dto.studentId,
             mentorUserId: dto.mentorId,
             createdByCounselorId: dto.counselorId,
@@ -301,20 +302,27 @@ export class RegularMentoringService {
       }
       
       const durationChanged = newDuration !== meetingScheduleDuration;
-
-      // Step 4: Check student service balance (temporarily commented)
-      // TODO: Validate that student has sufficient service credits for rescheduling
-      // const studentBalance = await this.serviceHoldService.checkStudentBalance(
-      //   oldSession.studentUserId,
-      //   'regular_mentoring',
-      //   1,
-      // );
-      // if (!studentBalance.hasEnoughCredits) {
-      //   throw new InsufficientBalanceException('Student has insufficient service credits');
-      // }
-
+      
       // Step 5: Execute transaction to update calendar and session
       const updatedSession = await this.db.transaction(async (tx: DrizzleTransaction) => {
+
+        // Update service hold when time/duration changes (rescheduling consumes credits)
+        // if (durationChanged) {
+        //   const oldHoldId = (oldSession as any).serviceHoldId;
+        //   if (oldHoldId) {
+        //     await this.serviceHoldService.updateHold(
+        //       oldHoldId,
+        //       {
+        //         studentId: oldSession.studentUserId,
+        //         serviceType: oldSession.serviceType,
+        //         quantity: parseFloat((dto.duration/60).toFixed(1)),
+        //       },
+        //       tx,
+        //     );
+        //     this.logger.debug(`Service hold updated for rescheduling: ${oldHoldId}`);
+        //   }
+        // }
+
         // Update calendar if either scheduled time or duration changed
         if (timeChanged || durationChanged) {
           // Cancel old calendar slots (update status to 'cancelled' instead of deleting)
@@ -489,6 +497,9 @@ export class RegularMentoringService {
 
       // Step 3: Execute transaction to update session and calendar
       await this.db.transaction(async (tx: DrizzleTransaction) => {
+        // Release service hold when session is cancelled
+        await this.serviceHoldService.releaseHold(session.serviceHoldId, reason);
+
         // Update session status to CANCELLED (no tx support, runs outside transaction)
         await this.domainRegularMentoringService.cancelSession(sessionId, reason);
 

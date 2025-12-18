@@ -62,8 +62,9 @@ export const SESSION_RESCHEDULED_COMPLETED = "session.rescheduled.completed";
 // Service Session Events (服务会话事件)
 export const SERVICE_SESSION_COMPLETED_EVENT = "services.session.completed";
 
-// Meeting Events (会议事件) - v4.1
+// Meeting lifecycle completed event
 export const MEETING_LIFECYCLE_COMPLETED_EVENT = "meeting.lifecycle.completed";
+// Meeting recording ready event
 export const MEETING_RECORDING_READY_EVENT = "meeting.recording.ready";
 
 // Financial Events (财务事件)
