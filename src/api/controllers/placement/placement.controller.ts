@@ -40,7 +40,7 @@ import { JobApplicationResponseDto, JobApplicationServiceResultResponseDto, JobP
  * 2. 职位申请管理
  */
 @Controller("api/placement")
-@ApiTags("Admin Placement")
+@ApiTags("Placement")
 @UseGuards(AuthGuard, RolesGuard)
 @Roles("admin", "manager")
 @ApiBearerAuth()

@@ -66,7 +66,7 @@ import { ContractStatus } from "@shared/types/contract-enums";
  * 4. 返回HTTP响应
  */
 @Controller(`${ApiPrefix}/contracts`)
-@ApiTags("Admin Contracts")
+@ApiTags("Contracts")
 @UseGuards(AuthGuard, RolesGuard)
 @Roles("admin", "manager", "counselor")
 @ApiBearerAuth()

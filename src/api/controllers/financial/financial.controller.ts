@@ -119,7 +119,7 @@ import type { ClassMentorPrice, MentorPrice } from "@infrastructure/database/sch
  * 5. 结算管理
  */
 @Controller("api/financial")
-@ApiTags("Admin Financial")
+@ApiTags("Financial")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles("admin")
 @ApiBearerAuth()
