@@ -55,21 +55,26 @@ export interface ICreateJobPositionDto {
 
 
 /**
- * Filter interface for searching job positions [搜索岗位筛选接口]
+ * Base filter interface for job positions [岗位基础筛选接口]
+ * Contains common filter fields used across the application [包含跨应用使用的通用筛选字段]
  */
-export interface IJobPositionSearchFilter {
+interface IBaseJobPositionFilter {
   status?: "active" | "inactive" | "expired"; // Filter by status [按状态筛选]
   companyName?: string; // Filter by company [按公司筛选]
   locations?: string[]; // Filter by location [按地点筛选]
 }
 
 /**
- * DTO for searching job positions [搜索岗位DTO]
+ * Filter interface for searching job positions [搜索岗位筛选接口]
+ * Used internally in service layer [在服务层内部使用]
  */
-export interface ISearchJobPositionsDto {
-  status?: "active" | "inactive" | "expired"; // Filter by status [按状态筛选]
-  companyName?: string; // Filter by company [按公司筛选]
-  locations?: string[]; // Filter by location [按地点筛选]
+export type IJobPositionSearchFilter = IBaseJobPositionFilter; // Type alias for clarity and future extensibility [类型别名用于清晰表达和未来扩展]
+
+/**
+ * DTO for searching job positions [搜索岗位DTO]
+ * Used for API requests with additional search options [用于API请求，包含额外搜索选项]
+ */
+export interface ISearchJobPositionsDto extends IBaseJobPositionFilter {
   jobType?: string; // Filter by job type [按岗位类型筛选]
   experienceLevel?: string; // Filter by experience level [按经验等级筛选]
   industry?: string; // Filter by industry [按行业筛选]

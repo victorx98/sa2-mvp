@@ -215,7 +215,7 @@ export class SettlementService implements ISettlementService {
         .returning();
 
       if (!settlement) {
-        throw new Error("Failed to create settlement record");
+        throw new BadRequestException("Failed to create settlement record: Create returned no result");
       }
 
       // 6. Create settlement details (创建结算明细记录)

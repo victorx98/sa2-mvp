@@ -95,7 +95,7 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
           .returning();
 
         if (!updated) {
-          throw new Error("Failed to update payment info");
+          throw new BadRequestException("Failed to update payment info: Update returned no result");
         }
 
         return {
@@ -126,7 +126,7 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
           .returning();
 
         if (!created) {
-          throw new Error("Failed to create payment info");
+          throw new BadRequestException("Failed to create payment info: Create returned no result");
         }
 
         return {

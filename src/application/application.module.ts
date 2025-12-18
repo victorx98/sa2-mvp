@@ -85,6 +85,7 @@ import { UpdateJobApplicationStatusCommand } from "./commands/placement/update-j
 import { RollbackJobApplicationStatusCommand } from "./commands/placement/rollback-job-application-status.command";
 import { RecommendReferralApplicationsBatchCommand } from "./commands/placement/recommend-referral-applications-batch.command";
 import { AssignReferralMentorCommand } from "./commands/placement/assign-referral-mentor.command";
+import { CreateManualJobApplicationCommand } from "./commands/placement/create-manual-job-application.command";
 
 // Application Layer - Commands (兼容层)
 import { AuthCommandService } from "./commands/auth-command/auth-command.service";
@@ -200,6 +201,7 @@ import { QueryModule } from "@domains/query/query.module";
     RollbackJobApplicationStatusCommand,
     RecommendReferralApplicationsBatchCommand,
     AssignReferralMentorCommand,
+    CreateManualJobApplicationCommand,
 
     // Commands (兼容层)
     AuthCommandService,
@@ -296,6 +298,7 @@ import { QueryModule } from "@domains/query/query.module";
     RollbackJobApplicationStatusCommand,
     RecommendReferralApplicationsBatchCommand,
     AssignReferralMentorCommand,
+    CreateManualJobApplicationCommand,
 
     // Commands (兼容层 - 保持向后兼容)
     AuthCommandService,
