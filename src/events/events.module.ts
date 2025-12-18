@@ -32,7 +32,7 @@ import {
   MiddlewareConsumer,
   NestModule,
 } from "@nestjs/common";
-import { EventEmitterModule } from "@nestjs/event-emitter";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
 import {
   CorrelationIdProvider,
@@ -40,6 +40,7 @@ import {
 } from "./infrastructure/correlation-id.provider";
 import { EventFlowTracker } from "./infrastructure/event-flow-context";
 import { EnhancedEventBus } from "./infrastructure/enhanced-event-bus";
+import { SagaOrchestrator } from "./sagas/saga-orchestrator";
 
 /**
  * Configuration options for the Events module
@@ -112,22 +113,7 @@ export class EventsModule implements NestModule {
 
     return {
       module: EventsModule,
-      imports: [
-        EventEmitterModule.forRoot({
-          // Enable wildcard listeners for flexible event matching
-          wildcard: false,
-          // Use default delimiter
-          delimiter: ".",
-          // Allow new listeners to be added
-          newListener: false,
-          // Remove listeners on removeListener
-          removeListener: false,
-          // Max listeners per event (0 = unlimited)
-          maxListeners: 20,
-          // Ignore errors from listeners
-          ignoreErrors: false,
-        }),
-      ],
+      imports: [],
       providers: [
         // Correlation ID Provider
         {
@@ -145,7 +131,7 @@ export class EventsModule implements NestModule {
           useFactory: (
             correlationProvider: CorrelationIdProvider,
             flowTracker: EventFlowTracker,
-            eventEmitter: any,
+            eventEmitter: EventEmitter2,
           ) => {
             const bus = new EnhancedEventBus(
               eventEmitter,
@@ -171,20 +157,30 @@ export class EventsModule implements NestModule {
 
             return bus;
           },
-          inject: [CorrelationIdProvider, EventFlowTracker, "EventEmitter2"],
+          inject: [CorrelationIdProvider, EventFlowTracker, EventEmitter2],
         },
-        // Provide EventEmitter2 for injection
+        // Saga Orchestrator
         {
-          provide: "EventEmitter2",
-          useFactory: (eventEmitter: any) => eventEmitter,
-          inject: [{ token: "EventEmitter2", optional: true }],
+          provide: SagaOrchestrator,
+          useFactory: (
+            eventEmitter: EventEmitter2,
+            correlationProvider: CorrelationIdProvider,
+            flowTracker: EventFlowTracker,
+          ) => {
+            return new SagaOrchestrator(
+              eventEmitter,
+              correlationProvider,
+              flowTracker,
+            );
+          },
+          inject: [EventEmitter2, CorrelationIdProvider, EventFlowTracker],
         },
       ],
       exports: [
         CorrelationIdProvider,
         EventFlowTracker,
         EnhancedEventBus,
-        "EventEmitter2",
+        SagaOrchestrator,
       ],
     };
   }

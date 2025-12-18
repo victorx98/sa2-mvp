@@ -133,7 +133,7 @@ export const SessionBookingFlow: BusinessFlowDefinition = {
       id: "handle-failure",
       name: "Handle Failure",
       description: "Handle meeting creation failure, notify counselor",
-      triggerEvent: "meeting.creation.failed",
+      triggerEvent: "internal",
       handler: "{SessionType}CreatedEventHandler (error handler)",
       emitsEvents: ["{session_type}.session.meeting.operation.result"],
       onError: ErrorHandlingStrategy.LOG_AND_CONTINUE,

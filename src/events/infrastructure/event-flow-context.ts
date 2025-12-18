@@ -424,7 +424,11 @@ export class EventFlowTracker {
 
     if (record && record.status !== EventFlowStatus.COMPLETED) {
       record.completedAt = Date.now();
-      this.updateEventStatus(record);
+      if (record.handlers.length === 0) {
+        record.status = EventFlowStatus.COMPLETED;
+      } else {
+        this.updateEventStatus(record);
+      }
 
       const duration = record.completedAt - record.emittedAt;
       this.logger.debug(

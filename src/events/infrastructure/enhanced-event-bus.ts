@@ -237,12 +237,14 @@ export class EnhancedEventBus implements OnModuleDestroy {
     const producer = options.producer || "EnhancedEventBus";
 
     // Get or create correlation context
-    const existingContext = this.correlationProvider.getContext();
-    const correlationId = existingContext?.correlationId || uuidv4();
-    const causationId = existingContext?.causationId;
-    const rootCorrelationId = existingContext?.rootCorrelationId || correlationId;
-    const depth = existingContext?.depth || 0;
-    const userId = existingContext?.userId;
+    const parentContext = this.correlationProvider.getContext();
+
+    // Each emitted event gets a unique correlationId; the chain is held by rootCorrelationId + causationId.
+    const correlationId = uuidv4();
+    const causationId = parentContext?.correlationId;
+    const rootCorrelationId = parentContext?.rootCorrelationId || correlationId;
+    const depth = parentContext ? parentContext.depth + 1 : 0;
+    const userId = parentContext?.userId;
 
     // Validate event against catalog
     let validation: EventValidationResult | undefined;
@@ -260,6 +262,12 @@ export class EnhancedEventBus implements OnModuleDestroy {
           validation,
           error: `Validation failed: ${validation.errors.join(", ")}`,
         };
+      }
+
+      if (!validation.valid) {
+        this.logger.warn(
+          `Event validation errors for ${eventName}: ${validation.errors.join(", ")}`,
+        );
       }
 
       if (validation.warnings.length > 0) {
@@ -321,7 +329,7 @@ export class EnhancedEventBus implements OnModuleDestroy {
         correlationId,
         causationId,
         rootCorrelationId,
-        depth: depth + 1,
+        depth,
         origin: eventName,
         userId,
       });
@@ -378,11 +386,11 @@ export class EnhancedEventBus implements OnModuleDestroy {
     const eventId = uuidv4();
     const producer = options.producer || "EnhancedEventBus";
 
-    const existingContext = this.correlationProvider.getContext();
-    const correlationId = existingContext?.correlationId || uuidv4();
-    const causationId = existingContext?.causationId;
-    const rootCorrelationId = existingContext?.rootCorrelationId || correlationId;
-    const depth = existingContext?.depth || 0;
+    const parentContext = this.correlationProvider.getContext();
+    const correlationId = uuidv4();
+    const causationId = parentContext?.correlationId;
+    const rootCorrelationId = parentContext?.rootCorrelationId || correlationId;
+    const depth = parentContext ? parentContext.depth + 1 : 0;
 
     const metadata: EnhancedEventMetadata = {
       eventId,
@@ -392,10 +400,11 @@ export class EnhancedEventBus implements OnModuleDestroy {
       depth,
       timestamp: Date.now(),
       producer,
-      userId: existingContext?.userId,
+      userId: parentContext?.userId,
     };
 
-    if (this.shouldTrackEvent(eventName, options)) {
+    const shouldTrack = this.shouldTrackEvent(eventName, options);
+    if (shouldTrack) {
       this.flowTracker.recordEventEmitted(
         eventName,
         correlationId,
@@ -408,7 +417,38 @@ export class EnhancedEventBus implements OnModuleDestroy {
     }
 
     const payloadWithMetadata = this.attachMetadata(payload, metadata);
-    this.eventEmitter.emit(eventName, payloadWithMetadata);
+    try {
+      this.correlationProvider.runWithCorrelation(
+        () => {
+          this.eventEmitter.emit(eventName, payloadWithMetadata);
+        },
+        {
+          correlationId,
+          causationId,
+          rootCorrelationId,
+          depth,
+          origin: eventName,
+          userId: parentContext?.userId,
+        },
+      );
+
+      if (shouldTrack) {
+        this.flowTracker.recordEventCompleted(correlationId, rootCorrelationId);
+      }
+    } catch (error) {
+      if (shouldTrack) {
+        this.flowTracker.recordEventFailed(
+          correlationId,
+          rootCorrelationId,
+          error as Error,
+        );
+      }
+
+      this.logger.error(
+        `Event emission failed (sync): ${eventName} [${correlationId}] - ${(error as Error).message}`,
+      );
+      throw error;
+    }
 
     this.logger.debug(
       `Event emitted (sync): ${eventName} [${correlationId}]`,
@@ -432,8 +472,8 @@ export class EnhancedEventBus implements OnModuleDestroy {
     const catalogEntry = getEventEntry(eventName);
 
     if (!catalogEntry) {
-      warnings.push(`Event "${eventName}" not found in catalog`);
-      return { valid: true, errors, warnings };
+      errors.push(`Event "${eventName}" not found in catalog`);
+      return { valid: false, errors, warnings };
     }
 
     // Check if event is deprecated

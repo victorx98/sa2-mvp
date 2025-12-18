@@ -18,6 +18,7 @@ import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider'
 import type { DrizzleDatabase } from '@shared/types/database.types';
 import { FEISHU_DEFAULT_HOST_USER_ID } from 'src/constants';
 import { retryWithBackoff } from '@shared/utils/retry.util';
+import { SessionBookingSaga, SessionBookingSagaInput } from '@events/sagas/session-booking.saga';
 
 /**
  * Regular Mentoring Session Created Event Handler
@@ -48,131 +49,54 @@ export class RegularMentoringCreatedEventHandler {
     private readonly domainRegularMentoringService: DomainRegularMentoringService,
     private readonly calendarService: CalendarService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly sessionBookingSaga: SessionBookingSaga,
   ) {}
 
   /**
    * Handle REGULAR_MENTORING_SESSION_CREATED_EVENT
-   * Executes the async meeting creation flow
-   * 
+   * Executes the async meeting creation flow using Saga Orchestrator
+   *
+   * Uses SessionBookingSaga which provides:
+   * - Automatic retry with exponential backoff
+   * - Automatic compensation on failure (cancel meeting if created)
+   * - Correlation ID tracking for debugging
+   * - Unified event emission for success/failure
+   *
    * @param event - Regular mentoring session created event
    */
   @OnEvent(REGULAR_MENTORING_SESSION_CREATED_EVENT)
   async handleSessionCreated(event: RegularMentoringSessionCreatedEvent): Promise<void> {
     this.logger.log(
-      `Handling REGULAR_MENTORING_SESSION_CREATED_EVENT: sessionId=${event.sessionId}`,
+      `Handling REGULAR_MENTORING_SESSION_CREATED_EVENT via Saga: sessionId=${event.sessionId}`,
     );
 
-    try {
-      // Step 1: Create meeting on third-party platform with retry mechanism (max 3 retries)
-      this.logger.debug(`Creating meeting for session ${event.sessionId}`);
+    // Build saga input from event
+    const sagaInput: SessionBookingSagaInput = {
+      sessionId: event.sessionId,
+      studentId: event.studentId,
+      mentorId: event.mentorId,
+      counselorId: event.counselorId,
+      topic: event.topic,
+      meetingProvider: event.meetingProvider,
+      scheduledStartTime: new Date(event.scheduledStartTime),
+      duration: event.duration,
+      mentorCalendarSlotId: event.mentorCalendarSlotId,
+      studentCalendarSlotId: event.studentCalendarSlotId,
+      serviceType: 'regular_mentoring',
+    };
 
-      const meeting = await retryWithBackoff(
-        async () => {
-          return await this.meetingManagerService.createMeeting({
-        topic: event.topic,
-        provider: event.meetingProvider as any,
-        startTime: event.scheduledStartTime,
-        duration: event.duration,
-        hostUserId: this.getHostUserId(event.meetingProvider),
-        autoRecord: true,
-        participantJoinEarly: true,
-      });
-        },
-        3, // Max retries
-        1000, // Initial delay
-        this.logger,
-      );
+    // Execute saga - it handles all retry, compensation, and event emission
+    const result = await this.sessionBookingSaga.execute(sagaInput);
 
-      this.logger.debug(
-        `Meeting created successfully: meetingId=${meeting.id}, meetingNo=${meeting.meetingNo}, meetingUrl=${meeting.meetingUrl}`,
-      );
-
-      // Step 2: Update session and calendar slots in a transaction
-      await this.db.transaction(async (tx) => {
-        // 2.1: Complete meeting setup for session (update meeting_id and status)
-        await this.domainRegularMentoringService.completeMeetingSetup(
-          event.sessionId,
-          meeting.id,
-          tx,
-        );
-
-        this.logger.debug(`Session meeting setup completed: sessionId=${event.sessionId}`);
-
-        // 2.2: Update calendar slots with session_id, meeting_id, and meetingUrl
-        await this.calendarService.updateSlotWithSessionAndMeeting(
-          event.sessionId,
-          meeting.id,
-          meeting.meetingUrl,
-          event.mentorCalendarSlotId,
-          event.studentCalendarSlotId,
-          tx,
-        );
-
-        this.logger.debug(
-          `Calendar slots updated: mentorSlotId=${event.mentorCalendarSlotId}, studentSlotId=${event.studentCalendarSlotId}`,
-        );
-      });
-
-      // Step 3: Publish SESSION_BOOKED_EVENT (outside transaction)
-      this.eventEmitter.emit(SESSION_BOOKED_EVENT, {
-        sessionId: event.sessionId,
-        studentId: event.studentId,
-        mentorId: event.mentorId,
-        counselorId: event.counselorId,
-        serviceType: 'regular_mentoring',
-        mentorCalendarSlotId: event.mentorCalendarSlotId,
-        studentCalendarSlotId: event.studentCalendarSlotId,
-        serviceHoldId: null, // TODO: Implement service hold if needed
-        scheduledStartTime: event.scheduledStartTime,
-        duration: event.duration,
-        meetingProvider: event.meetingProvider,
-        meetingPassword: null, // Not implemented in current meeting providers
-        meetingUrl: meeting.meetingUrl,
-      });
-
+    if (result.success) {
       this.logger.log(
-        `SESSION_BOOKED_EVENT published: sessionId=${event.sessionId}, meetingUrl=${meeting.meetingUrl}`,
+        `Session booking saga completed successfully: sessionId=${event.sessionId}, ` +
+        `meetingId=${result.result?.meetingId}, duration=${result.duration}ms`,
       );
-
-      // Step 4: Publish unified result event (success - notify all parties)
-      this.eventEmitter.emit(REGULAR_MENTORING_SESSION_MEETING_OPERATION_RESULT_EVENT, {
-        operation: 'create',
-        status: 'success',
-        sessionId: event.sessionId,
-        studentId: event.studentId,
-        mentorId: event.mentorId,
-        counselorId: event.counselorId,
-        scheduledAt: event.scheduledStartTime,
-        meetingUrl: meeting.meetingUrl,
-        notifyRoles: ['counselor', 'mentor', 'student'],
-      });
-
-      this.logger.log(
-        `MEETING_OPERATION_RESULT_EVENT published: operation=create, status=success, sessionId=${event.sessionId}`,
-      );
-    } catch (error) {
-      // Error handling: Log error and publish failed result event
-      this.logger.error(
-        `Failed to create meeting for session ${event.sessionId}: ${error.message}`,
-        error.stack,
-      );
-
-      // Publish unified result event (failed - notify counselor only)
-      this.eventEmitter.emit(REGULAR_MENTORING_SESSION_MEETING_OPERATION_RESULT_EVENT, {
-        operation: 'create',
-        status: 'failed',
-        sessionId: event.sessionId,
-        studentId: event.studentId,
-        mentorId: event.mentorId,
-        counselorId: event.counselorId,
-        scheduledAt: event.scheduledStartTime,
-        errorMessage: error.message,
-        notifyRoles: ['counselor'],
-        requireManualIntervention: true,
-      });
-
+    } else {
       this.logger.warn(
-        `MEETING_OPERATION_RESULT_EVENT published: operation=create, status=failed, sessionId=${event.sessionId}`,
+        `Session booking saga failed: sessionId=${event.sessionId}, ` +
+        `error=${result.error?.message}, compensated=${result.compensatedSteps.length} steps`,
       );
     }
   }

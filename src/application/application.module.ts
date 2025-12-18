@@ -3,6 +3,9 @@ import { Module } from "@nestjs/common";
 // Infrastructure
 import { DatabaseModule } from "@infrastructure/database/database.module";
 
+// Sagas
+import { SessionBookingSaga } from "@events/sagas";
+
 // Domain Layer
 import { UserModule } from "@domains/identity/user/user.module";
 import { CatalogModule } from "@domains/catalog/catalog.module";
@@ -204,6 +207,9 @@ import { QueryModule } from "@domains/query/query.module";
     RollbackJobApplicationStatusCommand,
     RecommendReferralApplicationsBatchCommand,
     AssignReferralMentorCommand,
+
+    // Sagas
+    SessionBookingSaga,
 
     // Commands (兼容层)
     AuthCommandService,

@@ -5,6 +5,7 @@ import { DatabaseModule } from "./infrastructure/database/database.module";
 import { ApiModule } from "./api/api.module";
 import { SupabaseAuthModule } from "./infrastructure/auth/supabase-auth.module";
 import { TelemetryModule } from "./telemetry/telemetry.module";
+import { EventsModule } from "@events/events.module";
 
 /**
  * App Root Module
@@ -25,6 +26,12 @@ import { TelemetryModule } from "./telemetry/telemetry.module";
       envFilePath: ".env",
     }),
     EventEmitterModule.forRoot(),
+
+    // 事件驱动架构模块（必须在 EventEmitterModule 之后）
+    EventsModule.forRoot({
+      enableTracking: true,
+      enableCorrelationMiddleware: true,
+    }),
 
     // 基础设施层
     DatabaseModule,

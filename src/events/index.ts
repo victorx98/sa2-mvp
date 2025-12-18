@@ -32,6 +32,9 @@ export * from "./infrastructure";
 // Flows
 export * from "./flows";
 
+// Sagas
+export * from "./sagas";
+
 // Re-export commonly used items at top level for convenience
 export {
   EnhancedEventBus,
@@ -85,3 +88,19 @@ export {
   FlowStep,
   FlowTransition,
 } from "./flows";
+
+// Saga exports
+export {
+  SagaOrchestrator,
+  SagaDefinition,
+  SagaStep,
+  SagaContext,
+  SagaResult,
+  SagaStatus,
+  SagaStepErrorStrategy,
+  SagaExecutionOptions,
+  CompensationError,
+  SessionBookingSaga,
+  SessionBookingSagaInput,
+  SessionBookingSagaOutput,
+} from "./sagas";

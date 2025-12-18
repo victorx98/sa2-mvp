@@ -149,6 +149,9 @@ export class CorrelationIdProvider {
     const existingContext = this.getContext();
     const newCorrelationId = options?.correlationId || uuidv4();
 
+    const depth =
+      options?.depth ?? (existingContext ? existingContext.depth + 1 : 0);
+
     const context: CorrelationContext = {
       correlationId: newCorrelationId,
       causationId: existingContext?.correlationId || options?.causationId,
@@ -156,7 +159,7 @@ export class CorrelationIdProvider {
         existingContext?.rootCorrelationId ||
         options?.rootCorrelationId ||
         newCorrelationId,
-      depth: (existingContext?.depth || 0) + 1,
+      depth,
       startTime: options?.startTime || Date.now(),
       userId: options?.userId || existingContext?.userId,
       origin: options?.origin || existingContext?.origin,
@@ -181,6 +184,9 @@ export class CorrelationIdProvider {
     const existingContext = this.getContext();
     const newCorrelationId = options?.correlationId || uuidv4();
 
+    const depth =
+      options?.depth ?? (existingContext ? existingContext.depth + 1 : 0);
+
     const context: CorrelationContext = {
       correlationId: newCorrelationId,
       causationId: existingContext?.correlationId || options?.causationId,
@@ -188,7 +194,7 @@ export class CorrelationIdProvider {
         existingContext?.rootCorrelationId ||
         options?.rootCorrelationId ||
         newCorrelationId,
-      depth: (existingContext?.depth || 0) + 1,
+      depth,
       startTime: options?.startTime || Date.now(),
       userId: options?.userId || existingContext?.userId,
       origin: options?.origin || existingContext?.origin,
@@ -215,7 +221,7 @@ export class CorrelationIdProvider {
       causationId: parentContext?.correlationId,
       rootCorrelationId:
         parentContext?.rootCorrelationId || newCorrelationId,
-      depth: (parentContext?.depth || 0) + 1,
+      depth: parentContext ? parentContext.depth + 1 : 0,
       startTime: Date.now(),
       userId: parentContext?.userId,
       origin: eventName,

@@ -38,7 +38,7 @@ import { MeetingCompletionTask } from "./tasks/meeting-completion.task";
 @Module({
   imports: [
     ConfigModule,
-    EventEmitterModule.forRoot(),
+    EventEmitterModule,
     ScheduleModule.forRoot(),
   ],
   providers: [
@@ -84,4 +84,3 @@ export class MeetingModule {
     this.delayedTaskService.setLifecycleService(this.lifecycleService);
   }
 }
-

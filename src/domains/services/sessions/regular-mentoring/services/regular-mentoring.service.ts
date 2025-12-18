@@ -77,6 +77,34 @@ export class RegularMentoringService {
     this.logger.debug(`Meeting setup completed for session ${sessionId}`);
   }
 
+  /**
+   * Mark session as meeting creation failed
+   * 标记会话的会议创建失败
+   *
+   * Called when async meeting creation fails after retries.
+   * Session stays in a failed state for manual intervention.
+   * 当异步会议创建重试后失败时调用。会话保持在失败状态以便人工处理。
+   *
+   * @param sessionId - Session ID to mark as failed
+   * @param tx - Optional transaction for atomicity
+   */
+  async markMeetingFailed(
+    sessionId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<void> {
+    this.logger.log(`Marking session ${sessionId} as meeting creation failed`);
+
+    await this.repository.update(
+      sessionId,
+      {
+        status: SessionStatus.MEETING_FAILED,
+      },
+      tx,
+    );
+
+    this.logger.warn(`Session ${sessionId} marked as MEETING_FAILED - requires manual intervention`);
+  }
+
   async updateSession(
     id: string,
     dto: UpdateRegularMentoringDto,
