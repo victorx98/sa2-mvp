@@ -13,10 +13,7 @@
 export * from "./types";
 
 // Import flow definitions
-import {
-  SessionBookingFlow,
-  SessionTypeMapping,
-} from "./session-booking.flow";
+import { SessionBookingFlow, SessionTypeMapping } from "./session-booking.flow";
 import {
   SessionCompletionFlow,
   SessionRecordingFlow,
@@ -28,10 +25,7 @@ import {
 import { SettlementFlow, MentorAppealFlow } from "./settlement.flow";
 
 // Export individual flows
-export {
-  SessionBookingFlow,
-  SessionTypeMapping,
-} from "./session-booking.flow";
+export { SessionBookingFlow, SessionTypeMapping } from "./session-booking.flow";
 export {
   SessionCompletionFlow,
   SessionRecordingFlow,
@@ -145,7 +139,9 @@ export function getFlowsForEvent(eventName: string): BusinessFlowDefinition[] {
  * @param flow - Flow definition to validate
  * @returns Validation result
  */
-export function validateFlow(flow: BusinessFlowDefinition): FlowValidationResult {
+export function validateFlow(
+  flow: BusinessFlowDefinition,
+): FlowValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -156,6 +152,27 @@ export function validateFlow(flow: BusinessFlowDefinition): FlowValidationResult
   if (!flow.steps || flow.steps.length === 0) {
     errors.push("Flow has no steps defined");
   }
+  if (!flow.terminationEvents || flow.terminationEvents.length === 0) {
+    warnings.push("Flow has no terminationEvents defined");
+  }
+
+  // Validate entry point event exists in catalog (skip template/internal)
+  if (
+    flow.entryPoint &&
+    flow.entryPoint !== "internal" &&
+    !flow.entryPoint.includes("{") &&
+    !EventCatalog[flow.entryPoint]
+  ) {
+    warnings.push(`Flow entry point is not in catalog: ${flow.entryPoint}`);
+  }
+
+  // Validate termination events exist in catalog (skip template/internal)
+  flow.terminationEvents?.forEach((eventName) => {
+    if (eventName === "internal" || eventName.includes("{")) return;
+    if (!EventCatalog[eventName]) {
+      warnings.push(`Flow has unknown termination event: ${eventName}`);
+    }
+  });
 
   // Validate steps
   const stepIds = new Set<string>();
@@ -185,12 +202,23 @@ export function validateFlow(flow: BusinessFlowDefinition): FlowValidationResult
       }
     }
 
+    // Check emitted events exist in catalog (skip template/internal)
+    step.emitsEvents?.forEach((emittedEvent) => {
+      if (emittedEvent === "internal" || emittedEvent.includes("{")) return;
+      if (!EventCatalog[emittedEvent]) {
+        warnings.push(`Step "${step.id}" emits unknown event: ${emittedEvent}`);
+      }
+    });
+
     // Check next step references
     if (typeof step.next === "string" && step.next && !stepIds.has(step.next)) {
       // Allow forward references - will be checked at the end
     } else if (Array.isArray(step.next)) {
       step.next.forEach((transition) => {
-        if (!stepIds.has(transition.to) && !flow.steps.some(s => s.id === transition.to)) {
+        if (
+          !stepIds.has(transition.to) &&
+          !flow.steps.some((s) => s.id === transition.to)
+        ) {
           warnings.push(
             `Step "${step.id}" has transition to unknown step: ${transition.to}`,
           );
@@ -202,8 +230,7 @@ export function validateFlow(flow: BusinessFlowDefinition): FlowValidationResult
   // Check entry point has a corresponding step
   const hasEntryStep = flow.steps.some(
     (step) =>
-      step.triggerEvent === flow.entryPoint ||
-      flow.entryPoint.includes("{"), // Template
+      step.triggerEvent === flow.entryPoint || flow.entryPoint.includes("{"), // Template
   );
   if (!hasEntryStep) {
     warnings.push(`No step handles entry point event: ${flow.entryPoint}`);

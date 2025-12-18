@@ -40,37 +40,24 @@ describe("EventCatalog", () => {
 
   describe("Catalog Completeness", () => {
     it("should contain entries for all event constants", () => {
-      // Get all exported event constants (those ending with _EVENT)
-      const eventConstantNames = Object.keys(EventConstants).filter(
-        (key) =>
-          key.endsWith("_EVENT") &&
-          typeof EventConstants[key as keyof typeof EventConstants] ===
-            "string",
+      const exportedEventNames = Object.values(EventConstants).filter(
+        (value) => typeof value === "string" && value.includes("."),
       );
+      const uniqueExportedEventNames = Array.from(new Set(exportedEventNames));
 
       const catalogEventNames = getAllEventNames();
 
-      // Check each event constant is in the catalog
-      const missingEvents: string[] = [];
-      eventConstantNames.forEach((constantName) => {
-        const eventValue =
-          EventConstants[constantName as keyof typeof EventConstants];
-        if (typeof eventValue === "string" && !EventCatalog[eventValue]) {
-          missingEvents.push(`${constantName}: "${eventValue}"`);
-        }
-      });
+      const eventNamesMissingFromCatalog = uniqueExportedEventNames.filter(
+        (eventName) => !EventCatalog[eventName],
+      );
 
-      // Allow some events to be missing if they're internal/undocumented
-      // but log warnings for visibility
-      if (missingEvents.length > 0) {
-        console.warn(
-          "Events defined in constants but not in catalog:",
-          missingEvents,
-        );
-      }
+      const exportedEventNameSet = new Set<string>(uniqueExportedEventNames);
+      const catalogEventNamesMissingFromConstants = catalogEventNames.filter(
+        (eventName) => !exportedEventNameSet.has(eventName),
+      );
 
-      // At minimum, we should have the majority of events cataloged
-      expect(catalogEventNames.length).toBeGreaterThan(20);
+      expect(eventNamesMissingFromCatalog).toEqual([]);
+      expect(catalogEventNamesMissingFromConstants).toEqual([]);
     });
 
     it("should have unique event names", () => {

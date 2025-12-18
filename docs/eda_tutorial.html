@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SA2-MVP Event Driven Architecture Tutorial</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <!-- PrismJS Theme (One Dark) -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-one-dark.min.css" rel="stylesheet" />
+  <style>
+    :root {
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --secondary: #64748b;
+      --bg-body: #f8fafc;
+      --bg-nav: #ffffff;
+      --bg-card: #ffffff;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --sidebar-width: 280px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-body);
+      color: var(--text-main);
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: var(--bg-nav);
+      border-right: 1px solid var(--border);
+      height: 100vh;
+      position: fixed;
+      padding: 2rem 1.5rem;
+      overflow-y: auto;
+      top: 0;
+      left: 0;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+    }
+
+    .logo {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .logo span {
+      color: var(--primary);
+    }
+
+    .nav-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .nav-header {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+
+    .nav-link {
+      display: block;
+      padding: 0.5rem 0.75rem;
+      color: var(--text-main);
+      text-decoration: none;
+      border-radius: 0.375rem;
+      font-size: 0.95rem;
+      transition: all 0.2s;
+      margin-bottom: 0.25rem;
+    }
+
+    .nav-link:hover {
+      background-color: #f1f5f9;
+      color: var(--primary);
+    }
+
+    .nav-link.active {
+      background-color: #eff6ff;
+      color: var(--primary);
+      font-weight: 500;
+    }
+
+    /* Main Content */
+    .main-content {
+      margin-left: var(--sidebar-width);
+      padding: 3rem 4rem;
+      width: calc(100% - var(--sidebar-width));
+      max-width: 1200px;
+    }
+
+    header {
+      margin-bottom: 3rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      letter-spacing: -0.025em;
+    }
+
+    p.subtitle {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      font-weight: 300;
+    }
+
+    section {
+      margin-bottom: 4rem;
+      scroll-margin-top: 2rem;
+    }
+
+    h2 {
+      font-size: 1.75rem;
+      margin-bottom: 1.5rem;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    h3 {
+      font-size: 1.25rem;
+      margin: 1.5rem 0 1rem;
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .step-container {
+      position: relative;
+      padding-left: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .step-number {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1.5rem;
+      height: 1.5rem;
+      background: var(--primary);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .step-title {
+      font-weight: 600;
+      font-size: 1.1rem;
+      margin-bottom: 0.75rem;
+      color: var(--text-main);
+    }
+
+    /* Code Blocks - Overrides for Prism */
+    pre[class*="language-"] {
+      border-radius: 0.5rem;
+      margin: 1rem 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    code[class*="language-"] {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Inline code styling */
+    :not(pre)>code {
+      background-color: #f1f5f9;
+      color: #ef4444;
+      /* Reddish for inline code to pop out, similar to simple styles */
+      padding: 0.125rem 0.375rem;
+      border-radius: 0.25rem;
+      font-size: 0.875em;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .folder-tree {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: var(--secondary);
+      background: #f8fafc;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+    }
+
+    /* Alert/Callout */
+    .alert {
+      background-color: #eff6ff;
+      border-left: 4px solid var(--primary);
+      padding: 1rem;
+      margin: 1.5rem 0;
+      border-radius: 0 0.375rem 0.375rem 0;
+    }
+
+    .alert h4 {
+      color: var(--primary-dark);
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+    }
+
+    .alert p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--text-main);
+    }
+
+    /* Footer */
+    footer {
+      margin-top: 5rem;
+      padding: 2rem 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="logo">
+      <span>⚡️</span> Event Arch
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-header">Start Here</div>
+      <a href="#intro" class="nav-link">Introduction</a>
+      <a href="#structure" class="nav-link">Folder Structure</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-header">Guides</div>
+      <a href="#catalog" class="nav-link">1. Adding Events</a>
+      <a href="#produce-consume" class="nav-link">2. Produce & Consume</a>
+      <a href="#saga" class="nav-link">3. Saga Orchestration</a>
+      <a href="#flows" class="nav-link">4. Defining Flows</a>
+      <a href="#enforcement" class="nav-link">5. Event Enforcement</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-header">Resources</div>
+      <a href="#examples" class="nav-link">Real Examples</a>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header>
+      <h1>EDA 框架开发实战指南</h1>
+      <p class="subtitle">Event-Driven Architecture Framework Implementation Guide</p>
+    </header>
+
+    <section id="intro">
+      <h2>Introduction</h2>
+      <div class="card">
+        <p>
+          欢迎使用 SA2-MVP 的事件驱动架构（EDA）。本指南将手把手（Step-by-Step）教你如何使用这套框架来解耦业务逻辑。
+          通过使用 <strong>Catalog（目录）</strong>、<strong>Registry（注册表）</strong> 和 <strong>Saga Orchestrator（编排器）</strong>，
+          我们可以清晰地管理从简单的异步通知到复杂的跨服务长事务。
+        </p>
+        <div class="alert">
+          <h4>核心原则</h4>
+          <p>事件是“已经发生的事实”（Happened Fact）。不要把事件当成命令（Command）。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="structure">
+      <h2>Folder Structure</h2>
+      <p>在开始写代码之前，请熟悉核心文件的位置：</p>
+      <div class="card">
+        <!-- Using simple pre for tree structure, no highlighting needed really, but kept as plaintext -->
+        <pre class="folder-tree">
+src/
+├── shared/
+│   └── events/
+│       ├── event-constants.ts       <span style="color:#22c55e">// 1. 定义事件常量名</span>
+│       └── index.ts                 <span style="color:#22c55e">// 2. 导出 Payload 类型</span>
+└── events/
+    ├── catalog/                     <span style="color:#22c55e">// 3. Event Catalog (单一真相源)</span>
+    │   ├── session-events.catalog.ts
+    │   └── index.ts
+    ├── flows/
+    │   └── definitions/             <span style="color:#22c55e">// 6. Flow Definitions (可视化/文档)</span>
+    └── sagas/                       <span style="color:#22c55e">// 5. Saga Orchetsrator (长事务)</span>
+</pre>
+      </div>
+    </section>
+
+    <section id="catalog">
+      <h2>Step 1: Adding a New Event</h2>
+      <p>假设我们要添加一个功能：<strong>“模拟面试提交” (Mock Interview Submitted)</strong>。</p>
+
+      <div class="step-container">
+        <div class="step-number">1</div>
+        <div class="step-title">定义事件常量</div>
+        <p>文件：<code>src/shared/events/event-constants.ts</code></p>
+        <pre><code class="language-typescript">export const MOCK_INTERVIEW_SUBMITTED_EVENT = "mock_interview.submitted";</code></pre>
+      </div>
+
+      <div class="step-container">
+        <div class="step-number">2</div>
+        <div class="step-title">定义 Payload 类型</div>
+        <p>新建文件：<code>src/shared/events/mock-interview-submitted.event.ts</code>，并在 <code>index.ts</code> 中导出。</p>
+        <pre><code class="language-typescript">export type MockInterviewSubmittedEvent = {
+    readonly id: string;
+    readonly userId: string;
+    readonly submittedAt: string;
+    readonly topic: string;
+};</code></pre>
+      </div>
+
+      <div class="step-container">
+        <div class="step-number">3</div>
+        <div class="step-title">注册到 Catalog</div>
+        <p>文件：<code>src/events/catalog/session-events.catalog.ts</code> (或新建对应领域的 catalog)</p>
+        <pre><code class="language-typescript">import { MOCK_INTERVIEW_SUBMITTED_EVENT } from "@shared/events/event-constants";
+
+export const MockInterviewEventsCatalog = {
+    [MOCK_INTERVIEW_SUBMITTED_EVENT]: {
+        name: MOCK_INTERVIEW_SUBMITTED_EVENT,
+        domain: EventDomain.SESSION,
+        eventType: EventType.TRIGGER,
+        payloadType: "MockInterviewSubmittedEvent",
+        producers: ["MockInterviewService.submit"],
+        consumers: [
+            {
+                handler: "MockInterviewHandler",
+                priority: ConsumerPriority.HIGH,
+                async: true
+            }
+        ],
+        description: "Triggered when a student submits a mock interview request"
+    }
+};</code></pre>
+        <div class="alert">
+          <p>记得在 <code>src/events/catalog/index.ts</code> 中合并导出这个新的 Catalog 对象。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="produce-consume">
+      <h2>Step 2: Produce & Consume</h2>
+
+      <div class="card">
+        <h3>Producing (发送事件)</h3>
+        <p>推荐使用 <code>EnhancedEventBus</code>，它会自动进行 Catalog 校验和链路追踪。</p>
+        <pre><code class="language-typescript">constructor(private readonly eventBus: EnhancedEventBus) {}
+
+async submitInterview(data: CreateInterviewDto) {
+    // 业务逻辑...
+    
+    // 发送事件
+    await this.eventBus.emit(MOCK_INTERVIEW_SUBMITTED_EVENT, {
+        id: interview.id,
+        userId: user.id,
+        submittedAt: new Date().toISOString(),
+        topic: data.topic
+    });
+}</code></pre>
+      </div>
+
+      <div class="card">
+        <h3>Consuming (消费事件)</h3>
+        <p>使用标准的 NestJS <code>@OnEvent</code> 装饰器。</p>
+        <pre><code class="language-typescript">@Injectable()
+export class MockInterviewHandler {
+    
+    @OnEvent(MOCK_INTERVIEW_SUBMITTED_EVENT)
+    async handleSubmission(payload: MockInterviewSubmittedEvent) {
+        console.log(`Processing interview ${payload.id} for user ${payload.userId}`);
+        // 触发后续流程...
+    }
+}</code></pre>
+      </div>
+    </section>
+
+    <section id="saga">
+      <h2>Step 3: Saga Orchestration</h2>
+      <p>当你的业务逻辑变得复杂，例如需要调用三个外部 API，并且如果通过其中一个失败了，需要回滚之前的操作时，请使用 <strong>Saga</strong>。</p>
+
+      <div class="step-container">
+        <div class="step-number">1</div>
+        <div class="step-title">定义 Saga</div>
+        <p>文件：<code>src/events/sagas/mock-interview.saga.ts</code></p>
+        <pre><code class="language-typescript">export class MockInterviewSaga extends SagaOrchestrator<Input, Output> {
+    
+    get definition(): SagaDefinition<Input, Output> {
+        return {
+            id: "mock-interview-process",
+            steps: [
+                {
+                    id: "reserve-slot",
+                    name: "Reserve Calendar Slot",
+                    execute: async (input) => { /* 调用 Google Calendar */ },
+                    compensate: async (input, output) => { /* 取消预约 */ }
+                },
+                {
+                    id: "charge-token",
+                    name: "Deduct User Token",
+                    execute: async (input) => { /* 扣费 */ },
+                    compensate: async (input) => { /* 退款 */ }
+                }
+            ]
+        };
+    }
+}</code></pre>
+      </div>
+
+      <div class="step-container">
+        <div class="step-number">2</div>
+        <div class="step-title">执行 Saga</div>
+        <p>在你的 Handler 中调用 Saga。</p>
+        <pre><code class="language-typescript">@OnEvent(MOCK_INTERVIEW_SUBMITTED_EVENT)
+async handle(event: MockInterviewSubmittedEvent) {
+    await this.mockInterviewSaga.execute({
+        interviewId: event.id,
+        userId: event.userId
+    });
+}</code></pre>
+      </div>
+    </section>
+
+    <section id="flows">
+      <h2>Step 4: Flow Definitions (Docs)</h2>
+      <p>为了让团队看懂业务流程，我们需要更新 <strong>Flow Registry</strong>。这将用于生成可视化图表。</p>
+
+      <div class="step-container">
+        <div class="step-number">1</div>
+        <div class="step-title">创建 Flow 文件</div>
+        <p>文件：<code>src/events/flows/definitions/mock-interview.flow.ts</code></p>
+        <pre><code class="language-typescript">export const MockInterviewFlow: BusinessFlowDefinition = {
+    id: "mock-interview",
+    name: "Mock Interview Process",
+    entryPoint: MOCK_INTERVIEW_SUBMITTED_EVENT,
+    steps: [
+        {
+            id: "handle-submission",
+            triggerEvent: MOCK_INTERVIEW_SUBMITTED_EVENT,
+            handler: "MockInterviewHandler",
+            next: "saga-execution"
+        },
+        {
+            id: "saga-execution",
+            name: "Execute Saga",
+            handler: "MockInterviewSaga",
+            emitsEvents: ["mock_interview.completed"]
+        }
+    ]
+};</code></pre>
+      </div>
+    </section>
+
+    <section id="enforcement">
+      <h2>Step 5: Event Enforcement (保证一致性)</h2>
+      <p>为了确保事件系统的一致性和可靠性，框架提供了三层验证机制：</p>
+
+      <div class="card">
+        <h3>🔍 CI Enforcement (持续集成验证)</h3>
+        <p>在 CI/CD 流程中自动检查事件定义的完整性。</p>
+
+        <div class="alert">
+          <h4>测试文件</h4>
+          <p><code>src/events/catalog/catalog.spec.ts:42</code></p>
+        </div>
+
+        <p><strong>验证内容：</strong></p>
+        <ul>
+          <li>所有在 <code>src/shared/events/event-constants.ts</code> 中定义的事件常量必须在 <code>EventCatalog</code> 中注册</li>
+          <li>所有在 <code>EventCatalog</code> 中的 key 必须在 <code>event-constants.ts</code> 中定义</li>
+          <li>防止"幽灵事件"（定义了但未注册）和"孤儿事件"（注册了但未定义）</li>
+        </ul>
+
+        <p><strong>运行测试：</strong></p>
+        <pre><code class="language-bash">npm run test -- --testPathPatterns="catalog.spec.ts"</code></pre>
+      </div>
+
+      <div class="card">
+        <h3>📋 Registry Enforcement (流程注册验证)</h3>
+        <p>验证业务流程定义的正确性和完整性。</p>
+
+        <div class="alert">
+          <h4>测试文件</h4>
+          <p><code>src/events/flows/definitions/flows.spec.ts</code></p>
+        </div>
+
+        <p><strong>验证内容：</strong></p>
+        <ul>
+          <li>检查 <code>BusinessFlows</code> registry 中所有流程定义的有效性</li>
+          <li>验证 <code>entryPoint</code>（入口事件）是否在 EventCatalog 中存在</li>
+          <li>验证 <code>terminationEvents</code>（终止事件）是否在 EventCatalog 中存在</li>
+          <li>验证每个步骤的 <code>emitsEvents</code> 是否在 EventCatalog 中存在</li>
+          <li>如果有任何 warnings 或 errors，测试将失败</li>
+        </ul>
+
+        <p><strong>验证逻辑位置：</strong></p>
+        <p><code>src/events/flows/definitions/index.ts:142</code></p>
+
+        <p><strong>运行测试：</strong></p>
+        <pre><code class="language-bash">npm run test -- --testPathPatterns="flows.spec.ts"</code></pre>
+      </div>
+
+      <div class="card">
+        <h3>⚡️ Runtime Enforcement (运行时验证)</h3>
+        <p>在应用启动和运行时进行事件验证，确保生产环境的安全性。</p>
+
+        <div class="alert">
+          <h4>配置文件</h4>
+          <p><code>src/app.module.ts:31</code></p>
+        </div>
+
+        <p><strong>启用严格验证：</strong></p>
+        <pre><code class="language-typescript">@Module({
+    imports: [
+        EventsModule.forRoot({
+            strictValidation: true,           // 启用严格验证
+            validateOnStartup: true,          // 启动时验证
+            failOnValidationWarnings: true,   // 遇到警告即失败
+            enableTracking: true,
+            enableCorrelationMiddleware: true
+        }),
+        // ...
+    ]
+})</code></pre>
+
+        <p><strong>配置选项定义：</strong></p>
+        <p><code>src/events/events.module.ts:53</code></p>
+
+        <div
+          style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 1rem; margin: 1.5rem 0; border-radius: 0 0.375rem 0.375rem 0;">
+          <h4 style="color: #92400e; margin-bottom: 0.5rem; font-size: 0.95rem;">⚠️ 重要提示</h4>
+          <p style="margin: 0; font-size: 0.9rem; color: #1e293b;">严格验证<strong>仅适用于通过 <code>EnhancedEventBus</code>
+              发出的事件</strong>。如果使用 <code>EventEmitter2.emit</code> 直接发送事件，将绕过 Catalog 验证。因此，如果希望验证机制完全生效，需要将所有生产者迁移到使用
+            <code>EnhancedEventBus</code>。</p>
+        </div>
+
+        <p><strong>验证内容：</strong></p>
+        <ul>
+          <li>检查发出的事件是否在 EventCatalog 中注册</li>
+          <li>验证事件的 payload 结构（如果配置了 schema）</li>
+          <li>验证生产者是否在 Catalog 中声明</li>
+          <li>如果验证失败，事件发送将被拒绝并返回错误</li>
+        </ul>
+      </div>
+
+      <div class="card"
+        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+        <h3 style="color: white; margin-top: 0;">✅ 最佳实践</h3>
+        <ul style="margin-bottom: 0;">
+          <li>在开发环境中启用 <code>strictValidation</code> 和 <code>validateOnStartup</code></li>
+          <li>在 CI/CD 中运行 <code>catalog.spec.ts</code> 和 <code>flows.spec.ts</code></li>
+          <li>逐步将现有代码从 <code>EventEmitter2</code> 迁移到 <code>EnhancedEventBus</code></li>
+          <li>每次添加新事件时，确保同时更新 Catalog 和相关 Flow</li>
+        </ul>
+      </div>
+    </section>
+
+    <footer>
+      <p>SA2-MVP Engineering Team &copy; 2024</p>
+    </footer>
+  </main>
+
+  <script>
+    // Simple active state highlighting for sidebar
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.nav-link');
+      const sections = document.querySelectorAll('section');
+
+      window.addEventListener('scroll', () => {
+        let current = '';
+        sections.forEach(section => {
+          const sectionTop = section.offsetTop;
+          if (scrollY >= sectionTop - 100) {
+            current = section.getAttribute('id');
+          }
+        });
+
+        links.forEach(link => {
+          link.classList.remove('active');
+          if (link.getAttribute('href').includes(current)) {
+            link.classList.add('active');
+          }
+        });
+      });
+    });
+  </script>
+
+  <!-- PrismJS Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+</body>
+
+</html>

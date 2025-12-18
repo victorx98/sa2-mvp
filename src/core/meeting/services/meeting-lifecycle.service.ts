@@ -9,6 +9,7 @@ import {
   MeetingRecordingReadyPayload,
   MEETING_LIFECYCLE_COMPLETED_EVENT,
   MEETING_RECORDING_READY_EVENT,
+  MEETING_STATUS_CHANGED_EVENT,
   MeetingTimeSegment,
 } from "@shared/events";
 import { MeetingStatusChangedEvent } from "../events/meeting-lifecycle.events";
@@ -91,7 +92,7 @@ export class MeetingLifecycleService {
 
       // Emit status changed event
       this.eventEmitter.emit(
-        "meeting.status.changed",
+        MEETING_STATUS_CHANGED_EVENT,
         new MeetingStatusChangedEvent(
           meeting.id,
           meeting.meetingNo,
@@ -219,8 +220,8 @@ export class MeetingLifecycleService {
       if (meeting.pendingTaskId !== taskId) {
         this.logger.log(
           `Task ${taskId} is outdated for meeting ${meetingNo} ` +
-          `(current pendingTaskId: ${meeting.pendingTaskId}). ` +
-          `Meeting was likely restarted or already completed. Skipping finalization.`,
+            `(current pendingTaskId: ${meeting.pendingTaskId}). ` +
+            `Meeting was likely restarted or already completed. Skipping finalization.`,
         );
         return;
       }
@@ -237,7 +238,7 @@ export class MeetingLifecycleService {
 
   /**
    * Calculate total duration from time segments (v4.3)
-   * 
+   *
    * Simple calculation from ISO timestamp strings in meeting_time_list
    * No event table query needed
    *
@@ -250,7 +251,7 @@ export class MeetingLifecycleService {
     for (const segment of timeSegments) {
       const startDate = new Date(segment.start);
       const endDate = new Date(segment.end);
-      
+
       const durationSeconds = Math.floor(
         (endDate.getTime() - startDate.getTime()) / 1000,
       );
@@ -288,13 +289,13 @@ export class MeetingLifecycleService {
 
     // Validate duration against scheduled duration
     if (meeting.actualDuration) {
-    const isValidDuration = this.durationCalculator.validateDuration(
+      const isValidDuration = this.durationCalculator.validateDuration(
         meeting.actualDuration,
-      meeting.scheduleDuration,
-    );
+        meeting.scheduleDuration,
+      );
 
-    if (!isValidDuration) {
-      this.logger.warn(
+      if (!isValidDuration) {
+        this.logger.warn(
           `Invalid duration for meeting ${meeting.meetingNo}: ${meeting.actualDuration}s (scheduled: ${meeting.scheduleDuration} minutes)`,
         );
       }
@@ -310,7 +311,7 @@ export class MeetingLifecycleService {
       `Meeting ${meeting.meetingNo} marked as completed (duration: ${meeting.actualDuration}s)`,
     );
 
-    // Publish lifecycle completed event for downstream domains 
+    // Publish lifecycle completed event for downstream domains
     const completedPayload: MeetingLifecycleCompletedPayload = {
       meetingId: meeting.id,
       meetingNo: meeting.meetingNo,
@@ -324,10 +325,7 @@ export class MeetingLifecycleService {
       recordingUrl: meeting.recordingUrl,
     };
 
-    this.eventEmitter.emit(
-      MEETING_LIFECYCLE_COMPLETED_EVENT,
-      completedPayload,
-    );
+    this.eventEmitter.emit(MEETING_LIFECYCLE_COMPLETED_EVENT, completedPayload);
 
     this.logger.log(
       `Published meeting.lifecycle.completed event for meeting ${meeting.id}`,
@@ -371,7 +369,7 @@ export class MeetingLifecycleService {
 
       this.logger.log(`Recording URL updated for meeting ${meeting.meetingNo}`);
 
-      // Emit recording ready event 
+      // Emit recording ready event
       const recordingPayload: MeetingRecordingReadyPayload = {
         meetingId: meeting.id,
         meetingNo: meeting.meetingNo,
@@ -379,10 +377,7 @@ export class MeetingLifecycleService {
         readyAt: new Date(),
       };
 
-      this.eventEmitter.emit(
-        MEETING_RECORDING_READY_EVENT,
-        recordingPayload,
-      );
+      this.eventEmitter.emit(MEETING_RECORDING_READY_EVENT, recordingPayload);
     } catch (error) {
       this.logger.error(
         `Error handling recording ready for ${provider}/${meetingId}: ${error instanceof Error ? error.message : String(error)}`,
@@ -391,4 +386,3 @@ export class MeetingLifecycleService {
     }
   }
 }
-

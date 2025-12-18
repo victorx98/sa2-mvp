@@ -20,6 +20,7 @@ import {
 import {
   MEETING_LIFECYCLE_COMPLETED_EVENT,
   MEETING_RECORDING_READY_EVENT,
+  MEETING_STATUS_CHANGED_EVENT,
   SERVICE_SESSION_COMPLETED_EVENT,
 } from "@shared/events/event-constants";
 
@@ -37,8 +38,7 @@ export const MeetingEventsCatalog: Record<string, EventCatalogEntry> = {
     name: MEETING_LIFECYCLE_COMPLETED_EVENT,
     description:
       "Meeting physically completed. Triggered by webhook when meeting ends on provider platform.",
-    descriptionCN:
-      "会议物理结束。当会议在提供商平台上结束时由webhook触发。",
+    descriptionCN: "会议物理结束。当会议在提供商平台上结束时由webhook触发。",
     domain: EventDomain.MEETING,
     eventType: EventType.STATE_CHANGE,
     payloadType: "MeetingLifecycleCompletedPayload",
@@ -49,8 +49,7 @@ export const MeetingEventsCatalog: Record<string, EventCatalogEntry> = {
         priority: ConsumerPriority.CRITICAL,
         async: false,
         module: "domains/services/sessions/regular-mentoring",
-        description:
-          "Complete regular mentoring session when its meeting ends",
+        description: "Complete regular mentoring session when its meeting ends",
         errorStrategy: ErrorHandlingStrategy.LOG_AND_CONTINUE,
       },
       {
@@ -103,8 +102,7 @@ export const MeetingEventsCatalog: Record<string, EventCatalogEntry> = {
     name: MEETING_RECORDING_READY_EVENT,
     description:
       "Meeting recording is ready for download. Triggered when provider processes recording.",
-    descriptionCN:
-      "会议录制已准备好下载。当提供商处理完录制时触发。",
+    descriptionCN: "会议录制已准备好下载。当提供商处理完录制时触发。",
     domain: EventDomain.MEETING,
     eventType: EventType.STATE_CHANGE,
     payloadType: "MeetingRecordingReadyPayload",
@@ -132,13 +130,11 @@ export const MeetingEventsCatalog: Record<string, EventCatalogEntry> = {
     version: "4.1",
   },
 
-  // Internal meeting status change event (not exported in constants but used internally)
-  "meeting.status.changed": {
-    name: "meeting.status.changed",
+  [MEETING_STATUS_CHANGED_EVENT]: {
+    name: MEETING_STATUS_CHANGED_EVENT,
     description:
       "Internal event for meeting status transitions. Used for tracking meeting state machine.",
-    descriptionCN:
-      "内部会议状态转换事件。用于跟踪会议状态机。",
+    descriptionCN: "内部会议状态转换事件。用于跟踪会议状态机。",
     domain: EventDomain.MEETING,
     eventType: EventType.STATE_CHANGE,
     payloadType: "MeetingStatusChangedPayload",

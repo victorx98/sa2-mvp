@@ -1,9 +1,11 @@
 /**
  * NOTE: MeetingLifecycleCompletedEvent has been moved to @shared/events
  * Import from there: import { MeetingLifecycleCompletedPayload } from '@shared/events';
- * 
+ *
  * This file now only contains internal events for the Meeting module
  */
+
+import { MEETING_STATUS_CHANGED_EVENT } from "@shared/events";
 
 /**
  * Meeting Status Changed Event
@@ -11,7 +13,7 @@
  * Internal event for tracking meeting status transitions
  */
 export class MeetingStatusChangedEvent {
-  readonly eventName = "meeting.status.changed";
+  readonly eventName = MEETING_STATUS_CHANGED_EVENT;
 
   constructor(
     public readonly meetingId: string,
@@ -32,4 +34,3 @@ export class MeetingStatusChangedEvent {
  * Reason: Meeting cancellation is handled synchronously in Application layer
  * No event is published for cancellations - updates happen directly in transaction
  */
-

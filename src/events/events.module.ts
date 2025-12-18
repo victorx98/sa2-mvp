@@ -29,8 +29,10 @@ import {
   Module,
   DynamicModule,
   Global,
+  Logger,
   MiddlewareConsumer,
   NestModule,
+  OnModuleInit,
 } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 
@@ -41,6 +43,8 @@ import {
 import { EventFlowTracker } from "./infrastructure/event-flow-context";
 import { EnhancedEventBus } from "./infrastructure/enhanced-event-bus";
 import { SagaOrchestrator } from "./sagas/saga-orchestrator";
+import { validateCatalog } from "./catalog";
+import { validateAllFlows } from "./flows/definitions";
 
 /**
  * Configuration options for the Events module
@@ -81,6 +85,20 @@ export interface EventsModuleOptions {
    * @default []
    */
   excludeRoutes?: string[];
+
+  /**
+   * Validate catalog + flow definitions on startup
+   * 启动时校验 Catalog + Flow Definitions（失败则阻止启动）
+   * @default false
+   */
+  validateOnStartup?: boolean;
+
+  /**
+   * Treat validation warnings as errors (fail startup)
+   * 将校验 warnings 视为 errors（启动失败）
+   * @default false
+   */
+  failOnValidationWarnings?: boolean;
 }
 
 const DEFAULT_OPTIONS: EventsModuleOptions = {
@@ -89,6 +107,8 @@ const DEFAULT_OPTIONS: EventsModuleOptions = {
   skipTrackingEvents: [],
   enableCorrelationMiddleware: true,
   excludeRoutes: [],
+  validateOnStartup: false,
+  failOnValidationWarnings: false,
 };
 
 /**
@@ -98,8 +118,9 @@ const DEFAULT_OPTIONS: EventsModuleOptions = {
  */
 @Global()
 @Module({})
-export class EventsModule implements NestModule {
+export class EventsModule implements NestModule, OnModuleInit {
   private static options: EventsModuleOptions = DEFAULT_OPTIONS;
+  private readonly logger = new Logger(EventsModule.name);
 
   /**
    * Configure the Events module with options
@@ -197,6 +218,76 @@ export class EventsModule implements NestModule {
         .apply(CorrelationIdMiddleware)
         .exclude(...excludeRoutes)
         .forRoutes("*");
+    }
+  }
+
+  onModuleInit(): void {
+    if (!EventsModule.options.validateOnStartup) return;
+
+    const catalogResult = validateCatalog();
+    const flowResults = validateAllFlows();
+
+    const flowErrors = flowResults.filter(
+      (r) => !r.valid || r.errors.length > 0,
+    );
+    const flowWarnings = flowResults.filter((r) => r.warnings.length > 0);
+
+    if (catalogResult.warnings.length > 0) {
+      this.logger.warn(
+        `EventCatalog validation warnings:\n- ${catalogResult.warnings.join("\n- ")}`,
+      );
+    }
+
+    if (flowWarnings.length > 0) {
+      this.logger.warn(
+        `BusinessFlows validation warnings:\n- ${flowWarnings
+          .map((w) => `${w.flowId}: ${w.warnings.join(", ")}`)
+          .join("\n- ")}`,
+      );
+    }
+
+    const shouldFailOnWarnings =
+      !!EventsModule.options.failOnValidationWarnings;
+    const hasBlockingIssues =
+      !catalogResult.valid ||
+      flowErrors.length > 0 ||
+      (shouldFailOnWarnings && catalogResult.warnings.length > 0) ||
+      (shouldFailOnWarnings && flowWarnings.length > 0);
+
+    if (hasBlockingIssues) {
+      const parts: string[] = [];
+
+      if (!catalogResult.valid) {
+        parts.push(
+          `EventCatalog errors:\n- ${catalogResult.errors.join("\n- ")}`,
+        );
+      }
+
+      if (flowErrors.length > 0) {
+        parts.push(
+          `BusinessFlows errors:\n- ${flowErrors
+            .map((e) => `${e.flowId}: ${e.errors.join(", ")}`)
+            .join("\n- ")}`,
+        );
+      }
+
+      if (shouldFailOnWarnings && catalogResult.warnings.length > 0) {
+        parts.push(
+          `EventCatalog warnings (treated as errors):\n- ${catalogResult.warnings.join("\n- ")}`,
+        );
+      }
+
+      if (shouldFailOnWarnings && flowWarnings.length > 0) {
+        parts.push(
+          `BusinessFlows warnings (treated as errors):\n- ${flowWarnings
+            .map((w) => `${w.flowId}: ${w.warnings.join(", ")}`)
+            .join("\n- ")}`,
+        );
+      }
+
+      throw new Error(
+        `Event definitions validation failed on startup.\n\n${parts.join("\n\n")}`,
+      );
     }
   }
 }
