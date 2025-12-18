@@ -23,7 +23,6 @@ import {
   GAP_ANALYSIS_SESSION_CREATED_EVENT,
   GAP_ANALYSIS_SESSION_UPDATED_EVENT,
   GAP_ANALYSIS_SESSION_CANCELLED_EVENT,
-  SESSION_RESCHEDULED_COMPLETED,
 } from '@shared/events/event-constants';
 
 // DTOs
@@ -137,9 +136,6 @@ export class GapAnalysisService {
             sessionType: CalendarSessionType.GAP_ANALYSIS,
             title: dto.title,
             sessionId: undefined,
-            metadata: {
-              otherPartyName: 'studentName',
-            },
           },
           tx,
         );
@@ -159,9 +155,6 @@ export class GapAnalysisService {
             sessionType: CalendarSessionType.GAP_ANALYSIS,
             title: dto.title,
             sessionId: undefined,
-            metadata: {
-              otherPartyName: 'mentorName',
-            },
           },
           tx,
         );
@@ -337,9 +330,6 @@ export class GapAnalysisService {
               title: dto.title || oldSession.title,
               sessionId: sessionId,
               meetingId: oldSession.meetingId,
-              metadata: {
-                otherPartyName: 'studentName',
-              },
             },
             tx,
           );
@@ -358,9 +348,6 @@ export class GapAnalysisService {
               title: dto.title || oldSession.title,
               sessionId: sessionId,
               meetingId: oldSession.meetingId,
-              metadata: {
-                otherPartyName: 'mentorName',
-              },
             },
             tx,
           );
@@ -402,15 +389,14 @@ export class GapAnalysisService {
       // Step 4: Extract meeting provider from oldSession
       const meetingProvider = oldSessionData.meetingProvider || 'feishu';
 
-      // Step 5: Emit events based on what changed
+      // Step 5: Emit event to trigger async meeting update (only when time or duration changes)
       if (timeChanged || durationChanged) {
-        // Emit event to trigger async meeting update (when time or duration changes)
         this.eventEmitter.emit(GAP_ANALYSIS_SESSION_UPDATED_EVENT, {
           sessionId: sessionId,
           meetingId: oldSession.meetingId,
-          oldScheduledAt: meetingScheduleStartTime, // Use actual meeting schedule time
+          oldScheduledAt: meetingScheduleStartTime,
           newScheduledAt: scheduledAtIso,
-          oldDuration: meetingScheduleDuration, // Use actual meeting duration
+          oldDuration: meetingScheduleDuration,
           newDuration: newDuration,
           newTitle: dto.title || oldSession.title,
           mentorId: oldSession.mentorUserId,
@@ -420,19 +406,6 @@ export class GapAnalysisService {
         } as any);
         this.logger.log(`Published GAP_ANALYSIS_SESSION_UPDATED_EVENT for session ${sessionId}`);
       }
-
-      // Always emit SESSION_RESCHEDULED_COMPLETED for both time and metadata changes
-      this.eventEmitter.emit(SESSION_RESCHEDULED_COMPLETED, {
-        sessionId: sessionId,
-        changeType: timeChanged ? 'TIME' : 'METADATA',
-        mentorId: oldSession.mentorUserId,
-        studentId: oldSession.studentUserId,
-        counselorId: oldSession.createdByCounselorId,
-        newScheduledAt: scheduledAtIso,
-        newTitle: dto.title || oldSession.title,
-        meetingProvider: meetingProvider,
-      } as any);
-      this.logger.log(`Published SESSION_RESCHEDULED_COMPLETED for session ${sessionId}`);
 
       // Step 6: Construct response with all updated values including meeting info
       // Do not re-query DB as meetings table will be updated asynchronously

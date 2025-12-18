@@ -8,7 +8,6 @@ import {
   CLASS_SESSION_UPDATED_EVENT,
   CLASS_SESSION_CANCELLED_EVENT,
   CLASS_SESSION_MEETING_OPERATION_RESULT_EVENT,
-  SESSION_BOOKED_EVENT,
 } from '@shared/events/event-constants';
 import { retryWithBackoff } from '@shared/utils/retry.util';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
@@ -20,13 +19,15 @@ import { sql } from 'drizzle-orm';
 /**
  * Class Session Created Event Handler
  * 
- * Handles the asynchronous meeting creation flow for class sessions
+ * Handles async meeting creation flow for class sessions
  * Class sessions are group sessions for multiple students in a class
  * 
- * Design principles:
- * - Async event-driven architecture
- * - Not billable per student (bulk management model)
- * - Single mentor/teacher leads multiple student participants
+ * Responsibilities:
+ * 1. Listen to CLASS_SESSION_CREATED_EVENT
+ * 2. Create meeting via MeetingManagerService
+ * 3. Update session (meeting_id, status=SCHEDULED) in transaction
+ * 4. Update calendar slots with meeting info
+ * 5. Publish MEETING_OPERATION_RESULT_EVENT (operation: create)
  */
 @Injectable()
 export class ClassSessionCreatedEventHandler {
@@ -74,39 +75,21 @@ export class ClassSessionCreatedEventHandler {
 
         this.logger.debug(`Class session meeting setup completed: sessionId=${event.sessionId}`);
 
-        // 2.2: Update mentor calendar slot (mentor slot is the primary slot)
-        await this.calendarService.updateSlotWithSessionAndMeeting(
+        // 2.2: Update mentor calendar slot with meeting info
+        // Class sessions only have mentor slot (group session)
+        await this.calendarService.updateSingleSlotWithSessionAndMeeting(
           event.sessionId,
           meeting.id,
           meeting.meetingUrl,
           event.mentorCalendarSlotId,
-          event.mentorCalendarSlotId, // Both point to mentor slot for class sessions
+          'Class Session', // Display name for group session
           tx,
         );
 
         this.logger.debug(`Calendar slot updated for session ${event.sessionId}`);
       });
 
-      // Step 3: Publish SESSION_BOOKED_EVENT
-      this.eventEmitter.emit(SESSION_BOOKED_EVENT, {
-        sessionId: event.sessionId,
-        studentId: event.classId, // Use classId as studentId for compatibility
-        mentorId: event.mentorId,
-        counselorId: null,
-        serviceType: 'class_session',
-        mentorCalendarSlotId: event.mentorCalendarSlotId,
-        studentCalendarSlotId: event.mentorCalendarSlotId,
-        serviceHoldId: null,
-        scheduledStartTime: event.scheduledStartTime,
-        duration: event.duration,
-        meetingProvider: event.meetingProvider,
-        meetingPassword: null,
-        meetingUrl: meeting.meetingUrl,
-      });
-
-      this.logger.log(`SESSION_BOOKED_EVENT published: sessionId=${event.sessionId}`);
-
-      // Step 4: Publish unified result event (success)
+      // Step 3: Publish result event (success - notify counselor and mentor)
       this.eventEmitter.emit(CLASS_SESSION_MEETING_OPERATION_RESULT_EVENT, {
         operation: 'create',
         status: 'success',
@@ -114,7 +97,9 @@ export class ClassSessionCreatedEventHandler {
         classId: event.classId,
         mentorId: event.mentorId,
         scheduledAt: event.scheduledStartTime,
+        duration: event.duration,
         meetingUrl: meeting.meetingUrl,
+        meetingProvider: event.meetingProvider,
         notifyRoles: ['counselor', 'mentor'],
       });
 
@@ -124,7 +109,7 @@ export class ClassSessionCreatedEventHandler {
     } catch (error) {
       this.logger.error(`Failed to create meeting for session ${event.sessionId}: ${error.message}`, error.stack);
 
-      // Publish unified result event (failed)
+      // Publish result event (failed - notify counselor only)
       this.eventEmitter.emit(CLASS_SESSION_MEETING_OPERATION_RESULT_EVENT, {
         operation: 'create',
         status: 'failed',
@@ -143,6 +128,15 @@ export class ClassSessionCreatedEventHandler {
     }
   }
 
+  /**
+   * Handle CLASS_SESSION_UPDATED_EVENT
+   * Executes async meeting update flow when session is rescheduled
+   * 
+   * Responsibilities:
+   * 1. Update meeting on third-party platform with retry logic
+   * 2. Update meetings table with new schedule info
+   * 3. Publish MEETING_OPERATION_RESULT_EVENT (operation: update)
+   */
   @OnEvent(CLASS_SESSION_UPDATED_EVENT)
   async handleSessionUpdated(event: any): Promise<void> {
     this.logger.log(
@@ -203,7 +197,7 @@ export class ClassSessionCreatedEventHandler {
       );
     }
 
-    // Step 4: Publish unified result event
+    // Step 4: Publish result event based on result
     this.eventEmitter.emit(CLASS_SESSION_MEETING_OPERATION_RESULT_EVENT, {
       operation: 'update',
       status: updateSuccess ? 'success' : 'failed',
@@ -223,6 +217,15 @@ export class ClassSessionCreatedEventHandler {
     );
   }
 
+  /**
+   * Handle CLASS_SESSION_CANCELLED_EVENT
+   * Executes async meeting cancellation flow
+   * 
+   * Responsibilities:
+   * 1. Cancel meeting on third-party platform with retry logic
+   * 2. Update meetings table status to CANCELLED
+   * 3. Publish MEETING_OPERATION_RESULT_EVENT (operation: cancel)
+   */
   @OnEvent(CLASS_SESSION_CANCELLED_EVENT)
   async handleSessionCancelled(event: any): Promise<void> {
     this.logger.log(
@@ -277,7 +280,7 @@ export class ClassSessionCreatedEventHandler {
       );
     }
 
-    // Step 4: Publish unified result event
+    // Step 4: Publish result event based on result
     this.eventEmitter.emit(CLASS_SESSION_MEETING_OPERATION_RESULT_EVENT, {
       operation: 'cancel',
       status: cancelSuccess ? 'success' : 'failed',
