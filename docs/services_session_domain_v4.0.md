@@ -975,7 +975,7 @@ export class RegularMentoringService {
       studentId: session.student_user_id,
       mentorId: session.mentor_user_id,
       refrenceId: sessionId, // 服务引用 ID（同 sessionId）
-      sessionTypeCode: sessionType.code, // 从 session_types 获取：'External' | 'Internal' ⭐
+      sessionTypeCode: session.serviceType,
       actualDurationHours: payload.actualDuration / 3600, // 秒转小时
       durationHours: payload.scheduleDuration / 60, // 分钟转小时
       allowBilling: sessionType.is_billing, // 从 session_types 获取：true | false ⭐
