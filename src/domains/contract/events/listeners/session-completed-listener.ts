@@ -47,17 +47,24 @@ export class SessionCompletedListener {
     event: IServiceSessionCompletedEvent,
   ): Promise<void> {
     try {
-      const { sessionId, studentId, sessionTypeCode, actualDurationHours } =
+      const { sessionId, studentId, serviceTypeCode, actualDurationMinutes, sessionTypeCode } =
         event.payload || {};
 
       this.logger.log(
-        `Processing session completed event: ${event.id}, sessionId: ${sessionId}, studentId: ${studentId}, sessionType: ${sessionTypeCode}, duration: ${actualDurationHours}h`,
+        `Processing session completed event: ${event.id}, sessionId: ${sessionId}, studentId: ${studentId}, serviceType: ${serviceTypeCode}, duration: ${actualDurationMinutes}min, sessionType: ${sessionTypeCode}`,
       );
 
-      if (!sessionId || !studentId || !sessionTypeCode) {
+      // Validate required fields [验证必填字段]
+      if (!sessionId || !studentId || !serviceTypeCode) {
         this.logger.error(
-          `Missing required fields in event payload: sessionId=${sessionId}, studentId=${studentId}, sessionType=${sessionTypeCode}`,
+          `Missing required fields in event payload: sessionId=${sessionId}, studentId=${studentId}, serviceType=${serviceTypeCode}`,
         );
+        return;
+      }
+
+      // Validate sessionTypeCode [验证sessionTypeCode]
+      if (!sessionTypeCode) {
+        this.logger.error(`Missing sessionTypeCode in event payload for session ${sessionId}`);
         return;
       }
 
@@ -69,7 +76,7 @@ export class SessionCompletedListener {
         .where(
           and(
             eq(schema.serviceHolds.studentId, studentId),
-            eq(schema.serviceHolds.serviceType, sessionTypeCode),
+            eq(schema.serviceHolds.serviceType, serviceTypeCode),
             eq(schema.serviceHolds.status, HoldStatus.ACTIVE),
             eq(schema.serviceHolds.relatedBookingId, sessionId),
           ),
@@ -77,7 +84,7 @@ export class SessionCompletedListener {
 
       if (activeHolds.length === 0) {
         this.logger.warn(
-          `No active hold found for session ${sessionId}, student ${studentId}, serviceType ${sessionTypeCode}. Skipping hold release.`,
+          `No active hold found for session ${sessionId}, student ${studentId}, serviceType ${serviceTypeCode}. Skipping hold release.`,
         );
         // 继续记录消耗，即使没有预占 (Continue to record consumption even without hold)
       } else if (activeHolds.length > 1) {
@@ -97,24 +104,24 @@ export class SessionCompletedListener {
         }
 
         // 记录消耗 (Record consumption)
-        // 消耗数量 = 实际时长（转换为整数单位）
-        // Consumption quantity = actual duration (converted to integer units)
-        const consumptionQuantity = Math.ceil(actualDurationHours || 1);
+        // 消耗数量 = 实际时长（分钟）转换为小时，向上取整，最少1单位
+        // Consumption quantity = actual duration (minutes) converted to hours, rounded up, minimum 1 unit
+        const consumptionQuantity = Math.ceil((actualDurationMinutes || 60) / 60);
 
         await this.serviceLedgerService.recordConsumption(
           {
             studentId,
-            serviceType: sessionTypeCode,
+            serviceType: serviceTypeCode,
             quantity: consumptionQuantity,
             relatedBookingId: sessionId,
-            bookingSource: "regular_mentoring_sessions", // Booking table name for session consumption [会话消费的预约表名]
+            bookingSource: sessionTypeCode, // Use from event payload [使用事件负载中的值]
             createdBy: studentId, // Use studentId as valid UUID for createdBy field [使用studentId作为有效的UUID]
           },
           tx,
         );
 
         this.logger.log(
-          `Recorded consumption of ${consumptionQuantity} units for session ${sessionId}, student ${studentId}, serviceType ${sessionTypeCode}`,
+          `Recorded consumption of ${consumptionQuantity} units for session ${sessionId}, student ${studentId}, serviceType ${serviceTypeCode}`,
         );
       });
 

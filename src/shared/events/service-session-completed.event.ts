@@ -24,27 +24,17 @@ export interface IServiceSessionCompletedPayload {
   refrenceId?: string;
 
   /**
-   * Type code of session [会话类型代码]
+   * Service type code (business-level service type) [Service type code (业务级别的服务类型)]
    */
-  sessionTypeCode: string;
+  serviceTypeCode: string;
 
   /**
-   * 实际会话持续时间（小时）
-   */
-  actualDurationHours: number;
-
-  /**
-   *  预约持续时间（小时）
-   */
-  durationHours: number;
-
-  /**
-   * Actual session duration in minutes
+   * 实际会话持续时间（分钟）
    */
   actualDurationMinutes: number;
 
   /**
-   * Scheduled session duration in minutes
+   * 预约持续时间（分钟）
    */
   durationMinutes: number;
 
@@ -52,6 +42,11 @@ export interface IServiceSessionCompletedPayload {
    * 是否允许计费 [是否允许计费]
    */
   allowBilling: boolean;
+
+  /**
+   * Session type code (identifies the session type, e.g., ai_career, regular_mentoring) [会话类型代码（标识会话类型，例如：ai_career、regular_mentoring）]
+   */
+  sessionTypeCode: string;
 }
 
 export interface IServiceSessionCompletedEvent

@@ -113,13 +113,16 @@ export interface IMentorPrice {
  */
 export interface ICreatePerSessionBillingDTO {
   sessionId: string;
-  mentorUserId: string;
-  studentUserId: string;
+  mentorId: string;
+  studentId: string;
   serviceTypeCode: string; // Service type code (references service_types.code field)
   serviceName?: string;
-  durationHours: number;
-  startTime: Date;
-  endTime: Date;
+  actualDurationMinutes: number;
+  durationMinutes: number;
+  allowBilling: boolean;
+  referenceId?: string; // Custom reference for idempotency [幂等用的自定义reference]
+  startTime?: Date;
+  endTime?: Date;
   metadata?: Record<string, unknown>;
 }
 
@@ -186,7 +189,7 @@ export interface IMentorPayableService {
    */
   createPerSessionBilling(
     dto: ICreatePerSessionBillingDTO,
-  ): Promise<IMentorPayableLedger>;
+  ): Promise<void>;
 
   /**
    * 创建服务包计费记录
