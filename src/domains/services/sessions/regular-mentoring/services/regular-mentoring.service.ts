@@ -173,11 +173,11 @@ export class RegularMentoringService {
         studentId: session.studentUserId,
         mentorId: session.mentorUserId,
         refrenceId: sessionId, // shared primary key with service_references table
-        sessionTypeCode: session.serviceType,
+        serviceTypeCode: session.serviceType,
         actualDurationMinutes: payload.actualDuration,
         durationMinutes: payload.scheduleDuration,
         allowBilling: sessionType.isBilling,
-        bookingSource: "regular_mentoring_sessions",
+        sessionTypeCode: session.sessionType,
       },
     });
 

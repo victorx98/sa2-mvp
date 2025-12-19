@@ -52,7 +52,8 @@ describe("MentorPayableService", () => {
       sessionId: "session-123",
       studentId: "student-123",
       mentorId: "mentor-123",
-      sessionTypeCode: "consultation",
+      serviceTypeCode: "consultation",
+      sessionTypeCode: "consultation", // Use same value for mentor price lookup
       actualDurationMinutes: 120, // 2小时转换为120分钟
       durationMinutes: 120,
       allowBilling: true,
@@ -108,8 +109,8 @@ describe("MentorPayableService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("should throw error when sessionTypeCode is missing", async () => {
-      const invalidPayload = { ...validPayload, sessionTypeCode: undefined };
+    it("should throw error when serviceTypeCode is missing", async () => {
+      const invalidPayload = { ...validPayload, serviceTypeCode: undefined };
       await expect(
         service.createPerSessionBilling(invalidPayload as any),
       ).rejects.toThrow(BadRequestException);

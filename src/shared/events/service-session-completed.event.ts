@@ -24,9 +24,9 @@ export interface IServiceSessionCompletedPayload {
   refrenceId?: string;
 
   /**
-   * Type code of session [会话类型代码]
+   * Service type code (business-level service type) [Service type code (业务级别的服务类型)]
    */
-  sessionTypeCode: string;
+  serviceTypeCode: string;
 
   /**
    * 实际会话持续时间（分钟）
@@ -44,9 +44,9 @@ export interface IServiceSessionCompletedPayload {
   allowBilling: boolean;
 
   /**
-   * Booking table name (database table name), provided directly by the domain publishing the event [预约表名（数据库表名），由发布事件的域直接传入]
+   * Session type code (identifies the session type, e.g., ai_career, regular_mentoring) [会话类型代码（标识会话类型，例如：ai_career、regular_mentoring）]
    */
-  bookingSource: string;
+  sessionTypeCode: string;
 }
 
 export interface IServiceSessionCompletedEvent

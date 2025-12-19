@@ -180,11 +180,11 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
       payload: {
         sessionId: sessionId,
         studentId: HARD_CODED_STUDENT_ID,
-        sessionTypeCode: HARD_CODED_SERVICE_TYPE,
+        serviceTypeCode: HARD_CODED_SERVICE_TYPE,
         actualDurationMinutes: 54, // 54分钟 = 0.9小时 = 1单位消耗
         durationMinutes: 120,
         allowBilling: true,
-        bookingSource: "regular_mentoring_sessions",
+        sessionTypeCode: "regular_mentoring",
       },
     };
 
