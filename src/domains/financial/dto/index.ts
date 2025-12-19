@@ -16,8 +16,5 @@ export { MentorPriceSearchDto } from "./mentor-price-search.dto";
 export { CreateAppealDto } from "./appeals/create-appeal.dto";
 export { AppealSearchDto } from "./appeals/appeal-search.dto";
 export { RejectAppealDto } from "./appeals/reject-appeal.dto";
-// Class mentor price DTOs
-export { CreateClassMentorPriceDto } from "./create-class-mentor-price.dto";
-export { UpdateClassMentorPriceDto } from "./update-class-mentor-price.dto";
-export { ClassMentorPriceFilterDto } from "./class-mentor-price-filter.dto";
+
 export * from "./settlement";

@@ -35,6 +35,7 @@ export class GapAnalysisService {
       sessionType: dto.sessionType,
       sessionTypeId: dto.sessionTypeId,
       serviceType: dto.serviceType || null, // Business-level service type
+      serviceHoldId: dto.serviceHoldId || null, // Reference to initial booking hold
       studentUserId: dto.studentUserId,
       mentorUserId: dto.mentorUserId,
       createdByCounselorId: dto.createdByCounselorId || null,
@@ -171,10 +172,10 @@ export class GapAnalysisService {
         sessionId: sessionId,
         studentId: session.studentUserId,
         mentorId: session.mentorUserId,
-        refrenceId: sessionId,
-        sessionTypeCode: sessionType.code,
-        actualDurationHours: payload.actualDuration / 3600,
-        durationHours: payload.scheduleDuration / 60,
+        refrenceId: sessionId, // shared primary key with service_references table
+        sessionTypeCode: session.serviceType,
+        actualDurationMinutes: payload.actualDuration,
+        durationMinutes: payload.scheduleDuration,
         allowBilling: sessionType.isBilling,
       },
     });

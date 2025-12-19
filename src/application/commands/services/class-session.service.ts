@@ -16,7 +16,6 @@ import { MetricsService } from '@telemetry/metrics.service';
 import { CLASS_SESSION_CREATED_EVENT, CLASS_SESSION_UPDATED_EVENT, CLASS_SESSION_CANCELLED_EVENT } from '@shared/events/event-constants';
 import { ClassSessionService as DomainClassSessionService } from '@domains/services/class/class-sessions/services/class-session.service';
 import { ClassSessionStatus, SessionType as ClassSessionType } from '@domains/services/class/class-sessions/entities/class-session.entity';
-import { CreateClassSessionDto as DomainCreateClassSessionDto } from '@domains/services/class/class-sessions/dto/create-class-session.dto';
 import { ClassService as DomainClassService } from '@domains/services/class/classes/services/class.service';
 import { ClassSessionQueryService as DomainClassSessionQueryService } from '@domains/query/services/class-session-query.service';
 
@@ -107,18 +106,6 @@ export class ClassSessionService {
       // Create calendar slots (async meeting creation via event handler)
       const sessionResult = await this.db.transaction(async (tx: DrizzleTransaction) => {
         this.logger.debug('Starting database transaction for session creation');
-
-        // Step 0: Create service hold (reserve service credits)
-        // const hold = await this.serviceHoldService.createHold(
-        //   {
-        //     studentId: dto.studentId,
-        //     serviceType: dto.serviceType,
-        //     quantity: 1,
-        //     createdBy: dto.counselorId,
-        //   },
-        //   tx,
-        // );
-        // this.logger.debug(`Service hold created: ${hold.id}`);
 
         const durationMinutes = dto.duration || 60;
 

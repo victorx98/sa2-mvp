@@ -10,6 +10,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -381,6 +382,25 @@ export class ClassController {
   ) {}
 
   /**
+   * Helper method: Check if current user is a counselor of the class
+   * Admin users bypass this check
+   */
+  private async checkClassCounselorPermission(classId: string, user: User): Promise<void> {
+    // Admin users can access all classes
+    if (user.roles?.includes('admin')) {
+      return;
+    }
+
+    // Check if user is a counselor of this class
+    const counselors = await this.classQueryService.getClassCounselorsWithNames(classId);
+    const isCounselor = counselors.some(c => c.userId === user.id);
+
+    if (!isCounselor) {
+      throw new ForbiddenException('Only counselors of this class can perform this action');
+    }
+  }
+
+  /**
    * Create a new class
    * POST /api/services/classes
    */
@@ -615,9 +635,13 @@ export class ClassController {
     description: 'Class not found',
   })
   async updateClass(
+    @CurrentUser() user: User,
     @Param('id') classId: string,
     @Body() dto: UpdateClassRequestDto,
   ) {
+    // Check if current user is a counselor of this class (admin bypass)
+    await this.checkClassCounselorPermission(classId, user);
+
     await this.classService.updateClass(classId, {
       name: dto.name,
       startDate: dto.startDate ? new Date(dto.startDate) : undefined,
@@ -668,9 +692,13 @@ export class ClassController {
     description: 'Class not found',
   })
   async updateClassStatus(
+    @CurrentUser() user: User,
     @Param('id') classId: string,
     @Body() dto: UpdateClassStatusRequestDto,
   ): Promise<ClassStatusResponseDto> {
+    // Check if current user is a counselor of this class (admin bypass)
+    await this.checkClassCounselorPermission(classId, user);
+
     return this.classService.updateClassStatus(classId, dto.status);
   }
 
@@ -704,9 +732,13 @@ export class ClassController {
     description: 'Mentor already exists in this class',
   })
   async addMentor(
+    @CurrentUser() user: User,
     @Param('id') classId: string,
     @Body() dto: AddMentorRequestDto,
   ): Promise<AddMemberResponseDto> {
+    // Check if current user is a counselor of this class (admin bypass)
+    await this.checkClassCounselorPermission(classId, user);
+
     const result = await this.classService.addMentor(classId, {
       mentorUserId: dto.mentorUserId,
       pricePerSession: dto.pricePerSession,
@@ -748,9 +780,13 @@ export class ClassController {
     description: 'Class or mentor not found',
   })
   async removeMentor(
+    @CurrentUser() user: User,
     @Param('id') classId: string,
     @Param('mentorId') mentorId: string,
   ): Promise<RemoveMemberResponseDto> {
+    // Check if current user is a counselor of this class (admin bypass)
+    await this.checkClassCounselorPermission(classId, user);
+
     const result = await this.classService.removeMentor(classId, mentorId);
     return {
       ...result,
@@ -788,10 +824,14 @@ export class ClassController {
     description: 'Class or mentor not found',
   })
   async updateMentorPrice(
+    @CurrentUser() user: User,
     @Param('id') classId: string,
     @Param('mentorId') mentorId: string,
     @Body() dto: UpdateClassMentorPriceInClassRequestDto,
   ) {
+    // Check if current user is a counselor of this class (admin bypass)
+    await this.checkClassCounselorPermission(classId, user);
+
     return this.classService.updateMentorPrice(classId, mentorId, dto.pricePerSession);
   }
 
@@ -825,9 +865,13 @@ export class ClassController {
     description: 'Student already exists in this class',
   })
   async addStudent(
+    @CurrentUser() user: User,
     @Param('id') classId: string,
     @Body() dto: AddStudentRequestDto,
   ): Promise<AddMemberResponseDto> {
+    // Check if current user is a counselor of this class (admin bypass)
+    await this.checkClassCounselorPermission(classId, user);
+
     const result = await this.classService.addStudent(classId, {
       studentUserId: dto.studentUserId,
     });
@@ -868,9 +912,13 @@ export class ClassController {
     description: 'Class or student not found',
   })
   async removeStudent(
+    @CurrentUser() user: User,
     @Param('id') classId: string,
     @Param('studentId') studentId: string,
   ): Promise<RemoveMemberResponseDto> {
+    // Check if current user is a counselor of this class (admin bypass)
+    await this.checkClassCounselorPermission(classId, user);
+
     const result = await this.classService.removeStudent(classId, studentId);
     return {
       ...result,

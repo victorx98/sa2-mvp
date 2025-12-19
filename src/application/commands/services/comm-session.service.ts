@@ -17,7 +17,6 @@ import {
   COMM_SESSION_CREATED_EVENT,
   COMM_SESSION_UPDATED_EVENT,
   COMM_SESSION_CANCELLED_EVENT,
-  SESSION_RESCHEDULED_COMPLETED,
 } from '@shared/events/event-constants';
 import { CommSessionService as DomainCommSessionService } from '@domains/services/comm-sessions/services/comm-session.service';
 import { CommSessionQueryService as DomainCommSessionQueryService } from '@domains/query/services/comm-session-query.service';
@@ -119,9 +118,6 @@ export class CommSessionService {
             sessionType: CalendarSessionType.COMM_SESSION,
             title: dto.title,
             sessionId: undefined,
-            metadata: {
-              otherPartyName: dto.mentorId ? 'mentorName' : 'counselorName',
-            },
           },
           tx,
         );
@@ -144,9 +140,6 @@ export class CommSessionService {
               sessionType: CalendarSessionType.COMM_SESSION,
               title: dto.title,
               sessionId: undefined,
-              metadata: {
-                otherPartyName: 'studentName',
-              },
             },
             tx,
           );
@@ -291,9 +284,6 @@ export class CommSessionService {
               sessionType: CalendarSessionType.COMM_SESSION,
               title: dto.title || oldSession.title,
               sessionId: sessionId,
-              metadata: {
-                otherPartyName: oldSession.mentorUserId ? 'mentorName' : 'counselorName',
-              },
             },
             tx,
           );
@@ -313,9 +303,6 @@ export class CommSessionService {
                 sessionType: CalendarSessionType.COMM_SESSION,
                 title: dto.title || oldSession.title,
                 sessionId: sessionId,
-                metadata: {
-                  otherPartyName: 'studentName',
-                },
               },
               tx,
             );
@@ -357,15 +344,14 @@ export class CommSessionService {
       // Step 5: Extract meeting provider from oldSession
       const meetingProvider = oldSessionData.meetingProvider || 'feishu';
 
-      // Step 6: Emit event based on what changed
+      // Step 6: Emit event to trigger async meeting update (only when time or duration changes)
       if (timeChanged || durationChanged) {
-        // Emit event to trigger async meeting update (when time or duration changes)
         this.eventEmitter.emit(COMM_SESSION_UPDATED_EVENT, {
           sessionId: sessionId,
           meetingId: oldSession.meetingId,
-          oldScheduledAt: meetingScheduleStartTime, // Use actual meeting schedule time
+          oldScheduledAt: meetingScheduleStartTime,
           newScheduledAt: scheduledAtIso,
-          oldDuration: meetingScheduleDuration, // Use actual meeting duration
+          oldDuration: meetingScheduleDuration,
           newDuration: newDuration,
           newTitle: dto.title || oldSession.title,
           studentId: oldSession.studentUserId,
@@ -375,19 +361,6 @@ export class CommSessionService {
         } as any);
         this.logger.log(`Published COMM_SESSION_UPDATED_EVENT for session ${sessionId}`);
       }
-
-      // Always emit notification event (for both metadata and time changes)
-      this.eventEmitter.emit(SESSION_RESCHEDULED_COMPLETED, {
-        sessionId: sessionId,
-        changeType: timeChanged ? 'TIME' : 'METADATA',
-        studentId: oldSession.studentUserId,
-        mentorId: oldSession.mentorUserId,
-        counselorId: oldSession.counselorUserId || oldSession.createdByCounselorId,
-        newScheduledAt: scheduledAtIso,
-        newTitle: dto.title || oldSession.title,
-        meetingProvider: meetingProvider,
-      } as any);
-      this.logger.log(`Published SESSION_RESCHEDULED_COMPLETED for session ${sessionId}`);
 
       // Construct response with all updated values including meeting info
       // Meeting URL does not change when rescheduling, so include it from oldSession

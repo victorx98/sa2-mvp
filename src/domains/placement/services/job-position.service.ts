@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, Inject, NotFoundException, BadRequestException } from "@nestjs/common";
 import { eq, and, sql, asc, desc } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { DrizzleDatabase } from "@shared/types/database.types";
@@ -10,6 +10,7 @@ import {
 } from "../dto";
 import { IServiceResult } from "../interfaces";
 import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
+import { JobStatus } from "@domains/placement/types";
 
 /**
  * Job Position Service [岗位服务]
@@ -74,20 +75,14 @@ export class JobPositionService {
   /**
    * Find a job position [查找岗位]
    *
-   * @param params - Search parameters [搜索参数]
+   * @param params - Query parameters [查询参数]
    * @returns Job position [岗位]
    */
-  async findOne(params: {
-    id?: string;
-    title?: string;
-    companyName?: string;
-    status?: string;
-    [key: string]: unknown;
-  }): Promise<Record<string, unknown>> {
+  async findOne(params: { id?: string; title?: string; companyName?: string; status?: JobStatus }): Promise<Record<string, unknown>> {
     // Build conditions based on provided params
     const conditions = [];
 
-    // Handle known columns explicitly to avoid TypeScript errors
+    // Handle known columns explicitly
     if (params.id) {
       conditions.push(eq(recommendedJobs.id, params.id));
     }
@@ -98,10 +93,8 @@ export class JobPositionService {
       conditions.push(eq(recommendedJobs.companyName, params.companyName));
     }
     if (params.status) {
-      // Use type assertion for enum column to avoid TypeScript error
       conditions.push(eq(recommendedJobs.status, params.status));
     }
-    // Add more known columns as needed
 
     const [job] = await this.db
       .select()
@@ -202,7 +195,7 @@ export class JobPositionService {
     const pageSize = pagination?.pageSize || 20;
     const offset = (page - 1) * pageSize;
     const limit = pageSize;
-    const jobs = await query.limit(limit).offset(offset).execute();
+    const jobs = await query.limit(limit).offset(offset);
 
     // Get total count [获取总数]
     const countQuery = this.db
@@ -210,7 +203,7 @@ export class JobPositionService {
       .from(recommendedJobs)
       .where(and(...conditions));
 
-    const countResult = await countQuery.execute();
+    const countResult = await countQuery;
     const count = countResult[0]?.count || 0;
 
     return {
@@ -236,7 +229,7 @@ export class JobPositionService {
     const job = await this.findOne({ id: dto.jobId });
 
     if (job.status === "expired") {
-      throw new Error(`Job position is already expired: ${dto.jobId}`);
+      throw new BadRequestException(`Job position is already expired: ${dto.jobId}`);
     }
 
     // Update job status [更新岗位状态]

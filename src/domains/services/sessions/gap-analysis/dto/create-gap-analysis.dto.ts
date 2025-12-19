@@ -21,6 +21,10 @@ export class CreateGapAnalysisDto {
   @IsString()
   serviceType?: string; // Business-level service type
 
+  @IsOptional()
+  @IsUUID()
+  serviceHoldId?: string; // Reference to initial booking service hold
+
   @IsNotEmpty()
   @IsUUID()
   studentUserId: string;

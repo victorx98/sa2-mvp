@@ -267,6 +267,35 @@ export class UserService implements IUserService {
   }
 
   /**
+   * Get user display name in format: "name_en (name_zh)"
+   * Used for calendar metadata and UI display
+   * 
+   * @param userId - User ID
+   * @returns Formatted display name
+   */
+  async getDisplayName(userId: string): Promise<string> {
+    const user = await this.findById(userId);
+    return this.formatDisplayName(user);
+  }
+
+  /**
+   * Format user display name
+   * 
+   * @param user - User entity
+   * @returns Formatted display name
+   */
+  private formatDisplayName(user: User | null): string {
+    if (!user) {
+      return 'Unknown User';
+    }
+    
+    const nameEn = user.nameEn || 'Unknown';
+    const nameZh = user.nameZh || '未知';
+    
+    return `${nameEn} (${nameZh})`;
+  }
+
+  /**
    * Map database record to User entity
    */
   private mapToUser(record: typeof schema.userTable.$inferSelect): User {

@@ -6,11 +6,6 @@
  * 所有领域事件的集中事件名称常量。
  */
 
-// Session Events (会话事件)
-export const SESSION_BOOKED_EVENT = "session.booked";
-export const SESSION_CREATED_EVENT = "session.created"; // Legacy - 遗留事件，用于 Contract Domain
-
-// Session Type-specific Created Events (会话类型特定创建事件 - v2.0)
 // Trigger events (3 events for clear business semantics)
 export const REGULAR_MENTORING_SESSION_CREATED_EVENT = "regular_mentoring.session.created";
 export const REGULAR_MENTORING_SESSION_UPDATED_EVENT = "regular_mentoring.session.updated";
@@ -56,14 +51,12 @@ export const CLASS_SESSION_CANCELLED_EVENT = "class_session.session.cancelled";
 // Meeting operation result event for create/update/cancel operations, result: success/failed
 export const CLASS_SESSION_MEETING_OPERATION_RESULT_EVENT = "class_session.session.meeting.operation.result";
 
-// Legacy events (for backward compatibility)
-export const SESSION_RESCHEDULED_COMPLETED = "session.rescheduled.completed";
-
 // Service Session Events (服务会话事件)
 export const SERVICE_SESSION_COMPLETED_EVENT = "services.session.completed";
 
-// Meeting Events (会议事件) - v4.1
+// Meeting lifecycle completed event
 export const MEETING_LIFECYCLE_COMPLETED_EVENT = "meeting.lifecycle.completed";
+// Meeting recording ready event
 export const MEETING_RECORDING_READY_EVENT = "meeting.recording.ready";
 
 // Financial Events (财务事件)

@@ -47,7 +47,7 @@ import { ProductListResponseDto, ProductListItemResponseDto } from "@api/dto/res
  * 4. 返回HTTP响应
  */
 @Controller("api/products")
-@ApiTags("Catalog Products")
+@ApiTags("Catalog")
 @UseGuards(AuthGuard, RolesGuard)
 @Roles("admin", "manager")
 @ApiBearerAuth()

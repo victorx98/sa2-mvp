@@ -7,6 +7,19 @@ import {
 } from "../dto";
 import { IPaginatedResult, IServiceResult } from "./job-position.interface";
 import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
+import { ApplicationStatus, ApplicationType } from "@domains/placement/types";
+
+/**
+ * Strict query parameters for finding job applications [投递申请严格查询参数]
+ * Defines allowed fields for findOne operations [定义findOne操作允许的字段]
+ */
+export interface IJobApplicationQueryParams {
+  id?: string; // Application ID [申请ID]
+  studentId?: string; // Student ID [学生ID]
+  jobId?: string; // Job ID [岗位ID]
+  status?: ApplicationStatus; // Application status [申请状态]
+  applicationType?: ApplicationType; // Application type [申请类型]
+}
 
 /**
  * Job application service interface [投递服务接口]
@@ -60,13 +73,10 @@ export interface IJobApplicationService {
   /**
    * Get application [获取投递申请]
    *
-   * @param params - Search parameters [搜索参数]
+   * @param params - Query parameters [查询参数]
    * @returns Application [投递申请]
    */
-  findOne(params: {
-    id?: string;
-    [key: string]: unknown;
-  }): Promise<Record<string, unknown>>;
+  findOne(params: IJobApplicationQueryParams): Promise<Record<string, unknown>>;
 
   /**
    * Get application status history [获取投递状态历史]

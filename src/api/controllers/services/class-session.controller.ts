@@ -10,6 +10,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -28,6 +29,7 @@ import { User } from '@domains/identity/user/user-interface';
 import { ApiPrefix } from '@api/api.constants';
 import { ClassSessionService } from '@application/commands/services/class-session.service';
 import { ClassSessionQueryService } from '@application/queries/services/class-session.query.service';
+import { ClassQueryService } from '@application/queries/services/class.query.service';
 
 // ============================================================================
 // DTOs - Request
@@ -198,7 +200,27 @@ export class ClassSessionController {
   constructor(
     private readonly classSessionService: ClassSessionService,
     private readonly classSessionQueryService: ClassSessionQueryService,
+    private readonly classQueryService: ClassQueryService,
   ) {}
+
+  /**
+   * Helper method: Check if current user is a counselor of the class
+   * Admin users bypass this check
+   */
+  private async checkClassCounselorPermission(classId: string, user: User): Promise<void> {
+    // Admin users can access all classes
+    if (user.roles?.includes('admin')) {
+      return;
+    }
+
+    // Check if user is a counselor of this class
+    const counselors = await this.classQueryService.getClassCounselorsWithNames(classId);
+    const isCounselor = counselors.some(c => c.userId === user.id);
+
+    if (!isCounselor) {
+      throw new ForbiddenException('Only counselors of this class can perform this action');
+    }
+  }
 
   /**
    * Create a new class session
@@ -246,6 +268,9 @@ export class ClassSessionController {
     @CurrentUser() user: User,
     @Body() dto: CreateClassSessionRequestDto,
   ): Promise<CreateClassSessionResponseDto> {
+    // Check if current user is a counselor of this class (admin bypass)
+    await this.checkClassCounselorPermission(dto.classId, user);
+
     const result = await this.classSessionService.createSession({
       classId: dto.classId,
       mentorId: dto.mentorId,
@@ -359,9 +384,16 @@ export class ClassSessionController {
     description: 'Time conflict detected',
   })
   async updateSession(
+    @CurrentUser() user: User,
     @Param('id') sessionId: string,
     @Body() dto: UpdateClassSessionRequestDto,
   ) {
+    // Get session to find classId
+    const session = await this.classSessionQueryService.getSessionById(sessionId);
+    
+    // Check if current user is a counselor of this class (admin bypass)
+    await this.checkClassCounselorPermission(session.classId, user);
+
     return this.classSessionService.updateSession(sessionId, {
       title: dto.title,
       description: dto.description,
@@ -412,9 +444,16 @@ export class ClassSessionController {
     description: 'Session not found',
   })
   async cancelSession(
+    @CurrentUser() user: User,
     @Param('id') sessionId: string,
     @Body() dto: CancelClassSessionRequestDto,
   ): Promise<CancelClassSessionResponseDto> {
+    // Get session to find classId
+    const session = await this.classSessionQueryService.getSessionById(sessionId);
+    
+    // Check if current user is a counselor of this class (admin bypass)
+    await this.checkClassCounselorPermission(session.classId, user);
+
     return this.classSessionService.cancelSession(
       sessionId,
       dto.reason || 'Cancelled by administrator',
@@ -447,8 +486,15 @@ export class ClassSessionController {
     description: 'Session not found',
   })
   async deleteSession(
+    @CurrentUser() user: User,
     @Param('id') sessionId: string,
   ): Promise<DeleteClassSessionResponseDto> {
+    // Get session to find classId
+    const session = await this.classSessionQueryService.getSessionById(sessionId);
+    
+    // Check if current user is a counselor of this class (admin bypass)
+    await this.checkClassCounselorPermission(session.classId, user);
+
     return this.classSessionService.deleteSession(sessionId);
   }
 }

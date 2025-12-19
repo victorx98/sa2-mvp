@@ -30,7 +30,6 @@ import { GetProductDetailQuery } from "./queries/product/get-product-detail.quer
 // Application Layer - Commands
 import { RegisterCommand } from "./commands/auth/register.command";
 import { LoginCommand } from "./commands/auth/login.command";
-import { BookSessionCommand } from "./commands/booking/book-session.command";
 import { UpdateStudentProfileCommand } from "./commands/profile/update-student-profile.command";
 import { UpdateMentorProfileCommand } from "./commands/profile/update-mentor-profile.command";
 import { UpdateCounselorProfileCommand } from "./commands/profile/update-counselor-profile.command";
@@ -72,9 +71,7 @@ import { UpdateMentorPriceCommand } from "./commands/financial/update-mentor-pri
 import { UpdateMentorPriceStatusCommand } from "./commands/financial/update-mentor-price-status.command";
 import { BatchCreateMentorPricesCommand } from "./commands/financial/batch-create-mentor-prices.command";
 import { BatchUpdateMentorPricesCommand } from "./commands/financial/batch-update-mentor-prices.command";
-import { CreateClassMentorPriceCommand } from "./commands/financial/create-class-mentor-price.command";
-import { UpdateClassMentorPriceCommand } from "./commands/financial/update-class-mentor-price.command";
-import { UpdateClassMentorPriceStatusCommand } from "./commands/financial/update-class-mentor-price-status.command";
+
 import { AdjustPayableLedgerCommand } from "./commands/financial/adjust-payable-ledger.command";
 import { GenerateSettlementCommand } from "./commands/financial/generate-settlement.command";
 import { UpdateOrCreatePaymentParamsCommand } from "./commands/financial/update-or-create-payment-params.command";
@@ -87,6 +84,7 @@ import { UpdateJobApplicationStatusCommand } from "./commands/placement/update-j
 import { RollbackJobApplicationStatusCommand } from "./commands/placement/rollback-job-application-status.command";
 import { RecommendReferralApplicationsBatchCommand } from "./commands/placement/recommend-referral-applications-batch.command";
 import { AssignReferralMentorCommand } from "./commands/placement/assign-referral-mentor.command";
+import { CreateManualJobApplicationCommand } from "./commands/placement/create-manual-job-application.command";
 
 // Application Layer - Commands (兼容层)
 import { AuthCommandService } from "./commands/auth-command/auth-command.service";
@@ -145,7 +143,6 @@ import { QueryModule } from "@domains/query/query.module";
     // Commands
     RegisterCommand,
     LoginCommand,
-    BookSessionCommand,
     UpdateStudentProfileCommand,
     UpdateMentorProfileCommand,
     UpdateCounselorProfileCommand,
@@ -189,9 +186,7 @@ import { QueryModule } from "@domains/query/query.module";
     UpdateMentorPriceStatusCommand,
     BatchCreateMentorPricesCommand,
     BatchUpdateMentorPricesCommand,
-    CreateClassMentorPriceCommand,
-    UpdateClassMentorPriceCommand,
-    UpdateClassMentorPriceStatusCommand,
+
     AdjustPayableLedgerCommand,
     GenerateSettlementCommand,
     UpdateOrCreatePaymentParamsCommand,
@@ -204,6 +199,7 @@ import { QueryModule } from "@domains/query/query.module";
     RollbackJobApplicationStatusCommand,
     RecommendReferralApplicationsBatchCommand,
     AssignReferralMentorCommand,
+    CreateManualJobApplicationCommand,
 
     // Commands (兼容层)
     AuthCommandService,
@@ -243,7 +239,6 @@ import { QueryModule } from "@domains/query/query.module";
     // Commands
     RegisterCommand,
     LoginCommand,
-    BookSessionCommand,
     UpdateStudentProfileCommand,
     UpdateMentorProfileCommand,
     UpdateCounselorProfileCommand,
@@ -287,9 +282,7 @@ import { QueryModule } from "@domains/query/query.module";
     UpdateMentorPriceStatusCommand,
     BatchCreateMentorPricesCommand,
     BatchUpdateMentorPricesCommand,
-    CreateClassMentorPriceCommand,
-    UpdateClassMentorPriceCommand,
-    UpdateClassMentorPriceStatusCommand,
+
     AdjustPayableLedgerCommand,
     GenerateSettlementCommand,
     UpdateOrCreatePaymentParamsCommand,
@@ -302,6 +295,7 @@ import { QueryModule } from "@domains/query/query.module";
     RollbackJobApplicationStatusCommand,
     RecommendReferralApplicationsBatchCommand,
     AssignReferralMentorCommand,
+    CreateManualJobApplicationCommand,
 
     // Commands (兼容层 - 保持向后兼容)
     AuthCommandService,

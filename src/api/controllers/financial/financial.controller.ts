@@ -40,22 +40,17 @@ import { UpdateOrCreatePaymentParamsCommand } from "@application/commands/financ
 import { ModifyPaymentParamsCommand } from "@application/commands/financial/modify-payment-params.command";
 import { CreateOrUpdateMentorPaymentInfoCommand } from "@application/commands/financial/create-or-update-mentor-payment-info.command";
 import { UpdateMentorPaymentInfoStatusCommand } from "@application/commands/financial/update-mentor-payment-info-status.command";
-import { CreateClassMentorPriceCommand } from "@application/commands/financial/create-class-mentor-price.command";
-import { UpdateClassMentorPriceCommand } from "@application/commands/financial/update-class-mentor-price.command";
-import { UpdateClassMentorPriceStatusCommand } from "@application/commands/financial/update-class-mentor-price-status.command";
+
 import type { CreateAppealDto } from "@domains/financial/dto/appeals/create-appeal.dto";
 import type { ApproveAppealDto } from "@domains/financial/dto/appeals/approve-appeal.dto";
 import type { RejectAppealDto } from "@domains/financial/dto/appeals/reject-appeal.dto";
 import type { CreateMentorPriceDto } from "@domains/financial/dto/create-mentor-price.dto";
 import type { UpdateMentorPriceDto } from "@domains/financial/dto/update-mentor-price.dto";
 import type { UpdateMentorPriceStatusDto } from "@domains/financial/dto/update-mentor-price-status.dto";
-import type { CreateClassMentorPriceDto } from "@domains/financial/dto/create-class-mentor-price.dto";
-import type { UpdateClassMentorPriceDto } from "@domains/financial/dto/update-class-mentor-price.dto";
-import type { UpdateClassMentorPriceStatusDto } from "@domains/financial/dto/update-class-mentor-price-status.dto";
-import type { ClassMentorPriceFilterDto } from "@domains/financial/dto/class-mentor-price-filter.dto";
+
 import type { ICreateSettlementRequest, IPaymentParamUpdate } from "@domains/financial/dto/settlement";
 import type { ICreateOrUpdateMentorPaymentInfoRequest } from "@domains/financial/dto/settlement";
-import { ClassMentorPriceQueryService } from "@domains/query/financial/class-mentor-price-query.service";
+
 import {
   ApproveMentorAppealRequestDto,
   CreateMentorAppealRequestDto,
@@ -84,17 +79,7 @@ import {
   MentorPaymentInfoResponseDto,
   SettlementDetailResponseDto,
 } from "@api/dto/response/financial/settlement.response.dto";
-import {
-  ClassMentorPriceResponseDto,
-  ClassMentorPriceWithMentorResponseDto,
-  PaginatedClassMentorPriceResponseDto,
-} from "@api/dto/response/financial/class-mentor-price.response.dto";
-import {
-  CreateClassMentorPriceRequestDto,
-  SearchClassMentorPricesQueryDto,
-  UpdateClassMentorPriceRequestDto,
-  UpdateClassMentorPriceStatusRequestDto,
-} from "@api/dto/request/financial/class-mentor-price.request.dto";
+
 import {
   ChannelBatchPayPaymentDetailsDto,
   CheckPaymentDetailsDto,
@@ -104,8 +89,7 @@ import {
 } from "@api/dto/request/financial/payment-details.dto";
 import type { AdjustPayableLedgerDto } from "@domains/financial/dto/adjust-payable-ledger.dto";
 import { SettlementMethod } from "@domains/financial/dto/settlement";
-import type { ClassMentorPriceWithMentor } from "@domains/query/financial/class-mentor-price-query.service";
-import type { ClassMentorPrice, MentorPrice } from "@infrastructure/database/schema";
+import type { MentorPrice } from "@infrastructure/database/schema";
 
 /**
  * Admin Financial Controller
@@ -119,7 +103,7 @@ import type { ClassMentorPrice, MentorPrice } from "@infrastructure/database/sch
  * 5. 结算管理
  */
 @Controller("api/financial")
-@ApiTags("Admin Financial")
+@ApiTags("Financial")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles("admin")
 @ApiBearerAuth()
@@ -144,12 +128,7 @@ export class FinancialController {
     private readonly batchCreateMentorPricesCommand: BatchCreateMentorPricesCommand,
     private readonly batchUpdateMentorPricesCommand: BatchUpdateMentorPricesCommand,
 
-    // 班级导师价格相关
-    private readonly createClassMentorPriceCommand: CreateClassMentorPriceCommand,
-    private readonly updateClassMentorPriceCommand: UpdateClassMentorPriceCommand,
-    private readonly updateClassMentorPriceStatusCommand: UpdateClassMentorPriceStatusCommand,
-
-    // 应付账款相关
+      // 应付账款相关
     private readonly adjustPayableLedgerCommand: AdjustPayableLedgerCommand,
 
     // 结算相关
@@ -162,9 +141,6 @@ export class FinancialController {
     // 支付信息相关
     private readonly createOrUpdateMentorPaymentInfoCommand: CreateOrUpdateMentorPaymentInfoCommand,
     private readonly updateMentorPaymentInfoStatusCommand: UpdateMentorPaymentInfoStatusCommand,
-
-    // 班级导师价格查询相关
-    private readonly classMentorPriceQueryService: ClassMentorPriceQueryService,
   ) {}
 
   // Helper methods for mapping domain objects to DTOs [将领域对象映射到DTO的辅助方法]
@@ -184,35 +160,7 @@ export class FinancialController {
     };
   }
 
-  private mapClassMentorPriceToDto(price: ClassMentorPrice): ClassMentorPriceResponseDto {
-    return {
-      id: price.id,
-      classId: price.classId,
-      mentorUserId: price.mentorUserId,
-      pricePerSession: price.pricePerSession,
-      status: price.status,
-      createdAt: price.createdAt.toISOString(),
-      updatedAt: price.updatedAt.toISOString(),
-    };
-  }
 
-  private mapClassMentorPriceWithMentorToDto(
-    price: ClassMentorPriceWithMentor,
-  ): ClassMentorPriceWithMentorResponseDto {
-    return {
-      id: price.id,
-      classId: price.classId,
-      mentor: {
-        id: price.mentor.id,
-        nameEn: price.mentor.nameEn,
-        nameZh: price.mentor.nameZh,
-      },
-      pricePerSession: price.pricePerSession,
-      status: price.status,
-      createdAt: price.createdAt.toISOString(),
-      updatedAt: price.updatedAt.toISOString(),
-    };
-  }
 
   private mapMentorPaymentInfoToDto(paymentInfo: {
     id: string;
@@ -561,191 +509,7 @@ export class FinancialController {
     return prices.map(p => this.mapMentorPriceToDto(p));
   }
 
-  // ----------------------
-  // 班级导师价格管理
-  // ----------------------
 
-  @Post("class-mentor-prices")
-  @ApiOperation({
-    summary: "Create class mentor price",
-    description:
-      "Creates class-level mentor price configuration. [创建班级维度的导师价格配置]",
-  })
-  @ApiBody({ type: CreateClassMentorPriceRequestDto })
-  @ApiCreatedResponse({
-    description: "Class mentor price created successfully",
-    type: ClassMentorPriceResponseDto,
-  })
-  @ApiResponse({ status: 400, description: "Bad request" })
-  async createClassMentorPrice(
-    @CurrentUser() user: IJwtUser,
-    @Body() body: CreateClassMentorPriceRequestDto,
-  ): Promise<ClassMentorPriceResponseDto> {
-    const dto: CreateClassMentorPriceDto =
-      body as unknown as CreateClassMentorPriceDto;
-    const price = await this.createClassMentorPriceCommand.execute({
-      dto,
-      updatedBy: String((user as unknown as { id: string }).id),
-    });
-    return this.mapClassMentorPriceToDto(price);
-  }
-
-  @Get("class-mentor-prices/:id")
-  @ApiOperation({
-    summary: "Get class mentor price by ID",
-    description:
-      "Returns class mentor price with mentor name info. [按ID查询班级导师价格，包含导师姓名信息]",
-  })
-  @ApiParam({
-    name: "id",
-    required: true,
-    description: "Class mentor price ID (UUID). [班级导师价格ID(UUID)]",
-    type: String,
-  })
-  @ApiOkResponse({
-    description: "Class mentor price retrieved successfully",
-    type: ClassMentorPriceWithMentorResponseDto,
-  })
-  @ApiResponse({ status: 404, description: "Class mentor price not found" })
-  async getClassMentorPriceById(
-    @Param("id") id: string,
-  ): Promise<ClassMentorPriceWithMentorResponseDto | null> {
-    const result = await this.classMentorPriceQueryService.findOne({ id });
-    return result ? this.mapClassMentorPriceWithMentorToDto(result) : null;
-  }
-
-  @Get("class-mentor-prices")
-  @ApiOperation({
-    summary: "Search class mentor prices",
-    description:
-      "Searches class mentor prices with filters, pagination and sorting. [按条件查询班级导师价格，支持分页与排序]",
-  })
-  @ApiOkResponse({
-    description: "Class mentor prices retrieved successfully",
-    type: PaginatedClassMentorPriceResponseDto,
-  })
-  async searchClassMentorPrices(
-    @Query() query: SearchClassMentorPricesQueryDto,
-  ): Promise<PaginatedClassMentorPriceResponseDto> {
-    const filter: ClassMentorPriceFilterDto = {};
-    if (query.classId) filter.classId = query.classId;
-    if (query.mentorUserId) filter.mentorUserId = query.mentorUserId;
-    if (query.status) filter.status = query.status;
-
-    const normalizedSortField = query.sortField && query.sortField.trim()
-      ? query.sortField.trim()
-      : "createdAt";
-    const normalizedSortOrder: "asc" | "desc" =
-      query.sortOrder === "asc" || query.sortOrder === "desc"
-        ? query.sortOrder
-        : "desc";
-
-    const result = await this.classMentorPriceQueryService.search(
-      filter,
-      { page: query.page, pageSize: query.pageSize },
-      { field: normalizedSortField, order: normalizedSortOrder },
-    );
-    return {
-      ...result,
-      data: result.data.map(item => this.mapClassMentorPriceWithMentorToDto(item)),
-    };
-  }
-
-  @Get("class-mentor-prices/by-class-and-mentor")
-  @ApiOperation({
-    summary: "Get class mentor price by class and mentor",
-    description:
-      "Finds a class mentor price record by classId and mentorUserId. [按班级ID与导师ID查询班级导师价格记录]",
-  })
-  @ApiQuery({
-    name: "classId",
-    required: true,
-    description: "Class ID (UUID). [班级ID(UUID)]",
-    type: String,
-  })
-  @ApiQuery({
-    name: "mentorUserId",
-    required: true,
-    description: "Mentor user ID (UUID). [导师用户ID(UUID)]",
-    type: String,
-  })
-  @ApiOkResponse({
-    description: "Class mentor price retrieved successfully",
-    type: ClassMentorPriceWithMentorResponseDto,
-  })
-  async getClassMentorPriceByClassAndMentor(
-    @Query('classId') classId: string,
-    @Query('mentorUserId') mentorUserId: string,
-  ): Promise<ClassMentorPriceWithMentorResponseDto | null> {
-    const result = await this.classMentorPriceQueryService.findOne({ classId, mentorUserId });
-    return result ? this.mapClassMentorPriceWithMentorToDto(result) : null;
-  }
-
-  @Put("class-mentor-prices/:id")
-  @ApiOperation({
-    summary: "Update class mentor price",
-    description:
-      "Updates class mentor price fields (e.g., pricePerSession). [更新班级导师价格字段，如pricePerSession]",
-  })
-  @ApiParam({
-    name: "id",
-    required: true,
-    description: "Class mentor price ID (UUID). [班级导师价格ID(UUID)]",
-    type: String,
-  })
-  @ApiBody({ type: UpdateClassMentorPriceRequestDto })
-  @ApiOkResponse({
-    description: "Class mentor price updated successfully",
-    type: ClassMentorPriceResponseDto,
-  })
-  @ApiResponse({ status: 404, description: "Class mentor price not found" })
-  async updateClassMentorPrice(
-    @CurrentUser() user: IJwtUser,
-    @Param("id") id: string,
-    @Body() body: UpdateClassMentorPriceRequestDto,
-  ): Promise<ClassMentorPriceResponseDto> {
-    const dto: UpdateClassMentorPriceDto =
-      body as unknown as UpdateClassMentorPriceDto;
-    const price = await this.updateClassMentorPriceCommand.execute({
-      id,
-      dto,
-      updatedBy: String((user as unknown as { id: string }).id),
-    });
-    return this.mapClassMentorPriceToDto(price);
-  }
-
-  @Patch("class-mentor-prices/:id/status")
-  @ApiOperation({
-    summary: "Update class mentor price status",
-    description:
-      "Updates status of class mentor price record. [更新班级导师价格记录状态]",
-  })
-  @ApiParam({
-    name: "id",
-    required: true,
-    description: "Class mentor price ID (UUID). [班级导师价格ID(UUID)]",
-    type: String,
-  })
-  @ApiBody({ type: UpdateClassMentorPriceStatusRequestDto })
-  @ApiOkResponse({
-    description: "Class mentor price status updated successfully",
-    type: ClassMentorPriceResponseDto,
-  })
-  @ApiResponse({ status: 404, description: "Class mentor price not found" })
-  async updateClassMentorPriceStatus(
-    @CurrentUser() user: IJwtUser,
-    @Param("id") id: string,
-    @Body() body: UpdateClassMentorPriceStatusRequestDto,
-  ): Promise<ClassMentorPriceResponseDto> {
-    const dto: UpdateClassMentorPriceStatusDto =
-      body as unknown as UpdateClassMentorPriceStatusDto;
-    const price = await this.updateClassMentorPriceStatusCommand.execute({
-      id,
-      status: dto.status,
-      updatedBy: String((user as unknown as { id: string }).id),
-    });
-    return this.mapClassMentorPriceToDto(price);
-  }
 
   // ----------------------
   // 应付账款管理

@@ -18,6 +18,8 @@ import { RecommendReferralApplicationsBatchCommand } from "@application/commands
 import { PlacementReferralBatchRecommendRequestDto } from "@api/dto/request/placement-referral-batch.request.dto";
 import { AssignReferralMentorCommand } from "@application/commands/placement/assign-referral-mentor.command";
 import { PlacementReferralAssignMentorRequestDto } from "@api/dto/request/placement-referral-assign-mentor.request.dto";
+import { CreateManualJobApplicationCommand } from "@application/commands/placement/create-manual-job-application.command";
+import { PlacementReferralManualCreateRequestDto } from "@api/dto/request/placement-referral-manual-create.request.dto";
 import { BatchRecommendReferralApplicationsResponseDto, JobApplicationResponseDto } from "@api/dto/response/placement/placement.response.dto";
 
 /**
@@ -25,7 +27,7 @@ import { BatchRecommendReferralApplicationsResponseDto, JobApplicationResponseDt
  * - Counselor recommends jobs to students by creating referral applications [顾问给学生推荐岗位，创建内推投递记录]
  */
 @Controller("api/placement")
-@ApiTags("Placement Referral")
+@ApiTags("Placement")
 @UseGuards(AuthGuard, RolesGuard)
 @Roles("counselor")
 @ApiBearerAuth()
@@ -33,6 +35,7 @@ export class PlacementReferralController {
   constructor(
     private readonly recommendReferralApplicationsBatchCommand: RecommendReferralApplicationsBatchCommand,
     private readonly assignReferralMentorCommand: AssignReferralMentorCommand,
+    private readonly createManualJobApplicationCommand: CreateManualJobApplicationCommand,
   ) {}
 
   @Post("referrals/recommendations/batch")
@@ -99,6 +102,48 @@ export class PlacementReferralController {
         mentorId: body.mentorId,
         changedBy: counselorId,
         changeReason: "Assign referral mentor",
+      },
+    });
+
+    return result.data as unknown as JobApplicationResponseDto;
+  }
+
+  /**
+   * Create manual referral application [手工创建内推投递记录]
+   * - Counselor manually creates job applications with mentor assigned status [顾问手工创建内推投递记录，状态默认设置为mentor_assigned]
+   */
+  @Post("referrals/manual")
+  @ApiOperation({
+    summary: "Create manual referral application",
+    description:
+      "Counselor manually creates job applications with mentor assigned status. [顾问手工创建内推投递记录，状态默认设置为mentor_assigned]",
+  })
+  @ApiBody({ type: PlacementReferralManualCreateRequestDto })
+  @ApiCreatedResponse({
+    description: "Manual referral application created",
+    type: JobApplicationResponseDto,
+  })
+  @ApiResponse({ status: 400, description: "Bad request" })
+  async createManualReferral(
+    @Body() body: PlacementReferralManualCreateRequestDto,
+    @CurrentUser() user: IJwtUser,
+  ): Promise<JobApplicationResponseDto> {
+    const counselorId = String((user as unknown as { id: string }).id);
+    const result = await this.createManualJobApplicationCommand.execute({
+      dto: {
+        studentId: body.studentId,
+        mentorId: body.mentorId,
+        jobType: body.jobType,
+        resumeSubmittedDate: body.resumeSubmittedDate,
+        jobTitle: body.jobTitle,
+        jobLink: body.jobLink,
+        jobId: body.jobId,
+        companyName: body.companyName,
+        location: body.location,
+        jobCategories: body.jobCategories,
+        normalJobTitle: body.normalJobTitle,
+        level: body.level,
+        createdBy: counselorId,
       },
     });
 

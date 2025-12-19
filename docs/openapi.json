@@ -1803,6 +1803,127 @@
         "tags": [
           "Services - Class Management"
         ]
+      },
+      "get": {
+        "description": "\n      Retrieve paginated list of classes with mentors and counselors details.\n      \n      Query Parameters:\n      - createdByMe: Filter by classes created by current user (true/false)\n      - name: Filter by class name (fuzzy search)\n      - status: Filter by status\n      - type: Filter by type\n      - page, pageSize, sortBy, sortOrder: Pagination and sorting\n      \n      Examples:\n      - GET /api/services/classes (all classes)\n      - GET /api/services/classes?createdByMe=true (my classes)\n      - GET /api/services/classes?name=春季 (search by name)\n    ",
+        "operationId": "ClassController_getAllClasses",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number",
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Page size (max 100)",
+            "schema": {
+              "default": 10,
+              "example": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "description": "Sort field",
+            "schema": {
+              "default": "createdAt",
+              "example": "createdAt",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "description": "Sort order",
+            "schema": {
+              "default": "desc",
+              "example": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Active",
+                "Inactive"
+              ]
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "Filter by type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "session",
+                "enroll"
+              ]
+            }
+          },
+          {
+            "name": "createdByMe",
+            "required": false,
+            "in": "query",
+            "description": "Filter by created by me (current user)",
+            "schema": {
+              "example": true,
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "name",
+            "required": false,
+            "in": "query",
+            "description": "Filter by class name (fuzzy search)",
+            "schema": {
+              "example": "春季",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classes retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetAllClassesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get classes with pagination and filters",
+        "tags": [
+          "Services - Class Management"
+        ]
       }
     },
     "/api/services/classes/{id}/mentors": {
@@ -1875,6 +1996,9 @@
           },
           "404": {
             "description": "Class not found"
+          },
+          "409": {
+            "description": "Mentor already exists in this class"
           }
         },
         "security": [
@@ -1958,6 +2082,9 @@
           },
           "404": {
             "description": "Class not found"
+          },
+          "409": {
+            "description": "Student already exists in this class"
           }
         },
         "security": [
@@ -2041,6 +2168,9 @@
           },
           "404": {
             "description": "Class not found"
+          },
+          "409": {
+            "description": "Counselor already exists in this class"
           }
         },
         "security": [
@@ -2661,6 +2791,256 @@
         ]
       }
     },
+    "/api/services/resumes/upload": {
+      "post": {
+        "operationId": "ResumeController_uploadResume",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadResumeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Resume uploaded successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Upload resume",
+        "tags": [
+          "Resume Management"
+        ]
+      }
+    },
+    "/api/services/resumes/student/{studentUserId}": {
+      "get": {
+        "operationId": "ResumeController_listResumesByStudent",
+        "parameters": [
+          {
+            "name": "studentUserId",
+            "required": true,
+            "in": "path",
+            "description": "Student user ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resumes retrieved successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get student resumes grouped by job title",
+        "tags": [
+          "Resume Management"
+        ]
+      }
+    },
+    "/api/services/resumes/{resumeId}/set-final": {
+      "post": {
+        "operationId": "ResumeController_setFinal",
+        "parameters": [
+          {
+            "name": "resumeId",
+            "required": true,
+            "in": "path",
+            "description": "Resume ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetFinalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resume set as final successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set resume as final version",
+        "tags": [
+          "Resume Management"
+        ]
+      }
+    },
+    "/api/services/resumes/{resumeId}/cancel-final": {
+      "post": {
+        "operationId": "ResumeController_cancelFinal",
+        "parameters": [
+          {
+            "name": "resumeId",
+            "required": true,
+            "in": "path",
+            "description": "Resume ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetFinalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Final status canceled successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancel final status",
+        "tags": [
+          "Resume Management"
+        ]
+      }
+    },
+    "/api/services/resumes/{resumeId}/bill": {
+      "post": {
+        "operationId": "ResumeController_billResume",
+        "parameters": [
+          {
+            "name": "resumeId",
+            "required": true,
+            "in": "path",
+            "description": "Resume ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillResumeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resume billed successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Bill resume to mentor",
+        "tags": [
+          "Resume Management"
+        ]
+      }
+    },
+    "/api/services/resumes/{resumeId}/cancel-bill": {
+      "post": {
+        "operationId": "ResumeController_cancelBillResume",
+        "parameters": [
+          {
+            "name": "resumeId",
+            "required": true,
+            "in": "path",
+            "description": "Resume ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelBillResumeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resume billing cancelled successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancel resume billing",
+        "tags": [
+          "Resume Management"
+        ]
+      }
+    },
+    "/api/services/resumes/{resumeId}": {
+      "delete": {
+        "operationId": "ResumeController_deleteResume",
+        "parameters": [
+          {
+            "name": "resumeId",
+            "required": true,
+            "in": "path",
+            "description": "Resume ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resume deleted successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete resume",
+        "tags": [
+          "Resume Management"
+        ]
+      }
+    },
     "/api/mentors/find": {
       "get": {
         "operationId": "MentorsController_findMentors",
@@ -2997,7 +3377,113 @@
         ],
         "summary": "Create a new product",
         "tags": [
-          "Catalog Products"
+          "Catalog"
+        ]
+      },
+      "get": {
+        "description": "Retrieve paginated products list with filtering and sorting. [获取分页产品列表，支持筛选和排序]",
+        "operationId": "ProductsController_getProducts",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (starts from 1) [页码(从1开始)]",
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Items per page [每页条数]",
+            "schema": {
+              "maximum": 100,
+              "default": 20,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Product status filter [产品状态筛选]",
+            "schema": {
+              "example": "ACTIVE",
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "ACTIVE",
+                "INACTIVE",
+                "DELETED"
+              ]
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "Product type filter [产品类型筛选]",
+            "schema": {
+              "example": "mentoring_package",
+              "type": "string"
+            }
+          },
+          {
+            "name": "keyword",
+            "required": false,
+            "in": "query",
+            "description": "Keyword search (searches in name and title) [关键词搜索]",
+            "schema": {
+              "example": "premium course",
+              "type": "string"
+            }
+          },
+          {
+            "name": "minPrice",
+            "required": false,
+            "in": "query",
+            "description": "Minimum price filter [最低价格筛选]",
+            "schema": {
+              "example": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "maxPrice",
+            "required": false,
+            "in": "query",
+            "description": "Maximum price filter [最高价格筛选]",
+            "schema": {
+              "example": 1000,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Products retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get products list with pagination",
+        "tags": [
+          "Catalog"
         ]
       }
     },
@@ -3038,7 +3524,7 @@
         ],
         "summary": "Create product snapshot",
         "tags": [
-          "Catalog Products"
+          "Catalog"
         ]
       }
     },
@@ -3079,7 +3565,7 @@
         ],
         "summary": "Get product detail (with entitlements)",
         "tags": [
-          "Catalog Products"
+          "Catalog"
         ]
       },
       "patch": {
@@ -3128,7 +3614,7 @@
         ],
         "summary": "Update product",
         "tags": [
-          "Catalog Products"
+          "Catalog"
         ]
       }
     },
@@ -3182,7 +3668,7 @@
         ],
         "summary": "Update product status",
         "tags": [
-          "Catalog Products"
+          "Catalog"
         ]
       }
     },
@@ -3229,7 +3715,7 @@
         ],
         "summary": "Get service entitlements for a specific student",
         "tags": [
-          "Admin Contracts"
+          "Contracts"
         ]
       }
     },
@@ -3276,11 +3762,129 @@
         ],
         "summary": "Get contracts purchased by a specific student",
         "tags": [
-          "Admin Contracts"
+          "Contracts"
         ]
       }
     },
     "/api/contracts": {
+      "get": {
+        "description": "Retrieve paginated contracts list with various filter options",
+        "operationId": "ContractsController_getContracts",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (starts from 1) [页码(从1开始)]",
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Items per page [每页条数]",
+            "schema": {
+              "maximum": 100,
+              "default": 20,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "studentId",
+            "required": false,
+            "in": "query",
+            "description": "Student ID for filtering [学生ID筛选]",
+            "schema": {
+              "example": "9e50af7d-5f08-4516-939f-7f765ce131b8",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Contract status filter [合同状态筛选]",
+            "schema": {
+              "example": "active",
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "SIGNED",
+                "ACTIVE",
+                "SUSPENDED",
+                "COMPLETED",
+                "TERMINATED"
+              ]
+            }
+          },
+          {
+            "name": "productId",
+            "required": false,
+            "in": "query",
+            "description": "Product ID filter [产品ID筛选]",
+            "schema": {
+              "example": "9e50af7d-5f08-4516-939f-7f765ce131b8",
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Contract start date filter (ISO 8601) [合同开始日期筛选]",
+            "schema": {
+              "example": "2025-01-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "Contract end date filter (ISO 8601) [合同结束日期筛选]",
+            "schema": {
+              "example": "2025-12-31",
+              "type": "string"
+            }
+          },
+          {
+            "name": "keyword",
+            "required": false,
+            "in": "query",
+            "description": "Keyword search (searches in title, description) [关键词搜索]",
+            "schema": {
+              "example": "premium",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contracts retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get contracts list with pagination and filters",
+        "tags": [
+          "Contracts"
+        ]
+      },
       "post": {
         "description": "Creates a contract from a frozen product snapshot. [基于产品快照创建合同]",
         "operationId": "ContractsController_create",
@@ -3306,18 +3910,13 @@
               }
             }
           },
-          "400": {
-            "description": "Bad request"
-          }
-        },
-        "security": [
           {
             "bearer": []
           }
         ],
         "summary": "Create a new contract",
         "tags": [
-          "Admin Contracts"
+          "Contracts"
         ]
       }
     },
@@ -3327,51 +3926,22 @@
         "operationId": "ContractsController_updateStatus",
         "parameters": [
           {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Contract ID (UUID). [合同ID(UUID)]",
+            "name": "studentId",
+            "required": false,
+            "in": "query",
+            "description": "Student ID for filtering [学生ID筛选]",
             "schema": {
+              "example": "9e50af7d-5f08-4516-939f-7f765ce131b8",
               "type": "string"
             }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateContractStatusRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Contract status updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ContractResponseDto"
-                }
-              }
-            }
           },
-          "400": {
-            "description": "Invalid status transition"
-          },
-          "404": {
-            "description": "Contract not found"
-          }
-        },
-        "security": [
           {
             "bearer": []
           }
         ],
         "summary": "Update contract status",
         "tags": [
-          "Admin Contracts"
+          "Contracts"
         ]
       }
     },
@@ -3381,48 +3951,32 @@
         "operationId": "ContractsController_update",
         "parameters": [
           {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Contract ID (UUID). [合同ID(UUID)]",
+            "name": "productId",
+            "required": false,
+            "in": "query",
+            "description": "Product ID filter [产品ID筛选]",
             "schema": {
+              "example": "9e50af7d-5f08-4516-939f-7f765ce131b8",
               "type": "string"
             }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateContractRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Contract updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ContractResponseDto"
-                }
-              }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Contract start date filter (ISO 8601) [合同开始日期筛选]",
+            "schema": {
+              "example": "2025-01-01",
+              "type": "string"
             }
           },
-          "404": {
-            "description": "Contract not found"
-          }
-        },
-        "security": [
           {
             "bearer": []
           }
         ],
         "summary": "Update contract",
         "tags": [
-          "Admin Contracts"
+          "Contracts"
         ]
       }
     },
@@ -3452,21 +4006,13 @@
               }
             }
           },
-          "400": {
-            "description": "Bad request"
-          },
-          "404": {
-            "description": "Student or entitlement not found"
-          }
-        },
-        "security": [
           {
             "bearer": []
           }
         ],
         "summary": "Consume service",
         "tags": [
-          "Admin Contracts"
+          "Contracts"
         ]
       }
     },
@@ -3484,20 +4030,17 @@
               }
             }
           }
-        },
+        ],
         "responses": {
-          "201": {
-            "description": "Amendment ledger added successfully",
+          "200": {
+            "description": "Contracts retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContractServiceEntitlementResponseDto"
+                  "$ref": "#/components/schemas/ContractListResponseDto"
                 }
               }
             }
-          },
-          "400": {
-            "description": "Bad request"
           }
         },
         "security": [
@@ -3505,9 +4048,192 @@
             "bearer": []
           }
         ],
-        "summary": "Add amendment ledger",
+        "summary": "Get contracts list with pagination and filters",
         "tags": [
-          "Admin Contracts"
+          "Contracts"
+        ]
+      }
+    },
+    "/api/contracts/service-type-consumption": {
+      "get": {
+        "description": "Retrieve all service type consumption records with complete data for frontend chart layout. [获取所有服务类型权益消费记录，为前端图表布局提供完整数据支持]",
+        "operationId": "ContractsController_getServiceTypeConsumptionRecords",
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": false,
+            "in": "query",
+            "description": "Student ID (UUID) for filtering. [用于筛选的学生ID(UUID)]",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "mentorId",
+            "required": false,
+            "in": "query",
+            "description": "Mentor ID (UUID) for filtering. [用于筛选的导师ID(UUID)]",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Status for filtering. [用于筛选的状态]",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number. Default: 1. [页码，默认值：1]",
+            "schema": {
+              "minimum": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Page size. Default: 20. Max: 100. [每页条数，默认值：20，最大值：100]",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
+            "in": "query",
+            "description": "Sort field. Default: startDate. [排序字段，默认值：startDate]",
+            "schema": {
+              "example": "startDate",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "description": "Sort order. Default: desc. [排序方向，默认值：desc]",
+            "schema": {
+              "example": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "description": "Student ID (UUID) for filtering. [用于筛选的学生ID(UUID)]",
+            "required": false,
+            "name": "studentId",
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Mentor ID (UUID) for filtering. [用于筛选的导师ID(UUID)]",
+            "required": false,
+            "name": "mentorId",
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Status for filtering. [用于筛选的状态]",
+            "required": false,
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page number. Default: 1. [页码，默认值：1]",
+            "required": false,
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Page size. Default: 20. Max: 100. [每页条数，默认值：20，最大值：100]",
+            "required": false,
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Sort field. Default: startDate. [排序字段，默认值：startDate]",
+            "required": false,
+            "name": "sortField",
+            "in": "query",
+            "schema": {
+              "example": "startDate",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Sort order. Default: desc. [排序方向，默认值：desc]",
+            "required": false,
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "example": "desc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Service type consumption records retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get all service type consumption records",
+        "tags": [
+          "Contracts"
         ]
       }
     },
@@ -3548,7 +4274,7 @@
         ],
         "summary": "Create a new mentor appeal",
         "tags": [
-          "Admin Financial"
+          "Financial"
         ]
       }
     },
@@ -3602,7 +4328,7 @@
         ],
         "summary": "Approve mentor appeal",
         "tags": [
-          "Admin Financial"
+          "Financial"
         ]
       }
     },
@@ -3653,7 +4379,7 @@
         ],
         "summary": "Reject mentor appeal",
         "tags": [
-          "Admin Financial"
+          "Financial"
         ]
       }
     },
@@ -3694,7 +4420,7 @@
         ],
         "summary": "Generate settlement bill",
         "tags": [
-          "Admin Financial"
+          "Financial"
         ]
       }
     },
@@ -3735,7 +4461,7 @@
         ],
         "summary": "Create mentor price",
         "tags": [
-          "Admin Financial"
+          "Financial"
         ]
       }
     },
@@ -3786,7 +4512,7 @@
         ],
         "summary": "Update mentor price",
         "tags": [
-          "Admin Financial"
+          "Financial"
         ]
       }
     },
@@ -3830,7 +4556,7 @@
         ],
         "summary": "Update mentor price status",
         "tags": [
-          "Admin Financial"
+          "Financial"
         ]
       }
     },
@@ -3874,7 +4600,7 @@
         ],
         "summary": "Batch create mentor prices",
         "tags": [
-          "Admin Financial"
+          "Financial"
         ]
       },
       "put": {
@@ -3916,350 +4642,7 @@
         ],
         "summary": "Batch update mentor prices",
         "tags": [
-          "Admin Financial"
-        ]
-      }
-    },
-    "/api/financial/class-mentor-prices": {
-      "post": {
-        "description": "Creates class-level mentor price configuration. [创建班级维度的导师价格配置]",
-        "operationId": "FinancialController_createClassMentorPrice",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateClassMentorPriceRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Class mentor price created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClassMentorPriceResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Create class mentor price",
-        "tags": [
-          "Admin Financial"
-        ]
-      },
-      "get": {
-        "description": "Searches class mentor prices with filters, pagination and sorting. [按条件查询班级导师价格，支持分页与排序]",
-        "operationId": "FinancialController_searchClassMentorPrices",
-        "parameters": [
-          {
-            "name": "classId",
-            "required": false,
-            "in": "query",
-            "description": "Filter by class ID (UUID). [按班级ID(UUID)筛选]",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "name": "mentorUserId",
-            "required": false,
-            "in": "query",
-            "description": "Filter by mentor user ID (UUID). [按导师用户ID(UUID)筛选]",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "name": "status",
-            "required": false,
-            "in": "query",
-            "description": "Filter by status. Default: ACTIVE when omitted. [按状态筛选，不传默认ACTIVE]",
-            "schema": {
-              "default": "active",
-              "type": "string",
-              "enum": [
-                "inactive",
-                "active"
-              ]
-            }
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "description": "Page number. Default: 1. [页码，默认1]",
-            "schema": {
-              "minimum": 1,
-              "default": 1,
-              "example": 1,
-              "type": "number"
-            }
-          },
-          {
-            "name": "pageSize",
-            "required": false,
-            "in": "query",
-            "description": "Page size. Default: 20. [每页条数，默认20]",
-            "schema": {
-              "minimum": 1,
-              "default": 20,
-              "example": 20,
-              "type": "number"
-            }
-          },
-          {
-            "name": "sortField",
-            "required": false,
-            "in": "query",
-            "description": "Sort field. Allowed: createdAt, updatedAt, pricePerSession. Default: createdAt. [排序字段：createdAt/updatedAt/pricePerSession，默认createdAt]",
-            "schema": {
-              "default": "createdAt",
-              "type": "string",
-              "enum": [
-                "createdAt",
-                "updatedAt",
-                "pricePerSession"
-              ]
-            }
-          },
-          {
-            "name": "sortOrder",
-            "required": false,
-            "in": "query",
-            "description": "Sort order. Default: desc. [排序方向，默认desc]",
-            "schema": {
-              "default": "desc",
-              "type": "string",
-              "enum": [
-                "asc",
-                "desc"
-              ]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Class mentor prices retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedClassMentorPriceResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Search class mentor prices",
-        "tags": [
-          "Admin Financial"
-        ]
-      }
-    },
-    "/api/financial/class-mentor-prices/{id}": {
-      "get": {
-        "description": "Returns class mentor price with mentor name info. [按ID查询班级导师价格，包含导师姓名信息]",
-        "operationId": "FinancialController_getClassMentorPriceById",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Class mentor price ID (UUID). [班级导师价格ID(UUID)]",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Class mentor price retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClassMentorPriceWithMentorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Class mentor price not found"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Get class mentor price by ID",
-        "tags": [
-          "Admin Financial"
-        ]
-      },
-      "put": {
-        "description": "Updates class mentor price fields (e.g., pricePerSession). [更新班级导师价格字段，如pricePerSession]",
-        "operationId": "FinancialController_updateClassMentorPrice",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Class mentor price ID (UUID). [班级导师价格ID(UUID)]",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateClassMentorPriceRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Class mentor price updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClassMentorPriceResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Class mentor price not found"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Update class mentor price",
-        "tags": [
-          "Admin Financial"
-        ]
-      }
-    },
-    "/api/financial/class-mentor-prices/by-class-and-mentor": {
-      "get": {
-        "description": "Finds a class mentor price record by classId and mentorUserId. [按班级ID与导师ID查询班级导师价格记录]",
-        "operationId": "FinancialController_getClassMentorPriceByClassAndMentor",
-        "parameters": [
-          {
-            "name": "classId",
-            "required": true,
-            "in": "query",
-            "description": "Class ID (UUID). [班级ID(UUID)]",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "mentorUserId",
-            "required": true,
-            "in": "query",
-            "description": "Mentor user ID (UUID). [导师用户ID(UUID)]",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Class mentor price retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClassMentorPriceWithMentorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Get class mentor price by class and mentor",
-        "tags": [
-          "Admin Financial"
-        ]
-      }
-    },
-    "/api/financial/class-mentor-prices/{id}/status": {
-      "patch": {
-        "description": "Updates status of class mentor price record. [更新班级导师价格记录状态]",
-        "operationId": "FinancialController_updateClassMentorPriceStatus",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Class mentor price ID (UUID). [班级导师价格ID(UUID)]",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateClassMentorPriceStatusRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Class mentor price status updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClassMentorPriceResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Class mentor price not found"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Update class mentor price status",
-        "tags": [
-          "Admin Financial"
+          "Financial"
         ]
       }
     },
@@ -4303,7 +4686,7 @@
         ],
         "summary": "Adjust payable ledger",
         "tags": [
-          "Admin Financial"
+          "Financial"
         ]
       }
     },
@@ -4356,7 +4739,7 @@
         ],
         "summary": "Create or update payment parameters",
         "tags": [
-          "Admin Financial"
+          "Financial"
         ]
       },
       "patch": {
@@ -4407,7 +4790,7 @@
         ],
         "summary": "Modify payment parameters",
         "tags": [
-          "Admin Financial"
+          "Financial"
         ]
       }
     },
@@ -4448,7 +4831,7 @@
         ],
         "summary": "Create or update mentor payment info",
         "tags": [
-          "Admin Financial"
+          "Financial"
         ]
       }
     },
@@ -4499,7 +4882,7 @@
         ],
         "summary": "Update mentor payment info status",
         "tags": [
-          "Admin Financial"
+          "Financial"
         ]
       }
     },
@@ -4540,7 +4923,7 @@
         ],
         "summary": "Create a new job position",
         "tags": [
-          "Admin Placement"
+          "Placement"
         ]
       }
     },
@@ -4581,7 +4964,7 @@
         ],
         "summary": "Mark job position as expired",
         "tags": [
-          "Admin Placement"
+          "Placement"
         ]
       }
     },
@@ -4632,7 +5015,7 @@
         ],
         "summary": "Update job application status",
         "tags": [
-          "Admin Placement"
+          "Placement"
         ]
       }
     },
@@ -4686,7 +5069,7 @@
         ],
         "summary": "Rollback job application status",
         "tags": [
-          "Admin Placement"
+          "Placement"
         ]
       }
     },
@@ -4714,6 +5097,7 @@
             "description": "Page size. Default: 20. [每页条数，默认20]",
             "schema": {
               "minimum": 1,
+              "maximum": 100,
               "default": 20,
               "example": 20,
               "type": "number"
@@ -4896,7 +5280,7 @@
         ],
         "summary": "Query jobs",
         "tags": [
-          "Placement Query"
+          "Placement"
         ]
       }
     },
@@ -4937,7 +5321,7 @@
         ],
         "summary": "Batch recommend referral applications",
         "tags": [
-          "Placement Referral"
+          "Placement"
         ]
       }
     },
@@ -4988,7 +5372,87 @@
         ],
         "summary": "Assign mentor for a referral application",
         "tags": [
-          "Placement Referral"
+          "Placement"
+        ]
+      }
+    },
+    "/api/placement/referrals/manual": {
+      "post": {
+        "description": "Counselor manually creates job applications with mentor assigned status. [顾问手工创建内推投递记录，状态默认设置为mentor_assigned]",
+        "operationId": "PlacementReferralController_createManualReferral",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlacementReferralManualCreateRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Manual referral application created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobApplicationResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create manual referral application",
+        "tags": [
+          "Placement"
+        ]
+      }
+    },
+    "/api/files/upload": {
+      "post": {
+        "operationId": "FileController_uploadFile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "folder": {
+                    "type": "string",
+                    "description": "S3 folder prefix (default: uploads)",
+                    "example": "resumes"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Upload file to S3",
+        "tags": [
+          "Files"
         ]
       }
     }
@@ -6066,6 +6530,10 @@
         "type": "object",
         "properties": {}
       },
+      "GetAllClassesResponseDto": {
+        "type": "object",
+        "properties": {}
+      },
       "UpdateClassRequestDto": {
         "type": "object",
         "properties": {
@@ -6281,6 +6749,27 @@
         "properties": {}
       },
       "DeleteClassSessionResponseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UploadResumeDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "SetFinalDto": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Description"
+          }
+        }
+      },
+      "BillResumeDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CancelBillResumeDto": {
         "type": "object",
         "properties": {}
       },
@@ -7515,6 +8004,45 @@
           "createdBy"
         ]
       },
+      "ProductListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Product list data [产品列表数据]",
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "number",
+            "description": "Total number of records [总记录数]",
+            "example": 150
+          },
+          "page": {
+            "type": "number",
+            "description": "Current page number [当前页码]",
+            "example": 1
+          },
+          "pageSize": {
+            "type": "number",
+            "description": "Number of items per page [每页条数]",
+            "example": 20
+          },
+          "totalPages": {
+            "type": "number",
+            "description": "Total number of pages [总页数]",
+            "example": 8
+          }
+        },
+        "required": [
+          "data",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ]
+      },
       "UpdateProductStatusRequestDto": {
         "type": "object",
         "properties": {
@@ -7724,6 +8252,45 @@
           "contract_number",
           "product",
           "status"
+        ]
+      },
+      "ContractListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Contract list data [合同列表数据]",
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "number",
+            "description": "Total number of records [总记录数]",
+            "example": 150
+          },
+          "page": {
+            "type": "number",
+            "description": "Current page number [当前页码]",
+            "example": 1
+          },
+          "pageSize": {
+            "type": "number",
+            "description": "Number of items per page [每页条数]",
+            "example": 20
+          },
+          "totalPages": {
+            "type": "number",
+            "description": "Total number of pages [总页数]",
+            "example": 8
+          }
+        },
+        "required": [
+          "data",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
         ]
       },
       "ContractProductSnapshotItemRequestDto": {
@@ -8953,220 +9520,6 @@
           "updates"
         ]
       },
-      "CreateClassMentorPriceRequestDto": {
-        "type": "object",
-        "properties": {
-          "classId": {
-            "type": "string",
-            "description": "Class ID (UUID). [班级ID(UUID)]",
-            "format": "uuid"
-          },
-          "mentorUserId": {
-            "type": "string",
-            "description": "Mentor user ID (UUID). [导师用户ID(UUID)]",
-            "format": "uuid"
-          },
-          "pricePerSession": {
-            "type": "number",
-            "description": "Price per session (integer). [每次会话价格(整数)]",
-            "example": 200,
-            "minimum": 1
-          }
-        },
-        "required": [
-          "classId",
-          "mentorUserId",
-          "pricePerSession"
-        ]
-      },
-      "ClassMentorPriceResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Record ID (UUID). [记录ID(UUID)]"
-          },
-          "classId": {
-            "type": "string",
-            "description": "Class ID (UUID). [班级ID(UUID)]"
-          },
-          "mentorUserId": {
-            "type": "string",
-            "description": "Mentor user ID (UUID). [导师用户ID(UUID)]"
-          },
-          "pricePerSession": {
-            "type": "number",
-            "description": "Price per session (integer). [每次会话价格(整数)]",
-            "example": 200
-          },
-          "status": {
-            "type": "string",
-            "description": "Status. [状态]",
-            "enum": [
-              "inactive",
-              "active"
-            ],
-            "example": "active"
-          },
-          "createdAt": {
-            "type": "string",
-            "description": "Created time (ISO 8601). [创建时间(ISO 8601)]",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "description": "Updated time (ISO 8601). [更新时间(ISO 8601)]",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "classId",
-          "mentorUserId",
-          "pricePerSession",
-          "status",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "MentorInfoResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Mentor user ID (UUID). [导师用户ID(UUID)]",
-            "format": "uuid"
-          },
-          "nameEn": {
-            "type": "string",
-            "description": "Mentor English name. [导师英文名]"
-          },
-          "nameZh": {
-            "type": "string",
-            "description": "Mentor Chinese name. [导师中文名]"
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "ClassMentorPriceWithMentorResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Record ID (UUID). [记录ID(UUID)]"
-          },
-          "classId": {
-            "type": "string",
-            "description": "Class ID (UUID). [班级ID(UUID)]"
-          },
-          "mentor": {
-            "description": "Mentor object. [导师对象]",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/MentorInfoResponseDto"
-              }
-            ]
-          },
-          "pricePerSession": {
-            "type": "number",
-            "description": "Price per session. [每次会话价格]",
-            "example": 200
-          },
-          "status": {
-            "type": "string",
-            "description": "Status. [状态]",
-            "example": "active"
-          },
-          "createdAt": {
-            "type": "string",
-            "description": "Created time (ISO 8601). [创建时间(ISO 8601)]",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "description": "Updated time (ISO 8601). [更新时间(ISO 8601)]",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "classId",
-          "mentor",
-          "pricePerSession",
-          "status",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "PaginatedClassMentorPriceResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "description": "Result list. [结果列表]",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ClassMentorPriceWithMentorResponseDto"
-            }
-          },
-          "total": {
-            "type": "number",
-            "description": "Total count. [总数]",
-            "example": 100
-          },
-          "page": {
-            "type": "number",
-            "description": "Page number. [页码]",
-            "example": 1
-          },
-          "pageSize": {
-            "type": "number",
-            "description": "Page size. [每页条数]",
-            "example": 20
-          },
-          "totalPages": {
-            "type": "number",
-            "description": "Total pages. [总页数]",
-            "example": 5
-          }
-        },
-        "required": [
-          "data",
-          "total",
-          "page",
-          "pageSize",
-          "totalPages"
-        ]
-      },
-      "UpdateClassMentorPriceRequestDto": {
-        "type": "object",
-        "properties": {
-          "pricePerSession": {
-            "type": "number",
-            "description": "New price per session (integer). [新的每次会话价格(整数)]",
-            "minimum": 1,
-            "example": 220
-          }
-        }
-      },
-      "UpdateClassMentorPriceStatusRequestDto": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string",
-            "description": "New status. [新状态]",
-            "enum": [
-              "inactive",
-              "active"
-            ],
-            "example": "active"
-          }
-        },
-        "required": [
-          "status"
-        ]
-      },
       "AdjustPayableLedgerRequestDto": {
         "type": "object",
         "properties": {
@@ -9430,42 +9783,6 @@
           }
         }
       },
-      "SkillRequestDto": {
-        "type": "object",
-        "properties": {
-          "skill": {
-            "type": "string",
-            "description": "Skill name. [技能名称]",
-            "example": "TypeScript"
-          },
-          "years_of_experience": {
-            "type": "number",
-            "description": "Years of experience for this skill. [该技能经验年数]",
-            "example": 2
-          }
-        },
-        "required": [
-          "skill"
-        ]
-      },
-      "MatchedTitleRequestDto": {
-        "type": "object",
-        "properties": {
-          "job_title": {
-            "type": "string",
-            "description": "Matched job title. [匹配的职位标题]"
-          },
-          "score": {
-            "type": "number",
-            "description": "Match score (0~1 or 0~100 depending on source). [匹配分数(随来源定义)]",
-            "example": 0.86
-          }
-        },
-        "required": [
-          "job_title",
-          "score"
-        ]
-      },
       "CreateJobPositionRequestDto": {
         "type": "object",
         "properties": {
@@ -9545,27 +9862,6 @@
                 "$ref": "#/components/schemas/SalaryDetailsRequestDto"
               }
             ]
-          },
-          "skills": {
-            "description": "Skills list. [技能列表]",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SkillRequestDto"
-            }
-          },
-          "responsibilities": {
-            "description": "Responsibilities list. [职责列表]",
-            "items": {
-              "type": "array"
-            },
-            "type": "array"
-          },
-          "matchedTitles": {
-            "description": "Matched titles with scores. [匹配职位标题及分数]",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MatchedTitleRequestDto"
-            }
           },
           "jobDescription": {
             "type": "string",
@@ -9655,39 +9951,6 @@
           }
         }
       },
-      "SkillResponseDto": {
-        "type": "object",
-        "properties": {
-          "skill": {
-            "type": "string",
-            "description": "Skill name. [技能名称]"
-          },
-          "years_of_experience": {
-            "type": "number",
-            "description": "Years of experience. [经验年数]"
-          }
-        },
-        "required": [
-          "skill"
-        ]
-      },
-      "MatchedTitleResponseDto": {
-        "type": "object",
-        "properties": {
-          "job_title": {
-            "type": "string",
-            "description": "Job title. [职位标题]"
-          },
-          "score": {
-            "type": "number",
-            "description": "Score. [分数]"
-          }
-        },
-        "required": [
-          "job_title",
-          "score"
-        ]
-      },
       "JobPositionResponseDto": {
         "type": "object",
         "properties": {
@@ -9727,6 +9990,11 @@
             "description": "Post date (ISO 8601). [发布日期(ISO 8601)]",
             "format": "date-time"
           },
+          "application_deadline": {
+            "type": "string",
+            "description": "Application deadline (ISO 8601). [投递截止时间(ISO 8601)]",
+            "format": "date-time"
+          },
           "status": {
             "type": "string",
             "description": "Status (active/inactive/expired). [状态：active/inactive/expired]",
@@ -9755,27 +10023,6 @@
                 "$ref": "#/components/schemas/SalaryDetailsResponseDto"
               }
             ]
-          },
-          "skills": {
-            "description": "Skills list. [技能列表]",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SkillResponseDto"
-            }
-          },
-          "jobResponsibilities": {
-            "description": "Responsibilities list. [职责列表]",
-            "items": {
-              "type": "array"
-            },
-            "type": "array"
-          },
-          "matchedJobTitles": {
-            "description": "Matched titles. [匹配标题]",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MatchedTitleResponseDto"
-            }
           },
           "jobLocations": {
             "description": "Job locations list. [地点列表]",
@@ -9807,10 +10054,6 @@
           "aiAnalysis": {
             "type": "object",
             "description": "AI analysis JSON. [AI分析JSON]"
-          },
-          "sourceDetails": {
-            "type": "object",
-            "description": "Source details JSON. [来源详情JSON]"
           },
           "jobApplicationType": {
             "description": "Supported application types. [支持投递类型]",
@@ -10006,10 +10249,10 @@
           }
         }
       },
-      "PaginatedJobResultsResponseDto": {
+      "JobQueryResponseDto": {
         "type": "object",
         "properties": {
-          "items": {
+          "data": {
             "description": "Job items. [岗位列表]",
             "type": "array",
             "items": {
@@ -10034,38 +10277,11 @@
           }
         },
         "required": [
-          "items",
+          "data",
           "total",
           "page",
           "pageSize",
           "totalPages"
-        ]
-      },
-      "JobQueryResponseDto": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean",
-            "description": "Success flag. [是否成功]",
-            "example": true
-          },
-          "data": {
-            "description": "Paginated job results. [分页岗位结果]",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/PaginatedJobResultsResponseDto"
-              }
-            ]
-          },
-          "message": {
-            "type": "string",
-            "description": "Message. [消息]"
-          }
-        },
-        "required": [
-          "success",
-          "data",
-          "message"
         ]
       },
       "PlacementReferralBatchRecommendRequestDto": {
@@ -10124,6 +10340,88 @@
         },
         "required": [
           "mentorId"
+        ]
+      },
+      "PlacementReferralManualCreateRequestDto": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "description": "Student user ID (UUID string). [学生用户ID(UUID字符串)]",
+            "format": "uuid",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor user ID (UUID string). [导师用户ID(UUID字符串)]",
+            "format": "uuid",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "jobType": {
+            "type": "string",
+            "description": "Job type. [职位类型]",
+            "example": "full-time"
+          },
+          "resumeSubmittedDate": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Resume submitted date. [简历提交日期]",
+            "example": "2023-01-01T00:00:00Z"
+          },
+          "jobTitle": {
+            "type": "string",
+            "description": "Job title. [职位标题]",
+            "example": "Software Engineer"
+          },
+          "jobLink": {
+            "type": "string",
+            "description": "Job link URL. [职位链接]",
+            "example": "https://example.com/job/123"
+          },
+          "jobId": {
+            "type": "string",
+            "description": "Job ID. [职位ID]",
+            "example": "EXT-123"
+          },
+          "companyName": {
+            "type": "string",
+            "description": "Company name. [公司名称]",
+            "example": "Example Company"
+          },
+          "location": {
+            "type": "string",
+            "description": "Job location. [工作地点]",
+            "example": "San Francisco, CA"
+          },
+          "jobCategories": {
+            "description": "Job categories. [职位类别]",
+            "example": [
+              "ADMIN"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "normalJobTitle": {
+            "type": "string",
+            "description": "Normalized job title. [标准化职位标题]",
+            "example": "Software Engineer"
+          },
+          "level": {
+            "type": "string",
+            "description": "Job level. [职位级别]",
+            "example": "Entry Level"
+          }
+        },
+        "required": [
+          "studentId",
+          "mentorId",
+          "jobType",
+          "resumeSubmittedDate",
+          "jobTitle",
+          "jobLink",
+          "companyName"
         ]
       }
     }
