@@ -4,7 +4,7 @@ import {
   SERVICE_SESSION_COMPLETED_EVENT,
   IServiceSessionCompletedEvent,
 } from "@shared/events/service-session-completed.event";
-import { SessionCompletedListener } from "@domains/contract/events/listeners/session-completed-listener";
+import { ServiceSessionCompletedHandler } from "@application/event-handlers/contract/service-session-completed.handler";
 import { ServiceHoldService } from "@domains/contract/services/service-hold.service";
 import { ServiceLedgerService } from "@domains/contract/services/service-ledger.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
@@ -20,7 +20,7 @@ import { HoldStatus } from "@shared/types/contract-enums";
 
 describe("Service Session Completed Event Integration Test [服务会话完成事件集成测试]", () => {
   let eventEmitter: EventEmitter2;
-  let sessionCompletedListener: SessionCompletedListener;
+  let serviceSessionCompletedHandler: ServiceSessionCompletedHandler;
   let serviceHoldService: ServiceHoldService;
   let serviceLedgerService: ServiceLedgerService;
   let db: DrizzleDatabase;
@@ -42,7 +42,7 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
     const moduleRef = await Test.createTestingModule({
       providers: [
         EventEmitter2,
-        SessionCompletedListener,
+        ServiceSessionCompletedHandler,
         ServiceHoldService,
         ServiceLedgerService,
         {
@@ -53,8 +53,8 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
     }).compile();
 
     eventEmitter = moduleRef.get<EventEmitter2>(EventEmitter2);
-    sessionCompletedListener = moduleRef.get<SessionCompletedListener>(
-      SessionCompletedListener,
+    serviceSessionCompletedHandler = moduleRef.get<ServiceSessionCompletedHandler>(
+      ServiceSessionCompletedHandler,
     );
     serviceHoldService = moduleRef.get<ServiceHoldService>(ServiceHoldService);
     serviceLedgerService =
@@ -189,7 +189,7 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
       },
     };
 
-    await sessionCompletedListener.handleServiceSessionCompletedEvent(event);
+    await serviceSessionCompletedHandler.handle(event);
 
     console.log("✅ Event processed");
 

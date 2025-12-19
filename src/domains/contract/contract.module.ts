@@ -3,7 +3,6 @@ import { DatabaseModule } from "@infrastructure/database/database.module";
 import { ContractService } from "./services/contract.service";
 import { ServiceLedgerService } from "./services/service-ledger.service";
 import { ServiceHoldService } from "./services/service-hold.service";
-import { SessionCompletedListener } from "./events/listeners/session-completed-listener";
 
 /**
  * Contract Domain Module(合约领域模块)
@@ -27,7 +26,6 @@ import { SessionCompletedListener } from "./events/listeners/session-completed-l
  * ✅ ContractService - Real implementation with 14 methods (合约服务 - 14个方法的完整实现)
  * ✅ ServiceLedgerService - Ledger tracking (账本追踪)
  * ✅ ServiceHoldService - Hold management (预占管理)
- * ✅ SessionCompletedListener - Auto-consumes services on session completion (会话完成自动消费)
  *
  * Implementation Status(实现状态): ✅ Phase 1 Complete (阶段1完成)
  * - ContractService rewritten from mock to real implementation (ContractService从Mock重写为真实实现)
@@ -41,8 +39,6 @@ import { SessionCompletedListener } from "./events/listeners/session-completed-l
     ContractService,
     ServiceLedgerService,
     ServiceHoldService,
-    // Event listeners
-    SessionCompletedListener,
   ],
   exports: [ContractService, ServiceLedgerService, ServiceHoldService],
 })

@@ -44,6 +44,8 @@ import { CommSessionCreatedEventHandler } from "./commands/services/comm-session
 import { ClassService } from "./commands/services/class.service";
 import { ClassSessionService } from "./commands/services/class-session.service";
 import { ClassSessionCreatedEventHandler } from "./commands/services/class-session-event.handler";
+import { ServiceSessionCompletedHandler } from "./event-handlers/contract/service-session-completed.handler";
+import { RegularMentoringMeetingCompletedHandler } from "./event-handlers/services/regular-mentoring-meeting-completed.handler";
 import { SessionOrchestratorService } from "./commands/services/session-orchestrator.service";
 import { ResumeService } from "./commands/services/resume.service";
 import { CreateProductCommand } from "./commands/product/create-product.command";
@@ -161,6 +163,8 @@ import { QueryModule } from "@domains/query/query.module";
     AiCareerCreatedEventHandler,
     CommSessionCreatedEventHandler,
     ClassSessionCreatedEventHandler,
+    ServiceSessionCompletedHandler,
+    RegularMentoringMeetingCompletedHandler,
     CreateProductCommand,
     UpdateProductCommand,
     UpdateProductStatusCommand,
@@ -257,6 +261,8 @@ import { QueryModule } from "@domains/query/query.module";
     AiCareerCreatedEventHandler,
     CommSessionCreatedEventHandler,
     ClassSessionCreatedEventHandler,
+    ServiceSessionCompletedHandler,
+    RegularMentoringMeetingCompletedHandler,
     CreateProductCommand,
     UpdateProductCommand,
     UpdateProductStatusCommand,
