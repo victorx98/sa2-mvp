@@ -50,24 +50,25 @@ export class ServiceSessionCompletedListener {
         studentId,
         mentorId,
         refrenceId, // Note: typo in the original type definition
+        serviceTypeCode,
         sessionTypeCode,
-        actualDurationHours,
+        actualDurationMinutes,
         allowBilling,
       } = payload || {};
 
       // Validate payload
-      if (!sessionId || !studentId || !mentorId || !sessionTypeCode) {
+      if (!sessionId || !studentId || !mentorId || !serviceTypeCode || !sessionTypeCode) {
         this.logger.error(
-          `Missing required fields in event payload: sessionId=${sessionId}, studentId=${studentId}, mentorId=${mentorId}, sessionTypeCode=${sessionTypeCode}`,
+          `Missing required fields in event payload: sessionId=${sessionId}, studentId=${studentId}, mentorId=${mentorId}, serviceTypeCode=${serviceTypeCode}, sessionTypeCode=${sessionTypeCode}`,
         );
         // [修复] Throw error instead of silently returning to allow event retry and make issues visible (抛出错误而不是静默返回，允许事件重试并使问题可见)
         throw new BadRequestException(
-          `Missing required fields in event payload: sessionId=${sessionId}, studentId=${studentId}, mentorId=${mentorId}, sessionTypeCode=${sessionTypeCode}`,
+          `Missing required fields in event payload: sessionId=${sessionId}, studentId=${studentId}, mentorId=${mentorId}`,
         );
       }
 
       this.logger.log(
-        `Processing session: ${sessionId}, student: ${studentId}, mentor: ${mentorId}, type: ${sessionTypeCode}, duration: ${actualDurationHours}h`,
+        `Processing session: ${sessionId}, student: ${studentId}, mentor: ${mentorId}, type: ${sessionTypeCode}, duration: ${actualDurationMinutes}m`,
       );
 
       // Enrich payload with referenceId (use sessionId if refrenceId not provided)

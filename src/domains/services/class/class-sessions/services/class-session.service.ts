@@ -214,6 +214,7 @@ export class ClassSessionService {
       actualDurationMinutes: Math.round(payload.actualDuration / 60), // Convert seconds to minutes, round to integer
       durationMinutes: payload.scheduleDuration, // Already in minutes
       allowBilling: true, // All class sessions require mentor billing
+      bookingSource: "class_sessions",
     });
 
     this.logger.log(`Class session completed successfully: ${sessionId}`);
