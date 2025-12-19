@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AuthController } from "./controllers/identity/auth.controller";
 import { UserController } from "./controllers/identity/user.controller";
-import { SessionController } from "./controllers/sessions/sessions.controller";
 import { CounselorStudentContractController } from "./controllers/identity/counselor-student-contract.controller";
 import { CounselorsController } from "./controllers/identity/counselors.controller";
 import { MentorsController } from "./controllers/identity/mentors.controller";
@@ -52,7 +51,6 @@ import { FileModule } from "@core/file/file.module";
     // Common Controllers
     AuthController,
     UserController,
-    SessionController,
     
     // Reference Data Controllers
     SchoolsController,

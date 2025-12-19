@@ -8,8 +8,6 @@ import {
   COMM_SESSION_UPDATED_EVENT,
   COMM_SESSION_CANCELLED_EVENT,
   COMM_SESSION_MEETING_OPERATION_RESULT_EVENT,
-  SESSION_BOOKED_EVENT,
-  SESSION_RESCHEDULED_COMPLETED,
 } from '@shared/events/event-constants';
 import { retryWithBackoff } from '@shared/utils/retry.util';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
@@ -17,17 +15,20 @@ import type { DrizzleDatabase } from '@shared/types/database.types';
 import { FEISHU_DEFAULT_HOST_USER_ID } from 'src/constants';
 import { CommSessionService } from '@domains/services/comm-sessions/services/comm-session.service';
 import { sql } from 'drizzle-orm';
+import { UserService } from '@domains/identity/user/user-service';
 
 /**
  * Communication Session Created Event Handler
  * 
- * Handles the asynchronous meeting creation flow for communication sessions
- * Communication sessions are typically between student and counselor/mentor for internal discussions
+ * Handles async meeting creation flow for communication sessions
+ * Communication sessions are between student and counselor/mentor for internal discussions
  * 
- * Design principles:
- * - Async event-driven architecture
- * - Not billable (no service registry updates)
- * - Loosely coupled to core services
+ * Responsibilities:
+ * 1. Listen to COMM_SESSION_CREATED_EVENT
+ * 2. Create meeting via MeetingManagerService
+ * 3. Update session (meeting_id, status=SCHEDULED) in transaction
+ * 4. Update calendar slots with meeting info
+ * 5. Publish MEETING_OPERATION_RESULT_EVENT (operation: create)
  */
 @Injectable()
 export class CommSessionCreatedEventHandler {
@@ -40,6 +41,7 @@ export class CommSessionCreatedEventHandler {
     private readonly calendarService: CalendarService,
     private readonly commSessionService: CommSessionService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly userService: UserService,
   ) {}
 
   @OnEvent(COMM_SESSION_CREATED_EVENT)
@@ -64,9 +66,12 @@ export class CommSessionCreatedEventHandler {
         `Meeting created successfully: meetingId=${meeting.id}, meetingUrl=${meeting.meetingUrl}`,
       );
 
-      // Step 2: Update session and calendar slots in a transaction
+      // Step 2: Query user display names for calendar metadata
+      const studentName = await this.userService.getDisplayName(event.studentId);
+
+      // Step 3: Update session and calendar slots in a transaction
       await this.db.transaction(async (tx) => {
-        // 2.1: Update comm_sessions table with meeting_id and status
+        // 3.1: Update comm_sessions table with meeting_id and status
         await this.commSessionService.updateMeetingSetup(
           event.sessionId,
           meeting.id,
@@ -75,39 +80,39 @@ export class CommSessionCreatedEventHandler {
 
         this.logger.debug(`Comm session meeting setup completed: sessionId=${event.sessionId}`);
 
-        // 2.2: Update calendar slots with session_id, meeting_id, and meetingUrl
-        await this.calendarService.updateSlotWithSessionAndMeeting(
-          event.sessionId,
-          meeting.id,
-          meeting.meetingUrl,
-          event.mentorCalendarSlotId || event.studentCalendarSlotId,
-          event.studentCalendarSlotId,
-          tx,
-        );
+        // 3.2: Update calendar slots based on session type
+        if (event.mentorId && event.mentorCalendarSlotId) {
+          // Scenario 1: Student + Mentor (two slots)
+          const mentorName = await this.userService.getDisplayName(event.mentorId);
+
+          await this.calendarService.updateSlotWithSessionAndMeeting(
+            event.sessionId,
+            meeting.id,
+            meeting.meetingUrl,
+            event.mentorCalendarSlotId,
+            event.studentCalendarSlotId,
+            mentorName,
+            studentName,
+            tx,
+          );
+        } else {
+          // Scenario 2: Student + Counselor (single student slot)
+          const counselorName = await this.userService.getDisplayName(event.counselorId);
+
+          await this.calendarService.updateSingleSlotWithSessionAndMeeting(
+            event.sessionId,
+            meeting.id,
+            meeting.meetingUrl,
+            event.studentCalendarSlotId,
+            counselorName, // Student sees counselor's real name
+            tx,
+          );
+        }
 
         this.logger.debug(`Calendar slots updated for session ${event.sessionId}`);
       });
 
-      // Step 3: Publish SESSION_BOOKED_EVENT
-      this.eventEmitter.emit(SESSION_BOOKED_EVENT, {
-        sessionId: event.sessionId,
-        studentId: event.studentId,
-        mentorId: event.mentorId,
-        counselorId: event.counselorId,
-        serviceType: 'comm_session',
-        mentorCalendarSlotId: event.mentorCalendarSlotId,
-        studentCalendarSlotId: event.studentCalendarSlotId,
-        serviceHoldId: null,
-        scheduledStartTime: event.scheduledStartTime,
-        duration: event.duration,
-        meetingProvider: event.meetingProvider,
-        meetingPassword: null,
-        meetingUrl: meeting.meetingUrl,
-      });
-
-      this.logger.log(`SESSION_BOOKED_EVENT published: sessionId=${event.sessionId}`);
-
-      // Step 4: Publish unified result event (success)
+      // Step 3: Publish result event (success - notify all parties)
       this.eventEmitter.emit(COMM_SESSION_MEETING_OPERATION_RESULT_EVENT, {
         operation: 'create',
         status: 'success',
@@ -116,7 +121,9 @@ export class CommSessionCreatedEventHandler {
         mentorId: event.mentorId,
         counselorId: event.counselorId,
         scheduledAt: event.scheduledStartTime,
+        duration: event.duration,
         meetingUrl: meeting.meetingUrl,
+        meetingProvider: event.meetingProvider,
         notifyRoles: ['counselor', 'mentor', 'student'],
       });
 
@@ -126,7 +133,7 @@ export class CommSessionCreatedEventHandler {
     } catch (error) {
       this.logger.error(`Failed to create meeting for session ${event.sessionId}: ${error.message}`, error.stack);
 
-      // Publish unified result event (failed)
+      // Publish result event (failed - notify counselor only)
       this.eventEmitter.emit(COMM_SESSION_MEETING_OPERATION_RESULT_EVENT, {
         operation: 'create',
         status: 'failed',
@@ -146,6 +153,15 @@ export class CommSessionCreatedEventHandler {
     }
   }
 
+  /**
+   * Handle COMM_SESSION_UPDATED_EVENT
+   * Executes async meeting update flow when session is rescheduled
+   * 
+   * Responsibilities:
+   * 1. Update meeting on third-party platform with retry logic
+   * 2. Update meetings table with new schedule info
+   * 3. Publish MEETING_OPERATION_RESULT_EVENT (operation: update)
+   */
   @OnEvent(COMM_SESSION_UPDATED_EVENT)
   async handleSessionUpdated(event: any): Promise<void> {
     this.logger.log(
@@ -206,7 +222,7 @@ export class CommSessionCreatedEventHandler {
       );
     }
 
-    // Step 4: Publish unified result event
+    // Step 4: Publish result event based on result
     this.eventEmitter.emit(COMM_SESSION_MEETING_OPERATION_RESULT_EVENT, {
       operation: 'update',
       status: updateSuccess ? 'success' : 'failed',
@@ -225,25 +241,16 @@ export class CommSessionCreatedEventHandler {
     this.logger.log(
       `MEETING_OPERATION_RESULT_EVENT published: operation=update, status=${updateSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
     );
-
-    // Step 5: Emit legacy notification event (for backward compatibility)
-    this.eventEmitter.emit(SESSION_RESCHEDULED_COMPLETED, {
-      sessionId: event.sessionId,
-      meetingUpdateSuccess: updateSuccess,
-      errorMessage,
-      mentorId: event.mentorId,
-      studentId: event.studentId,
-      counselorId: event.counselorId,
-      newScheduledAt: event.newScheduledAt,
-      newDuration: event.newDuration,
-    });
   }
 
   /**
    * Handle COMM_SESSION_CANCELLED_EVENT
-   * Executes the async meeting cancellation flow
+   * Executes async meeting cancellation flow
    * 
-   * @param event - Session cancellation event
+   * Responsibilities:
+   * 1. Cancel meeting on third-party platform with retry logic
+   * 2. Update meetings table status to CANCELLED
+   * 3. Publish MEETING_OPERATION_RESULT_EVENT (operation: cancel)
    */
   @OnEvent(COMM_SESSION_CANCELLED_EVENT)
   async handleSessionCancelled(event: any): Promise<void> {
@@ -299,7 +306,7 @@ export class CommSessionCreatedEventHandler {
       );
     }
 
-    // Step 4: Publish unified result event
+    // Step 4: Publish result event based on result
     this.eventEmitter.emit(COMM_SESSION_MEETING_OPERATION_RESULT_EVENT, {
       operation: 'cancel',
       status: cancelSuccess ? 'success' : 'failed',

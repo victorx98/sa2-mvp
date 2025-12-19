@@ -23,7 +23,6 @@ import {
   REGULAR_MENTORING_SESSION_CREATED_EVENT,
   REGULAR_MENTORING_SESSION_UPDATED_EVENT,
   REGULAR_MENTORING_SESSION_CANCELLED_EVENT,
-  SESSION_RESCHEDULED_COMPLETED,
 } from '@shared/events/event-constants';
 
 // DTOs
@@ -124,7 +123,7 @@ export class RegularMentoringService {
           {
             studentId: dto.studentId,
             serviceType: dto.serviceType,
-            quantity: 1,
+            quantity: parseFloat((dto.duration/60).toFixed(1)),
             createdBy: dto.counselorId,
           },
           tx,
@@ -144,9 +143,6 @@ export class RegularMentoringService {
             sessionType: CalendarSessionType.REGULAR_MENTORING,
             title: dto.title,
             sessionId: undefined, // Will be filled in async flow
-            metadata: {
-              otherPartyName: 'studentName',
-            },
           },
           tx,
         );
@@ -166,9 +162,6 @@ export class RegularMentoringService {
             sessionType: CalendarSessionType.REGULAR_MENTORING,
             title: dto.title,
             sessionId: undefined, // Will be filled in async flow
-            metadata: {
-              otherPartyName: 'mentorName',
-            },
           },
           tx,
         );
@@ -186,6 +179,7 @@ export class RegularMentoringService {
             sessionType: SessionType.REGULAR_MENTORING,
             sessionTypeId: dto.sessionTypeId,
             serviceType: dto.serviceType, // Pass serviceType to domain layer
+            serviceHoldId: hold.id, // Link to service hold
             studentUserId: dto.studentId,
             mentorUserId: dto.mentorId,
             createdByCounselorId: dto.counselorId,
@@ -301,20 +295,27 @@ export class RegularMentoringService {
       }
       
       const durationChanged = newDuration !== meetingScheduleDuration;
-
-      // Step 4: Check student service balance (temporarily commented)
-      // TODO: Validate that student has sufficient service credits for rescheduling
-      // const studentBalance = await this.serviceHoldService.checkStudentBalance(
-      //   oldSession.studentUserId,
-      //   'regular_mentoring',
-      //   1,
-      // );
-      // if (!studentBalance.hasEnoughCredits) {
-      //   throw new InsufficientBalanceException('Student has insufficient service credits');
-      // }
-
+      
       // Step 5: Execute transaction to update calendar and session
       const updatedSession = await this.db.transaction(async (tx: DrizzleTransaction) => {
+
+        // Update service hold when time/duration changes (rescheduling consumes credits)
+        // if (durationChanged) {
+        //   const oldHoldId = (oldSession as any).serviceHoldId;
+        //   if (oldHoldId) {
+        //     await this.serviceHoldService.updateHold(
+        //       oldHoldId,
+        //       {
+        //         studentId: oldSession.studentUserId,
+        //         serviceType: oldSession.serviceType,
+        //         quantity: parseFloat((dto.duration/60).toFixed(1)),
+        //       },
+        //       tx,
+        //     );
+        //     this.logger.debug(`Service hold updated for rescheduling: ${oldHoldId}`);
+        //   }
+        // }
+
         // Update calendar if either scheduled time or duration changed
         if (timeChanged || durationChanged) {
           // Cancel old calendar slots (update status to 'cancelled' instead of deleting)
@@ -336,9 +337,6 @@ export class RegularMentoringService {
               sessionType: CalendarSessionType.REGULAR_MENTORING,
               title: dto.title || oldSession.title,
               sessionId: sessionId,
-              metadata: {
-                otherPartyName: 'studentName',
-              },
             },
             tx,
           );
@@ -356,9 +354,6 @@ export class RegularMentoringService {
               sessionType: CalendarSessionType.REGULAR_MENTORING,
               title: dto.title || oldSession.title,
               sessionId: sessionId,
-              metadata: {
-                otherPartyName: 'mentorName',
-              },
             },
             tx,
           );
@@ -400,15 +395,14 @@ export class RegularMentoringService {
       // Step 6: Extract meeting provider from oldSession
       const meetingProvider = oldSessionData.meetingProvider || 'feishu';
 
-      // Step 7: Emit event based on what changed
+      // Step 7: Emit event to trigger async meeting update (only when time or duration changes)
       if (timeChanged || durationChanged) {
-        // Emit event to trigger async meeting update (when time or duration changes)
         this.eventEmitter.emit(REGULAR_MENTORING_SESSION_UPDATED_EVENT, {
           sessionId: sessionId,
           meetingId: oldSession.meetingId,
-          oldScheduledAt: meetingScheduleStartTime, // Use actual meeting schedule time
+          oldScheduledAt: meetingScheduleStartTime,
           newScheduledAt: scheduledAtIso,
-          oldDuration: meetingScheduleDuration, // Use actual meeting duration
+          oldDuration: meetingScheduleDuration,
           newDuration: newDuration,
           newTitle: dto.title || oldSession.title,
           mentorId: oldSession.mentorUserId,
@@ -418,19 +412,6 @@ export class RegularMentoringService {
         } as any);
         this.logger.log(`Published REGULAR_MENTORING_SESSION_UPDATED_EVENT for session ${sessionId}`);
       }
-
-      // Always emit notification event (for both metadata and time changes)
-      this.eventEmitter.emit(SESSION_RESCHEDULED_COMPLETED, {
-        sessionId: sessionId,
-        changeType: timeChanged ? 'TIME' : 'METADATA',
-        mentorId: oldSession.mentorUserId,
-        studentId: oldSession.studentUserId,
-        counselorId: oldSession.createdByCounselorId,
-        newScheduledAt: scheduledAtIso,
-        newTitle: dto.title || oldSession.title,
-        meetingProvider: meetingProvider,
-      } as any);
-      this.logger.log(`Published SESSION_RESCHEDULED_COMPLETED for session ${sessionId}`);
 
       // Construct response with all updated values including meeting info
       // Meeting URL does not change when rescheduling, so include it from oldSession
@@ -489,6 +470,9 @@ export class RegularMentoringService {
 
       // Step 3: Execute transaction to update session and calendar
       await this.db.transaction(async (tx: DrizzleTransaction) => {
+        // Release service hold when session is cancelled
+        await this.serviceHoldService.releaseHold(session.serviceHoldId, reason);
+
         // Update session status to CANCELLED (no tx support, runs outside transaction)
         await this.domainRegularMentoringService.cancelSession(sessionId, reason);
 

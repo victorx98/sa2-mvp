@@ -18,7 +18,6 @@ export type {
 
 // Session Events
 export type { SessionBookedEvent } from "./session-booked.event";
-export type { SessionCreatedEvent } from "./session-created.event";
 
 // Session type-specific created events (v2.0)
 export type { RegularMentoringSessionCreatedEvent } from "./regular-mentoring-session-created.event";

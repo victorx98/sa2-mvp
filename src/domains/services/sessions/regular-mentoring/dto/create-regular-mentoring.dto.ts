@@ -21,6 +21,10 @@ export class CreateRegularMentoringDto {
   @IsString()
   serviceType?: string; // Business-level service type (e.g., premium_mentoring)
 
+  @IsOptional()
+  @IsUUID()
+  serviceHoldId?: string; // Reference to initial booking service hold
+
   @IsNotEmpty()
   @IsUUID()
   studentUserId: string;

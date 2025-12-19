@@ -189,11 +189,11 @@ export class ClassSessionService {
     // Get class information to determine billing type
     const classEntity = await this.classRepository.findByIdOrThrow(session.classId);
 
-    // Register service to Service Registry
+    // Register service to Service Registry (convert seconds to hours)
     const actualDurationHours = Math.round((payload.actualDuration / 3600) * 100) / 100;
     const registerServiceDto: RegisterServiceDto = {
       id: sessionId,
-      service_type: session.serviceType || 'class_session', // Prefer serviceType
+      service_type: session.serviceType || 'Class', // Prefer serviceType
       title: session.title, // Include session title
       student_user_id: null, // Class session scenario: student list managed by class_students table
       provider_user_id: session.mentorUserId,
@@ -203,17 +203,16 @@ export class ClassSessionService {
     };
     await this.serviceRegistryService.registerService(registerServiceDto);
 
-    // Emit services.session.completed event
-    const durationHours = Math.round((payload.scheduleDuration / 60) * 100) / 100;
+    // Emit services.session.completed event (convert seconds to minutes)
     this.eventEmitter.emit('services.session.completed', {
       sessionId: sessionId,
-      sessionType: 'class_session',
+      sessionType: session.serviceType || 'Class',
       classId: session.classId,
       classType: classEntity.type,
       mentorId: session.mentorUserId,
-      refrenceId: sessionId,
-      actualDurationHours,
-      durationHours,
+      refrenceId: sessionId, // shared primary key with service_references table
+      actualDurationMinutes: Math.round(payload.actualDuration / 60), // Convert seconds to minutes, round to integer
+      durationMinutes: payload.scheduleDuration, // Already in minutes
       allowBilling: true, // All class sessions require mentor billing
     });
 

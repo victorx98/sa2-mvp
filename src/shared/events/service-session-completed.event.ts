@@ -39,6 +39,16 @@ export interface IServiceSessionCompletedPayload {
   durationHours: number;
 
   /**
+   * Actual session duration in minutes
+   */
+  actualDurationMinutes: number;
+
+  /**
+   * Scheduled session duration in minutes
+   */
+  durationMinutes: number;
+
+  /**
    * 是否允许计费 [是否允许计费]
    */
   allowBilling: boolean;

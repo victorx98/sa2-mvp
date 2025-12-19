@@ -23,7 +23,6 @@ import {
   AI_CAREER_SESSION_CREATED_EVENT,
   AI_CAREER_SESSION_UPDATED_EVENT,
   AI_CAREER_SESSION_CANCELLED_EVENT,
-  SESSION_RESCHEDULED_COMPLETED,
 } from '@shared/events/event-constants';
 
 // DTOs
@@ -117,7 +116,7 @@ export class AiCareerService {
           {
             studentId: dto.studentId,
             serviceType: dto.serviceType,
-            quantity: 1,
+            quantity: parseFloat((dto.duration/60).toFixed(1)),
             createdBy: dto.counselorId,
           },
           tx,
@@ -137,9 +136,6 @@ export class AiCareerService {
             sessionType: CalendarSessionType.AI_CAREER,
             title: dto.title,
             sessionId: undefined,
-            metadata: {
-              otherPartyName: 'studentName',
-            },
           },
           tx,
         );
@@ -159,9 +155,6 @@ export class AiCareerService {
             sessionType: CalendarSessionType.AI_CAREER,
             title: dto.title,
             sessionId: undefined,
-            metadata: {
-              otherPartyName: 'mentorName',
-            },
           },
           tx,
         );
@@ -178,6 +171,8 @@ export class AiCareerService {
             meetingId: undefined,
             sessionType: SessionType.AI_CAREER,
             sessionTypeId: dto.sessionTypeId,
+            serviceType: dto.serviceType,
+            serviceHoldId: hold.id, // Link to service hold
             studentUserId: dto.studentId,
             mentorUserId: dto.mentorId,
             createdByCounselorId: dto.counselorId,
@@ -297,6 +292,24 @@ export class AiCareerService {
 
       // Step 3: Transaction - Update calendar and session
       const updatedSession = await this.db.transaction(async (tx: DrizzleTransaction) => {
+
+        // Update service hold when duration changes (rescheduling consumes credits)
+        // if (durationChanged) {
+        //   const oldHoldId = (oldSession as any).serviceHoldId;
+        //   if (oldHoldId) {
+        //     await this.serviceHoldService.updateHold(
+        //       oldHoldId,
+        //       {
+        //         studentId: oldSession.studentUserId,
+        //         serviceType: oldSession.serviceType,
+        //         quantity: parseFloat((dto.duration/60).toFixed(1)),
+        //       },
+        //       tx,
+        //     );
+        //     this.logger.debug(`Service hold updated for rescheduling: ${oldHoldId}`);
+        //   }
+        // }
+
         if (timeChanged || durationChanged) {
           // Cancel old calendar slots (update status to 'cancelled' instead of deleting)
           await this.calendarService.updateSlots(
@@ -317,9 +330,6 @@ export class AiCareerService {
               title: dto.title || oldSession.title,
               sessionId: sessionId,
               meetingId: oldSession.meetingId,
-              metadata: {
-                otherPartyName: 'studentName',
-              },
             },
             tx,
           );
@@ -338,9 +348,6 @@ export class AiCareerService {
               title: dto.title || oldSession.title,
               sessionId: sessionId,
               meetingId: oldSession.meetingId,
-              metadata: {
-                otherPartyName: 'mentorName',
-              },
             },
             tx,
           );
@@ -382,15 +389,14 @@ export class AiCareerService {
       // Step 4: Extract meeting provider from oldSession
       const meetingProvider = oldSessionData.meetingProvider || 'feishu';
 
-      // Step 5: Emit events based on what changed
+      // Step 5: Emit event to trigger async meeting update (only when time or duration changes)
       if (timeChanged || durationChanged) {
-        // Emit event to trigger async meeting update (when time or duration changes)
         this.eventEmitter.emit(AI_CAREER_SESSION_UPDATED_EVENT, {
           sessionId: sessionId,
           meetingId: oldSession.meetingId,
-          oldScheduledAt: meetingScheduleStartTime, // Use actual meeting schedule time
+          oldScheduledAt: meetingScheduleStartTime,
           newScheduledAt: scheduledAtIso,
-          oldDuration: meetingScheduleDuration, // Use actual meeting duration
+          oldDuration: meetingScheduleDuration,
           newDuration: newDuration,
           newTitle: dto.title || oldSession.title,
           mentorId: oldSession.mentorUserId,
@@ -400,19 +406,6 @@ export class AiCareerService {
         } as any);
         this.logger.log(`Published AI_CAREER_SESSION_UPDATED_EVENT for session ${sessionId}`);
       }
-
-      // Always emit SESSION_RESCHEDULED_COMPLETED for both time and metadata changes
-      this.eventEmitter.emit(SESSION_RESCHEDULED_COMPLETED, {
-        sessionId: sessionId,
-        changeType: timeChanged ? 'TIME' : 'METADATA',
-        mentorId: oldSession.mentorUserId,
-        studentId: oldSession.studentUserId,
-        counselorId: oldSession.createdByCounselorId,
-        newScheduledAt: scheduledAtIso,
-        newTitle: dto.title || oldSession.title,
-        meetingProvider: meetingProvider,
-      } as any);
-      this.logger.log(`Published SESSION_RESCHEDULED_COMPLETED for session ${sessionId}`);
 
       // Step 6: Construct response with all updated values including meeting info
       return {
@@ -470,6 +463,9 @@ export class AiCareerService {
 
       // Step 3: Execute transaction to update session and calendar
       await this.db.transaction(async (tx: DrizzleTransaction) => {
+        // Release service hold when session is cancelled
+        await this.serviceHoldService.releaseHold(session.serviceHoldId, reason);
+
         // Update session status to CANCELLED
         await this.domainAiCareerService.cancelSession(sessionId, reason);
 

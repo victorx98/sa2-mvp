@@ -30,7 +30,6 @@ import { GetProductDetailQuery } from "./queries/product/get-product-detail.quer
 // Application Layer - Commands
 import { RegisterCommand } from "./commands/auth/register.command";
 import { LoginCommand } from "./commands/auth/login.command";
-import { BookSessionCommand } from "./commands/booking/book-session.command";
 import { UpdateStudentProfileCommand } from "./commands/profile/update-student-profile.command";
 import { UpdateMentorProfileCommand } from "./commands/profile/update-mentor-profile.command";
 import { UpdateCounselorProfileCommand } from "./commands/profile/update-counselor-profile.command";
@@ -144,7 +143,6 @@ import { QueryModule } from "@domains/query/query.module";
     // Commands
     RegisterCommand,
     LoginCommand,
-    BookSessionCommand,
     UpdateStudentProfileCommand,
     UpdateMentorProfileCommand,
     UpdateCounselorProfileCommand,
@@ -241,7 +239,6 @@ import { QueryModule } from "@domains/query/query.module";
     // Commands
     RegisterCommand,
     LoginCommand,
-    BookSessionCommand,
     UpdateStudentProfileCommand,
     UpdateMentorProfileCommand,
     UpdateCounselorProfileCommand,
