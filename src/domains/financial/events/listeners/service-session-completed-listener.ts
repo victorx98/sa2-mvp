@@ -51,7 +51,7 @@ export class ServiceSessionCompletedListener {
         mentorId,
         refrenceId, // Note: typo in the original type definition
         sessionTypeCode,
-        actualDurationHours,
+        actualDurationMinutes,
         allowBilling,
       } = payload || {};
 
@@ -67,7 +67,7 @@ export class ServiceSessionCompletedListener {
       }
 
       this.logger.log(
-        `Processing session: ${sessionId}, student: ${studentId}, mentor: ${mentorId}, type: ${sessionTypeCode}, duration: ${actualDurationHours}h`,
+        `Processing session: ${sessionId}, student: ${studentId}, mentor: ${mentorId}, type: ${sessionTypeCode}, duration: ${actualDurationMinutes}m`,
       );
 
       // Enrich payload with referenceId (use sessionId if refrenceId not provided)

@@ -38,8 +38,8 @@ export class MentorPayableService {
     studentId: string;
     mentorId?: string;
     sessionTypeCode: string;
-    actualDurationHours: number;
-    durationHours: number;
+    actualDurationMinutes: number;
+    durationMinutes: number;
     allowBilling: boolean;
     refrenceId?: string; // Note: typo in the original type definition (注意：原始类型定义中的拼写错误)
   }): Promise<void> {
@@ -49,7 +49,7 @@ export class MentorPayableService {
         studentId,
         mentorId,
         sessionTypeCode,
-        actualDurationHours,
+        actualDurationMinutes,
         refrenceId,
       } = payload;
 
@@ -83,10 +83,12 @@ export class MentorPayableService {
 
       // Calculate total amount based on actual duration
       const unitPrice = Number(mentorPrice.price);
+      // 将分钟转换为小时后再计算总价
+      const actualDurationHours = actualDurationMinutes / 60;
       const totalAmount = Number((unitPrice * actualDurationHours).toFixed(2));
 
       this.logger.log(
-        `Calculated billing: session=${sessionId}, duration=${actualDurationHours}h, price=${unitPrice}, amount=${totalAmount}`,
+        `Calculated billing: session=${sessionId}, duration=${actualDurationMinutes}m (${actualDurationHours}h), price=${unitPrice}, amount=${totalAmount}`,
       );
 
       // Insert ledger record

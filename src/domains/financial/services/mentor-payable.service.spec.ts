@@ -53,8 +53,8 @@ describe("MentorPayableService", () => {
       studentId: "student-123",
       mentorId: "mentor-123",
       sessionTypeCode: "consultation",
-      actualDurationHours: 2,
-      durationHours: 2,
+      actualDurationMinutes: 120, // 2小时转换为120分钟
+      durationMinutes: 120,
       allowBilling: true,
     };
 

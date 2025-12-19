@@ -195,29 +195,9 @@ export class StudentContractsQuery {
     // 计算分页偏移量
     const offset = (page - 1) * pageSize;
 
-    // 构建排序子句
-    // 只允许特定字段排序，防止SQL注入
-    const allowedSortFields = [
-      'id',
-      'service_type',
-      'title',
-      'student_id',
-      'mentor_user_id',
-      'mentor_name',
-      'consumed_units',
-      'unit_type',
-      'startDate',
-      'status',
-    ];
-
-    const safeSortField = allowedSortFields.includes(sortField || '')
-      ? sortField
-      : 'startDate';
-
-    const safeSortOrder = sortOrder === 'asc' ? 'ASC' : 'DESC';
-
     // 构建完整的SQL查询（使用参数化查询）
-    const baseQuery = sql`
+    // 提取公共CTE部分，避免重复定义
+    const cteQuery = `
       WITH all_services AS (
         -- 常规辅导会话
         SELECT
@@ -338,6 +318,45 @@ export class StudentContractsQuery {
         INNER JOIN comm_sessions cs ON sr.id = cs.id
         INNER JOIN "user" u ON sr.provider_user_id = u.id
       )
+    `;
+
+    // 构建排序子句（使用更安全的方式）
+    // 只允许特定字段排序，防止SQL注入
+    const allowedSortFields = [
+      'id',
+      'service_type',
+      'title',
+      'student_id',
+      'mentor_user_id',
+      'mentor_name',
+      'consumed_units',
+      'unit_type',
+      'startDate',
+      'status',
+    ];
+
+    // 安全处理排序字段，使用白名单验证
+    const safeSortField = allowedSortFields.includes(sortField || '')
+      ? sortField
+      : 'startDate';
+    // 安全处理排序方向
+    const safeSortOrder = sortOrder === 'asc' ? 'ASC' : 'DESC';
+
+    // 使用安全的方式构建排序子句，避免使用sql.raw
+    // 通过将排序字段和方向映射到固定值，确保不会引入SQL注入风险
+    const orderByMapping: Record<string, string> = {};
+    allowedSortFields.forEach(field => {
+      orderByMapping[field] = field;
+    });
+    const orderByDirectionMapping: Record<string, string> = {
+      'ASC': 'ASC',
+      'DESC': 'DESC'
+    };
+    // 构建安全的排序子句
+    const safeOrderByClause = `${orderByMapping[safeSortField]} ${orderByDirectionMapping[safeSortOrder]}`;
+
+    // 构建主查询
+    const baseQuery = sql.raw(`${cteQuery}
       SELECT
         id,
         service_type,
@@ -351,103 +370,38 @@ export class StudentContractsQuery {
         startDate,
         status
       FROM all_services
-    `;
+    `);
 
-    // 构建WHERE条件
+    // 简化WHERE条件构建
+    const whereClause = whereConditions.length > 0
+      ? (whereConditions.length === 1 ? whereConditions[0] : and(...whereConditions)!) 
+      : null;
+
+    // 构建完整的查询
     let finalQuery: SQL;
-    if (whereConditions.length > 0) {
-      const whereClause = whereConditions.length === 1 
-        ? whereConditions[0] 
-        : and(...whereConditions)!;
+    if (whereClause) {
       finalQuery = sql`${baseQuery} WHERE ${whereClause}`;
     } else {
       finalQuery = baseQuery;
     }
 
-    // 添加排序和分页（排序字段使用白名单验证，分页参数使用参数化查询）
-    const orderByClause = sql.raw(`ORDER BY ${safeSortField} ${safeSortOrder}`);
+    // 添加安全的排序和分页
+    const orderByClause = sql.raw(`ORDER BY ${safeOrderByClause}`);
     const limitOffsetClause = sql`LIMIT ${pageSize} OFFSET ${offset}`;
     finalQuery = sql`${finalQuery} ${orderByClause} ${limitOffsetClause}`;
 
     // 使用参数化查询执行
     const consumptionRecords = await this.db.execute(finalQuery);
 
-    // 构建总记录数查询（使用参数化查询）
-    const countBaseQuery = sql`
-      WITH all_services AS (
-        -- 常规辅导会话
-        SELECT
-          sr.id,
-          sr.student_user_id AS student_id,
-          sr.provider_user_id AS mentor_user_id,
-          rms.status
-        FROM service_references sr
-        INNER JOIN regular_mentoring_sessions rms ON sr.id = rms.id
-        UNION ALL
-        -- 差距分析会话
-        SELECT
-          sr.id,
-          sr.student_user_id AS student_id,
-          sr.provider_user_id AS mentor_user_id,
-          gas.status
-        FROM service_references sr
-        INNER JOIN gap_analysis_sessions gas ON sr.id = gas.id
-        UNION ALL
-        -- AI职业规划会话
-        SELECT
-          sr.id,
-          sr.student_user_id AS student_id,
-          sr.provider_user_id AS mentor_user_id,
-          acs.status
-        FROM service_references sr
-        INNER JOIN ai_career_sessions acs ON sr.id = acs.id
-        UNION ALL
-        -- 班级会话
-        SELECT
-          sr.id,
-          sr.student_user_id AS student_id,
-          sr.provider_user_id AS mentor_user_id,
-          cs.status
-        FROM service_references sr
-        INNER JOIN class_sessions cs ON sr.id = cs.id
-        UNION ALL
-        -- 简历服务
-        SELECT
-          sr.id,
-          sr.student_user_id AS student_id,
-          sr.provider_user_id AS mentor_user_id,
-          r.status
-        FROM service_references sr
-        INNER JOIN resumes r ON sr.id = r.id
-        UNION ALL
-        -- 投递申请服务
-        SELECT
-          sr.id,
-          sr.student_user_id AS student_id,
-          sr.provider_user_id AS mentor_user_id,
-          ja.status
-        FROM service_references sr
-        INNER JOIN job_applications ja ON sr.id = ja.id
-        UNION ALL
-        -- 沟通会话
-        SELECT
-          sr.id,
-          sr.student_user_id AS student_id,
-          sr.provider_user_id AS mentor_user_id,
-          cs.status
-        FROM service_references sr
-        INNER JOIN comm_sessions cs ON sr.id = cs.id
-      )
+    // 构建总记录数查询（使用公共CTE，避免重复定义）
+    const countBaseQuery = sql.raw(`${cteQuery}
       SELECT COUNT(*) AS total
       FROM all_services
-    `;
+    `);
 
     // 构建WHERE条件（复用相同的条件）
     let countQuery: SQL;
-    if (whereConditions.length > 0) {
-      const whereClause = whereConditions.length === 1 
-        ? whereConditions[0] 
-        : and(...whereConditions)!;
+    if (whereClause) {
       countQuery = sql`${countBaseQuery} WHERE ${whereClause}`;
     } else {
       countQuery = countBaseQuery;

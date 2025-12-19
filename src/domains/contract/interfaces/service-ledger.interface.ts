@@ -10,6 +10,7 @@ import { IPaginatedResult } from "./contract.interface";
  */
 export interface IServiceLedgerService {
   recordConsumption(dto: IRecordConsumptionDto): Promise<ServiceLedger>; // Record consumption (记录消费)
+  recordRefund(dto: IRecordRefundDto): Promise<ServiceLedger>; // Record refund (记录退款)
   recordAdjustment(dto: IRecordAdjustmentDto): Promise<ServiceLedger>; // Record adjustment (记录调整)
   calculateAvailableBalance(
     studentId: string,
@@ -42,6 +43,18 @@ export interface IRecordAdjustmentDto {
   serviceType: string; // Service type (服务类型)
   quantity: number; // Quantity adjustment (can be positive or negative) (数量调整(可以为正或负))
   reason: string; // Reason for adjustment (调整原因)
+  createdBy: string; // ID of creator (创建人ID)
+}
+
+/**
+ * DTO for recording service refund
+ */
+export interface IRecordRefundDto {
+  studentId: string; // Student ID (学生ID)
+  serviceType: string; // Service type (服务类型)
+  quantity: number; // Quantity to refund (must be positive) (退还数量(必须为正数))
+  relatedBookingId: string; // Associated booking ID (关联预约ID)
+  bookingSource: string; // Booking table name (e.g., 'resumes') (预约表名（如'resumes'）)
   createdBy: string; // ID of creator (创建人ID)
 }
 

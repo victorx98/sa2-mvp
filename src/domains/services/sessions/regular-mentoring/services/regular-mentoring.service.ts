@@ -177,6 +177,7 @@ export class RegularMentoringService {
         actualDurationMinutes: payload.actualDuration,
         durationMinutes: payload.scheduleDuration,
         allowBilling: sessionType.isBilling,
+        bookingSource: "regular_mentoring_sessions",
       },
     });
 

@@ -177,6 +177,7 @@ export class AiCareerService {
         actualDurationMinutes: payload.actualDuration,
         durationMinutes: payload.scheduleDuration,
         allowBilling: sessionType.isBilling,
+        bookingSource: "ai_career_sessions",
       },
     });
 

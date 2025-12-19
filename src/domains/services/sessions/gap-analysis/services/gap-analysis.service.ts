@@ -177,6 +177,7 @@ export class GapAnalysisService {
         actualDurationMinutes: payload.actualDuration,
         durationMinutes: payload.scheduleDuration,
         allowBilling: sessionType.isBilling,
+        bookingSource: "gap_analysis_sessions",
       },
     });
 

@@ -157,49 +157,6 @@
         ]
       }
     },
-    "/api/sessions/book": {
-      "post": {
-        "operationId": "SessionController_bookSession",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BookSessionRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Booking created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BookSessionResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request parameters or insufficient balance"
-          },
-          "409": {
-            "description": "Timeslot conflict; mentor unavailable"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Book a session",
-        "tags": [
-          "Sessions"
-        ]
-      }
-    },
     "/api/schools": {
       "get": {
         "operationId": "SchoolsController_getSchools",
@@ -3910,6 +3867,11 @@
               }
             }
           },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "security": [
           {
             "bearer": []
           }
@@ -3926,15 +3888,44 @@
         "operationId": "ContractsController_updateStatus",
         "parameters": [
           {
-            "name": "studentId",
-            "required": false,
-            "in": "query",
-            "description": "Student ID for filtering [学生ID筛选]",
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Contract ID (UUID). [合同ID(UUID)]",
             "schema": {
-              "example": "9e50af7d-5f08-4516-939f-7f765ce131b8",
               "type": "string"
             }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateContractStatusRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contract status updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractResponseDto"
+                }
+              }
+            }
           },
+          "400": {
+            "description": "Invalid status transition"
+          },
+          "404": {
+            "description": "Contract not found"
+          }
+        },
+        "security": [
           {
             "bearer": []
           }
@@ -3951,25 +3942,41 @@
         "operationId": "ContractsController_update",
         "parameters": [
           {
-            "name": "productId",
-            "required": false,
-            "in": "query",
-            "description": "Product ID filter [产品ID筛选]",
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Contract ID (UUID). [合同ID(UUID)]",
             "schema": {
-              "example": "9e50af7d-5f08-4516-939f-7f765ce131b8",
               "type": "string"
             }
-          },
-          {
-            "name": "startDate",
-            "required": false,
-            "in": "query",
-            "description": "Contract start date filter (ISO 8601) [合同开始日期筛选]",
-            "schema": {
-              "example": "2025-01-01",
-              "type": "string"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateContractRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contract updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractResponseDto"
+                }
+              }
             }
           },
+          "404": {
+            "description": "Contract not found"
+          }
+        },
+        "security": [
           {
             "bearer": []
           }
@@ -4006,6 +4013,14 @@
               }
             }
           },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Student or entitlement not found"
+          }
+        },
+        "security": [
           {
             "bearer": []
           }
@@ -4030,17 +4045,20 @@
               }
             }
           }
-        ],
+        },
         "responses": {
-          "200": {
-            "description": "Contracts retrieved successfully",
+          "201": {
+            "description": "Amendment ledger added successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContractListResponseDto"
+                  "$ref": "#/components/schemas/ContractServiceEntitlementResponseDto"
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad request"
           }
         },
         "security": [
@@ -4048,7 +4066,7 @@
             "bearer": []
           }
         ],
-        "summary": "Get contracts list with pagination and filters",
+        "summary": "Add amendment ledger",
         "tags": [
           "Contracts"
         ]
@@ -5698,124 +5716,6 @@
         },
         "required": [
           "id"
-        ]
-      },
-      "BookSessionRequestDto": {
-        "type": "object",
-        "properties": {
-          "studentId": {
-            "type": "string",
-            "description": "Student ID",
-            "example": "123e4567-e89b-12d3-a456-426614174000"
-          },
-          "mentorId": {
-            "type": "string",
-            "description": "Mentor ID",
-            "example": "123e4567-e89b-12d3-a456-426614174001"
-          },
-          "scheduledStartTime": {
-            "type": "string",
-            "description": "Session start time (ISO 8601 format)",
-            "example": "2025-11-10T14:00:00Z"
-          },
-          "duration": {
-            "type": "number",
-            "description": "Session duration (minutes)",
-            "example": 60
-          },
-          "serviceType": {
-            "type": "string",
-            "description": "Service type",
-            "example": "external"
-          },
-          "topic": {
-            "type": "string",
-            "description": "Session topic",
-            "example": "Resume review guidance"
-          },
-          "meetingProvider": {
-            "type": "string",
-            "description": "Meeting provider",
-            "example": "zoom"
-          }
-        },
-        "required": [
-          "studentId",
-          "mentorId",
-          "scheduledStartTime",
-          "duration",
-          "serviceType",
-          "topic"
-        ]
-      },
-      "BookSessionResponseDto": {
-        "type": "object",
-        "properties": {
-          "sessionId": {
-            "type": "string",
-            "description": "Created session ID"
-          },
-          "studentId": {
-            "type": "string",
-            "description": "Student ID"
-          },
-          "mentorId": {
-            "type": "string",
-            "description": "Mentor ID"
-          },
-          "serviceType": {
-            "type": "object",
-            "description": "Type of service fulfilled by this session"
-          },
-          "mentorCalendarSlotId": {
-            "type": "string",
-            "description": "Mentor calendar slot reservation ID"
-          },
-          "studentCalendarSlotId": {
-            "type": "string",
-            "description": "Student calendar slot reservation ID"
-          },
-          "serviceHoldId": {
-            "type": "string",
-            "description": "Service hold ID consumed by this booking"
-          },
-          "scheduledStartTime": {
-            "type": "string",
-            "description": "Session start time in ISO 8601 format",
-            "format": "date-time"
-          },
-          "duration": {
-            "type": "number",
-            "description": "Session duration in minutes",
-            "example": 60
-          },
-          "meetingProvider": {
-            "type": "string",
-            "description": "Meeting provider platform (e.g., zoom, feishu)"
-          },
-          "meetingPassword": {
-            "type": "string",
-            "description": "Meeting join password"
-          },
-          "meetingUrl": {
-            "type": "string",
-            "description": "Meeting join URL"
-          },
-          "status": {
-            "type": "string",
-            "description": "Booking status (e.g., booked, pending_confirmation)"
-          }
-        },
-        "required": [
-          "sessionId",
-          "studentId",
-          "mentorId",
-          "mentorCalendarSlotId",
-          "studentCalendarSlotId",
-          "serviceHoldId",
-          "scheduledStartTime",
-          "duration",
-          "status"
         ]
       },
       "SchoolResponseDto": {

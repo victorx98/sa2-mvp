@@ -950,4 +950,555 @@ describe("ServiceLedgerService Unit Tests [服务台账服务单元测试]", () 
       ).rejects.toThrow(ContractNotFoundException);
     });
   });
+
+  describe("recordRefund() [记录退款]", () => {
+    it("should record refund successfully [应该成功记录退款]", async () => {
+      // Arrange
+      const refundDto = {
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 2,
+        relatedBookingId: "booking-123",
+        bookingSource: "resumes",
+        createdBy: testStudentId,
+      };
+
+      // Mock entitlements query (first call to select)
+      const mockEntitlementsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([
+            {
+              id: "entitlement-1",
+              studentId: testStudentId,
+              serviceType: testServiceType,
+              totalQuantity: 10,
+              consumedQuantity: 5,
+              heldQuantity: 0,
+              availableQuantity: 5,
+            },
+          ]),
+        }),
+      });
+
+      // Mock consumptions query (second call to select)
+      const mockConsumptionsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([
+            // Consumption ledgers (quantity is negative for consumption)
+            { quantity: -2 },
+            { quantity: -3 },
+          ]),
+        }),
+      });
+
+      // Mock refunds query (third call to select)
+      const mockRefundsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
+        }),
+      });
+
+      // Mock adjustments query (fourth call to select)
+      const mockAdjustmentsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
+        }),
+      });
+
+      // Use mockResolvedValueOnce to handle sequential calls
+      mockDb.select = jest.fn()
+        .mockReturnValueOnce(mockEntitlementsSelect())
+        .mockReturnValueOnce(mockConsumptionsSelect())
+        .mockReturnValueOnce(mockRefundsSelect())
+        .mockReturnValueOnce(mockAdjustmentsSelect());
+
+      // Mock insert returning
+      const mockLedger = {
+        id: "ledger-123",
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 2,
+        type: "refund",
+        source: "booking_cancelled",
+        balanceAfter: 7, // 5 + 2
+        relatedBookingId: "booking-123",
+        metadata: { bookingSource: "resumes" },
+        createdBy: testStudentId,
+      };
+
+      mockDb.insert = jest.fn().mockReturnValue({
+        values: jest.fn().mockReturnValue({
+          returning: jest.fn().mockResolvedValue([mockLedger]),
+        }),
+      });
+
+      // Act
+      const result = await serviceLedgerService.recordRefund(refundDto);
+
+      // Assert
+      expect(result).toEqual(mockLedger);
+      expect(mockDb.select).toHaveBeenCalled();
+      expect(mockDb.insert).toHaveBeenCalledWith(expect.any(Object));
+    });
+
+    it("should reject non-positive refund quantity [应该拒绝非正数的退款数量]", async () => {
+      // Arrange - Refund quantity of 0
+      const refundDto = {
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 0, // Invalid: should be positive
+        relatedBookingId: "booking-123",
+        bookingSource: "resumes",
+        createdBy: testStudentId,
+      };
+
+      // Act & Assert
+      await expect(
+        serviceLedgerService.recordRefund(refundDto),
+      ).rejects.toThrow("Refund quantity must be positive");
+      expect(mockDb.select).not.toHaveBeenCalled();
+    });
+
+    it("should reject negative refund quantity [应该拒绝负数的退款数量]", async () => {
+      // Arrange - Refund quantity of -1
+      const refundDto = {
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: -1, // Invalid: should be positive
+        relatedBookingId: "booking-123",
+        bookingSource: "resumes",
+        createdBy: testStudentId,
+      };
+
+      // Act & Assert
+      await expect(
+        serviceLedgerService.recordRefund(refundDto),
+      ).rejects.toThrow("Refund quantity must be positive");
+      expect(mockDb.select).not.toHaveBeenCalled();
+    });
+
+    it("should throw error when no entitlements found [当未找到权益时应该抛出错误]", async () => {
+      // Arrange - No entitlements found
+      mockDb.select = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
+        }),
+      });
+
+      const refundDto = {
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 1,
+        relatedBookingId: "booking-123",
+        bookingSource: "resumes",
+        createdBy: testStudentId,
+      };
+
+      // Act & Assert
+      await expect(
+        serviceLedgerService.recordRefund(refundDto),
+      ).rejects.toThrow(ContractNotFoundException);
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
+
+    it("should throw error when refund quantity exceeds consumed quantity [当退款数量超过已消费数量时应该抛出错误]", async () => {
+      // Arrange
+      const refundDto = {
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 10, // More than total consumed (5)
+        relatedBookingId: "booking-123",
+        bookingSource: "resumes",
+        createdBy: testStudentId,
+      };
+
+      // Mock entitlements query (first call to select)
+      const mockEntitlementsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([
+            {
+              id: "entitlement-1",
+              studentId: testStudentId,
+              serviceType: testServiceType,
+              totalQuantity: 10,
+              consumedQuantity: 5,
+              heldQuantity: 0,
+              availableQuantity: 5,
+            },
+          ]),
+        }),
+      });
+
+      // Mock consumptions query (second call to select)
+      const mockConsumptionsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([
+            { quantity: -2 },
+            { quantity: -3 },
+          ]),
+        }),
+      });
+
+      // Mock refunds query (third call to select)
+      const mockRefundsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
+        }),
+      });
+
+      // Mock adjustments query (fourth call to select)
+      const mockAdjustmentsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
+        }),
+      });
+
+      // Use mockResolvedValueOnce to handle sequential calls
+      mockDb.select = jest.fn()
+        .mockReturnValueOnce(mockEntitlementsSelect())
+        .mockReturnValueOnce(mockConsumptionsSelect())
+        .mockReturnValueOnce(mockRefundsSelect())
+        .mockReturnValueOnce(mockAdjustmentsSelect());
+
+      // Act & Assert
+      await expect(
+        serviceLedgerService.recordRefund(refundDto),
+      ).rejects.toThrow("Refund quantity (10) exceeds net consumed quantity (5)");
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
+
+    it("should consider previous refunds when validating quantity [验证已退款后剩余可退数量]", async () => {
+      // Arrange - total consumed 5, refunded 4 => net consumed 1, refund 2 should fail
+      const refundDto = {
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 2,
+        relatedBookingId: "booking-123",
+        bookingSource: "resumes",
+        createdBy: testStudentId,
+      };
+
+      const mockEntitlementsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([
+            {
+              id: "entitlement-1",
+              studentId: testStudentId,
+              serviceType: testServiceType,
+              totalQuantity: 10,
+              consumedQuantity: 5,
+              heldQuantity: 0,
+              availableQuantity: 5,
+            },
+          ]),
+        }),
+      });
+
+      const mockConsumptionsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([{ quantity: -5 }]),
+        }),
+      });
+
+      const mockRefundsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([{ quantity: 4 }]),
+        }),
+      });
+
+      const mockAdjustmentsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
+        }),
+      });
+
+      mockDb.select = jest.fn()
+        .mockReturnValueOnce(mockEntitlementsSelect())
+        .mockReturnValueOnce(mockConsumptionsSelect())
+        .mockReturnValueOnce(mockRefundsSelect())
+        .mockReturnValueOnce(mockAdjustmentsSelect());
+
+      // Act & Assert
+      await expect(
+        serviceLedgerService.recordRefund(refundDto),
+      ).rejects.toThrow("Refund quantity (2) exceeds net consumed quantity (1)");
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
+
+    it("should require bookingSource when relatedBookingId is provided [当提供relatedBookingId时要求bookingSource]", async () => {
+      // Arrange
+      const refundDto = {
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 1,
+        relatedBookingId: "booking-123",
+        bookingSource: "", // Missing bookingSource
+        createdBy: testStudentId,
+      };
+
+      // Act & Assert
+      await expect(
+        serviceLedgerService.recordRefund(refundDto),
+      ).rejects.toThrow("bookingSource is required when relatedBookingId is provided");
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
+
+    it("should calculate balanceAfter correctly [应该正确计算balanceAfter]", async () => {
+      // Arrange - available quantity is 5, refund quantity is 3, so balanceAfter should be 8
+      const refundDto = {
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 3,
+        relatedBookingId: "booking-123",
+        bookingSource: "resumes",
+        createdBy: testStudentId,
+      };
+
+      // Mock entitlements query (first call to select)
+      const mockEntitlementsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([
+            {
+              id: "entitlement-1",
+              studentId: testStudentId,
+              serviceType: testServiceType,
+              totalQuantity: 10,
+              consumedQuantity: 5,
+              heldQuantity: 0,
+              availableQuantity: 5, // Current available is 5
+            },
+          ]),
+        }),
+      });
+
+      // Mock consumptions query (second call to select)
+      const mockConsumptionsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([
+            { quantity: -2 },
+            { quantity: -4 },
+          ]),
+        }),
+      });
+
+      // Mock refunds query (third call to select)
+      const mockRefundsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
+        }),
+      });
+
+      // Mock adjustments query (fourth call to select)
+      const mockAdjustmentsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
+        }),
+      });
+
+      // Use mockResolvedValueOnce to handle sequential calls
+      mockDb.select = jest.fn()
+        .mockReturnValueOnce(mockEntitlementsSelect())
+        .mockReturnValueOnce(mockConsumptionsSelect())
+        .mockReturnValueOnce(mockRefundsSelect())
+        .mockReturnValueOnce(mockAdjustmentsSelect());
+
+      // Mock insert returning
+      const mockLedger = {
+        id: "ledger-123",
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 3,
+        type: "refund",
+        source: "booking_cancelled",
+        balanceAfter: 8, // 5 + 3
+        relatedBookingId: "booking-123",
+        metadata: { bookingSource: "resumes" },
+        createdBy: testStudentId,
+      };
+
+      mockDb.insert = jest.fn().mockReturnValue({
+        values: jest.fn().mockReturnValue({
+          returning: jest.fn().mockResolvedValue([mockLedger]),
+        }),
+      });
+
+      // Act
+      const result = await serviceLedgerService.recordRefund(refundDto);
+
+      // Assert
+      expect(result).toEqual(mockLedger);
+      expect(result.balanceAfter).toBe(8); // 5 + 3
+    });
+
+    it("should store bookingSource in metadata [应该在metadata中存储bookingSource]", async () => {
+      // Arrange
+      const refundDto = {
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 1,
+        relatedBookingId: "booking-123",
+        bookingSource: "resumes",
+        createdBy: testStudentId,
+      };
+
+      // Mock entitlements query (first call to select)
+      const mockEntitlementsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([
+            {
+              id: "entitlement-1",
+              studentId: testStudentId,
+              serviceType: testServiceType,
+              totalQuantity: 10,
+              consumedQuantity: 5,
+              heldQuantity: 0,
+              availableQuantity: 5,
+            },
+          ]),
+        }),
+      });
+
+      // Mock consumptions query (second call to select)
+      const mockConsumptionsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([
+            { quantity: -5 },
+          ]),
+        }),
+      });
+
+      // Mock refunds query (third call to select)
+      const mockRefundsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
+        }),
+      });
+
+      // Mock adjustments query (fourth call to select)
+      const mockAdjustmentsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
+        }),
+      });
+
+      // Use mockResolvedValueOnce to handle sequential calls
+      mockDb.select = jest.fn()
+        .mockReturnValueOnce(mockEntitlementsSelect())
+        .mockReturnValueOnce(mockConsumptionsSelect())
+        .mockReturnValueOnce(mockRefundsSelect())
+        .mockReturnValueOnce(mockAdjustmentsSelect());
+
+      // Mock insert returning
+      const mockLedger = {
+        id: "ledger-123",
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 1,
+        type: "refund",
+        source: "booking_cancelled",
+        balanceAfter: 6,
+        relatedBookingId: "booking-123",
+        metadata: { bookingSource: "resumes" },
+        createdBy: testStudentId,
+      };
+
+      mockDb.insert = jest.fn().mockReturnValue({
+        values: jest.fn().mockReturnValue({
+          returning: jest.fn().mockResolvedValue([mockLedger]),
+        }),
+      });
+
+      // Act
+      const result = await serviceLedgerService.recordRefund(refundDto);
+
+      // Assert
+      expect(result.metadata).toBeDefined();
+      expect(result.metadata.bookingSource).toBe("resumes");
+      // Verify insert was called
+      expect(mockDb.insert).toHaveBeenCalled();
+    });
+
+    it("should set correct ledger type and source [应该设置正确的账本类型和来源]", async () => {
+      // Arrange
+      const refundDto = {
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 1,
+        relatedBookingId: "booking-123",
+        bookingSource: "resumes",
+        createdBy: testStudentId,
+      };
+
+      // Mock entitlements query (first call to select)
+      const mockEntitlementsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([
+            {
+              id: "entitlement-1",
+              studentId: testStudentId,
+              serviceType: testServiceType,
+              totalQuantity: 10,
+              consumedQuantity: 5,
+              heldQuantity: 0,
+              availableQuantity: 5,
+            },
+          ]),
+        }),
+      });
+
+      // Mock consumptions query (second call to select)
+      const mockConsumptionsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([
+            { quantity: -5 },
+          ]),
+        }),
+      });
+
+      // Mock refunds query (third call to select)
+      const mockRefundsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
+        }),
+      });
+
+      // Mock adjustments query (fourth call to select)
+      const mockAdjustmentsSelect = jest.fn().mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          where: jest.fn().mockResolvedValue([]),
+        }),
+      });
+
+      // Use mockResolvedValueOnce to handle sequential calls
+      mockDb.select = jest.fn()
+        .mockReturnValueOnce(mockEntitlementsSelect())
+        .mockReturnValueOnce(mockConsumptionsSelect())
+        .mockReturnValueOnce(mockRefundsSelect())
+        .mockReturnValueOnce(mockAdjustmentsSelect());
+
+      // Mock insert returning
+      const mockLedger = {
+        id: "ledger-123",
+        studentId: testStudentId,
+        serviceType: testServiceType,
+        quantity: 1,
+        type: "refund",
+        source: "booking_cancelled",
+        createdBy: testStudentId,
+      };
+
+      mockDb.insert = jest.fn().mockReturnValue({
+        values: jest.fn().mockReturnValue({
+          returning: jest.fn().mockResolvedValue([mockLedger]),
+        }),
+      });
+
+      // Act
+      const result = await serviceLedgerService.recordRefund(refundDto);
+
+      // Assert
+      expect(result.type).toBe("refund");
+      expect(result.source).toBe("booking_cancelled");
+    });
+  });
 });
