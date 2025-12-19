@@ -1,5 +1,7 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { Type } from "class-transformer";
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+} from "@nestjs/swagger";
 import {
   IsArray,
   IsEnum,
@@ -16,6 +18,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from "class-validator";
+import { Type } from "class-transformer";
 import { ContractStatus, AmendmentLedgerType } from "@shared/types/contract-enums";
 
 const CONTRACT_CURRENCY_OPTIONS = ["USD", "CNY", "EUR", "GBP", "JPY"] as const;
@@ -533,5 +536,84 @@ export class AddAmendmentLedgerRequestDto {
   @IsNotEmpty()
   @IsString()
   createdBy!: string;
+}
+
+export class ServiceTypeConsumptionQueryDto {
+  @ApiPropertyOptional({
+    description: "Student ID (UUID) for filtering. [用于筛选的学生ID(UUID)]",
+    type: String,
+    required: false,
+    format: "uuid",
+  })
+  @IsOptional()
+  @IsUUID()
+  studentId?: string;
+
+  @ApiPropertyOptional({
+    description: "Mentor ID (UUID) for filtering. [用于筛选的导师ID(UUID)]",
+    type: String,
+    required: false,
+    format: "uuid",
+  })
+  @IsOptional()
+  @IsUUID()
+  mentorId?: string;
+
+  @ApiPropertyOptional({
+    description: "Status for filtering. [用于筛选的状态]",
+    type: String,
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional({
+    description: "Page number. Default: 1. [页码，默认值：1]",
+    type: Number,
+    required: false,
+    example: 1,
+    minimum: 1,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Type(() => Number)
+  page?: number;
+
+  @ApiPropertyOptional({
+    description: "Page size. Default: 20. Max: 100. [每页条数，默认值：20，最大值：100]",
+    type: Number,
+    required: false,
+    example: 20,
+    minimum: 1,
+    maximum: 100,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
+  pageSize?: number;
+
+  @ApiPropertyOptional({
+    description: "Sort field. Default: startDate. [排序字段，默认值：startDate]",
+    type: String,
+    required: false,
+    example: "startDate",
+  })
+  @IsOptional()
+  @IsString()
+  sortField?: string;
+
+  @ApiPropertyOptional({
+    description: "Sort order. Default: desc. [排序方向，默认值：desc]",
+    enum: ["asc", "desc"],
+    required: false,
+    example: "desc",
+  })
+  @IsOptional()
+  @IsIn(["asc", "desc"])
+  sortOrder?: "asc" | "desc";
 }
 
