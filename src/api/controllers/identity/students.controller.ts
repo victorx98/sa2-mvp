@@ -44,6 +44,18 @@ export class StudentsController {
     description: "Search keyword (searches in both Chinese and English names)",
     type: String,
   })
+  @ApiQuery({
+    name: "counselorId",
+    required: false,
+    description: "Filter by counselor ID",
+    type: String,
+  })
+  @ApiQuery({
+    name: "mentorId",
+    required: false,
+    description: "Filter by mentor ID",
+    type: String,
+  })
   @ApiOkResponse({
     description: "Student results retrieved successfully",
     type: StudentSummaryResponseDto,
@@ -52,9 +64,11 @@ export class StudentsController {
   async findStudents(
     @CurrentUser() user: User,
     @Query("text") text?: string,
+    @Query("counselorId") counselorId?: string,
+    @Query("mentorId") mentorId?: string,
   ): Promise<StudentSummaryResponseDto[]> {
-    // ✅ 调用 Application Layer 服务，根据用户角色自动选择查询策略
-    const items = await this.studentListQuery.find(user, text);
+    // ✅ 调用 Application Layer 服务，根据传入的 counselorId 或 mentorId 参数选择查询策略
+    const items = await this.studentListQuery.find(user, text, counselorId, mentorId);
     return plainToInstance(StudentSummaryResponseDto, items, {
       enableImplicitConversion: false,
     });
