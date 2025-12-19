@@ -16,6 +16,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
@@ -44,6 +45,7 @@ import {
   CreateContractRequestDto,
   UpdateContractRequestDto,
   UpdateContractStatusRequestDto,
+  ServiceTypeConsumptionQueryDto,
 } from "@api/dto/request/contract/contract.request.dto";
 import {
   ConsumeServiceResponseDto,
@@ -371,7 +373,7 @@ export class ContractsController {
     @Body() body: AddAmendmentLedgerRequestDto,
   ): Promise<ContractServiceEntitlementResponseDto> {
     //  Log request (without sensitive data) [记录请求（不包含敏感数据）]
-    const addAmendmentLedgerDto: AddAmendmentLedgerDto =
+    const addAmendmentLedgerDto: AddAmendmentLedgerDto = 
       body as unknown as AddAmendmentLedgerDto;
     this.logger.log(
       `Adding amendment ledger - contractId: ${addAmendmentLedgerDto.contractId}, studentId: ${addAmendmentLedgerDto.studentId}, serviceType: ${addAmendmentLedgerDto.serviceType}`,
@@ -385,5 +387,46 @@ export class ContractsController {
       createdAt: result.createdAt.toISOString(),
       updatedAt: result.updatedAt.toISOString(),
     };
+  }
+
+  @Get("service-type-consumption")
+  @ApiOperation({
+    summary: "Get all service type consumption records",
+    description:
+      "Retrieve all service type consumption records with complete data for frontend chart layout. [获取所有服务类型权益消费记录，为前端图表布局提供完整数据支持]",
+  })
+  @ApiQuery({ type: ServiceTypeConsumptionQueryDto })
+  @ApiOkResponse({
+    description: "Service type consumption records retrieved successfully",
+    type: "object",
+  })
+  @ApiResponse({ status: 400, description: "Bad request" })
+  @ApiResponse({ status: 500, description: "Internal server error" })
+  async getServiceTypeConsumptionRecords(
+    @Query() queryDto: ServiceTypeConsumptionQueryDto,
+  ) {
+    this.logger.log("Getting all service type consumption records with query params", queryDto);
+    try {
+      const result = await this.studentContractsQuery.getServiceTypeConsumptionRecords(
+        {
+          studentId: queryDto.studentId,
+          mentorId: queryDto.mentorId,
+          status: queryDto.status,
+        },
+        {
+          page: queryDto.page,
+          pageSize: queryDto.pageSize,
+        },
+        {
+          sortField: queryDto.sortField,
+          sortOrder: queryDto.sortOrder,
+        },
+      );
+      this.logger.log(`Retrieved ${result.data.length} service type consumption records out of ${result.total} total records`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Error getting service type consumption records: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 }
