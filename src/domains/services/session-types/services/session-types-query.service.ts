@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { SessionTypesRepository } from '../session-types.repository';
-import { GetSessionTypesDto, SessionTypeDto, SessionTypeItemDto } from '../dto/get-session-types.dto';
 
 /**
  * Session Types Query Service (CQRS - Query)
@@ -13,7 +12,7 @@ export class SessionTypesQueryService {
     private readonly sessionTypesRepository: SessionTypesRepository,
   ) {}
 
-  async getSessionTypes(filters: GetSessionTypesDto): Promise<SessionTypeDto[]> {
+  async getSessionTypes(filters: { serviceTypeCode?: string }): Promise<any[]> {
     let sessionTypes;
 
     if (filters.serviceTypeCode) {
@@ -23,7 +22,7 @@ export class SessionTypesQueryService {
     }
 
     // Group by serviceTypeCode
-    const grouped: Record<string, SessionTypeItemDto[]> = {};
+    const grouped: Record<string, any[]> = {};
     for (const entity of sessionTypes) {
       const serviceTypeCode = entity.serviceTypeCode;
       if (!grouped[serviceTypeCode]) {
@@ -33,13 +32,13 @@ export class SessionTypesQueryService {
     }
 
     // Convert to array format
-    return Object.entries(grouped).map(([serviceTypeCode, sessionTypes]): SessionTypeDto => ({
+    return Object.entries(grouped).map(([serviceTypeCode, sessionTypes]) => ({
       serviceTypeCode,
       sessionTypes,
     }));
   }
 
-  async getSessionTypeById(id: string): Promise<SessionTypeItemDto> {
+  async getSessionTypeById(id: string): Promise<any> {
     const sessionType = await this.sessionTypesRepository.findOne(id);
     if (!sessionType) {
       throw new NotFoundException(`Session type with ID ${id} not found`);
@@ -47,7 +46,7 @@ export class SessionTypesQueryService {
     return this.toItemDto(sessionType);
   }
 
-  private toItemDto(entity: any): SessionTypeItemDto {
+  private toItemDto(entity: any): any {
     return {
       id: entity.id,
       code: entity.code,

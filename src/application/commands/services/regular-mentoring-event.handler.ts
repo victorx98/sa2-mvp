@@ -4,14 +4,15 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { sql } from 'drizzle-orm';
 import { MeetingManagerService } from '@core/meeting';
 import { CalendarService } from '@core/calendar';
-import { RegularMentoringService as DomainRegularMentoringService } from '@domains/services/sessions/regular-mentoring/services/regular-mentoring.service';
+import { RegularMentoringDomainService } from '@domains/services/sessions/regular-mentoring/services/regular-mentoring-domain.service';
 import {
   REGULAR_MENTORING_SESSION_CREATED_EVENT,
   REGULAR_MENTORING_SESSION_UPDATED_EVENT,
   REGULAR_MENTORING_SESSION_CANCELLED_EVENT,
   REGULAR_MENTORING_SESSION_MEETING_OPERATION_RESULT_EVENT,
+  MEETING_LIFECYCLE_COMPLETED_EVENT,
 } from '@shared/events/event-constants';
-import type { RegularMentoringSessionCreatedEvent } from '@shared/events';
+import type { RegularMentoringSessionCreatedEvent, MeetingLifecycleCompletedPayload } from '@shared/events';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase } from '@shared/types/database.types';
 import { FEISHU_DEFAULT_HOST_USER_ID } from 'src/constants';
@@ -38,7 +39,7 @@ export class RegularMentoringCreatedEventHandler {
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
     private readonly meetingManagerService: MeetingManagerService,
-    private readonly domainRegularMentoringService: DomainRegularMentoringService,
+    private readonly domainRegularMentoringService: RegularMentoringDomainService,
     private readonly calendarService: CalendarService,
     private readonly eventEmitter: EventEmitter2,
     private readonly userService: UserService,
@@ -88,7 +89,7 @@ export class RegularMentoringCreatedEventHandler {
       // Step 3: Update session and calendar slots in a transaction
       await this.db.transaction(async (tx) => {
         // 3.1: Complete meeting setup for session (update meeting_id and status)
-        await this.domainRegularMentoringService.completeMeetingSetup(
+        await this.domainRegularMentoringService.scheduleMeeting(
           event.sessionId,
           meeting.id,
           tx,
@@ -409,6 +410,48 @@ export class RegularMentoringCreatedEventHandler {
       return FEISHU_DEFAULT_HOST_USER_ID;
     }
     return undefined;
+  }
+
+  /**
+   * Handle Meeting Lifecycle Completed Event
+   * Listen for meeting completion event and update session status
+   */
+  @OnEvent(MEETING_LIFECYCLE_COMPLETED_EVENT)
+  async handleMeetingCompletion(
+    payload: MeetingLifecycleCompletedPayload,
+  ): Promise<void> {
+    this.logger.log(
+      `Received meeting.lifecycle.completed event for meeting ${payload.meetingId}`,
+    );
+
+    try {
+      // Find session by meetingId
+      const session = await this.domainRegularMentoringService.findByMeetingId(
+        payload.meetingId,
+      );
+
+      if (session) {
+        this.logger.log(
+          `Found regular mentoring session ${session.getId()} for meeting ${payload.meetingId}`,
+        );
+
+        // Complete session
+        await this.domainRegularMentoringService.completeSession(session.getId());
+
+        this.logger.log(
+          `Successfully completed regular mentoring session ${session.getId()}`,
+        );
+      } else {
+        this.logger.debug(
+          `No regular mentoring session found for meeting ${payload.meetingId}, skipping`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error handling meeting completion for meeting ${payload.meetingId}: ${error.message}`,
+        error.stack,
+      );
+    }
   }
 }
 

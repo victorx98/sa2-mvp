@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CommSessionQueryService as DomainCommSessionQueryService } from '@domains/query/services/comm-session-query.service';
-import { CommSessionStatus } from '@domains/services/comm-sessions/entities/comm-session.entity';
+import { SessionStatus } from '@domains/services/comm-sessions/value-objects/session-status.vo';
 
 /**
  * Application Layer - Comm Session Query Service
@@ -22,7 +22,7 @@ export class CommSessionQueryService {
    * Get sessions for a specific mentor
    */
   async getMentorSessions(mentorId: string, filters: {
-    status?: CommSessionStatus;
+    status?: SessionStatus;
     limit?: number;
     offset?: number;
   } = {}) {
@@ -34,7 +34,7 @@ export class CommSessionQueryService {
    * Get sessions for a specific student
    */
   async getStudentSessions(studentId: string, filters: {
-    status?: CommSessionStatus;
+    status?: SessionStatus;
     limit?: number;
     offset?: number;
   } = {}) {

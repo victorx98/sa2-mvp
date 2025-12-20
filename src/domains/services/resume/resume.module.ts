@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '@infrastructure/database/database.module';
-import { ResumeService } from './services/resume.service';
-import { ResumeRepository } from './repositories/resume.repository';
+import { ResumeDomainService } from './services/resume-domain.service';
+import { ResumeRepository } from './infrastructure/repositories/resume.repository';
+import { ResumeMapper } from './infrastructure/mappers/resume.mapper';
+import { RESUME_REPOSITORY } from './repositories/resume.repository.interface';
 import { ServiceRegistryModule } from '@domains/services/service-registry/service-registry.module';
 
 @Module({
@@ -10,11 +12,16 @@ import { ServiceRegistryModule } from '@domains/services/service-registry/servic
     ServiceRegistryModule,
   ],
   providers: [
-    ResumeService,
-    ResumeRepository,
+    ResumeDomainService,
+    ResumeMapper,
+    {
+      provide: RESUME_REPOSITORY,
+      useClass: ResumeRepository,
+    },
   ],
   exports: [
-    ResumeService,
+    RESUME_REPOSITORY,
+    ResumeDomainService,
   ],
 })
 export class ResumeModule {}

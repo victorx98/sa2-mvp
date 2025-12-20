@@ -1,7 +1,6 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { eq, inArray, and, ne, desc } from 'drizzle-orm';
-import { CommSessionRepository } from '@domains/services/comm-sessions/repositories/comm-session.repository';
-import { CommSessionStatus } from '@domains/services/comm-sessions/entities/comm-session.entity';
+import { SessionStatus } from '@domains/services/comm-sessions/value-objects/session-status.vo';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import { commSessions } from '@infrastructure/database/schema/comm-sessions.schema';
 import { meetings } from '@infrastructure/database/schema/meetings.schema';
@@ -21,7 +20,6 @@ export class CommSessionQueryService {
   private readonly logger = new Logger(CommSessionQueryService.name);
 
   constructor(
-    private readonly commSessionRepository: CommSessionRepository,
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
   ) {}
@@ -32,7 +30,7 @@ export class CommSessionQueryService {
   async getMentorSessions(
     mentorId: string,
     filters?: {
-      status?: CommSessionStatus;
+      status?: SessionStatus;
       excludeDeleted?: boolean;
     },
     limit: number = 10,
@@ -44,7 +42,7 @@ export class CommSessionQueryService {
     
     const whereConditions: any[] = [eq(commSessions.mentorUserId, mentorId)];
     if (excludeDeleted) {
-      whereConditions.push(ne(commSessions.status, CommSessionStatus.DELETED));
+      whereConditions.push(ne(commSessions.status, SessionStatus.DELETED));
     }
     if (filters?.status) {
       whereConditions.push(eq(commSessions.status, filters.status));
@@ -73,7 +71,7 @@ export class CommSessionQueryService {
   async getStudentSessions(
     studentId: string,
     filters?: {
-      status?: CommSessionStatus;
+      status?: SessionStatus;
       excludeDeleted?: boolean;
     },
     limit: number = 10,
@@ -85,7 +83,7 @@ export class CommSessionQueryService {
     
     const whereConditions: any[] = [eq(commSessions.studentUserId, studentId)];
     if (excludeDeleted) {
-      whereConditions.push(ne(commSessions.status, CommSessionStatus.DELETED));
+      whereConditions.push(ne(commSessions.status, SessionStatus.DELETED));
     }
     if (filters?.status) {
       whereConditions.push(eq(commSessions.status, filters.status));
@@ -114,7 +112,7 @@ export class CommSessionQueryService {
   async getSessionsByStudentIds(
     studentIds: string[],
     filters?: {
-      status?: CommSessionStatus;
+      status?: SessionStatus;
       excludeDeleted?: boolean;
     },
   ): Promise<any[]> {
@@ -126,7 +124,7 @@ export class CommSessionQueryService {
     
     const whereConditions: any[] = [inArray(commSessions.studentUserId, studentIds)];
     if (excludeDeleted) {
-      whereConditions.push(ne(commSessions.status, CommSessionStatus.DELETED));
+      whereConditions.push(ne(commSessions.status, SessionStatus.DELETED));
     }
     if (filters?.status) {
       whereConditions.push(eq(commSessions.status, filters.status));

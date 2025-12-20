@@ -5,21 +5,17 @@
  */
 
 // Entities
-export { CommSessionEntity, CommSessionStatus, CommSessionType } from './entities/comm-session.entity';
+export { CommSession } from './entities/comm-session.entity';
 
-// DTOs
-export { CreateCommSessionDto } from './dto/create-comm-session.dto';
-export { UpdateCommSessionDto } from './dto/update-comm-session.dto';
+// Value Objects
+export { SessionStatus } from './value-objects/session-status.vo';
 
 // Services
-export { CommSessionService } from './services/comm-session.service';
+export { CommSessionDomainService } from './services/comm-session-domain.service';
 
-// Repository
-export { CommSessionRepository } from './repositories/comm-session.repository';
-
-// Listeners
-export { CommSessionEventListener } from './listeners/comm-session-event.listener';
+// Repository Interface
+export { ICommSessionRepository, COMM_SESSION_REPOSITORY } from './repositories/comm-session.repository.interface';
 
 // Exceptions
-export { CommSessionNotFoundException } from './exceptions/comm-session-not-found.exception';
+export * from './exceptions/exceptions';
 
