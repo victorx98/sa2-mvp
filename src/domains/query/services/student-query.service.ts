@@ -134,8 +134,12 @@ export class StudentQueryService {
    * 以 student 表为主表，关联 user 表获取用户信息
    * 可以根据需要添加分页和过滤逻辑
    */
-  async findAllStudents(): Promise<StudentListItem[]> {
-    this.logger.log("Finding all students");
+  async findAllStudents(text?: string): Promise<StudentListItem[]> {
+    this.logger.log(
+      `Finding all students${text ? ` with text=${text}` : ""}`,
+    );
+
+    const searchFilter = this.buildSearchFilter(text);
 
     // 使用 SQL 查询，以 student 表为主表
     const result = await this.db.execute(sql`
@@ -162,6 +166,7 @@ export class StudentQueryService {
       FROM student s
       LEFT JOIN "user" u ON s.id = u.id
       WHERE s.id IS NOT NULL
+        ${searchFilter}
       ORDER BY s.created_time DESC
     `);
 

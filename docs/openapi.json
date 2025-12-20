@@ -157,49 +157,6 @@
         ]
       }
     },
-    "/api/sessions/book": {
-      "post": {
-        "operationId": "SessionController_bookSession",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BookSessionRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Booking created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BookSessionResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request parameters or insufficient balance"
-          },
-          "409": {
-            "description": "Timeslot conflict; mentor unavailable"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Book a session",
-        "tags": [
-          "Sessions"
-        ]
-      }
-    },
     "/api/schools": {
       "get": {
         "operationId": "SchoolsController_getSchools",
@@ -3910,11 +3867,6 @@
               }
             }
           },
-          "400": {
-            "description": "Bad request"
-          }
-        },
-        "security": [
           {
             "bearer": []
           }
@@ -3931,44 +3883,15 @@
         "operationId": "ContractsController_updateStatus",
         "parameters": [
           {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Contract ID (UUID). [合同ID(UUID)]",
+            "name": "studentId",
+            "required": false,
+            "in": "query",
+            "description": "Student ID for filtering [学生ID筛选]",
             "schema": {
+              "example": "9e50af7d-5f08-4516-939f-7f765ce131b8",
               "type": "string"
             }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateContractStatusRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Contract status updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ContractResponseDto"
-                }
-              }
-            }
           },
-          "400": {
-            "description": "Invalid status transition"
-          },
-          "404": {
-            "description": "Contract not found"
-          }
-        },
-        "security": [
           {
             "bearer": []
           }
@@ -3985,41 +3908,25 @@
         "operationId": "ContractsController_update",
         "parameters": [
           {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Contract ID (UUID). [合同ID(UUID)]",
+            "name": "productId",
+            "required": false,
+            "in": "query",
+            "description": "Product ID filter [产品ID筛选]",
             "schema": {
+              "example": "9e50af7d-5f08-4516-939f-7f765ce131b8",
               "type": "string"
             }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateContractRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Contract updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ContractResponseDto"
-                }
-              }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Contract start date filter (ISO 8601) [合同开始日期筛选]",
+            "schema": {
+              "example": "2025-01-01",
+              "type": "string"
             }
           },
-          "404": {
-            "description": "Contract not found"
-          }
-        },
-        "security": [
           {
             "bearer": []
           }
@@ -4056,14 +3963,6 @@
               }
             }
           },
-          "400": {
-            "description": "Bad request"
-          },
-          "404": {
-            "description": "Student or entitlement not found"
-          }
-        },
-        "security": [
           {
             "bearer": []
           }
@@ -4088,20 +3987,17 @@
               }
             }
           }
-        },
+        ],
         "responses": {
-          "201": {
-            "description": "Amendment ledger added successfully",
+          "200": {
+            "description": "Contracts retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContractServiceEntitlementResponseDto"
+                  "$ref": "#/components/schemas/ContractListResponseDto"
                 }
               }
             }
-          },
-          "400": {
-            "description": "Bad request"
           }
         },
         "security": [
@@ -4109,7 +4005,373 @@
             "bearer": []
           }
         ],
-        "summary": "Add amendment ledger",
+        "summary": "Get contracts list with pagination and filters",
+        "tags": [
+          "Contracts"
+        ]
+      }
+    },
+    "/api/contracts/service-type-consumption": {
+      "get": {
+        "description": "Retrieve all service type consumption records with complete data for frontend chart layout. [获取所有服务类型权益消费记录，为前端图表布局提供完整数据支持]",
+        "operationId": "ContractsController_getServiceTypeConsumptionRecords",
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": false,
+            "in": "query",
+            "description": "Student ID (UUID) for filtering. [用于筛选的学生ID(UUID)]",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "mentorId",
+            "required": false,
+            "in": "query",
+            "description": "Mentor ID (UUID) for filtering. [用于筛选的导师ID(UUID)]",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Status for filtering. [用于筛选的状态]",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number. Default: 1. [页码，默认值：1]",
+            "schema": {
+              "minimum": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Page size. Default: 20. Max: 100. [每页条数，默认值：20，最大值：100]",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
+            "in": "query",
+            "description": "Sort field. Default: startDate. [排序字段，默认值：startDate]",
+            "schema": {
+              "example": "startDate",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "description": "Sort order. Default: desc. [排序方向，默认值：desc]",
+            "schema": {
+              "example": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "description": "Student ID (UUID) for filtering. [用于筛选的学生ID(UUID)]",
+            "required": false,
+            "name": "studentId",
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Mentor ID (UUID) for filtering. [用于筛选的导师ID(UUID)]",
+            "required": false,
+            "name": "mentorId",
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Status for filtering. [用于筛选的状态]",
+            "required": false,
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page number. Default: 1. [页码，默认值：1]",
+            "required": false,
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Page size. Default: 20. Max: 100. [每页条数，默认值：20，最大值：100]",
+            "required": false,
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Sort field. Default: startDate. [排序字段，默认值：startDate]",
+            "required": false,
+            "name": "sortField",
+            "in": "query",
+            "schema": {
+              "example": "startDate",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Sort order. Default: desc. [排序方向，默认值：desc]",
+            "required": false,
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "example": "desc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Service type consumption records retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get all service type consumption records",
+        "tags": [
+          "Contracts"
+        ]
+      }
+    },
+    "/api/contracts/service-type-consumption": {
+      "get": {
+        "description": "Retrieve all service type consumption records with complete data for frontend chart layout. [获取所有服务类型权益消费记录，为前端图表布局提供完整数据支持]",
+        "operationId": "ContractsController_getServiceTypeConsumptionRecords",
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": false,
+            "in": "query",
+            "description": "Student ID (UUID) for filtering. [用于筛选的学生ID(UUID)]",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "mentorId",
+            "required": false,
+            "in": "query",
+            "description": "Mentor ID (UUID) for filtering. [用于筛选的导师ID(UUID)]",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Status for filtering. [用于筛选的状态]",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number. Default: 1. [页码，默认值：1]",
+            "schema": {
+              "minimum": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Page size. Default: 20. Max: 100. [每页条数，默认值：20，最大值：100]",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
+            "in": "query",
+            "description": "Sort field. Default: startDate. [排序字段，默认值：startDate]",
+            "schema": {
+              "example": "startDate",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "description": "Sort order. Default: desc. [排序方向，默认值：desc]",
+            "schema": {
+              "example": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "description": "Student ID (UUID) for filtering. [用于筛选的学生ID(UUID)]",
+            "required": false,
+            "name": "studentId",
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Mentor ID (UUID) for filtering. [用于筛选的导师ID(UUID)]",
+            "required": false,
+            "name": "mentorId",
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Status for filtering. [用于筛选的状态]",
+            "required": false,
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page number. Default: 1. [页码，默认值：1]",
+            "required": false,
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Page size. Default: 20. Max: 100. [每页条数，默认值：20，最大值：100]",
+            "required": false,
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Sort field. Default: startDate. [排序字段，默认值：startDate]",
+            "required": false,
+            "name": "sortField",
+            "in": "query",
+            "schema": {
+              "example": "startDate",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Sort order. Default: desc. [排序方向，默认值：desc]",
+            "required": false,
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "example": "desc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Service type consumption records retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get all service type consumption records",
         "tags": [
           "Contracts"
         ]
@@ -5576,124 +5838,6 @@
         },
         "required": [
           "id"
-        ]
-      },
-      "BookSessionRequestDto": {
-        "type": "object",
-        "properties": {
-          "studentId": {
-            "type": "string",
-            "description": "Student ID",
-            "example": "123e4567-e89b-12d3-a456-426614174000"
-          },
-          "mentorId": {
-            "type": "string",
-            "description": "Mentor ID",
-            "example": "123e4567-e89b-12d3-a456-426614174001"
-          },
-          "scheduledStartTime": {
-            "type": "string",
-            "description": "Session start time (ISO 8601 format)",
-            "example": "2025-11-10T14:00:00Z"
-          },
-          "duration": {
-            "type": "number",
-            "description": "Session duration (minutes)",
-            "example": 60
-          },
-          "serviceType": {
-            "type": "string",
-            "description": "Service type",
-            "example": "external"
-          },
-          "topic": {
-            "type": "string",
-            "description": "Session topic",
-            "example": "Resume review guidance"
-          },
-          "meetingProvider": {
-            "type": "string",
-            "description": "Meeting provider",
-            "example": "zoom"
-          }
-        },
-        "required": [
-          "studentId",
-          "mentorId",
-          "scheduledStartTime",
-          "duration",
-          "serviceType",
-          "topic"
-        ]
-      },
-      "BookSessionResponseDto": {
-        "type": "object",
-        "properties": {
-          "sessionId": {
-            "type": "string",
-            "description": "Created session ID"
-          },
-          "studentId": {
-            "type": "string",
-            "description": "Student ID"
-          },
-          "mentorId": {
-            "type": "string",
-            "description": "Mentor ID"
-          },
-          "serviceType": {
-            "type": "object",
-            "description": "Type of service fulfilled by this session"
-          },
-          "mentorCalendarSlotId": {
-            "type": "string",
-            "description": "Mentor calendar slot reservation ID"
-          },
-          "studentCalendarSlotId": {
-            "type": "string",
-            "description": "Student calendar slot reservation ID"
-          },
-          "serviceHoldId": {
-            "type": "string",
-            "description": "Service hold ID consumed by this booking"
-          },
-          "scheduledStartTime": {
-            "type": "string",
-            "description": "Session start time in ISO 8601 format",
-            "format": "date-time"
-          },
-          "duration": {
-            "type": "number",
-            "description": "Session duration in minutes",
-            "example": 60
-          },
-          "meetingProvider": {
-            "type": "string",
-            "description": "Meeting provider platform (e.g., zoom, feishu)"
-          },
-          "meetingPassword": {
-            "type": "string",
-            "description": "Meeting join password"
-          },
-          "meetingUrl": {
-            "type": "string",
-            "description": "Meeting join URL"
-          },
-          "status": {
-            "type": "string",
-            "description": "Booking status (e.g., booked, pending_confirmation)"
-          }
-        },
-        "required": [
-          "sessionId",
-          "studentId",
-          "mentorId",
-          "mentorCalendarSlotId",
-          "studentCalendarSlotId",
-          "serviceHoldId",
-          "scheduledStartTime",
-          "duration",
-          "status"
         ]
       },
       "SchoolResponseDto": {

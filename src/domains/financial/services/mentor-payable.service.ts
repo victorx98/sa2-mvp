@@ -37,28 +37,30 @@ export class MentorPayableService {
     sessionId?: string;
     studentId: string;
     mentorId?: string;
-    sessionTypeCode: string;
-    actualDurationHours: number;
-    durationHours: number;
+    serviceTypeCode: string;
+    actualDurationMinutes: number;
+    durationMinutes: number;
     allowBilling: boolean;
     refrenceId?: string; // Note: typo in the original type definition (注意：原始类型定义中的拼写错误)
+    sessionTypeCode?: string;
   }): Promise<void> {
     try {
       const {
         sessionId,
         studentId,
         mentorId,
+        serviceTypeCode,
         sessionTypeCode,
-        actualDurationHours,
+        actualDurationMinutes,
         refrenceId,
       } = payload;
 
       this.logger.log(`Creating per-session billing for session: ${sessionId}`);
 
       // Input validation
-      if (!sessionId || !studentId || !mentorId || !sessionTypeCode) {
+      if (!sessionId || !studentId || !mentorId || !serviceTypeCode || !sessionTypeCode) {
         throw new BadRequestException(
-          `Missing required fields for billing creation: sessionId=${sessionId}, studentId=${studentId}, mentorId=${mentorId}, sessionTypeCode=${sessionTypeCode}`,
+          `Missing required fields for billing creation: sessionId=${sessionId}, studentId=${studentId}, mentorId=${mentorId}`,
         );
       }
 
@@ -83,10 +85,12 @@ export class MentorPayableService {
 
       // Calculate total amount based on actual duration
       const unitPrice = Number(mentorPrice.price);
+      // 将分钟转换为小时后再计算总价
+      const actualDurationHours = actualDurationMinutes / 60;
       const totalAmount = Number((unitPrice * actualDurationHours).toFixed(2));
 
       this.logger.log(
-        `Calculated billing: session=${sessionId}, duration=${actualDurationHours}h, price=${unitPrice}, amount=${totalAmount}`,
+        `Calculated billing: session=${sessionId}, duration=${actualDurationMinutes}m (${actualDurationHours}h), price=${unitPrice}, amount=${totalAmount}`,
       );
 
       // Insert ledger record
@@ -97,7 +101,7 @@ export class MentorPayableService {
         referenceId: referenceId,
         mentorId,
         studentId,
-        sessionTypeCode,
+        sessionTypeCode, // Store the session type code (e.g., 'ai_career') [存储会话类型代码]
         price: mentorPrice.price,
         amount: String(totalAmount), // Convert to string to match numeric type
         currency: mentorPrice.currency || "USD",

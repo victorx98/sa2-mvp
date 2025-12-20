@@ -18,27 +18,27 @@ export class StudentListQuery {
   ) {}
 
   /**
-   * 根据用户角色自动选择查询策略
-   * 如果用户是 mentor，调用 findByMentorId
-   * 如果用户是 counselor，调用 findByCounselorId
+   * 根据传入的 counselorId 或 mentorId 参数选择查询策略
+   * 如果传入了 mentorId，调用 findByMentorId
+   * 如果传入了 counselorId，调用 findByCounselorId
+   * 如果都没有传入，调用 findAllStudents 查询全部学生
    */
   async find(
     user: User,
     search?: string,
+    counselorId?: string,
+    mentorId?: string,
   ): Promise<StudentListItem[]> {
-    const roles = user.roles || [];
-    
-    if (roles.includes("mentor")) {
-      return this.findByMentorId(user.id, search);
+    if (mentorId) {
+      return this.findByMentorId(mentorId, search);
     }
     
-    if (roles.includes("counselor")) {
-      return this.findByCounselorId(user.id, search);
+    if (counselorId) {
+      return this.findByCounselorId(counselorId, search);
     }
     
-    throw new BadRequestException(
-      "User must have either 'mentor' or 'counselor' role to search students",
-    );
+    // 如果都没有传入，查询全部学生
+    return this.studentQueryService.findAllStudents(search);
   }
 
   /**

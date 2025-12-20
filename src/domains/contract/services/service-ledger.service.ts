@@ -16,6 +16,7 @@ import type { ServiceLedger } from "@infrastructure/database/schema";
 import type {
   IRecordConsumptionDto,
   IRecordAdjustmentDto,
+  IRecordRefundDto,
   IBalanceInfo,
 } from "../interfaces/service-ledger.interface";
 
@@ -168,6 +169,146 @@ export class ServiceLedgerService {
         relatedHoldId: null,
         relatedBookingId: null,
         reason,
+        createdBy,
+      })
+      .returning();
+
+    return ledger;
+  }
+
+  /**
+   * Record service refund
+   * - Quantity must be positive (refund)(数量必须为正数(退款))
+   * - Validate refund quantity does not exceed consumed quantity(验证退还数量不超过已消费数量)
+   * - Create refund ledger entry(创建退款账本条目)
+   * - Trigger automatically updates consumed_quantity(触发器自动更新已消耗数量)
+   */
+  async recordRefund(
+    dto: IRecordRefundDto,
+    tx?: DrizzleTransaction,
+  ): Promise<ServiceLedger> {
+    const {
+      studentId,
+      serviceType,
+      quantity,
+      relatedBookingId,
+      bookingSource,
+      createdBy,
+    } = dto;
+
+    // 1. Validate refund quantity is positive(1. 验证退还数量为正数)
+    if (quantity <= 0) {
+      throw new ContractException(
+        "INVALID_REFUND_QUANTITY",
+        "Refund quantity must be positive",
+      );
+    }
+
+    // 2. Validate: bookingSource is required when relatedBookingId is provided [验证：当relatedBookingId存在时，bookingSource必填]
+    if (relatedBookingId && !bookingSource) {
+      throw new ContractException(
+        "BOOKING_SOURCE_REQUIRED",
+        "bookingSource is required when relatedBookingId is provided",
+      );
+    }
+
+    // 3. Find entitlements for student and service type (aggregated across contracts)(3. 查找学生的服务类型权益(跨合同聚合))
+    const executor: DrizzleExecutor = tx ?? this.db;
+
+    const entitlements = await executor
+      .select()
+      .from(schema.contractServiceEntitlements)
+      .where(
+        and(
+          eq(schema.contractServiceEntitlements.studentId, studentId),
+          eq(schema.contractServiceEntitlements.serviceType, serviceType),
+        ),
+      );
+
+    if (entitlements.length === 0) {
+      throw new ContractNotFoundException("NO_ENTITLEMENTS_FOUND");
+    }
+
+    // 4. Validate: refund quantity does not exceed net consumed quantity [验证：退还数量不超过净消费数量]
+    // Sum consumptions, subtract refunds and positive adjustments to avoid double-refund [汇总消费，减去已退款与正向调整，避免重复退款]
+    const consumptions = await executor
+      .select()
+      .from(schema.serviceLedgers)
+      .where(
+        and(
+          eq(schema.serviceLedgers.studentId, studentId),
+          eq(schema.serviceLedgers.serviceType, serviceType),
+          eq(schema.serviceLedgers.type, "consumption"),
+        ),
+      );
+
+    const refunds = await executor
+      .select()
+      .from(schema.serviceLedgers)
+      .where(
+        and(
+          eq(schema.serviceLedgers.studentId, studentId),
+          eq(schema.serviceLedgers.serviceType, serviceType),
+          eq(schema.serviceLedgers.type, "refund"),
+        ),
+      );
+
+    const adjustments = await executor
+      .select()
+      .from(schema.serviceLedgers)
+      .where(
+        and(
+          eq(schema.serviceLedgers.studentId, studentId),
+          eq(schema.serviceLedgers.serviceType, serviceType),
+          eq(schema.serviceLedgers.type, "adjustment"),
+        ),
+      );
+
+    const totalConsumed = consumptions.reduce(
+      (sum, ledger) => sum + Math.abs(ledger.quantity), // ledger.quantity is negative for consumption, so use abs [ledger.quantity为消费时是负数，所以使用abs]
+      0,
+    );
+
+    const totalRefunded = refunds.reduce(
+      (sum, ledger) => sum + Math.max(ledger.quantity, 0), // refund stored as positive [退款为正数]
+      0,
+    );
+
+    const positiveAdjustments = adjustments.reduce(
+      (sum, ledger) => (ledger.quantity > 0 ? sum + ledger.quantity : sum), // positive adjustment increases available [正向调整增加可用量]
+      0,
+    );
+
+    const netConsumed = totalConsumed - totalRefunded - positiveAdjustments;
+
+    if (quantity > netConsumed) {
+      throw new ContractException(
+        "EXCESSIVE_REFUND_QUANTITY",
+        `Refund quantity (${quantity}) exceeds net consumed quantity (${netConsumed})`,
+      );
+    }
+
+    const totalAvailable = entitlements.reduce(
+      (sum, e) => sum + e.availableQuantity,
+      0,
+    );
+
+    // Calculate balance after refund (refund increases available quantity) [计算退款后的余额(退款增加可用数量)]
+    const balanceAfter = totalAvailable + quantity;
+
+    // 5. Create refund ledger entry(5. 创建退款账本条目)
+    const [ledger] = await executor
+      .insert(schema.serviceLedgers)
+      .values({
+        studentId,
+        serviceType: serviceType,
+        quantity, // Positive for refund(正数表示退款)
+        type: "refund",
+        source: "booking_cancelled",
+        balanceAfter,
+        relatedHoldId: null,
+        relatedBookingId,
+        metadata: { bookingSource }, // Store bookingSource in metadata [在metadata中存储bookingSource]
         createdBy,
       })
       .returning();

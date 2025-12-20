@@ -1,4 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { BadRequestException } from "@nestjs/common";
 import { ServiceSessionCompletedListener } from "./service-session-completed-listener";
 import { MentorPayableService } from "@domains/financial/services/mentor-payable.service";
 import {
@@ -41,12 +42,11 @@ describe("ServiceSessionCompletedListener", () => {
         sessionId: "session-123",
         studentId: "student-123",
         mentorId: "mentor-123",
-        sessionTypeCode: "consultation",
-        actualDurationHours: 2,
-        durationHours: 2,
+        serviceTypeCode: "consultation",
         actualDurationMinutes: 120,
         durationMinutes: 120,
         allowBilling: true,
+        sessionTypeCode: "regular_mentoring",
       },
     };
 
@@ -95,22 +95,26 @@ describe("ServiceSessionCompletedListener", () => {
       expect(mockMentorPayableService.createPerSessionBilling).not.toHaveBeenCalled();
     });
 
-    it("should skip when mentor price not found", async () => {
+    it("should throw error when mentor price not found", async () => {
       mockMentorPayableService.isDuplicate.mockResolvedValue(false);
       mockMentorPayableService.getMentorPrice.mockResolvedValue(null);
 
-      await listener.handleServiceSessionCompletedEvent(validEvent);
+      await expect(
+        listener.handleServiceSessionCompletedEvent(validEvent),
+      ).rejects.toThrow(BadRequestException);
 
       expect(mockMentorPayableService.createPerSessionBilling).not.toHaveBeenCalled();
     });
 
-    it("should skip when sessionId is missing", async () => {
+    it("should throw error when sessionId is missing", async () => {
       const event = {
         ...validEvent,
         payload: { ...validEvent.payload, sessionId: undefined },
       };
 
-      await listener.handleServiceSessionCompletedEvent(event);
+      await expect(
+        listener.handleServiceSessionCompletedEvent(event),
+      ).rejects.toThrow(BadRequestException);
 
       expect(mockMentorPayableService.createPerSessionBilling).not.toHaveBeenCalled();
     });
