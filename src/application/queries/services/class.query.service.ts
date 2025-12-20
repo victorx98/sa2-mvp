@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { ClassQueryService as DomainCrossQueryService } from '@domains/query/services/class-query.service';
-import { ClassRepository } from '@domains/services/class/classes/repositories/class.repository';
+import { IClassRepository, CLASS_REPOSITORY } from '@domains/services/class/classes/repositories/class.repository.interface';
 import { ClassStatus, ClassType } from '@domains/services/class/classes/entities/class.entity';
 
 /**
@@ -16,7 +16,8 @@ export class ClassQueryService {
   private readonly logger = new Logger(ClassQueryService.name);
 
   constructor(
-    private readonly classRepository: ClassRepository,
+    @Inject(CLASS_REPOSITORY)
+    private readonly classRepository: IClassRepository,
     private readonly domainCrossQueryService: DomainCrossQueryService,
   ) {}
 
@@ -133,7 +134,7 @@ export class ClassQueryService {
     const offset = (page - 1) * pageSize;
 
     // Get total count
-    const total = await this.classRepository.count({ status, type, createdByCounselorId, name });
+    const total = await this.classRepository.count({ status, type, createdByCounselorId });
 
     // Get classes list with pagination
     const classes = await this.classRepository.findAll(
@@ -148,8 +149,8 @@ export class ClassQueryService {
     const classesWithMembers = await Promise.all(
       classes.map(async (classEntity) => {
         const [mentors, counselors] = await Promise.all([
-          this.domainCrossQueryService.getClassMentorsWithNames(classEntity.id),
-          this.domainCrossQueryService.getClassCounselorsWithNames(classEntity.id),
+          this.domainCrossQueryService.getClassMentorsWithNames(classEntity.getId()),
+          this.domainCrossQueryService.getClassCounselorsWithNames(classEntity.getId()),
         ]);
 
         return {

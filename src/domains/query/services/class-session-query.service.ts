@@ -1,6 +1,6 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { eq, inArray, and, desc, ne } from 'drizzle-orm';
-import { ClassSessionRepository } from '@domains/services/class/class-sessions/repositories/class-session.repository';
+import { IClassSessionRepository, CLASS_SESSION_REPOSITORY } from '@domains/services/class/class-sessions/repositories/class-session.repository.interface';
 import { ClassSessionEntity, ClassSessionStatus } from '@domains/services/class/class-sessions/entities/class-session.entity';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import { classSessions } from '@infrastructure/database/schema/class-sessions.schema';
@@ -28,7 +28,8 @@ export class ClassSessionQueryService {
   private readonly logger = new Logger(ClassSessionQueryService.name);
 
   constructor(
-    private readonly classSessionRepository: ClassSessionRepository,
+    @Inject(CLASS_SESSION_REPOSITORY)
+    private readonly classSessionRepository: IClassSessionRepository,
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
   ) {}

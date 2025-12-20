@@ -8,12 +8,14 @@ import {
   COMM_SESSION_UPDATED_EVENT,
   COMM_SESSION_CANCELLED_EVENT,
   COMM_SESSION_MEETING_OPERATION_RESULT_EVENT,
+  MEETING_LIFECYCLE_COMPLETED_EVENT,
 } from '@shared/events/event-constants';
+import type { MeetingLifecycleCompletedPayload } from '@shared/events';
 import { retryWithBackoff } from '@shared/utils/retry.util';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase } from '@shared/types/database.types';
 import { FEISHU_DEFAULT_HOST_USER_ID } from 'src/constants';
-import { CommSessionService } from '@domains/services/comm-sessions/services/comm-session.service';
+import { CommSessionDomainService } from '@domains/services/comm-sessions/services/comm-session-domain.service';
 import { sql } from 'drizzle-orm';
 import { UserService } from '@domains/identity/user/user-service';
 
@@ -39,7 +41,7 @@ export class CommSessionCreatedEventHandler {
     private readonly db: DrizzleDatabase,
     private readonly meetingManagerService: MeetingManagerService,
     private readonly calendarService: CalendarService,
-    private readonly commSessionService: CommSessionService,
+    private readonly commSessionService: CommSessionDomainService,
     private readonly eventEmitter: EventEmitter2,
     private readonly userService: UserService,
   ) {}
@@ -72,7 +74,7 @@ export class CommSessionCreatedEventHandler {
       // Step 3: Update session and calendar slots in a transaction
       await this.db.transaction(async (tx) => {
         // 3.1: Update comm_sessions table with meeting_id and status
-        await this.commSessionService.updateMeetingSetup(
+        await this.commSessionService.scheduleMeeting(
           event.sessionId,
           meeting.id,
           tx,
@@ -374,6 +376,46 @@ export class CommSessionCreatedEventHandler {
       return FEISHU_DEFAULT_HOST_USER_ID;
     }
     return undefined;
+  }
+
+  /**
+   * Handle Meeting Lifecycle Completed Event
+   * Listen for meeting completion event and update session status
+   */
+  @OnEvent(MEETING_LIFECYCLE_COMPLETED_EVENT)
+  async handleMeetingCompletion(
+    payload: MeetingLifecycleCompletedPayload,
+  ): Promise<void> {
+    this.logger.log(
+      `Received meeting.lifecycle.completed event for meeting ${payload.meetingId}`,
+    );
+
+    try {
+      const session = await this.commSessionService.findByMeetingId(
+        payload.meetingId,
+      );
+
+      if (session) {
+        this.logger.log(
+          `Found comm session ${session.getId()} for meeting ${payload.meetingId}`,
+        );
+
+        await this.commSessionService.completeSession(session.getId());
+
+        this.logger.log(
+          `Successfully completed comm session ${session.getId()}`,
+        );
+      } else {
+        this.logger.debug(
+          `No comm session found for meeting ${payload.meetingId}, skipping`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error handling meeting completion for meeting ${payload.meetingId}: ${error.message}`,
+        error.stack,
+      );
+    }
   }
 }
 

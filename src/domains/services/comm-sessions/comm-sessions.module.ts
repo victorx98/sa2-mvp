@@ -1,11 +1,10 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '@infrastructure/database/database.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-
-// Comm Sessions Module
-import { CommSessionService } from './services/comm-session.service';
-import { CommSessionRepository } from './repositories/comm-session.repository';
-import { CommSessionEventListener } from './listeners/comm-session-event.listener';
+import { CommSessionDomainService } from './services/comm-session-domain.service';
+import { COMM_SESSION_REPOSITORY } from './repositories/comm-session.repository.interface';
+import { DrizzleCommSessionRepository } from './infrastructure/repositories/comm-session.repository';
+import { CommSessionMapper } from './infrastructure/mappers/comm-session.mapper';
 
 /**
  * Comm Sessions Module
@@ -19,11 +18,22 @@ import { CommSessionEventListener } from './listeners/comm-session-event.listene
 @Module({
   imports: [DatabaseModule, EventEmitterModule],
   providers: [
-    CommSessionService,
-    CommSessionRepository,
-    CommSessionEventListener,
+    // Mapper
+    CommSessionMapper,
+    
+    // Repository (dependency injection)
+    {
+      provide: COMM_SESSION_REPOSITORY,
+      useClass: DrizzleCommSessionRepository,
+    },
+    
+    // Domain Service
+    CommSessionDomainService,
   ],
-  exports: [CommSessionService, CommSessionRepository],
+  exports: [
+    COMM_SESSION_REPOSITORY,
+    CommSessionDomainService,
+  ],
 })
 export class CommSessionsModule {}
 

@@ -6,7 +6,7 @@ import {
   SessionType as CalendarSessionType,
 } from '@core/calendar/interfaces/calendar-slot.interface';
 import { MeetingProviderType } from '@core/meeting';
-import { AiCareerService as DomainAiCareerService } from '@domains/services/sessions/ai-career/services/ai-career.service';
+import { AiCareerDomainService } from '@domains/services/sessions/ai-career/services/ai-career-domain.service';
 import { AiCareerQueryService } from '@domains/query/services/ai-career-query.service';
 import { SessionType } from '@domains/services/sessions/shared/enums/session-type.enum';
 import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
@@ -62,7 +62,7 @@ export class AiCareerService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-    private readonly domainAiCareerService: DomainAiCareerService,
+    private readonly domainAiCareerService: AiCareerDomainService,
     private readonly aiCareerQueryService: AiCareerQueryService,
     private readonly calendarService: CalendarService,
     private readonly eventEmitter: EventEmitter2,
@@ -166,9 +166,12 @@ export class AiCareerService {
         this.logger.debug(`Student calendar slot created: ${studentCalendarSlot.id}`);
 
         // Step 2: Create session record in domain layer (without meeting_id, status=PENDING_MEETING)
+        const { randomUUID } = await import('crypto');
+        const sessionId = randomUUID();
+        
         const session = await this.domainAiCareerService.createSession(
           {
-            meetingId: undefined,
+            id: sessionId,
             sessionType: SessionType.AI_CAREER,
             sessionTypeId: dto.sessionTypeId,
             serviceType: dto.serviceType,
@@ -178,17 +181,17 @@ export class AiCareerService {
             createdByCounselorId: dto.counselorId,
             title: dto.title,
             description: dto.description,
-            scheduledAt: scheduledAtIso,
+            scheduledAt: new Date(scheduledAtIso),
           },
           tx,
         );
 
-        this.logger.debug(`AI career session created: sessionId=${session.id}`);
+        this.logger.debug(`AI career session created: sessionId=${session.getId()}`);
 
         return {
-          sessionId: session.id,
-          status: session.status,
-          scheduledAt: session.scheduledAt,
+          sessionId: session.getId(),
+          status: session.getStatus(),
+          scheduledAt: session.getScheduledAt(),
           mentorCalendarSlotId: mentorCalendarSlot.id,
           studentCalendarSlotId: studentCalendarSlot.id,
         };
@@ -373,9 +376,9 @@ export class AiCareerService {
         const updateResult = await this.domainAiCareerService.updateSession(
           sessionId,
           {
-        title: dto.title,
-        description: dto.description,
-        scheduledAt: scheduledAtIso,
+            title: dto.title,
+            description: dto.description,
+            scheduledAt: scheduledAtIso ? new Date(scheduledAtIso) : undefined,
           },
           tx,
         );
@@ -410,9 +413,9 @@ export class AiCareerService {
       // Step 6: Construct response with all updated values including meeting info
       return {
         ...updatedSession,
-        title: dto.title || updatedSession.title,
-        description: dto.description !== undefined ? dto.description : updatedSession.description,
-        scheduledAt: scheduledAtIso || updatedSession.scheduledAt,
+        title: dto.title || updatedSession.getTitle(),
+        description: dto.description !== undefined ? dto.description : updatedSession.getDescription(),
+        scheduledAt: scheduledAtIso || updatedSession.getScheduledAt(),
         duration: newDuration,
         // Include complete meeting object for mapper
         meeting: oldSession.meeting,
@@ -467,7 +470,7 @@ export class AiCareerService {
         await this.serviceHoldService.releaseHold(session.serviceHoldId, reason);
 
         // Update session status to CANCELLED
-        await this.domainAiCareerService.cancelSession(sessionId, reason);
+        await this.domainAiCareerService.cancelSession(sessionId, tx);
 
         // Release calendar slots (update status to cancelled)
         await this.calendarService.updateSlots(

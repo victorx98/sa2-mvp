@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { SessionTypesQueryService } from '@domains/services/session-types/services/session-types-query.service';
-import { GetSessionTypesDto, SessionTypeDto } from '@domains/services/session-types/dto/get-session-types.dto';
 
 /**
  * Get Session Types Query (Application Layer)
@@ -13,7 +12,7 @@ export class GetSessionTypesQuery {
     private readonly sessionTypesQueryService: SessionTypesQueryService,
   ) {}
 
-  async execute(filters: GetSessionTypesDto): Promise<SessionTypeDto[]> {
+  async execute(filters: { serviceTypeCode?: string }): Promise<any[]> {
     return this.sessionTypesQueryService.getSessionTypes(filters);
   }
 }

@@ -13,7 +13,7 @@ import { retryWithBackoff } from '@shared/utils/retry.util';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase } from '@shared/types/database.types';
 import { FEISHU_DEFAULT_HOST_USER_ID } from 'src/constants';
-import { ClassSessionService } from '@domains/services/class/class-sessions/services/class-session.service';
+import { ClassSessionDomainService } from '@domains/services/class/class-sessions/services/class-session-domain.service';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -38,7 +38,7 @@ export class ClassSessionCreatedEventHandler {
     private readonly db: DrizzleDatabase,
     private readonly meetingManagerService: MeetingManagerService,
     private readonly calendarService: CalendarService,
-    private readonly classSessionService: ClassSessionService,
+    private readonly classSessionService: ClassSessionDomainService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -67,7 +67,7 @@ export class ClassSessionCreatedEventHandler {
       // Step 2: Update session and calendar slot in a transaction
       await this.db.transaction(async (tx) => {
         // 2.1: Update class_sessions table with meeting_id and status
-        await this.classSessionService.updateMeetingSetup(
+        await this.classSessionService.markAsScheduled(
           event.sessionId,
           meeting.id,
           tx,

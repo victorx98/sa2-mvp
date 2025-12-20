@@ -3,14 +3,15 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MeetingManagerService } from '@core/meeting';
 import { CalendarService } from '@core/calendar';
-import { GapAnalysisService as DomainGapAnalysisService } from '@domains/services/sessions/gap-analysis/services/gap-analysis.service';
+import { GapAnalysisDomainService } from '@domains/services/sessions/gap-analysis/services/gap-analysis-domain.service';
 import {
   GAP_ANALYSIS_SESSION_CREATED_EVENT,
   GAP_ANALYSIS_SESSION_UPDATED_EVENT,
   GAP_ANALYSIS_SESSION_CANCELLED_EVENT,
   GAP_ANALYSIS_SESSION_MEETING_OPERATION_RESULT_EVENT,
+  MEETING_LIFECYCLE_COMPLETED_EVENT,
 } from '@shared/events/event-constants';
-import type { GapAnalysisSessionCreatedEvent } from '@shared/events';
+import type { GapAnalysisSessionCreatedEvent, MeetingLifecycleCompletedPayload } from '@shared/events';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase } from '@shared/types/database.types';
 import { FEISHU_DEFAULT_HOST_USER_ID } from 'src/constants';
@@ -38,7 +39,7 @@ export class GapAnalysisCreatedEventHandler {
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
     private readonly meetingManagerService: MeetingManagerService,
-    private readonly domainGapAnalysisService: DomainGapAnalysisService,
+    private readonly domainGapAnalysisService: GapAnalysisDomainService,
     private readonly calendarService: CalendarService,
     private readonly eventEmitter: EventEmitter2,
     private readonly userService: UserService,
@@ -88,7 +89,7 @@ export class GapAnalysisCreatedEventHandler {
       // Step 3: Update session and calendar slots in a transaction
       await this.db.transaction(async (tx) => {
         // 3.1: Complete meeting setup for session (update meeting_id and status)
-        await this.domainGapAnalysisService.completeMeetingSetup(
+        await this.domainGapAnalysisService.scheduleMeeting(
           event.sessionId,
           meeting.id,
           tx,
@@ -395,6 +396,48 @@ export class GapAnalysisCreatedEventHandler {
       return FEISHU_DEFAULT_HOST_USER_ID;
     }
     return undefined;
+  }
+
+  /**
+   * Handle Meeting Lifecycle Completed Event
+   * Listen for meeting completion event and update session status
+   */
+  @OnEvent(MEETING_LIFECYCLE_COMPLETED_EVENT)
+  async handleMeetingCompletion(
+    payload: MeetingLifecycleCompletedPayload,
+  ): Promise<void> {
+    this.logger.log(
+      `Received meeting.lifecycle.completed event for meeting ${payload.meetingId}`,
+    );
+
+    try {
+      // Find session by meetingId
+      const session = await this.domainGapAnalysisService.findByMeetingId(
+        payload.meetingId,
+      );
+
+      if (session) {
+        this.logger.log(
+          `Found gap analysis session ${session.getId()} for meeting ${payload.meetingId}`,
+        );
+
+        // Complete session
+        await this.domainGapAnalysisService.completeSession(session.getId());
+
+        this.logger.log(
+          `Successfully completed gap analysis session ${session.getId()}`,
+        );
+      } else {
+        this.logger.debug(
+          `No gap analysis session found for meeting ${payload.meetingId}, skipping`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error handling meeting completion for meeting ${payload.meetingId}: ${error.message}`,
+        error.stack,
+      );
+    }
   }
 }
 
