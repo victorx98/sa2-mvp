@@ -4,6 +4,10 @@ import { ContractService } from "./services/contract.service";
 import { ServiceLedgerService } from "./services/service-ledger.service";
 import { ServiceHoldService } from "./services/service-hold.service";
 import { SessionCompletedListener } from "./events/listeners/session-completed-listener";
+import { ResumeBilledListener } from "./events/listeners/resume-billed-listener";
+import { ResumeBillCancelledListener } from "./events/listeners/resume-bill-cancelled-listener";
+import { ClassStudentEventListener } from "./events/listeners/class-student-event-listener";
+import { PlacementEventListener } from "./events/listeners/placement-event.listener";
 
 /**
  * Contract Domain Module(合约领域模块)
@@ -43,6 +47,10 @@ import { SessionCompletedListener } from "./events/listeners/session-completed-l
     ServiceHoldService,
     // Event listeners
     SessionCompletedListener,
+    ResumeBilledListener,
+    ResumeBillCancelledListener,
+    ClassStudentEventListener,
+    PlacementEventListener,
   ],
   exports: [ContractService, ServiceLedgerService, ServiceHoldService],
 })

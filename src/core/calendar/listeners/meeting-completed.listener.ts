@@ -1,9 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import {
-  MeetingLifecycleCompletedPayload,
+  MeetingLifecycleCompletedEvent,
   MEETING_LIFECYCLE_COMPLETED_EVENT,
 } from "@shared/events";
+import { HandlesEvent } from "@shared/events/registry";
 import { CalendarService } from "../services/calendar.service";
 import { SlotStatus } from "../interfaces/calendar-slot.interface";
 
@@ -31,9 +32,11 @@ export class MeetingCompletedListener {
    * @param payload - Meeting lifecycle completed event payload
    */
   @OnEvent(MEETING_LIFECYCLE_COMPLETED_EVENT)
+  @HandlesEvent(MEETING_LIFECYCLE_COMPLETED_EVENT, "CalendarModule")
   async handleMeetingCompleted(
-    payload: MeetingLifecycleCompletedPayload,
+    event: MeetingLifecycleCompletedEvent,
   ): Promise<void> {
+    const payload = event.payload;
     this.logger.log(
       `Received meeting.lifecycle.completed event for meeting ${payload.meetingId}`,
     );
@@ -57,4 +60,3 @@ export class MeetingCompletedListener {
     }
   }
 }
-

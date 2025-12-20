@@ -1,55 +1,48 @@
-import { IEvent } from "./event.types";
+import { z } from "zod";
+import type { IEvent } from "./event.types";
+import { IntegrationEvent } from "./registry";
+import { SERVICE_SESSION_COMPLETED_EVENT } from "./event-constants";
 
-export const SERVICE_SESSION_COMPLETED_EVENT = "services.session.completed";
+export { SERVICE_SESSION_COMPLETED_EVENT };
 
-export interface IServiceSessionCompletedPayload {
-  /**
-   * Unique identifier for the session [会话的唯一标识符]
-   */
-  sessionId?: string;
+export const ServiceSessionCompletedPayloadSchema = z.object({
+  sessionId: z.string().min(1),
+  studentId: z.string().min(1),
+  mentorId: z.string().min(1),
+  refrenceId: z.string().min(1).optional(),
+  serviceTypeCode: z.string().min(1),
+  actualDurationMinutes: z.number().nonnegative(),
+  durationMinutes: z.number().positive(),
+  allowBilling: z.boolean(),
+  sessionTypeCode: z.string().min(1),
+});
 
-  /**
-   * Unique identifier for the student [学生的唯一标识符]
-   */
-  studentId: string;
+export type ServiceSessionCompletedPayload = z.infer<
+  typeof ServiceSessionCompletedPayloadSchema
+>;
 
-  /**
-   * Unique identifier for the mentor [导师的唯一标识符]
-   */
-  mentorId?: string;
+@IntegrationEvent({
+  type: SERVICE_SESSION_COMPLETED_EVENT,
+  version: "1.0",
+  producers: ["ServicesModule"],
+  description:
+    "Emitted when a service session reaches a terminal state and should trigger contract consumption and billing",
+})
+export class ServiceSessionCompletedEvent
+  implements IEvent<ServiceSessionCompletedPayload>
+{
+  static readonly eventType = SERVICE_SESSION_COMPLETED_EVENT;
+  static readonly schema = ServiceSessionCompletedPayloadSchema;
 
-  /**
-   * Reference ID for the session [会话的参考ID]
-   */
-  refrenceId?: string;
+  readonly type = ServiceSessionCompletedEvent.eventType;
 
-  /**
-   * Service type code (business-level service type) [Service type code (业务级别的服务类型)]
-   */
-  serviceTypeCode: string;
-
-  /**
-   * 实际会话持续时间（分钟）
-   */
-  actualDurationMinutes: number;
-
-  /**
-   * 预约持续时间（分钟）
-   */
-  durationMinutes: number;
-
-  /**
-   * 是否允许计费 [是否允许计费]
-   */
-  allowBilling: boolean;
-
-  /**
-   * Session type code (identifies the session type, e.g., ai_career, regular_mentoring) [会话类型代码（标识会话类型，例如：ai_career、regular_mentoring）]
-   */
-  sessionTypeCode: string;
+  constructor(
+    public readonly payload: ServiceSessionCompletedPayload,
+    public readonly source?: IEvent<unknown>["source"],
+    public readonly id?: string,
+    public readonly timestamp?: number,
+  ) {}
 }
 
-export interface IServiceSessionCompletedEvent
-  extends IEvent<IServiceSessionCompletedPayload> {
-  type: typeof SERVICE_SESSION_COMPLETED_EVENT;
-}
+export type IServiceSessionCompletedPayload = ServiceSessionCompletedPayload;
+export type IServiceSessionCompletedEvent = ServiceSessionCompletedEvent;

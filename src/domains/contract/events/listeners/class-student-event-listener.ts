@@ -8,6 +8,7 @@ import {
   IClassStudentRemovedEvent,
   CLASS_STUDENT_REMOVED_EVENT,
 } from "@shared/events/class-student-removed.event";
+import { HandlesEvent } from "@shared/events/registry";
 import { ServiceLedgerService } from "@domains/contract/services/service-ledger.service";
 import { ContractEventListenerBase } from "./event-listener.base";
 import { SERVICE_TYPES, BOOKING_SOURCES } from "@domains/contract/common/constants/service-types.constants";
@@ -48,6 +49,7 @@ export class ClassStudentEventListener extends ContractEventListenerBase {
    * @param event 学生加入班级事件数据
    */
   @OnEvent(CLASS_STUDENT_ADDED_EVENT)
+  @HandlesEvent(CLASS_STUDENT_ADDED_EVENT, "ContractModule")
   async handleClassStudentAddedEvent(
     event: IClassStudentAddedEvent,
   ): Promise<void> {
@@ -98,6 +100,7 @@ export class ClassStudentEventListener extends ContractEventListenerBase {
    * @param event 学生离开班级事件数据
    */
   @OnEvent(CLASS_STUDENT_REMOVED_EVENT)
+  @HandlesEvent(CLASS_STUDENT_REMOVED_EVENT, "ContractModule")
   async handleClassStudentRemovedEvent(
     event: IClassStudentRemovedEvent,
   ): Promise<void> {

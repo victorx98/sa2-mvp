@@ -4,6 +4,7 @@ import {
   IResumeBilledEvent,
   RESUME_BILLED_EVENT,
 } from "@shared/events/resume-billed.event";
+import { HandlesEvent } from "@shared/events/registry";
 import { ServiceLedgerService } from "@domains/contract/services/service-ledger.service";
 import { ContractEventListenerBase } from "./event-listener.base";
 import { SERVICE_TYPES, BOOKING_SOURCES } from "@domains/contract/common/constants/service-types.constants";
@@ -37,6 +38,7 @@ export class ResumeBilledListener extends ContractEventListenerBase {
    * @param event 简历计费事件数据
    */
   @OnEvent(RESUME_BILLED_EVENT)
+  @HandlesEvent(RESUME_BILLED_EVENT, "ContractModule")
   async handleResumeBilledEvent(
     event: IResumeBilledEvent,
   ): Promise<void> {

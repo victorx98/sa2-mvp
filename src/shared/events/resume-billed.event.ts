@@ -1,39 +1,39 @@
-import { IEvent } from "./event.types";
+import { z } from "zod";
+import type { IEvent } from "./event.types";
+import { IntegrationEvent } from "./registry";
+import { RESUME_BILLED_EVENT } from "./event-constants";
 
-export const RESUME_BILLED_EVENT = "resume.billed";
+export { RESUME_BILLED_EVENT };
 
-export interface IResumeBilledPayload {
-  /**
-   * Unique identifier for the resume [简历的唯一标识符]
-   */
-  resumeId: string;
+export const ResumeBilledPayloadSchema = z.object({
+  resumeId: z.string().min(1),
+  studentId: z.string().min(1),
+  mentorId: z.string().min(1),
+  jobTitle: z.string().min(1),
+  description: z.string().optional(),
+  billedAt: z.date(),
+});
 
-  /**
-   * Unique identifier for the student [学生的唯一标识符]
-   */
-  studentId: string;
+export type IResumeBilledPayload = z.infer<typeof ResumeBilledPayloadSchema>;
 
-  /**
-   * Unique identifier for the mentor [导师的唯一标识符]
-   */
-  mentorId: string;
+@IntegrationEvent({
+  type: RESUME_BILLED_EVENT,
+  version: "1.0",
+  producers: ["ServicesModule"],
+  description: "Emitted when a resume service is billed",
+})
+export class ResumeBilledEvent implements IEvent<IResumeBilledPayload> {
+  static readonly eventType = RESUME_BILLED_EVENT;
+  static readonly schema = ResumeBilledPayloadSchema;
 
-  /**
-   * Job title from the resume [简历中的职位名称]
-   */
-  jobTitle: string;
+  readonly type = ResumeBilledEvent.eventType;
 
-  /**
-   * Description of the resume modification request [简历修改请求的描述]
-   */
-  description?: string;
-
-  /**
-   * Timestamp when the resume was billed [简历计费的时间戳]
-   */
-  billedAt: Date;
+  constructor(
+    public readonly payload: IResumeBilledPayload,
+    public readonly source?: IEvent<unknown>["source"],
+    public readonly id?: string,
+    public readonly timestamp?: number,
+  ) {}
 }
 
-export interface IResumeBilledEvent extends IEvent<IResumeBilledPayload> {
-  type: typeof RESUME_BILLED_EVENT;
-}
+export type IResumeBilledEvent = ResumeBilledEvent;

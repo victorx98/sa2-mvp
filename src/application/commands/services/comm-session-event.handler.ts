@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MeetingManagerService } from '@core/meeting';
 import { CalendarService } from '@core/calendar';
+import { VerifiedEventBus } from '@infrastructure/eventing/verified-event-bus';
 import {
   COMM_SESSION_CREATED_EVENT,
   COMM_SESSION_UPDATED_EVENT,
@@ -10,7 +10,13 @@ import {
   COMM_SESSION_MEETING_OPERATION_RESULT_EVENT,
   MEETING_LIFECYCLE_COMPLETED_EVENT,
 } from '@shared/events/event-constants';
-import type { MeetingLifecycleCompletedPayload } from '@shared/events';
+import { HandlesEvent } from '@shared/events/registry';
+import type {
+  CommSessionCancelledEvent,
+  CommSessionCreatedEvent,
+  CommSessionUpdatedEvent,
+  MeetingLifecycleCompletedEvent,
+} from '@shared/events';
 import { retryWithBackoff } from '@shared/utils/retry.util';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase } from '@shared/types/database.types';
@@ -42,24 +48,26 @@ export class CommSessionCreatedEventHandler {
     private readonly meetingManagerService: MeetingManagerService,
     private readonly calendarService: CalendarService,
     private readonly commSessionService: CommSessionDomainService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventBus: VerifiedEventBus,
     private readonly userService: UserService,
   ) {}
 
   @OnEvent(COMM_SESSION_CREATED_EVENT)
-  async handleSessionCreated(event: any): Promise<void> {
-    this.logger.log(`Handling COMM_SESSION_CREATED_EVENT: sessionId=${event.sessionId}`);
+  @HandlesEvent(COMM_SESSION_CREATED_EVENT, 'ServicesModule')
+  async handleSessionCreated(event: CommSessionCreatedEvent): Promise<void> {
+    const payload = event.payload;
+    this.logger.log(`Handling COMM_SESSION_CREATED_EVENT: sessionId=${payload.sessionId}`);
 
     try {
       // Step 1: Create meeting on third-party platform
-      this.logger.debug(`Creating meeting for session ${event.sessionId}`);
+      this.logger.debug(`Creating meeting for session ${payload.sessionId}`);
 
       const meeting = await this.meetingManagerService.createMeeting({
-        topic: event.topic,
-        provider: event.meetingProvider as any,
-        startTime: event.scheduledStartTime,
-        duration: event.duration,
-        hostUserId: this.getHostUserId(event.meetingProvider),
+        topic: payload.topic,
+        provider: payload.meetingProvider as any,
+        startTime: payload.scheduledStartTime,
+        duration: payload.duration,
+        hostUserId: this.getHostUserId(payload.meetingProvider),
         autoRecord: false, // Communication sessions typically not recorded
         participantJoinEarly: true,
       });
@@ -69,88 +77,107 @@ export class CommSessionCreatedEventHandler {
       );
 
       // Step 2: Query user display names for calendar metadata
-      const studentName = await this.userService.getDisplayName(event.studentId);
+      const studentName = await this.userService.getDisplayName(payload.studentId);
 
       // Step 3: Update session and calendar slots in a transaction
       await this.db.transaction(async (tx) => {
         // 3.1: Update comm_sessions table with meeting_id and status
         await this.commSessionService.scheduleMeeting(
-          event.sessionId,
+          payload.sessionId,
           meeting.id,
           tx,
         );
 
-        this.logger.debug(`Comm session meeting setup completed: sessionId=${event.sessionId}`);
+        this.logger.debug(
+          `Comm session meeting setup completed: sessionId=${payload.sessionId}`,
+        );
 
         // 3.2: Update calendar slots based on session type
-        if (event.mentorId && event.mentorCalendarSlotId) {
+        if (payload.mentorId && payload.mentorCalendarSlotId) {
           // Scenario 1: Student + Mentor (two slots)
-          const mentorName = await this.userService.getDisplayName(event.mentorId);
+          const mentorName = await this.userService.getDisplayName(payload.mentorId);
 
           await this.calendarService.updateSlotWithSessionAndMeeting(
-            event.sessionId,
+            payload.sessionId,
             meeting.id,
             meeting.meetingUrl,
-            event.mentorCalendarSlotId,
-            event.studentCalendarSlotId,
+            payload.mentorCalendarSlotId,
+            payload.studentCalendarSlotId,
             mentorName,
             studentName,
             tx,
           );
         } else {
           // Scenario 2: Student + Counselor (single student slot)
-          const counselorName = await this.userService.getDisplayName(event.counselorId);
+          const counselorName = await this.userService.getDisplayName(payload.counselorId);
 
           await this.calendarService.updateSingleSlotWithSessionAndMeeting(
-            event.sessionId,
+            payload.sessionId,
             meeting.id,
             meeting.meetingUrl,
-            event.studentCalendarSlotId,
+            payload.studentCalendarSlotId,
             counselorName, // Student sees counselor's real name
             tx,
           );
         }
 
-        this.logger.debug(`Calendar slots updated for session ${event.sessionId}`);
+        this.logger.debug(`Calendar slots updated for session ${payload.sessionId}`);
       });
 
       // Step 3: Publish result event (success - notify all parties)
-      this.eventEmitter.emit(COMM_SESSION_MEETING_OPERATION_RESULT_EVENT, {
-        operation: 'create',
-        status: 'success',
-        sessionId: event.sessionId,
-        studentId: event.studentId,
-        mentorId: event.mentorId,
-        counselorId: event.counselorId,
-        scheduledAt: event.scheduledStartTime,
-        duration: event.duration,
-        meetingUrl: meeting.meetingUrl,
-        meetingProvider: event.meetingProvider,
-        notifyRoles: ['counselor', 'mentor', 'student'],
-      });
+      this.eventBus.publish(
+        {
+          type: COMM_SESSION_MEETING_OPERATION_RESULT_EVENT,
+          payload: {
+            operation: 'create',
+            status: 'success',
+            sessionId: payload.sessionId,
+            studentId: payload.studentId,
+            mentorId: payload.mentorId,
+            counselorId: payload.counselorId,
+            scheduledAt: payload.scheduledStartTime,
+            duration: payload.duration,
+            meetingUrl: meeting.meetingUrl,
+            meetingProvider: payload.meetingProvider,
+            notifyRoles: ['counselor', 'mentor', 'student'],
+          },
+          source: { domain: 'services', service: 'CommSessionCreatedEventHandler' },
+        },
+        'ServicesModule',
+      );
 
       this.logger.log(
-        `MEETING_OPERATION_RESULT_EVENT published: operation=create, status=success, sessionId=${event.sessionId}`,
+        `MEETING_OPERATION_RESULT_EVENT published: operation=create, status=success, sessionId=${payload.sessionId}`,
       );
     } catch (error) {
-      this.logger.error(`Failed to create meeting for session ${event.sessionId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to create meeting for session ${payload.sessionId}: ${error.message}`,
+        error.stack,
+      );
 
       // Publish result event (failed - notify counselor only)
-      this.eventEmitter.emit(COMM_SESSION_MEETING_OPERATION_RESULT_EVENT, {
-        operation: 'create',
-        status: 'failed',
-        sessionId: event.sessionId,
-        studentId: event.studentId,
-        mentorId: event.mentorId,
-        counselorId: event.counselorId,
-        scheduledAt: event.scheduledStartTime,
-        errorMessage: error.message,
-        notifyRoles: ['counselor'],
-        requireManualIntervention: true,
-      });
+      this.eventBus.publish(
+        {
+          type: COMM_SESSION_MEETING_OPERATION_RESULT_EVENT,
+          payload: {
+            operation: 'create',
+            status: 'failed',
+            sessionId: payload.sessionId,
+            studentId: payload.studentId,
+            mentorId: payload.mentorId,
+            counselorId: payload.counselorId,
+            scheduledAt: payload.scheduledStartTime,
+            errorMessage: error.message,
+            notifyRoles: ['counselor'],
+            requireManualIntervention: true,
+          },
+          source: { domain: 'services', service: 'CommSessionCreatedEventHandler' },
+        },
+        'ServicesModule',
+      );
 
       this.logger.warn(
-        `MEETING_OPERATION_RESULT_EVENT published: operation=create, status=failed, sessionId=${event.sessionId}`,
+        `MEETING_OPERATION_RESULT_EVENT published: operation=create, status=failed, sessionId=${payload.sessionId}`,
       );
     }
   }
@@ -165,83 +192,96 @@ export class CommSessionCreatedEventHandler {
    * 3. Publish MEETING_OPERATION_RESULT_EVENT (operation: update)
    */
   @OnEvent(COMM_SESSION_UPDATED_EVENT)
-  async handleSessionUpdated(event: any): Promise<void> {
+  @HandlesEvent(COMM_SESSION_UPDATED_EVENT, 'ServicesModule')
+  async handleSessionUpdated(event: CommSessionUpdatedEvent): Promise<void> {
+    const payload = event.payload;
     this.logger.log(
-      `Handling COMM_SESSION_UPDATED_EVENT: sessionId=${event.sessionId}`,
+      `Handling COMM_SESSION_UPDATED_EVENT: sessionId=${payload.sessionId}`,
     );
 
     let updateSuccess = false;
     let errorMessage = '';
 
     try {
-      // Step 1: Check if meeting is updatable
-      const isMeetingUpdatable = await this.isMeetingUpdatable(event.meetingId);
-      if (!isMeetingUpdatable) {
+      if (!payload.meetingId) {
         updateSuccess = false;
-        errorMessage = 'Meeting is in a non-updatable state (cancelled/ended). Update skipped.';
-        this.logger.warn(`${errorMessage} meetingId=${event.meetingId}`);
+        errorMessage = "No meeting ID found, session was in PENDING_MEETING state";
+        this.logger.warn(`${errorMessage} sessionId=${payload.sessionId}`);
       } else {
-        // Step 2: Update external meeting platform with retry mechanism (max 3 retries)
-        await retryWithBackoff(
-          async () => {
-            return await this.meetingManagerService.updateMeeting(
-              event.meetingId,
-              {
-                topic: event.newTitle,
-                startTime: event.newScheduledAt,
-                duration: event.newDuration,
-              },
-            );
-          },
-          3,
-          1000,
-          this.logger,
-        );
+        // Step 1: Check if meeting is updatable
+        const isMeetingUpdatable = await this.isMeetingUpdatable(payload.meetingId);
+        if (!isMeetingUpdatable) {
+          updateSuccess = false;
+          errorMessage =
+            "Meeting is in a non-updatable state (cancelled/ended). Update skipped.";
+          this.logger.warn(`${errorMessage} meetingId=${payload.meetingId}`);
+        } else {
+          // Step 2: Update external meeting platform with retry mechanism (max 3 retries)
+          await retryWithBackoff(
+            async () => {
+              return await this.meetingManagerService.updateMeeting(payload.meetingId, {
+                topic: payload.newTitle,
+                startTime: payload.newScheduledAt as any,
+                duration: payload.newDuration,
+              });
+            },
+            3,
+            1000,
+            this.logger,
+          );
 
-        // Step 3: Update meetings table with new schedule info
-        const startTime = new Date(event.newScheduledAt);
-        await this.db.execute(sql`
-          UPDATE meetings 
-          SET 
-            topic = ${event.newTitle},
-            schedule_start_time = ${startTime.toISOString()},
-            schedule_duration = ${event.newDuration},
-            updated_at = NOW()
-          WHERE id = ${event.meetingId}
-        `);
-        this.logger.debug(`Meetings table updated: meetingId=${event.meetingId}`);
+          // Step 3: Update meetings table with new schedule info
+          const startTime = new Date(payload.newScheduledAt as any);
+          await this.db.execute(sql`
+            UPDATE meetings 
+            SET 
+              topic = ${payload.newTitle},
+              schedule_start_time = ${startTime.toISOString()},
+              schedule_duration = ${payload.newDuration},
+              updated_at = NOW()
+            WHERE id = ${payload.meetingId}
+          `);
+          this.logger.debug(`Meetings table updated: meetingId=${payload.meetingId}`);
 
-        updateSuccess = true;
-        this.logger.debug(`Meeting ${event.meetingId} updated successfully`);
+          updateSuccess = true;
+          this.logger.debug(`Meeting ${payload.meetingId} updated successfully`);
+        }
       }
     } catch (error) {
       updateSuccess = false;
       errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       this.logger.error(
-        `Failed to update meeting ${event.meetingId}: ${errorMessage}`,
+        `Failed to update meeting ${payload.meetingId}: ${errorMessage}`,
         error instanceof Error ? error.stack : '',
       );
     }
 
     // Step 4: Publish result event based on result
-    this.eventEmitter.emit(COMM_SESSION_MEETING_OPERATION_RESULT_EVENT, {
-      operation: 'update',
-      status: updateSuccess ? 'success' : 'failed',
-      sessionId: event.sessionId,
-      meetingId: event.meetingId,
-      studentId: event.studentId,
-      mentorId: event.mentorId,
-      counselorId: event.counselorId,
-      newScheduledAt: event.newScheduledAt,
-      newDuration: event.newDuration,
-      errorMessage: updateSuccess ? undefined : errorMessage,
-      notifyRoles: updateSuccess ? ['counselor', 'mentor', 'student'] : ['counselor'],
-      requireManualIntervention: !updateSuccess,
-    });
+    this.eventBus.publish(
+      {
+        type: COMM_SESSION_MEETING_OPERATION_RESULT_EVENT,
+        payload: {
+          operation: 'update',
+          status: updateSuccess ? 'success' : 'failed',
+          sessionId: payload.sessionId,
+          meetingId: payload.meetingId,
+          studentId: payload.studentId,
+          mentorId: payload.mentorId,
+          counselorId: payload.counselorId,
+          newScheduledAt: payload.newScheduledAt,
+          newDuration: payload.newDuration,
+          errorMessage: updateSuccess ? undefined : errorMessage,
+          notifyRoles: updateSuccess ? ['counselor', 'mentor', 'student'] : ['counselor'],
+          requireManualIntervention: !updateSuccess,
+        },
+        source: { domain: 'services', service: 'CommSessionCreatedEventHandler' },
+      },
+      'ServicesModule',
+    );
 
     this.logger.log(
-      `MEETING_OPERATION_RESULT_EVENT published: operation=update, status=${updateSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
+      `MEETING_OPERATION_RESULT_EVENT published: operation=update, status=${updateSuccess ? 'success' : 'failed'}, sessionId=${payload.sessionId}`,
     );
   }
 
@@ -255,9 +295,11 @@ export class CommSessionCreatedEventHandler {
    * 3. Publish MEETING_OPERATION_RESULT_EVENT (operation: cancel)
    */
   @OnEvent(COMM_SESSION_CANCELLED_EVENT)
-  async handleSessionCancelled(event: any): Promise<void> {
+  @HandlesEvent(COMM_SESSION_CANCELLED_EVENT, 'ServicesModule')
+  async handleSessionCancelled(event: CommSessionCancelledEvent): Promise<void> {
+    const payload = event.payload;
     this.logger.log(
-      `Handling COMM_SESSION_CANCELLED_EVENT: sessionId=${event.sessionId}`,
+      `Handling COMM_SESSION_CANCELLED_EVENT: sessionId=${payload.sessionId}`,
     );
 
     let cancelSuccess = false;
@@ -265,22 +307,22 @@ export class CommSessionCreatedEventHandler {
 
     try {
       // Step 1: Check if meeting exists and is cancellable
-      if (!event.meetingId) {
+      if (!payload.meetingId) {
         cancelSuccess = false;
         errorMessage = 'No meeting ID found, session was in PENDING_MEETING state';
-        this.logger.warn(`${errorMessage} sessionId=${event.sessionId}`);
+        this.logger.warn(`${errorMessage} sessionId=${payload.sessionId}`);
       } else {
-        const canCancel = await this.isMeetingCancellable(event.meetingId);
+        const canCancel = await this.isMeetingCancellable(payload.meetingId);
 
         if (!canCancel) {
           cancelSuccess = false;
           errorMessage = 'Meeting is already cancelled or ended';
-          this.logger.warn(`${errorMessage} meetingId=${event.meetingId}`);
+          this.logger.warn(`${errorMessage} meetingId=${payload.meetingId}`);
         } else {
           // Step 2: Cancel meeting with retry (max 3 times)
           await retryWithBackoff(
             async () => {
-              await this.meetingManagerService.cancelMeeting(event.meetingId);
+              await this.meetingManagerService.cancelMeeting(payload.meetingId);
             },
             3,
             1000,
@@ -291,11 +333,11 @@ export class CommSessionCreatedEventHandler {
           await this.db.execute(sql`
             UPDATE meetings 
             SET status = 'cancelled', updated_at = NOW()
-            WHERE id = ${event.meetingId}
+            WHERE id = ${payload.meetingId}
           `);
 
           cancelSuccess = true;
-          this.logger.debug(`Meeting ${event.meetingId} cancelled successfully`);
+          this.logger.debug(`Meeting ${payload.meetingId} cancelled successfully`);
         }
       }
     } catch (error) {
@@ -303,29 +345,36 @@ export class CommSessionCreatedEventHandler {
       errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
       this.logger.error(
-        `Failed to cancel meeting ${event.meetingId}: ${errorMessage}`,
+        `Failed to cancel meeting ${payload.meetingId}: ${errorMessage}`,
         error instanceof Error ? error.stack : '',
       );
     }
 
     // Step 4: Publish result event based on result
-    this.eventEmitter.emit(COMM_SESSION_MEETING_OPERATION_RESULT_EVENT, {
-      operation: 'cancel',
-      status: cancelSuccess ? 'success' : 'failed',
-      sessionId: event.sessionId,
-      meetingId: event.meetingId,
-      studentId: event.studentId,
-      mentorId: event.mentorId,
-      counselorId: event.counselorId,
-      cancelledAt: event.cancelledAt,
-      cancelReason: event.cancelReason,
-      errorMessage: cancelSuccess ? undefined : errorMessage,
-      notifyRoles: cancelSuccess ? ['counselor', 'mentor', 'student'] : ['counselor'],
-      requireManualIntervention: !cancelSuccess,
-    });
+    this.eventBus.publish(
+      {
+        type: COMM_SESSION_MEETING_OPERATION_RESULT_EVENT,
+        payload: {
+          operation: 'cancel',
+          status: cancelSuccess ? 'success' : 'failed',
+          sessionId: payload.sessionId,
+          meetingId: payload.meetingId,
+          studentId: payload.studentId,
+          mentorId: payload.mentorId,
+          counselorId: payload.counselorId,
+          cancelledAt: payload.cancelledAt,
+          cancelReason: payload.cancelReason,
+          errorMessage: cancelSuccess ? undefined : errorMessage,
+          notifyRoles: cancelSuccess ? ['counselor', 'mentor', 'student'] : ['counselor'],
+          requireManualIntervention: !cancelSuccess,
+        },
+        source: { domain: 'services', service: 'CommSessionCreatedEventHandler' },
+      },
+      'ServicesModule',
+    );
 
     this.logger.log(
-      `MEETING_OPERATION_RESULT_EVENT published: operation=cancel, status=${cancelSuccess ? 'success' : 'failed'}, sessionId=${event.sessionId}`,
+      `MEETING_OPERATION_RESULT_EVENT published: operation=cancel, status=${cancelSuccess ? 'success' : 'failed'}, sessionId=${payload.sessionId}`,
     );
   }
 
@@ -383,9 +432,11 @@ export class CommSessionCreatedEventHandler {
    * Listen for meeting completion event and update session status
    */
   @OnEvent(MEETING_LIFECYCLE_COMPLETED_EVENT)
+  @HandlesEvent(MEETING_LIFECYCLE_COMPLETED_EVENT, 'ServicesModule')
   async handleMeetingCompletion(
-    payload: MeetingLifecycleCompletedPayload,
+    event: MeetingLifecycleCompletedEvent,
   ): Promise<void> {
+    const payload = event.payload;
     this.logger.log(
       `Received meeting.lifecycle.completed event for meeting ${payload.meetingId}`,
     );
@@ -418,4 +469,3 @@ export class CommSessionCreatedEventHandler {
     }
   }
 }
-

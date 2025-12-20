@@ -4,6 +4,7 @@ import {
   IResumeBillCancelledEvent,
   RESUME_BILL_CANCELLED_EVENT,
 } from "@shared/events/resume-bill-cancelled.event";
+import { HandlesEvent } from "@shared/events/registry";
 import { ServiceLedgerService } from "@domains/contract/services/service-ledger.service";
 import { ContractEventListenerBase } from "./event-listener.base";
 import { SERVICE_TYPES, BOOKING_SOURCES } from "@domains/contract/common/constants/service-types.constants";
@@ -37,6 +38,7 @@ export class ResumeBillCancelledListener extends ContractEventListenerBase {
    * @param event 简历计费取消事件数据
    */
   @OnEvent(RESUME_BILL_CANCELLED_EVENT)
+  @HandlesEvent(RESUME_BILL_CANCELLED_EVENT, "ContractModule")
   async handleResumeBillCancelledEvent(
     event: IResumeBillCancelledEvent,
   ): Promise<void> {

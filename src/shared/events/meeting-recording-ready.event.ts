@@ -1,26 +1,42 @@
-import { IEvent } from "./event.types";
+import { z } from "zod";
+import type { IEvent } from "./event.types";
+import { IntegrationEvent } from "./registry";
+import { MEETING_RECORDING_READY_EVENT } from "./event-constants";
 
-export const MEETING_RECORDING_READY_EVENT = "meeting.recording.ready";
+export { MEETING_RECORDING_READY_EVENT };
 
-/**
- * Meeting Recording Ready Event Payload
- * 
- * Published when meeting recording becomes available
- * Subscribers: Mentoring, Interview modules (for AI summary generation)
- */
-export interface MeetingRecordingReadyPayload {
-  meetingId: string; // UUID - Primary key
-  meetingNo: string; // Meeting number
-  recordingUrl: string; // Recording URL
-  readyAt: Date; // Recording ready timestamp
-}
+const DateTimeSchema = z.union([z.string().datetime(), z.date()]);
 
-/**
- * Meeting Recording Ready Event
- * Extends IEvent with typed payload
- */
-export interface MeetingRecordingReadyEvent 
-  extends IEvent<MeetingRecordingReadyPayload> {
-  type: typeof MEETING_RECORDING_READY_EVENT;
+export const MeetingRecordingReadyPayloadSchema = z.object({
+  meetingId: z.string().min(1),
+  meetingNo: z.string().min(1),
+  recordingUrl: z.string().min(1),
+  readyAt: DateTimeSchema,
+});
+
+export type MeetingRecordingReadyPayload = z.infer<
+  typeof MeetingRecordingReadyPayloadSchema
+>;
+
+@IntegrationEvent({
+  type: MEETING_RECORDING_READY_EVENT,
+  version: "4.1",
+  producers: ["MeetingModule"],
+  description: "Emitted when meeting recording becomes available",
+})
+export class MeetingRecordingReadyEvent
+  implements IEvent<MeetingRecordingReadyPayload>
+{
+  static readonly eventType = MEETING_RECORDING_READY_EVENT;
+  static readonly schema = MeetingRecordingReadyPayloadSchema;
+
+  readonly type = MeetingRecordingReadyEvent.eventType;
+
+  constructor(
+    public readonly payload: MeetingRecordingReadyPayload,
+    public readonly source?: IEvent<unknown>["source"],
+    public readonly id?: string,
+    public readonly timestamp?: number,
+  ) {}
 }
 

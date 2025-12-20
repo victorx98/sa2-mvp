@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { VerifiedEventBus } from "@infrastructure/eventing/verified-event-bus";
 import { MeetingRepository } from "../repositories/meeting.repository";
 import { DurationCalculatorService } from "./duration-calculator.service";
 import { DelayedTaskService } from "./delayed-task.service";
@@ -34,6 +35,7 @@ export class MeetingLifecycleService {
     private readonly durationCalculator: DurationCalculatorService,
     private readonly delayedTaskService: DelayedTaskService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly eventBus: VerifiedEventBus,
   ) {}
 
   /**
@@ -324,9 +326,13 @@ export class MeetingLifecycleService {
       recordingUrl: meeting.recordingUrl,
     };
 
-    this.eventEmitter.emit(
-      MEETING_LIFECYCLE_COMPLETED_EVENT,
-      completedPayload,
+    this.eventBus.publish(
+      {
+        type: MEETING_LIFECYCLE_COMPLETED_EVENT,
+        payload: completedPayload,
+        source: { domain: "meeting", service: "MeetingLifecycleService" },
+      },
+      "MeetingModule",
     );
 
     this.logger.log(
@@ -379,9 +385,13 @@ export class MeetingLifecycleService {
         readyAt: new Date(),
       };
 
-      this.eventEmitter.emit(
-        MEETING_RECORDING_READY_EVENT,
-        recordingPayload,
+      this.eventBus.publish(
+        {
+          type: MEETING_RECORDING_READY_EVENT,
+          payload: recordingPayload,
+          source: { domain: "meeting", service: "MeetingLifecycleService" },
+        },
+        "MeetingModule",
       );
     } catch (error) {
       this.logger.error(
@@ -391,4 +401,3 @@ export class MeetingLifecycleService {
     }
   }
 }
-

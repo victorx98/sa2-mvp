@@ -1,40 +1,43 @@
-import { IEvent } from "./event.types";
+import { z } from "zod";
+import type { IEvent } from "./event.types";
+import { IntegrationEvent } from "./registry";
+import { RESUME_BILL_CANCELLED_EVENT } from "./event-constants";
 
-export const RESUME_BILL_CANCELLED_EVENT = "resume.bill.cancelled";
+export { RESUME_BILL_CANCELLED_EVENT };
 
-export interface IResumeBillCancelledPayload {
-  /**
-   * Unique identifier for the resume [简历的唯一标识符]
-   */
-  resumeId: string;
+export const ResumeBillCancelledPayloadSchema = z.object({
+  resumeId: z.string().min(1),
+  studentId: z.string().min(1),
+  mentorId: z.string().min(1),
+  jobTitle: z.string().min(1),
+  description: z.string().optional(),
+  cancelledAt: z.date(),
+});
 
-  /**
-   * Unique identifier for the student [学生的唯一标识符]
-   */
-  studentId: string;
+export type IResumeBillCancelledPayload = z.infer<
+  typeof ResumeBillCancelledPayloadSchema
+>;
 
-  /**
-   * Unique identifier for the mentor [导师的唯一标识符]
-   */
-  mentorId: string;
+@IntegrationEvent({
+  type: RESUME_BILL_CANCELLED_EVENT,
+  version: "1.0",
+  producers: ["ServicesModule"],
+  description: "Emitted when a resume billing is cancelled",
+})
+export class ResumeBillCancelledEvent
+  implements IEvent<IResumeBillCancelledPayload>
+{
+  static readonly eventType = RESUME_BILL_CANCELLED_EVENT;
+  static readonly schema = ResumeBillCancelledPayloadSchema;
 
-  /**
-   * Job title from the resume [简历中的职位名称]
-   */
-  jobTitle: string;
+  readonly type = ResumeBillCancelledEvent.eventType;
 
-  /**
-   * Description of the resume modification request [简历修改请求的描述]
-   */
-  description?: string;
-
-  /**
-   * Timestamp when the bill was cancelled [计费取消的时间戳]
-   */
-  cancelledAt: Date;
+  constructor(
+    public readonly payload: IResumeBillCancelledPayload,
+    public readonly source?: IEvent<unknown>["source"],
+    public readonly id?: string,
+    public readonly timestamp?: number,
+  ) {}
 }
 
-export interface IResumeBillCancelledEvent
-  extends IEvent<IResumeBillCancelledPayload> {
-  type: typeof RESUME_BILL_CANCELLED_EVENT;
-}
+export type IResumeBillCancelledEvent = ResumeBillCancelledEvent;

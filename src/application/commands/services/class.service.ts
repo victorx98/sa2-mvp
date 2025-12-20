@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger, ConflictException } from '@nestjs/common';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
+import { VerifiedEventBus } from '@infrastructure/eventing/verified-event-bus';
 import type {
   DrizzleDatabase,
   DrizzleTransaction,
@@ -7,6 +8,10 @@ import type {
 import { Trace, addSpanAttributes, addSpanEvent } from '@shared/decorators/trace.decorator';
 import { ClassDomainService } from '@domains/services/class/classes/services/class-domain.service';
 import { ClassStatus, ClassType } from '@domains/services/class/classes/entities/class.entity';
+import {
+  CLASS_STUDENT_ADDED_EVENT,
+  CLASS_STUDENT_REMOVED_EVENT,
+} from '@shared/events/event-constants';
 
 // DTOs
 export interface CreateClassDto {
@@ -57,6 +62,7 @@ export class ClassService {
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
     private readonly domainClassService: ClassDomainService,
+    private readonly eventBus: VerifiedEventBus,
   ) {}
 
   /**
@@ -278,6 +284,29 @@ export class ClassService {
 
       await this.domainClassService.addStudent(classId, dto.studentUserId);
 
+      const classEntity = await this.domainClassService.findById(classId);
+      if (classEntity) {
+        this.eventBus.publish(
+          {
+            type: CLASS_STUDENT_ADDED_EVENT,
+            payload: {
+              classId: classEntity.getId(),
+              name: classEntity.getName(),
+              type: classEntity.getType(),
+              status: classEntity.getStatus(),
+              startDate: classEntity.getStartDate(),
+              endDate: classEntity.getEndDate(),
+              description: classEntity.getDescription(),
+              studentId: dto.studentUserId,
+              operatedAt: new Date(),
+              deductionQuantity: 1,
+            },
+            source: { domain: 'services', service: 'ClassService' },
+          },
+          'ServicesModule',
+        );
+      }
+
       this.logger.log(`Student added successfully to class: classId=${classId}`);
       addSpanEvent('class.add_student.success');
 
@@ -305,6 +334,29 @@ export class ClassService {
 
     try {
       await this.domainClassService.removeStudent(classId, studentUserId);
+
+      const classEntity = await this.domainClassService.findById(classId);
+      if (classEntity) {
+        this.eventBus.publish(
+          {
+            type: CLASS_STUDENT_REMOVED_EVENT,
+            payload: {
+              classId: classEntity.getId(),
+              name: classEntity.getName(),
+              type: classEntity.getType(),
+              status: classEntity.getStatus(),
+              startDate: classEntity.getStartDate(),
+              endDate: classEntity.getEndDate(),
+              description: classEntity.getDescription(),
+              studentId: studentUserId,
+              operatedAt: new Date(),
+              refundQuantity: 1,
+            },
+            source: { domain: 'services', service: 'ClassService' },
+          },
+          'ServicesModule',
+        );
+      }
 
       this.logger.log(`Student removed successfully from class: classId=${classId}`);
       addSpanEvent('class.remove_student.success');
@@ -387,4 +439,3 @@ export class ClassService {
     return this.domainClassService.findById(classId);
   }
 }
-

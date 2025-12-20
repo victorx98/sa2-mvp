@@ -4,9 +4,9 @@ import {
   Logger,
   BadRequestException,
 } from "@nestjs/common";
-import { EventEmitter2 } from "@nestjs/event-emitter";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
+import { VerifiedEventBus } from "@infrastructure/eventing/verified-event-bus";
 import * as schema from "@infrastructure/database/schema";
 import type { DrizzleDatabase } from "@shared/types/database.types";
 import type { ISettlementService } from "../interfaces/settlement.interface";
@@ -43,8 +43,7 @@ export class SettlementService implements ISettlementService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-    @Inject(EventEmitter2)
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventBus: VerifiedEventBus,
   ) {}
 
   /**
@@ -263,7 +262,8 @@ export class SettlementService implements ISettlementService {
         payableLedgerIds: payableLedgers.map((ledger) => ledger.id),
       };
 
-      this.eventEmitter.emit(SETTLEMENT_CONFIRMED_EVENT, {
+      this.eventBus.publish(
+        {
         type: SETTLEMENT_CONFIRMED_EVENT,
         payload,
         timestamp: Date.now(),
@@ -271,7 +271,9 @@ export class SettlementService implements ISettlementService {
           domain: "financial",
           service: "SettlementService",
         },
-      });
+        },
+        "FinancialModule",
+      );
 
       this.logger.log(
         `Successfully created settlement: ${settlement.id} with ${detailRecords.length} detail records`,

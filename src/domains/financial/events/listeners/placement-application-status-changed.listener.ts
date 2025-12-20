@@ -2,6 +2,7 @@ import { Injectable, Logger, Inject } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import { IJobApplicationStatusChangedEvent } from "@shared/events/placement-application.events";
 import { JOB_APPLICATION_STATUS_CHANGED_EVENT } from "@shared/events/event-constants";
+import { HandlesEvent } from "@shared/events/registry";
 import { MentorPayableService } from "@domains/financial/services/mentor-payable.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import type { DrizzleDatabase } from "@shared/types/database.types";
@@ -43,6 +44,7 @@ export class PlacementApplicationStatusChangedListener {
    * @param event - The placement application status changed event data
    */
   @OnEvent(JOB_APPLICATION_STATUS_CHANGED_EVENT)
+  @HandlesEvent(JOB_APPLICATION_STATUS_CHANGED_EVENT, "FinancialModule")
   async handlePlacementApplicationStatusChangedEvent(
     event: IJobApplicationStatusChangedEvent,
   ): Promise<void> {

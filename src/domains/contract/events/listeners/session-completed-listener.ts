@@ -4,6 +4,7 @@ import {
   IServiceSessionCompletedEvent,
   SERVICE_SESSION_COMPLETED_EVENT,
 } from "@shared/events/service-session-completed.event";
+import { HandlesEvent } from "@shared/events/registry";
 import { ServiceHoldService } from "@domains/contract/services/service-hold.service";
 import { ServiceLedgerService } from "@domains/contract/services/service-ledger.service";
 import { eq, and } from "drizzle-orm";
@@ -43,6 +44,7 @@ export class SessionCompletedListener {
    * @param event 服务会话完成事件数据
    */
   @OnEvent(SERVICE_SESSION_COMPLETED_EVENT)
+  @HandlesEvent(SERVICE_SESSION_COMPLETED_EVENT, "ContractModule")
   async handleServiceSessionCompletedEvent(
     event: IServiceSessionCompletedEvent,
   ): Promise<void> {

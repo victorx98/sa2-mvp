@@ -2,6 +2,8 @@ import { Injectable, Logger, Inject, BadRequestException } from "@nestjs/common"
 import { OnEvent } from "@nestjs/event-emitter";
 import { MentorPayableService } from "@domains/financial/services/mentor-payable.service";
 import { MENTOR_APPEAL_APPROVED_EVENT } from "@shared/events/event-constants";
+import type { IMentorAppealApprovedEvent } from "@shared/events/mentor-appeal.events";
+import { HandlesEvent } from "@shared/events/registry";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import type { DrizzleDatabase } from "@shared/types/database.types";
 import * as schema from "@infrastructure/database/schema";
@@ -37,36 +39,30 @@ export class AppealApprovedListener {
    * Handle mentor appeal approved event
    * (处理导师申诉批准事件)
    *
-   * @param event - The appeal approved event payload
+  * @param event - The appeal approved event payload
    * Automatically creates adjustment record for the approved appeal amount
    */
   @OnEvent(MENTOR_APPEAL_APPROVED_EVENT)
-  async handleAppealApproved(event: {
-    appealId: string;
-    mentorId: string;
-    counselorId: string;
-    appealAmount: string;
-    approvedBy: string;
-    approvedAt: Date;
-    currency: string;
-  }): Promise<void> {
-    this.logger.log(`Processing approved appeal: ${event.appealId}`);
+  @HandlesEvent(MENTOR_APPEAL_APPROVED_EVENT, "FinancialModule")
+  async handleAppealApproved(event: IMentorAppealApprovedEvent): Promise<void> {
+    const payload = event.payload;
+    this.logger.log(`Processing approved appeal: ${payload.appealId}`);
 
     try {
       // 1. Query appeal details to get mentorPayableId
       const appeal = await this.db.query.mentorAppeals.findFirst({
-        where: eq(schema.mentorAppeals.id, event.appealId),
+        where: eq(schema.mentorAppeals.id, payload.appealId),
       });
 
       if (!appeal) {
-        this.logger.error(`Appeal not found: ${event.appealId}`);
-        throw new BadRequestException(`Appeal not found: ${event.appealId}`);
+        this.logger.error(`Appeal not found: ${payload.appealId}`);
+        throw new BadRequestException(`Appeal not found: ${payload.appealId}`);
       }
 
       // Check if mentorPayableId exists
       if (!appeal.mentorPayableId) {
         this.logger.warn(
-          `No mentorPayableId for appeal ${event.appealId}. Skipping auto-adjustment.`,
+          `No mentorPayableId for appeal ${payload.appealId}. Skipping auto-adjustment.`,
         );
         return;
       }
@@ -75,23 +71,23 @@ export class AppealApprovedListener {
       const existingAdjustment = await this.db.query.mentorPayableLedgers.findFirst({
         where: and(
           eq(schema.mentorPayableLedgers.originalId, appeal.mentorPayableId),
-          eq(schema.mentorPayableLedgers.adjustmentReason, `Appeal approved: ${event.appealId}`)
+          eq(schema.mentorPayableLedgers.adjustmentReason, `Appeal approved: ${payload.appealId}`)
         )
       });
 
       if (existingAdjustment) {
         this.logger.warn(
-          `Adjustment already exists for appeal ${event.appealId}. Skipping duplicate adjustment creation.`
+          `Adjustment already exists for appeal ${payload.appealId}. Skipping duplicate adjustment creation.`
         );
         return;
       }
 
       // 2. Create adjustment record
-      const adjustmentAmount = Number(event.appealAmount);
+      const adjustmentAmount = Number(payload.appealAmount);
 
       if (isNaN(adjustmentAmount) || adjustmentAmount === 0) {
         this.logger.warn(
-          `Invalid appeal amount for appeal ${event.appealId}: ${event.appealAmount}`,
+          `Invalid appeal amount for appeal ${payload.appealId}: ${payload.appealAmount}`,
         );
         return;
       }
@@ -99,16 +95,16 @@ export class AppealApprovedListener {
       await this.mentorPayableService.adjustPayableLedger({
         originalLedgerId: appeal.mentorPayableId,
         adjustmentAmount: adjustmentAmount,
-        reason: `Appeal approved: ${event.appealId}`,
-        createdBy: event.approvedBy,
+        reason: `Appeal approved: ${payload.appealId}`,
+        createdBy: payload.approvedBy,
       });
 
       this.logger.log(
-        `Successfully created adjustment for appeal ${event.appealId}, amount: ${adjustmentAmount}`,
+        `Successfully created adjustment for appeal ${payload.appealId}, amount: ${adjustmentAmount}`,
       );
     } catch (error) {
       this.logger.error(
-        `Failed to process approved appeal ${event.appealId}: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to process approved appeal ${payload.appealId}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
       // Re-throw to retry if needed

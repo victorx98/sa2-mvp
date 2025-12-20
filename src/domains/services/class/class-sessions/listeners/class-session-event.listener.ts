@@ -2,9 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { ClassSessionDomainService } from '../services/class-session-domain.service';
 import {
-  MeetingLifecycleCompletedPayload,
+  MeetingLifecycleCompletedEvent,
   MEETING_LIFECYCLE_COMPLETED_EVENT,
 } from '@shared/events';
+import { HandlesEvent } from '@shared/events/registry';
 
 /**
  * Class Session Event Listener
@@ -23,7 +24,9 @@ export class ClassSessionEventListener {
    * @param payload - Meeting lifecycle completion event payload from Core layer
    */
   @OnEvent(MEETING_LIFECYCLE_COMPLETED_EVENT)
-  async handleMeetingCompletion(payload: MeetingLifecycleCompletedPayload): Promise<void> {
+  @HandlesEvent(MEETING_LIFECYCLE_COMPLETED_EVENT, 'ServicesModule')
+  async handleMeetingCompletion(event: MeetingLifecycleCompletedEvent): Promise<void> {
+    const payload = event.payload;
     this.logger.log(`Received meeting.lifecycle.completed event for meeting ${payload.meetingId}`);
 
     try {
@@ -51,4 +54,3 @@ export class ClassSessionEventListener {
     }
   }
 }
-

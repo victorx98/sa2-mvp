@@ -1,55 +1,55 @@
-import { IEvent } from "./event.types";
+import { z } from "zod";
+import type { IEvent } from "./event.types";
+import { IntegrationEvent } from "./registry";
+import { MEETING_LIFECYCLE_COMPLETED_EVENT } from "./event-constants";
 
-export const MEETING_LIFECYCLE_COMPLETED_EVENT = "meeting.lifecycle.completed";
+export { MEETING_LIFECYCLE_COMPLETED_EVENT };
 
-/**
- * Meeting Time Segment Interface
- * Represents a continuous time period during the meeting
- */
-export interface MeetingTimeSegment {
-  start: string; // ISO timestamp
-  end: string; // ISO timestamp
-}
+const DateTimeSchema = z.union([z.string().datetime(), z.date()]);
 
-/**
- * Meeting Lifecycle Completed Event Payload
- * 
- * Published when a meeting physically ends (triggered by Webhook)
- * Subscribers: Mentoring, Interview, GapAnalysis, Calendar modules
- * 
- * Note: Meeting cancellation does NOT publish this event.
- * Cancellations are handled synchronously in Application layer.
- */
-export interface MeetingLifecycleCompletedPayload {
-  // Identity
-  meetingId: string; // UUID - Primary key for FK lookups
-  meetingNo: string; // Meeting number (Feishu 9-digit)
-  
-  // Provider info
-  provider: string; // 'feishu' | 'zoom'
-  
-  // Status (for clarity and consistency with DB)
-  status: 'ended'; // Fixed value for type safety
-  
-  // Schedule info
-  scheduleStartTime: Date; // Scheduled start time
-  scheduleDuration: number; // Scheduled duration (minutes)
-  
-  // Actual execution info (all required for completed meetings)
-  actualDuration: number; // Actual duration in seconds
-  endedAt: Date; // Final completion timestamp
-  timeList: MeetingTimeSegment[]; // Meeting time segments (for reconnections)
-  
-  // Recording (optional)
-  recordingUrl: string | null; // Recording URL (if available)
-}
+export const MeetingTimeSegmentSchema = z.object({
+  start: z.string().min(1),
+  end: z.string().min(1),
+});
 
-/**
- * Meeting Lifecycle Completed Event
- * Extends IEvent with typed payload
- */
-export interface MeetingLifecycleCompletedEvent 
-  extends IEvent<MeetingLifecycleCompletedPayload> {
-  type: typeof MEETING_LIFECYCLE_COMPLETED_EVENT;
+export type MeetingTimeSegment = z.infer<typeof MeetingTimeSegmentSchema>;
+
+export const MeetingLifecycleCompletedPayloadSchema = z.object({
+  meetingId: z.string().min(1),
+  meetingNo: z.string().min(1),
+  provider: z.string().min(1),
+  status: z.literal("ended"),
+  scheduleStartTime: DateTimeSchema,
+  scheduleDuration: z.number().int().positive(),
+  actualDuration: z.number().int().nonnegative(),
+  endedAt: DateTimeSchema,
+  timeList: z.array(MeetingTimeSegmentSchema),
+  recordingUrl: z.string().min(1).nullable(),
+});
+
+export type MeetingLifecycleCompletedPayload = z.infer<
+  typeof MeetingLifecycleCompletedPayloadSchema
+>;
+
+@IntegrationEvent({
+  type: MEETING_LIFECYCLE_COMPLETED_EVENT,
+  version: "4.1",
+  producers: ["MeetingModule"],
+  description: "Emitted when a meeting physically ends (webhook-driven)",
+})
+export class MeetingLifecycleCompletedEvent
+  implements IEvent<MeetingLifecycleCompletedPayload>
+{
+  static readonly eventType = MEETING_LIFECYCLE_COMPLETED_EVENT;
+  static readonly schema = MeetingLifecycleCompletedPayloadSchema;
+
+  readonly type = MeetingLifecycleCompletedEvent.eventType;
+
+  constructor(
+    public readonly payload: MeetingLifecycleCompletedPayload,
+    public readonly source?: IEvent<unknown>["source"],
+    public readonly id?: string,
+    public readonly timestamp?: number,
+  ) {}
 }
 

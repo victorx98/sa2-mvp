@@ -7,6 +7,11 @@
  */
 export interface IEvent<T> {
   /**
+   * Event type identifier (Published Language / routing key)
+   */
+  type: string;
+
+  /**
    * Unique event identifier (UUID)
    */
   id?: string;

@@ -1,5 +1,6 @@
 import { Module, Global } from '@nestjs/common';
 import { MetricsService } from './metrics.service';
+import { EventGovernanceTelemetryListener } from './event-governance.listener';
 
 /**
  * Global module providing OpenTelemetry utilities
@@ -12,7 +13,7 @@ import { MetricsService } from './metrics.service';
  */
 @Global()
 @Module({
-  providers: [MetricsService],
+  providers: [MetricsService, EventGovernanceTelemetryListener],
   exports: [MetricsService],
 })
 export class TelemetryModule {}

@@ -1,0 +1,56 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '14px'}}}%%
+flowchart LR
+  subgraph Producers
+    FinancialModule[FinancialModule]
+    MeetingModule[MeetingModule]
+    PlacementModule[PlacementModule]
+    ServicesModule[ServicesModule]
+  end
+
+  subgraph Consumers
+    CalendarModule[CalendarModule]
+    ContractModule[ContractModule]
+    FinancialModule[FinancialModule]
+    ServicesModule[ServicesModule]
+    TelemetryModule[TelemetryModule]
+  end
+
+  ServicesModule -->|ai_career.session.cancelled| ServicesModule
+  ServicesModule -->|ai_career.session.created| ServicesModule
+  ServicesModule -->|ai_career.session.meeting.operation.result| TelemetryModule
+  ServicesModule -->|ai_career.session.updated| ServicesModule
+  ServicesModule -->|class_session.session.cancelled| ServicesModule
+  ServicesModule -->|class_session.session.created| ServicesModule
+  ServicesModule -->|class_session.session.meeting.operation.result| TelemetryModule
+  ServicesModule -->|class_session.session.updated| ServicesModule
+  ServicesModule -->|class.student.added| ContractModule
+  ServicesModule -->|class.student.removed| ContractModule
+  ServicesModule -->|comm_session.session.cancelled| ServicesModule
+  ServicesModule -->|comm_session.session.created| ServicesModule
+  ServicesModule -->|comm_session.session.meeting.operation.result| TelemetryModule
+  ServicesModule -->|comm_session.session.updated| ServicesModule
+  FinancialModule -->|financial.appeal.approved| FinancialModule
+  FinancialModule -->|financial.appeal.created| TelemetryModule
+  FinancialModule -->|financial.appeal.rejected| TelemetryModule
+  FinancialModule -->|financial.settlement.confirmed| FinancialModule
+  ServicesModule -->|gap_analysis.session.cancelled| ServicesModule
+  ServicesModule -->|gap_analysis.session.created| ServicesModule
+  ServicesModule -->|gap_analysis.session.meeting.operation.result| TelemetryModule
+  ServicesModule -->|gap_analysis.session.updated| ServicesModule
+  MeetingModule -->|meeting.lifecycle.completed| CalendarModule
+  MeetingModule -->|meeting.lifecycle.completed| ServicesModule
+  MeetingModule -->|meeting.recording.ready| TelemetryModule
+  PlacementModule -->|placement.application.status_changed| FinancialModule
+  PlacementModule -->|placement.application.status_changed| ContractModule
+  PlacementModule -->|placement.application.status_rolled_back| FinancialModule
+  PlacementModule -->|placement.application.status_rolled_back| ContractModule
+  PlacementModule -->|placement.application.submitted| ServicesModule
+  ServicesModule -->|regular_mentoring.session.cancelled| ServicesModule
+  ServicesModule -->|regular_mentoring.session.created| ServicesModule
+  ServicesModule -->|regular_mentoring.session.meeting.operation.result| TelemetryModule
+  ServicesModule -->|regular_mentoring.session.updated| ServicesModule
+  ServicesModule -->|resume.bill.cancelled| ContractModule
+  ServicesModule -->|resume.billed| ContractModule
+  ServicesModule -->|services.session.completed| FinancialModule
+  ServicesModule -->|services.session.completed| ContractModule
+  ServicesModule -->|session.booked| TelemetryModule

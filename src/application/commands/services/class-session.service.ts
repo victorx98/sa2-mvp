@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { VerifiedEventBus } from '@infrastructure/eventing/verified-event-bus';
 import { CalendarService } from '@core/calendar';
 import {
   UserType,
@@ -60,7 +60,7 @@ export class ClassSessionService {
     private readonly domainClassService: ClassDomainService,
     private readonly domainClassSessionQueryService: DomainClassSessionQueryService,
     private readonly calendarService: CalendarService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventBus: VerifiedEventBus,
     private readonly metricsService: MetricsService,
   ) {}
 
@@ -155,16 +155,23 @@ export class ClassSessionService {
       addSpanEvent('session.creation.success');
 
       // Publish event to trigger async meeting creation
-      this.eventEmitter.emit(CLASS_SESSION_CREATED_EVENT, {
-        sessionId: sessionResult.sessionId,
-        classId: dto.classId,
-        mentorId: dto.mentorId,
-        scheduledStartTime: scheduledAtIso,
-        duration: dto.duration || 60,
-        meetingProvider: dto.meetingProvider || 'feishu',
-        topic: dto.title,
-        mentorCalendarSlotId: sessionResult.mentorCalendarSlotId,
-      });
+      this.eventBus.publish(
+        {
+          type: CLASS_SESSION_CREATED_EVENT,
+          payload: {
+            sessionId: sessionResult.sessionId,
+            classId: dto.classId,
+            mentorId: dto.mentorId,
+            scheduledStartTime: scheduledAtIso,
+            duration: dto.duration || 60,
+            meetingProvider: dto.meetingProvider || 'feishu',
+            topic: dto.title,
+            mentorCalendarSlotId: sessionResult.mentorCalendarSlotId,
+          },
+          source: { domain: "services", service: "ClassSessionService" },
+        },
+        "ServicesModule",
+      );
 
       this.logger.log(`Published CLASS_SESSION_CREATED_EVENT for session ${sessionResult.sessionId}`);
 
@@ -279,16 +286,23 @@ export class ClassSessionService {
 
       // Step 5: Emit update event if time/duration changed
       if (timeChanged || durationChanged) {
-        this.eventEmitter.emit(CLASS_SESSION_UPDATED_EVENT, {
-          sessionId: sessionId,
-          classId: oldSession.classId,
-          meetingId: oldSession.meetingId,
-          oldScheduledStartTime: meetingScheduleStartTime,
-          newScheduledStartTime: scheduledAtIso || meetingScheduleStartTime,
-          oldDuration: meetingScheduleDuration,
-          newDuration: newDuration,
-          topic: dto.title || oldSession.title,
-        });
+        this.eventBus.publish(
+          {
+            type: CLASS_SESSION_UPDATED_EVENT,
+            payload: {
+              sessionId: sessionId,
+              classId: oldSession.classId,
+              meetingId: oldSession.meetingId,
+              oldScheduledStartTime: meetingScheduleStartTime,
+              newScheduledStartTime: scheduledAtIso || meetingScheduleStartTime,
+              oldDuration: meetingScheduleDuration,
+              newDuration: newDuration,
+              topic: dto.title || oldSession.title,
+            },
+            source: { domain: "services", service: "ClassSessionService" },
+          },
+          "ServicesModule",
+        );
         this.logger.log(`Published CLASS_SESSION_UPDATED_EVENT for session ${sessionId}`);
       }
 
@@ -343,14 +357,21 @@ export class ClassSessionService {
       });
 
       // Step 3: Emit cancellation event for async meeting cancellation
-      this.eventEmitter.emit(CLASS_SESSION_CANCELLED_EVENT, {
-        sessionId: sessionId,
-        classId: (session as any).classId,
-        meetingId: (session as any).meetingId,
-        mentorId: (session as any).mentorUserId,
-        cancelledAt: new Date().toISOString(),
-        cancelReason: reason || 'Cancelled by administrator',
-      });
+      this.eventBus.publish(
+        {
+          type: CLASS_SESSION_CANCELLED_EVENT,
+          payload: {
+            sessionId: sessionId,
+            classId: (session as any).classId,
+            meetingId: (session as any).meetingId,
+            mentorId: (session as any).mentorUserId,
+            cancelledAt: new Date().toISOString(),
+            cancelReason: reason || 'Cancelled by administrator',
+          },
+          source: { domain: "services", service: "ClassSessionService" },
+        },
+        "ServicesModule",
+      );
 
       this.logger.log(`Published CLASS_SESSION_CANCELLED_EVENT for session ${sessionId}`);
       this.logger.log(`Class session cancelled: sessionId=${sessionId}`);
@@ -402,4 +423,3 @@ export class ClassSessionService {
     return this.domainClassSessionQueryService.getSessionById(sessionId);
   }
 }
-

@@ -4,48 +4,26 @@ export * from "./event.types";
 // Event Constants (must be imported before other event files)
 export * from "./event-constants";
 
-// Settlement Events (export interfaces only, constants are in event-constants)
-export type {
-  ISettlementConfirmedPayload,
-  ISettlementConfirmedEvent,
-} from "./settlement-confirmed.event";
+// Registry + Decorators
+export * from "./registry";
 
-// Service Session Events
-export type {
-  IServiceSessionCompletedPayload,
-  IServiceSessionCompletedEvent,
-} from "./service-session-completed.event";
+// Integration Events (value exports to populate EventRegistry)
+export * from "./settlement-confirmed.event";
+export * from "./service-session-completed.event";
+export * from "./session-booked.event";
 
-// Session Events
-export type { SessionBookedEvent } from "./session-booked.event";
+export * from "./regular-mentoring-session-created.event";
+export * from "./gap-analysis-session-created.event";
+export * from "./ai-career-session-created.event";
+export * from "./comm-session.events";
+export * from "./class-session.events";
 
-// Session type-specific created events (v2.0)
-export type { RegularMentoringSessionCreatedEvent } from "./regular-mentoring-session-created.event";
-export type { GapAnalysisSessionCreatedEvent } from "./gap-analysis-session-created.event";
-export type { AiCareerSessionCreatedEvent } from "./ai-career-session-created.event";
+export * from "./meeting-lifecycle-completed.event";
+export * from "./meeting-recording-ready.event";
 
-// Meeting Events (v4.1)
-export type {
-  MeetingLifecycleCompletedPayload,
-  MeetingLifecycleCompletedEvent,
-  MeetingTimeSegment,
-} from "./meeting-lifecycle-completed.event";
-export type {
-  MeetingRecordingReadyPayload,
-  MeetingRecordingReadyEvent,
-} from "./meeting-recording-ready.event";
-
-// Placement Application Events
-export {
-  JOB_APPLICATION_STATUS_CHANGED_EVENT,
-  JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
-  PLACEMENT_APPLICATION_SUBMITTED_EVENT,
-} from "./event-constants";
-export type {
-  IJobApplicationStatusChangedPayload,
-  IJobApplicationStatusChangedEvent,
-  IJobApplicationStatusRolledBackPayload,
-  IJobApplicationStatusRolledBackEvent,
-  IPlacementApplicationSubmittedPayload,
-  IPlacementApplicationSubmittedEvent,
-} from "./placement-application.events";
+export * from "./placement-application.events";
+export * from "./mentor-appeal.events";
+export * from "./resume-billed.event";
+export * from "./resume-bill-cancelled.event";
+export * from "./class-student-added.event";
+export * from "./class-student-removed.event";

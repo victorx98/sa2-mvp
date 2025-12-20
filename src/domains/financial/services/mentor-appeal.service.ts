@@ -7,10 +7,10 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
+import { VerifiedEventBus } from "@infrastructure/eventing/verified-event-bus";
 import type { DrizzleDatabase } from "@shared/types/database.types";
 import { eq, and, gte, lte } from "drizzle-orm";
 import * as schema from "@infrastructure/database/schema";
-import { EventEmitter2 } from "@nestjs/event-emitter";
 
 import {
   IMentorAppealService,
@@ -53,7 +53,7 @@ export class MentorAppealService implements IMentorAppealService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventBus: VerifiedEventBus,
   ) {}
 
   /**
@@ -100,15 +100,22 @@ export class MentorAppealService implements IMentorAppealService {
         .returning();
 
       // Publish the created event
-      this.eventEmitter.emit(MENTOR_APPEAL_CREATED_EVENT, {
-        appealId: appeal.id,
-        mentorId: appeal.mentorId,
-        counselorId: appeal.counselorId,
-        appealAmount: appeal.appealAmount,
-        appealType: appeal.appealType,
-        currency: appeal.currency,
-        createdAt: appeal.createdAt,
-      });
+      this.eventBus.publish(
+        {
+          type: MENTOR_APPEAL_CREATED_EVENT,
+          payload: {
+            appealId: appeal.id,
+            mentorId: appeal.mentorId,
+            counselorId: appeal.counselorId,
+            appealAmount: appeal.appealAmount,
+            appealType: appeal.appealType,
+            currency: appeal.currency,
+            createdAt: appeal.createdAt,
+          },
+          source: { domain: "financial", service: "MentorAppealService" },
+        },
+        "FinancialModule",
+      );
 
       this.logger.log(`Appeal created successfully: ${appeal.id}`);
 
@@ -340,15 +347,22 @@ export class MentorAppealService implements IMentorAppealService {
         .returning();
 
       // Publish the approved event
-      this.eventEmitter.emit(MENTOR_APPEAL_APPROVED_EVENT, {
-        appealId: updatedAppeal.id,
-        mentorId: updatedAppeal.mentorId,
-        counselorId: updatedAppeal.counselorId,
-        appealAmount: updatedAppeal.appealAmount,
-        approvedBy: approvedByUserId,
-        approvedAt: now,
-        currency: updatedAppeal.currency,
-      });
+      this.eventBus.publish(
+        {
+          type: MENTOR_APPEAL_APPROVED_EVENT,
+          payload: {
+            appealId: updatedAppeal.id,
+            mentorId: updatedAppeal.mentorId,
+            counselorId: updatedAppeal.counselorId,
+            appealAmount: updatedAppeal.appealAmount,
+            approvedBy: approvedByUserId,
+            approvedAt: now,
+            currency: updatedAppeal.currency,
+          },
+          source: { domain: "financial", service: "MentorAppealService" },
+        },
+        "FinancialModule",
+      );
 
       this.logger.log(`Appeal approved successfully: ${id}`);
 
@@ -420,14 +434,21 @@ export class MentorAppealService implements IMentorAppealService {
         .returning();
 
       // Publish the rejected event
-      this.eventEmitter.emit(MENTOR_APPEAL_REJECTED_EVENT, {
-        appealId: updatedAppeal.id,
-        mentorId: updatedAppeal.mentorId,
-        counselorId: updatedAppeal.counselorId,
-        rejectionReason: dto.rejectionReason,
-        rejectedBy: rejectedByUserId,
-        rejectedAt: now,
-      });
+      this.eventBus.publish(
+        {
+          type: MENTOR_APPEAL_REJECTED_EVENT,
+          payload: {
+            appealId: updatedAppeal.id,
+            mentorId: updatedAppeal.mentorId,
+            counselorId: updatedAppeal.counselorId,
+            rejectionReason: dto.rejectionReason,
+            rejectedBy: rejectedByUserId,
+            rejectedAt: now,
+          },
+          source: { domain: "financial", service: "MentorAppealService" },
+        },
+        "FinancialModule",
+      );
 
       this.logger.log(`Appeal rejected successfully: ${id}`);
 

@@ -19,6 +19,7 @@ import {
   JOB_APPLICATION_STATUS_CHANGED_EVENT,
   JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
 } from "@shared/events/event-constants";
+import { HandlesEvent } from "@shared/events/registry";
 import { ServiceLedgerService } from "@domains/contract/services/service-ledger.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { DrizzleDatabase } from "@shared/types/database.types";
@@ -44,6 +45,7 @@ export class PlacementEventListener {
    * @param event 投递状态变更事件数据
    */
   @OnEvent(JOB_APPLICATION_STATUS_CHANGED_EVENT)
+  @HandlesEvent(JOB_APPLICATION_STATUS_CHANGED_EVENT, "ContractModule")
   async handleApplicationStatusChangedEvent(
     event: IJobApplicationStatusChangedEvent,
   ): Promise<void> {
@@ -130,6 +132,7 @@ export class PlacementEventListener {
    * @param event 投递状态回撤事件数据
    */
   @OnEvent(JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT)
+  @HandlesEvent(JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT, "ContractModule")
   async handleApplicationStatusRolledBackEvent(
     event: IJobApplicationStatusRolledBackEvent,
   ): Promise<void> {

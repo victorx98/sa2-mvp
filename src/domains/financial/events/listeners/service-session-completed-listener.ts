@@ -4,6 +4,7 @@ import {
   IServiceSessionCompletedEvent,
   SERVICE_SESSION_COMPLETED_EVENT,
 } from "@shared/events/service-session-completed.event";
+import { HandlesEvent } from "@shared/events/registry";
 import { MentorPayableService } from "@domains/financial/services/mentor-payable.service";
 
 /**
@@ -36,6 +37,7 @@ export class ServiceSessionCompletedListener {
    * @param event - The service session completed event data
    */
   @OnEvent(SERVICE_SESSION_COMPLETED_EVENT)
+  @HandlesEvent(SERVICE_SESSION_COMPLETED_EVENT, "FinancialModule")
   async handleServiceSessionCompletedEvent(
     event: IServiceSessionCompletedEvent,
   ): Promise<void> {

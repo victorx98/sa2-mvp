@@ -1,60 +1,45 @@
-import { IEvent } from "./event.types";
+import { z } from "zod";
+import type { IEvent } from "./event.types";
+import { IntegrationEvent } from "./registry";
+import { CLASS_STUDENT_REMOVED_EVENT } from "./event-constants";
 
-export const CLASS_STUDENT_REMOVED_EVENT = "class.student.removed";
+export { CLASS_STUDENT_REMOVED_EVENT };
 
-export interface IClassStudentRemovedPayload {
-  /**
-   * Unique identifier for the class [班级的唯一标识符]
-   */
-  classId: string;
+export const ClassStudentRemovedPayloadSchema = z.object({
+  classId: z.string().min(1),
+  name: z.string().min(1),
+  type: z.string().min(1),
+  status: z.string().min(1),
+  startDate: z.date(),
+  endDate: z.date(),
+  description: z.string().optional(),
+  studentId: z.string().min(1),
+  operatedAt: z.date(),
+  refundQuantity: z.number().int().positive().optional(),
+});
 
-  /**
-   * Name of the class [班级名称]
-   */
-  name: string;
+export type IClassStudentRemovedPayload = z.infer<typeof ClassStudentRemovedPayloadSchema>;
 
-  /**
-   * Type of the class [班级类型]
-   */
-  type: string;
+@IntegrationEvent({
+  type: CLASS_STUDENT_REMOVED_EVENT,
+  version: "1.0",
+  producers: ["ServicesModule"],
+  description: "Emitted when a student is removed from a class",
+})
+export class ClassStudentRemovedEvent
+  implements IEvent<IClassStudentRemovedPayload>
+{
+  static readonly eventType = CLASS_STUDENT_REMOVED_EVENT;
+  static readonly schema = ClassStudentRemovedPayloadSchema;
 
-  /**
-   * Status of the class [班级状态]
-   */
-  status: string;
+  readonly type = ClassStudentRemovedEvent.eventType;
 
-  /**
-   * Start date of the class [班级开始日期]
-   */
-  startDate: Date;
-
-  /**
-   * End date of the class [班级结束日期]
-   */
-  endDate: Date;
-
-  /**
-   * Description of the class [班级描述]
-   */
-  description?: string;
-
-  /**
-   * Unique identifier for the student [学生的唯一标识符]
-   */
-  studentId: string;
-
-  /**
-   * Timestamp when the student was removed [学生离开的时间戳]
-   */
-  operatedAt: Date;
-
-  /**
-   * Quantity of class entitlements to refund (default: 1) [退还的班级权益数量(默认值: 1)]
-   */
-  refundQuantity?: number;
+  constructor(
+    public readonly payload: IClassStudentRemovedPayload,
+    public readonly source?: IEvent<unknown>["source"],
+    public readonly id?: string,
+    public readonly timestamp?: number,
+  ) {}
 }
 
-export interface IClassStudentRemovedEvent
-  extends IEvent<IClassStudentRemovedPayload> {
-  type: typeof CLASS_STUDENT_REMOVED_EVENT;
-}
+export type IClassStudentRemovedEvent = ClassStudentRemovedEvent;

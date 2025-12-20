@@ -4,6 +4,7 @@ import { ConfigModule } from "@nestjs/config";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { DatabaseModule } from "@infrastructure/database/database.module";
+import { EventingModule } from "@infrastructure/eventing/eventing.module";
 import { SettlementService } from "@domains/financial/services/settlement.service";
 import { MentorPaymentInfoService } from "@domains/financial/services/mentor-payment-info.service";
 import { FinancialModule } from "@domains/financial/financial.module";
@@ -47,6 +48,7 @@ describe("Settlement Flow with Adjustments (e2e)", () => {
           wildcard: true,
           delimiter: ".",
         }),
+        EventingModule,
         DatabaseModule,
         FinancialModule,
       ],

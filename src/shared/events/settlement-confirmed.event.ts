@@ -1,85 +1,50 @@
-import { IEvent } from "./event.types";
+import { z } from "zod";
+import type { IEvent } from "./event.types";
+import { IntegrationEvent } from "./registry";
 import { SETTLEMENT_CONFIRMED_EVENT } from "./event-constants";
+
+export { SETTLEMENT_CONFIRMED_EVENT };
 
 /**
  * Payload for settlement confirmed event
  * 结算确认事件载荷
  */
-export interface ISettlementConfirmedPayload {
-  /**
-   * Settlement ID (结算ID)
-   */
-  settlementId: string;
+export const SettlementConfirmedPayloadSchema = z.object({
+  settlementId: z.string().min(1),
+  mentorId: z.string().min(1),
+  settlementMonth: z.string().min(1),
+  originalAmount: z.number(),
+  targetAmount: z.number(),
+  originalCurrency: z.string().min(1),
+  targetCurrency: z.string().min(1),
+  exchangeRate: z.number(),
+  deductionRate: z.number(),
+  settlementMethod: z.string().min(1),
+  createdBy: z.string().min(1),
+  createdAt: z.date(),
+  payableLedgerIds: z.array(z.string().min(1)),
+});
 
-  /**
-   * Mentor ID (导师ID)
-   */
-  mentorId: string;
+export type ISettlementConfirmedPayload = z.infer<typeof SettlementConfirmedPayloadSchema>;
 
-  /**
-   * Settlement Month (结算月份)
-   */
-  settlementMonth: string;
+@IntegrationEvent({
+  type: SETTLEMENT_CONFIRMED_EVENT,
+  version: "1.0",
+  producers: ["FinancialModule"],
+  description: "Emitted when a settlement record is created and confirmed",
+})
+export class SettlementConfirmedEvent implements IEvent<ISettlementConfirmedPayload> {
+  static readonly eventType = SETTLEMENT_CONFIRMED_EVENT;
+  static readonly schema = SettlementConfirmedPayloadSchema;
 
-  /**
-   * Original Amount (原始金额)
-   */
-  originalAmount: number;
+  readonly type = SettlementConfirmedEvent.eventType;
 
-  /**
-   * Target Amount (目标金额)
-   */
-  targetAmount: number;
-
-  /**
-   * Original Currency (原始币种)
-   */
-  originalCurrency: string;
-
-  /**
-   * Target Currency (目标币种)
-   */
-  targetCurrency: string;
-
-  /**
-   * Exchange Rate (汇率)
-   */
-  exchangeRate: number;
-
-  /**
-   * Deduction Rate (扣除比率)
-   */
-  deductionRate: number;
-
-  /**
-   * Settlement Method (结算方式)
-   */
-  settlementMethod: string;
-
-  /**
-   * Creator User ID (创建人用户ID)
-   */
-  createdBy: string;
-
-  /**
-   * Creation Timestamp (创建时间戳)
-   */
-  createdAt: Date;
-
-  /**
-   * Associated Payable Ledger IDs (关联的应付账款ID列表)
-   */
-  payableLedgerIds: string[];
+  constructor(
+    public readonly payload: ISettlementConfirmedPayload,
+    public readonly source?: IEvent<unknown>["source"],
+    public readonly id?: string,
+    public readonly timestamp?: number,
+  ) {}
 }
 
-/**
- * Settlement Confirmed Event Interface
- * 结算确认事件接口
- *
- * This event is published when a settlement record is created and confirmed.
- * 当结算记录创建并确认时发布此事件。
- */
-export interface ISettlementConfirmedEvent
-  extends IEvent<ISettlementConfirmedPayload> {
-  type: typeof SETTLEMENT_CONFIRMED_EVENT;
-}
+export type ISettlementConfirmedEvent = SettlementConfirmedEvent;

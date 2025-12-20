@@ -4,6 +4,7 @@ import type { ISettlementConfirmedEvent } from "@shared/events/settlement-confir
 import { IMentorPaymentParamService } from "../../interfaces/mentor-payment-param.interface";
 import { Inject } from "@nestjs/common";
 import { SETTLEMENT_CONFIRMED_EVENT } from "@shared/events";
+import { HandlesEvent } from "@shared/events/registry";
 
 /**
  * Settlement Confirmed Event Listener (结算确认事件监听器)
@@ -46,6 +47,7 @@ export class SettlementConfirmedListener {
    * @param event - Settlement confirmed event (结算确认事件)
    */
   @OnEvent(SETTLEMENT_CONFIRMED_EVENT, { async: true })
+  @HandlesEvent(SETTLEMENT_CONFIRMED_EVENT, "FinancialModule")
   public async handleSettlementConfirmed(
     event: ISettlementConfirmedEvent,
   ): Promise<void> {

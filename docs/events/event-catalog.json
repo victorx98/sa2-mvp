@@ -1,0 +1,394 @@
+{
+  "generatedAt": "2025-12-20T06:30:29.323Z",
+  "events": [
+    {
+      "eventType": "ai_career.session.cancelled",
+      "version": "2.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ServicesModule"
+      ],
+      "description": "Emitted after AI career session is cancelled (async meeting cancellation trigger)"
+    },
+    {
+      "eventType": "ai_career.session.created",
+      "version": "2.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ServicesModule"
+      ],
+      "description": "Emitted after AI career session is created (async meeting creation trigger)"
+    },
+    {
+      "eventType": "ai_career.session.meeting.operation.result",
+      "version": "2.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "TelemetryModule"
+      ],
+      "description": "Emitted when AI career async meeting operation completes (success/failed)"
+    },
+    {
+      "eventType": "ai_career.session.updated",
+      "version": "2.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ServicesModule"
+      ],
+      "description": "Emitted after AI career session is rescheduled (async meeting update trigger)"
+    },
+    {
+      "eventType": "class_session.session.cancelled",
+      "version": "1.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ServicesModule"
+      ],
+      "description": "Emitted after class session is cancelled (async meeting cancellation trigger)"
+    },
+    {
+      "eventType": "class_session.session.created",
+      "version": "1.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ServicesModule"
+      ],
+      "description": "Emitted after class session is created (async meeting creation trigger)"
+    },
+    {
+      "eventType": "class_session.session.meeting.operation.result",
+      "version": "1.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "TelemetryModule"
+      ],
+      "description": "Emitted when class session async meeting operation completes (success/failed)"
+    },
+    {
+      "eventType": "class_session.session.updated",
+      "version": "1.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ServicesModule"
+      ],
+      "description": "Emitted after class session is rescheduled (async meeting update trigger)"
+    },
+    {
+      "eventType": "class.student.added",
+      "version": "1.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ContractModule"
+      ],
+      "description": "Emitted when a student is added to a class"
+    },
+    {
+      "eventType": "class.student.removed",
+      "version": "1.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ContractModule"
+      ],
+      "description": "Emitted when a student is removed from a class"
+    },
+    {
+      "eventType": "comm_session.session.cancelled",
+      "version": "2.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ServicesModule"
+      ],
+      "description": "Emitted after comm session is cancelled (async meeting cancellation trigger)"
+    },
+    {
+      "eventType": "comm_session.session.created",
+      "version": "2.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ServicesModule"
+      ],
+      "description": "Emitted after comm session is created (async meeting creation trigger)"
+    },
+    {
+      "eventType": "comm_session.session.meeting.operation.result",
+      "version": "2.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "TelemetryModule"
+      ],
+      "description": "Emitted when comm session async meeting operation completes (success/failed)"
+    },
+    {
+      "eventType": "comm_session.session.updated",
+      "version": "2.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ServicesModule"
+      ],
+      "description": "Emitted after comm session is rescheduled (async meeting update trigger)"
+    },
+    {
+      "eventType": "financial.appeal.approved",
+      "version": "1.0",
+      "producers": [
+        "FinancialModule"
+      ],
+      "consumers": [
+        "FinancialModule"
+      ],
+      "description": "Emitted when a counselor approves an appeal"
+    },
+    {
+      "eventType": "financial.appeal.created",
+      "version": "1.0",
+      "producers": [
+        "FinancialModule"
+      ],
+      "consumers": [
+        "TelemetryModule"
+      ],
+      "description": "Emitted when a mentor submits a new appeal"
+    },
+    {
+      "eventType": "financial.appeal.rejected",
+      "version": "1.0",
+      "producers": [
+        "FinancialModule"
+      ],
+      "consumers": [
+        "TelemetryModule"
+      ],
+      "description": "Emitted when a counselor rejects an appeal"
+    },
+    {
+      "eventType": "financial.settlement.confirmed",
+      "version": "1.0",
+      "producers": [
+        "FinancialModule"
+      ],
+      "consumers": [
+        "FinancialModule"
+      ],
+      "description": "Emitted when a settlement record is created and confirmed"
+    },
+    {
+      "eventType": "gap_analysis.session.cancelled",
+      "version": "2.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ServicesModule"
+      ],
+      "description": "Emitted after gap analysis session is cancelled (async meeting cancellation trigger)"
+    },
+    {
+      "eventType": "gap_analysis.session.created",
+      "version": "2.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ServicesModule"
+      ],
+      "description": "Emitted after gap analysis session is created (async meeting creation trigger)"
+    },
+    {
+      "eventType": "gap_analysis.session.meeting.operation.result",
+      "version": "2.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "TelemetryModule"
+      ],
+      "description": "Emitted when gap analysis async meeting operation completes (success/failed)"
+    },
+    {
+      "eventType": "gap_analysis.session.updated",
+      "version": "2.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ServicesModule"
+      ],
+      "description": "Emitted after gap analysis session is rescheduled (async meeting update trigger)"
+    },
+    {
+      "eventType": "meeting.lifecycle.completed",
+      "version": "4.1",
+      "producers": [
+        "MeetingModule"
+      ],
+      "consumers": [
+        "CalendarModule",
+        "ServicesModule"
+      ],
+      "description": "Emitted when a meeting physically ends (webhook-driven)"
+    },
+    {
+      "eventType": "meeting.recording.ready",
+      "version": "4.1",
+      "producers": [
+        "MeetingModule"
+      ],
+      "consumers": [
+        "TelemetryModule"
+      ],
+      "description": "Emitted when meeting recording becomes available"
+    },
+    {
+      "eventType": "placement.application.status_changed",
+      "version": "1.0",
+      "producers": [
+        "PlacementModule"
+      ],
+      "consumers": [
+        "FinancialModule",
+        "ContractModule"
+      ],
+      "description": "Emitted when a job application status transitions to a new state"
+    },
+    {
+      "eventType": "placement.application.status_rolled_back",
+      "version": "1.0",
+      "producers": [
+        "PlacementModule"
+      ],
+      "consumers": [
+        "FinancialModule",
+        "ContractModule"
+      ],
+      "description": "Emitted when a job application status is rolled back to a previous state"
+    },
+    {
+      "eventType": "placement.application.submitted",
+      "version": "1.0",
+      "producers": [
+        "PlacementModule"
+      ],
+      "consumers": [
+        "ServicesModule"
+      ],
+      "description": "Emitted when a placement application is submitted (for service registry registration)"
+    },
+    {
+      "eventType": "regular_mentoring.session.cancelled",
+      "version": "2.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ServicesModule"
+      ],
+      "description": "Emitted after regular mentoring session is cancelled (async meeting cancellation trigger)"
+    },
+    {
+      "eventType": "regular_mentoring.session.created",
+      "version": "2.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ServicesModule"
+      ],
+      "description": "Emitted after regular mentoring session is created (async meeting creation trigger)"
+    },
+    {
+      "eventType": "regular_mentoring.session.meeting.operation.result",
+      "version": "2.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "TelemetryModule"
+      ],
+      "description": "Emitted when regular mentoring async meeting operation completes (success/failed)"
+    },
+    {
+      "eventType": "regular_mentoring.session.updated",
+      "version": "2.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ServicesModule"
+      ],
+      "description": "Emitted after regular mentoring session is rescheduled (async meeting update trigger)"
+    },
+    {
+      "eventType": "resume.bill.cancelled",
+      "version": "1.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ContractModule"
+      ],
+      "description": "Emitted when a resume billing is cancelled"
+    },
+    {
+      "eventType": "resume.billed",
+      "version": "1.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "ContractModule"
+      ],
+      "description": "Emitted when a resume service is billed"
+    },
+    {
+      "eventType": "services.session.completed",
+      "version": "1.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "FinancialModule",
+        "ContractModule"
+      ],
+      "description": "Emitted when a service session reaches a terminal state and should trigger contract consumption and billing"
+    },
+    {
+      "eventType": "session.booked",
+      "version": "1.0",
+      "producers": [
+        "ServicesModule"
+      ],
+      "consumers": [
+        "TelemetryModule"
+      ],
+      "description": "Emitted when a session is fully booked (meeting URL ready)"
+    }
+  ]
+}

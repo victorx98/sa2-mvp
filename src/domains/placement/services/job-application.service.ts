@@ -34,7 +34,7 @@ import {
   ALLOWED_APPLICATION_STATUS_TRANSITIONS,
   ApplicationType,
 } from "../types";
-import { EventEmitter2 } from "@nestjs/event-emitter";
+import { VerifiedEventBus } from "@infrastructure/eventing/verified-event-bus";
 
 /**
  * Job Application Service [投递服务]
@@ -47,7 +47,7 @@ export class JobApplicationService implements IJobApplicationService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventBus: VerifiedEventBus,
   ) {}
 
   private isUuid(value: string | undefined): value is string {
@@ -145,7 +145,14 @@ export class JobApplicationService implements IJobApplicationService {
       changedBy: application.studentId,
       changedAt: application.submittedAt.toISOString(),
     };
-    this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
+    this.eventBus.publish(
+      {
+        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
+        payload: eventPayload,
+        source: { domain: "placement", service: "JobApplicationService" },
+      },
+      "PlacementModule",
+    );
 
     if (application.status === "submitted") {
       const providerCandidate = dto.studentId;
@@ -161,9 +168,13 @@ export class JobApplicationService implements IJobApplicationService {
         completed_time: application.submittedAt,
         title: job.title ?? undefined,
       };
-      this.eventEmitter.emit(
-        PLACEMENT_APPLICATION_SUBMITTED_EVENT,
-        submittedPayload,
+      this.eventBus.publish(
+        {
+          type: PLACEMENT_APPLICATION_SUBMITTED_EVENT,
+          payload: submittedPayload,
+          source: { domain: "placement", service: "JobApplicationService" },
+        },
+        "PlacementModule",
       );
     }
 
@@ -309,7 +320,14 @@ export class JobApplicationService implements IJobApplicationService {
         changedBy: dto.recommendedBy,
         changedAt: application.submittedAt.toISOString(),
       };
-      this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, payload);
+      this.eventBus.publish(
+        {
+          type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
+          payload,
+          source: { domain: "placement", service: "JobApplicationService" },
+        },
+        "PlacementModule",
+      );
       return { type: JOB_APPLICATION_STATUS_CHANGED_EVENT, payload };
     });
 
@@ -453,7 +471,14 @@ export class JobApplicationService implements IJobApplicationService {
         assignedMentorId: updatedApplication.assignedMentorId,
       }),
     };
-    this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
+    this.eventBus.publish(
+      {
+        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
+        payload: eventPayload,
+        source: { domain: "placement", service: "JobApplicationService" },
+      },
+      "PlacementModule",
+    );
 
     if (dto.newStatus === "submitted") {
       const [job] = await this.db
@@ -480,9 +505,13 @@ export class JobApplicationService implements IJobApplicationService {
         completed_time: updatedApplication.updatedAt,
         title: job?.title ?? undefined,
       };
-      this.eventEmitter.emit(
-        PLACEMENT_APPLICATION_SUBMITTED_EVENT,
-        submittedPayload,
+      this.eventBus.publish(
+        {
+          type: PLACEMENT_APPLICATION_SUBMITTED_EVENT,
+          payload: submittedPayload,
+          source: { domain: "placement", service: "JobApplicationService" },
+        },
+        "PlacementModule",
       );
     }
 
@@ -849,9 +878,13 @@ export class JobApplicationService implements IJobApplicationService {
       // [新增] Include mentor assignment in event payload [在事件payload中包含导师分配]
       ...(dto.mentorId && { assignedMentorId: dto.mentorId }),
     };
-    this.eventEmitter.emit(
-      JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
-      eventPayload,
+    this.eventBus.publish(
+      {
+        type: JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
+        payload: eventPayload,
+        source: { domain: "placement", service: "JobApplicationService" },
+      },
+      "PlacementModule",
     );
 
     return {
@@ -946,7 +979,14 @@ export class JobApplicationService implements IJobApplicationService {
       changedAt: application.submittedAt.toISOString(),
       assignedMentorId: application.assignedMentorId,
     };
-    this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
+    this.eventBus.publish(
+      {
+        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
+        payload: eventPayload,
+        source: { domain: "placement", service: "JobApplicationService" },
+      },
+      "PlacementModule",
+    );
 
     return {
       data: application,

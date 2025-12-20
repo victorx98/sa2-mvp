@@ -1,176 +1,109 @@
-/**
- * Mentor Appeal Events (导师申诉事件)
- *
- * Defines domain events for mentor appeal lifecycle
- * (定义导师申诉生命周期的领域事件)
- */
-
-import { IEvent } from "@shared/events/event.types";
+import { z } from "zod";
+import type { IEvent } from "./event.types";
+import { IntegrationEvent } from "./registry";
 import {
-  MENTOR_APPEAL_CREATED_EVENT,
   MENTOR_APPEAL_APPROVED_EVENT,
+  MENTOR_APPEAL_CREATED_EVENT,
   MENTOR_APPEAL_REJECTED_EVENT,
-} from "@shared/events/event-constants";
+} from "./event-constants";
 
-/**
- * Payload for mentor appeal created event
- * 导师申诉创建事件载荷
- */
-export interface IMentorAppealCreatedPayload {
-  /**
-   * Appeal ID (申诉ID)
-   */
-  appealId: string;
+export const MentorAppealCreatedPayloadSchema = z.object({
+  appealId: z.string().min(1),
+  mentorId: z.string().min(1),
+  counselorId: z.string().min(1),
+  appealAmount: z.string().min(1),
+  appealType: z.string().min(1),
+  currency: z.string().min(1),
+  createdAt: z.date(),
+});
 
-  /**
-   * Mentor ID (导师ID)
-   */
-  mentorId: string;
+export type IMentorAppealCreatedPayload = z.infer<typeof MentorAppealCreatedPayloadSchema>;
 
-  /**
-   * Counselor ID (处理顾问ID)
-   */
-  counselorId: string;
+@IntegrationEvent({
+  type: MENTOR_APPEAL_CREATED_EVENT,
+  version: "1.0",
+  producers: ["FinancialModule"],
+  description: "Emitted when a mentor submits a new appeal",
+})
+export class MentorAppealCreatedEvent implements IEvent<IMentorAppealCreatedPayload> {
+  static readonly eventType = MENTOR_APPEAL_CREATED_EVENT;
+  static readonly schema = MentorAppealCreatedPayloadSchema;
 
-  /**
-   * Appeal Amount (申诉金额)
-   * Stored as string to match database numeric(12,2) type
-   * (存储为字符串以匹配数据库numeric(12,2)类型)
-   */
-  appealAmount: string;
+  readonly type = MentorAppealCreatedEvent.eventType;
 
-  /**
-   * Appeal Type (申诉类型)
-   */
-  appealType: string;
-
-  /**
-   * Currency (货币类型)
-   */
-  currency: string;
-
-  /**
-   * Timestamp when the appeal was created
-   * 申诉创建时间戳
-   */
-  createdAt: Date;
+  constructor(
+    public readonly payload: IMentorAppealCreatedPayload,
+    public readonly source?: IEvent<unknown>["source"],
+    public readonly id?: string,
+    public readonly timestamp?: number,
+  ) {}
 }
 
-/**
- * Mentor Appeal Created Event
- * 导师申诉创建事件
- *
- * Published when a mentor submits a new appeal
- * 当导师提交新申诉时发布
- */
-export interface IMentorAppealCreatedEvent
-  extends IEvent<IMentorAppealCreatedPayload> {
-  type: typeof MENTOR_APPEAL_CREATED_EVENT;
+export type IMentorAppealCreatedEvent = MentorAppealCreatedEvent;
+
+export const MentorAppealApprovedPayloadSchema = z.object({
+  appealId: z.string().min(1),
+  mentorId: z.string().min(1),
+  counselorId: z.string().min(1),
+  appealAmount: z.string().min(1),
+  approvedBy: z.string().min(1),
+  approvedAt: z.date(),
+  currency: z.string().min(1),
+});
+
+export type IMentorAppealApprovedPayload = z.infer<typeof MentorAppealApprovedPayloadSchema>;
+
+@IntegrationEvent({
+  type: MENTOR_APPEAL_APPROVED_EVENT,
+  version: "1.0",
+  producers: ["FinancialModule"],
+  description: "Emitted when a counselor approves an appeal",
+})
+export class MentorAppealApprovedEvent implements IEvent<IMentorAppealApprovedPayload> {
+  static readonly eventType = MENTOR_APPEAL_APPROVED_EVENT;
+  static readonly schema = MentorAppealApprovedPayloadSchema;
+
+  readonly type = MentorAppealApprovedEvent.eventType;
+
+  constructor(
+    public readonly payload: IMentorAppealApprovedPayload,
+    public readonly source?: IEvent<unknown>["source"],
+    public readonly id?: string,
+    public readonly timestamp?: number,
+  ) {}
 }
 
-/**
- * Payload for mentor appeal approved event
- * 导师申诉批准事件载荷
- */
-export interface IMentorAppealApprovedPayload {
-  /**
-   * Appeal ID (申诉ID)
-   */
-  appealId: string;
+export type IMentorAppealApprovedEvent = MentorAppealApprovedEvent;
 
-  /**
-   * Mentor ID (导师ID)
-   */
-  mentorId: string;
+export const MentorAppealRejectedPayloadSchema = z.object({
+  appealId: z.string().min(1),
+  mentorId: z.string().min(1),
+  counselorId: z.string().min(1),
+  rejectionReason: z.string().min(1),
+  rejectedBy: z.string().min(1),
+  rejectedAt: z.date(),
+});
 
-  /**
-   * Counselor ID (处理顾问ID)
-   */
-  counselorId: string;
+export type IMentorAppealRejectedPayload = z.infer<typeof MentorAppealRejectedPayloadSchema>;
 
-  /**
-   * Appeal Amount (申诉金额)
-   * Stored as string to match database numeric(12,2) type
-   * (存储为字符串以匹配数据库numeric(12,2)类型)
-   */
-  appealAmount: string;
+@IntegrationEvent({
+  type: MENTOR_APPEAL_REJECTED_EVENT,
+  version: "1.0",
+  producers: ["FinancialModule"],
+  description: "Emitted when a counselor rejects an appeal",
+})
+export class MentorAppealRejectedEvent implements IEvent<IMentorAppealRejectedPayload> {
+  static readonly eventType = MENTOR_APPEAL_REJECTED_EVENT;
+  static readonly schema = MentorAppealRejectedPayloadSchema;
 
-  /**
-   * ID of the user who approved the appeal
-   * 批准申诉的用户ID
-   */
-  approvedBy: string;
+  readonly type = MentorAppealRejectedEvent.eventType;
 
-  /**
-   * Timestamp when the appeal was approved
-   * 申诉批准时间戳
-   */
-  approvedAt: Date;
-
-  /**
-   * Currency (货币类型)
-   */
-  currency: string;
+  constructor(
+    public readonly payload: IMentorAppealRejectedPayload,
+    public readonly source?: IEvent<unknown>["source"],
+    public readonly id?: string,
+    public readonly timestamp?: number,
+  ) {}
 }
 
-/**
- * Mentor Appeal Approved Event
- * 导师申诉批准事件
- *
- * Published when a counselor approves an appeal
- * 当顾问批准申诉时发布
- */
-export interface IMentorAppealApprovedEvent
-  extends IEvent<IMentorAppealApprovedPayload> {
-  type: typeof MENTOR_APPEAL_APPROVED_EVENT;
-}
-
-/**
- * Payload for mentor appeal rejected event
- * 导师申诉驳回事件载荷
- */
-export interface IMentorAppealRejectedPayload {
-  /**
-   * Appeal ID (申诉ID)
-   */
-  appealId: string;
-
-  /**
-   * Mentor ID (导师ID)
-   */
-  mentorId: string;
-
-  /**
-   * Counselor ID (处理顾问ID)
-   */
-  counselorId: string;
-
-  /**
-   * Rejection Reason (驳回理由)
-   */
-  rejectionReason: string;
-
-  /**
-   * ID of the user who rejected the appeal
-   * 驳回申诉的用户ID
-   */
-  rejectedBy: string;
-
-  /**
-   * Timestamp when the appeal was rejected
-   * 申诉驳回时间戳
-   */
-  rejectedAt: Date;
-}
-
-/**
- * Mentor Appeal Rejected Event
- * 导师申诉驳回事件
- *
- * Published when a counselor rejects an appeal
- * 当顾问驳回申诉时发布
- */
-export interface IMentorAppealRejectedEvent
-  extends IEvent<IMentorAppealRejectedPayload> {
-  type: typeof MENTOR_APPEAL_REJECTED_EVENT;
-}
+export type IMentorAppealRejectedEvent = MentorAppealRejectedEvent;
