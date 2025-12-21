@@ -44,9 +44,8 @@ function parseServiceNameFromResourceAttributes(): string | undefined {
 const serviceName =
   parseServiceNameFromResourceAttributes() ??
   process.env.SERVICE_NAME ??
-  process.env.OTEL_SERVICE_NAME ??
-  process.env.npm_package_name ??
-  "sa2-mvp";
+  process.env.OTEL_SERVICE_NAME;
+console.log('serviceName: ', serviceName);
 
 const resource = resourceFromAttributes({
   [ATTR_SERVICE_NAME]: serviceName,
@@ -191,7 +190,7 @@ export async function ensureTelemetryStarted(): Promise<void> {
 
   sdkStarting = true;
   try {
-    await sdk.start();
+    sdk.start();
     console.log(`OpenTelemetry SDK started successfully for service: ${serviceName}`);
     sdkStarted = true;
     startupError = null;
