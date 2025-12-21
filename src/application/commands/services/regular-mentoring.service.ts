@@ -6,7 +6,7 @@ import {
   SessionType as CalendarSessionType,
 } from '@core/calendar/interfaces/calendar-slot.interface';
 import { MeetingProviderType } from '@core/meeting';
-import { RegularMentoringService as DomainRegularMentoringService } from '@domains/services/sessions/regular-mentoring/services/regular-mentoring.service';
+import { RegularMentoringDomainService } from '@domains/services/sessions/regular-mentoring/services/regular-mentoring-domain.service';
 import { RegularMentoringQueryService } from '@domains/query/services/regular-mentoring-query.service';
 import { SessionType } from '@domains/services/sessions/shared/enums/session-type.enum';
 import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
@@ -68,7 +68,7 @@ export class RegularMentoringService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-    private readonly domainRegularMentoringService: DomainRegularMentoringService,
+    private readonly domainRegularMentoringService: RegularMentoringDomainService,
     private readonly regularMentoringQueryService: RegularMentoringQueryService,
     private readonly calendarService: CalendarService,
     private readonly eventEmitter: EventEmitter2,
@@ -173,9 +173,13 @@ export class RegularMentoringService {
         this.logger.debug(`Student calendar slot created: ${studentCalendarSlot.id}`);
 
         // Step 2: Create session record in domain layer (without meeting_id, status=PENDING_MEETING)
+        // Note: Need to generate UUID for session ID
+        const { randomUUID } = await import('crypto');
+        const sessionId = randomUUID();
+        
         const session = await this.domainRegularMentoringService.createSession(
           {
-            meetingId: undefined, // No meeting yet - async flow
+            id: sessionId,
             sessionType: SessionType.REGULAR_MENTORING,
             sessionTypeId: dto.sessionTypeId,
             serviceType: dto.serviceType, // Pass serviceType to domain layer
@@ -185,17 +189,17 @@ export class RegularMentoringService {
             createdByCounselorId: dto.counselorId,
             title: dto.title,
             description: dto.description,
-            scheduledAt: scheduledAtIso,
+            scheduledAt: new Date(scheduledAtIso),
           },
           tx,
         );
 
-        this.logger.debug(`Regular mentoring session created: sessionId=${session.id}`);
+        this.logger.debug(`Regular mentoring session created: sessionId=${session.getId()}`);
 
         return {
-          sessionId: session.id,
-          status: session.status, // PENDING_MEETING
-          scheduledAt: session.scheduledAt,
+          sessionId: session.getId(),
+          status: session.getStatus(), // PENDING_MEETING
+          scheduledAt: session.getScheduledAt(),
           mentorCalendarSlotId: mentorCalendarSlot.id,
           studentCalendarSlotId: studentCalendarSlot.id,
         };
@@ -379,9 +383,9 @@ export class RegularMentoringService {
         const updated = await this.domainRegularMentoringService.updateSession(
           sessionId,
           {
-        title: dto.title,
-        description: dto.description,
-        scheduledAt: scheduledAtIso,
+            title: dto.title,
+            description: dto.description,
+            scheduledAt: scheduledAtIso ? new Date(scheduledAtIso) : undefined,
           },
           tx,
         );
@@ -417,9 +421,9 @@ export class RegularMentoringService {
       // Meeting URL does not change when rescheduling, so include it from oldSession
       return {
         ...updatedSession,
-        title: dto.title || updatedSession.title,
-        description: dto.description !== undefined ? dto.description : updatedSession.description,
-        scheduledAt: scheduledAtIso || updatedSession.scheduledAt,
+        title: dto.title || updatedSession.getTitle(),
+        description: dto.description !== undefined ? dto.description : updatedSession.getDescription(),
+        scheduledAt: scheduledAtIso || updatedSession.getScheduledAt(),
         duration: newDuration, // Use the newly calculated duration
         // Include complete meeting object for mapper to extract all meeting-related fields
         meeting: oldSession.meeting,
@@ -473,8 +477,8 @@ export class RegularMentoringService {
         // Release service hold when session is cancelled
         await this.serviceHoldService.releaseHold(session.serviceHoldId, reason);
 
-        // Update session status to CANCELLED (no tx support, runs outside transaction)
-        await this.domainRegularMentoringService.cancelSession(sessionId, reason);
+        // Update session status to CANCELLED
+        await this.domainRegularMentoringService.cancelSession(sessionId, reason, tx);
 
         // Release calendar slots (update status to cancelled instead of deleting)
         await this.calendarService.updateSlots(

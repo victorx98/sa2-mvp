@@ -3,12 +3,14 @@ import { DatabaseModule } from '@infrastructure/database/database.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 
 // Classes Module
-import { ClassService } from './classes/services/class.service';
-import { ClassRepository } from './classes/repositories/class.repository';
+import { ClassDomainService } from './classes/services/class-domain.service';
+import { ClassRepository } from './classes/infrastructure/repositories/class.repository';
+import { CLASS_REPOSITORY } from './classes/repositories/class.repository.interface';
 
 // Class Sessions Module
-import { ClassSessionService } from './class-sessions/services/class-session.service';
-import { ClassSessionRepository } from './class-sessions/repositories/class-session.repository';
+import { ClassSessionDomainService } from './class-sessions/services/class-session-domain.service';
+import { ClassSessionRepository } from './class-sessions/infrastructure/repositories/class-session.repository';
+import { CLASS_SESSION_REPOSITORY } from './class-sessions/repositories/class-session.repository.interface';
 import { ClassSessionEventListener } from './class-sessions/listeners/class-session-event.listener';
 
 // Service Registry Module (shared across all service domains)
@@ -19,11 +21,17 @@ import { ServiceReferenceRepository } from '../service-registry/service-referenc
   imports: [DatabaseModule, EventEmitterModule],
   providers: [
     // Classes
-    ClassService,
-    ClassRepository,
+    ClassDomainService,
+    {
+      provide: CLASS_REPOSITORY,
+      useClass: ClassRepository,
+    },
     // Class Sessions
-    ClassSessionService,
-    ClassSessionRepository,
+    ClassSessionDomainService,
+    {
+      provide: CLASS_SESSION_REPOSITORY,
+      useClass: ClassSessionRepository,
+    },
     ClassSessionEventListener,
     // Service Registry
     ServiceRegistryService,
@@ -31,15 +39,14 @@ import { ServiceReferenceRepository } from '../service-registry/service-referenc
   ],
   exports: [
     // Classes
-    ClassService,
-    ClassRepository,
+    ClassDomainService,
+    CLASS_REPOSITORY,
     // Class Sessions
-    ClassSessionService,
-    ClassSessionRepository,
+    ClassSessionDomainService,
+    CLASS_SESSION_REPOSITORY,
     // Service Registry
     ServiceRegistryService,
     ServiceReferenceRepository,
   ],
 })
 export class ClassModule {}
-

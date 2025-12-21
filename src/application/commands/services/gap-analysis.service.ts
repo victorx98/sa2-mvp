@@ -6,7 +6,7 @@ import {
   SessionType as CalendarSessionType,
 } from '@core/calendar/interfaces/calendar-slot.interface';
 import { MeetingProviderType } from '@core/meeting';
-import { GapAnalysisService as DomainGapAnalysisService } from '@domains/services/sessions/gap-analysis/services/gap-analysis.service';
+import { GapAnalysisDomainService } from '@domains/services/sessions/gap-analysis/services/gap-analysis-domain.service';
 import { GapAnalysisQueryService } from '@domains/query/services/gap-analysis-query.service';
 import { SessionType } from '@domains/services/sessions/shared/enums/session-type.enum';
 import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
@@ -62,7 +62,7 @@ export class GapAnalysisService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-    private readonly domainGapAnalysisService: DomainGapAnalysisService,
+    private readonly domainGapAnalysisService: GapAnalysisDomainService,
     private readonly gapAnalysisQueryService: GapAnalysisQueryService,
     private readonly calendarService: CalendarService,
     private readonly eventEmitter: EventEmitter2,
@@ -166,9 +166,12 @@ export class GapAnalysisService {
         this.logger.debug(`Student calendar slot created: ${studentCalendarSlot.id}`);
 
         // Step 2: Create session record in domain layer (without meeting_id, status=PENDING_MEETING)
+        const { randomUUID } = await import('crypto');
+        const sessionId = randomUUID();
+        
         const session = await this.domainGapAnalysisService.createSession(
           {
-            meetingId: undefined,
+            id: sessionId,
             sessionType: SessionType.GAP_ANALYSIS,
             sessionTypeId: dto.sessionTypeId,
             serviceType: dto.serviceType,
@@ -178,17 +181,17 @@ export class GapAnalysisService {
             createdByCounselorId: dto.counselorId,
             title: dto.title,
             description: dto.description,
-            scheduledAt: scheduledAtIso,
+            scheduledAt: new Date(scheduledAtIso),
           },
           tx,
         );
 
-        this.logger.debug(`Gap analysis session created: sessionId=${session.id}`);
+        this.logger.debug(`Gap analysis session created: sessionId=${session.getId()}`);
 
         return {
-          sessionId: session.id,
-          status: session.status,
-          scheduledAt: session.scheduledAt,
+          sessionId: session.getId(),
+          status: session.getStatus(),
+          scheduledAt: session.getScheduledAt(),
           mentorCalendarSlotId: mentorCalendarSlot.id,
           studentCalendarSlotId: studentCalendarSlot.id,
         };
@@ -373,9 +376,9 @@ export class GapAnalysisService {
         const updateResult = await this.domainGapAnalysisService.updateSession(
           sessionId,
           {
-        title: dto.title,
-        description: dto.description,
-            scheduledAt: scheduledAtIso, // Convert to ISO string format
+            title: dto.title,
+            description: dto.description,
+            scheduledAt: scheduledAtIso ? new Date(scheduledAtIso) : undefined,
           },
           tx,
         );
@@ -411,9 +414,9 @@ export class GapAnalysisService {
       // Do not re-query DB as meetings table will be updated asynchronously
       return {
         ...updatedSession,
-        title: dto.title || updatedSession.title,
-        description: dto.description !== undefined ? dto.description : updatedSession.description,
-        scheduledAt: scheduledAtIso || updatedSession.scheduledAt,
+        title: dto.title || updatedSession.getTitle(),
+        description: dto.description !== undefined ? dto.description : updatedSession.getDescription(),
+        scheduledAt: scheduledAtIso || updatedSession.getScheduledAt(),
         duration: newDuration, // Use the newly calculated duration
         // Include complete meeting object for mapper
         meeting: oldSession.meeting,
@@ -468,7 +471,7 @@ export class GapAnalysisService {
         await this.serviceHoldService.releaseHold(session.serviceHoldId, reason);
 
         // Update session status to CANCELLED
-        await this.domainGapAnalysisService.cancelSession(sessionId, reason);
+        await this.domainGapAnalysisService.cancelSession(sessionId, tx);
 
         // Release calendar slots (update status to cancelled)
         await this.calendarService.updateSlots(

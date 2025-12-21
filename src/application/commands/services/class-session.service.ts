@@ -14,9 +14,9 @@ import type {
 import { Trace, addSpanAttributes, addSpanEvent } from '@shared/decorators/trace.decorator';
 import { MetricsService } from '@telemetry/metrics.service';
 import { CLASS_SESSION_CREATED_EVENT, CLASS_SESSION_UPDATED_EVENT, CLASS_SESSION_CANCELLED_EVENT } from '@shared/events/event-constants';
-import { ClassSessionService as DomainClassSessionService } from '@domains/services/class/class-sessions/services/class-session.service';
+import { ClassSessionDomainService } from '@domains/services/class/class-sessions/services/class-session-domain.service';
 import { ClassSessionStatus, SessionType as ClassSessionType } from '@domains/services/class/class-sessions/entities/class-session.entity';
-import { ClassService as DomainClassService } from '@domains/services/class/classes/services/class.service';
+import { ClassDomainService } from '@domains/services/class/classes/services/class-domain.service';
 import { ClassSessionQueryService as DomainClassSessionQueryService } from '@domains/query/services/class-session-query.service';
 
 // DTOs
@@ -56,8 +56,8 @@ export class ClassSessionService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-    private readonly domainClassSessionService: DomainClassSessionService,
-    private readonly domainClassService: DomainClassService,
+    private readonly domainClassSessionService: ClassSessionDomainService,
+    private readonly domainClassService: ClassDomainService,
     private readonly domainClassSessionQueryService: DomainClassSessionQueryService,
     private readonly calendarService: CalendarService,
     private readonly eventEmitter: EventEmitter2,
@@ -131,19 +131,19 @@ export class ClassSessionService {
 
         // Step 3: Create session record in domain layer
         const session = await this.domainClassSessionService.createSession({
-          meetingId: undefined, // Meeting ID is null initially
-          sessionType: ClassSessionType.CLASS_SESSION,
+          meetingId: '', // Meeting ID is empty initially
           classId: dto.classId,
           mentorUserId: dto.mentorId,
           createdByCounselorId: dto.createdByCounselorId,
           title: dto.title,
           description: dto.description,
-          scheduledAt: scheduledAtIso, // Pass ISO string
+          scheduledAt: dto.scheduledAt, // Pass Date object
+          serviceType: dto.serviceType,
           status: ClassSessionStatus.PENDING_MEETING, // Set initial status
         });
 
         return {
-          sessionId: session.id,
+          sessionId: session.getId(),
           status: ClassSessionStatus.PENDING_MEETING,
           scheduledAt: scheduledAtIso,
           mentorCalendarSlotId: mentorCalendarSlot.id,
@@ -272,7 +272,7 @@ export class ClassSessionService {
         const updateData: any = {};
         if (dto.title) updateData.title = dto.title;
         if (dto.description !== undefined) updateData.description = dto.description;
-        if (scheduledAtIso) updateData.scheduledAt = scheduledAtIso;
+        if (dto.scheduledAt) updateData.scheduledAt = dto.scheduledAt;
 
         await this.domainClassSessionService.updateSession(sessionId, updateData, tx);
       });
@@ -330,7 +330,7 @@ export class ClassSessionService {
       // Step 2: Execute transaction to update session and calendar
       await this.db.transaction(async (tx: DrizzleTransaction) => {
         // Cancel session in domain layer
-        await this.domainClassSessionService.cancelSession(sessionId, reason);
+        await this.domainClassSessionService.cancelSession(sessionId);
 
         // Cancel calendar slots (update status to 'cancelled')
         await this.calendarService.updateSlots(

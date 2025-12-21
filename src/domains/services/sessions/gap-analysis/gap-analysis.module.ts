@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
-import { GapAnalysisRepository } from './repositories/gap-analysis.repository';
-import { GapAnalysisService } from './services/gap-analysis.service';
-import { GapAnalysisEventListener } from './listeners/gap-analysis-event.listener';
+import { GapAnalysisDomainService } from './services/gap-analysis-domain.service';
 import { SessionTypesModule } from '@domains/services/session-types/session-types.module';
 import { ServiceRegistryModule } from '@domains/services/service-registry/service-registry.module';
+import { GAP_ANALYSIS_REPOSITORY } from './repositories/gap-analysis.repository.interface';
+import { DrizzleGapAnalysisRepository } from './infrastructure/repositories/gap-analysis.repository';
+import { GapAnalysisMapper } from './infrastructure/mappers/gap-analysis.mapper';
 
 @Module({
   imports: [
@@ -11,13 +12,21 @@ import { ServiceRegistryModule } from '@domains/services/service-registry/servic
     ServiceRegistryModule,
   ],
   providers: [
-    GapAnalysisRepository,
-    GapAnalysisService,
-    GapAnalysisEventListener,
+    // Mapper
+    GapAnalysisMapper,
+    
+    // Repository (dependency injection)
+    {
+      provide: GAP_ANALYSIS_REPOSITORY,
+      useClass: DrizzleGapAnalysisRepository,
+    },
+    
+    // Domain Service
+    GapAnalysisDomainService,
   ],
   exports: [
-    GapAnalysisService,
-    GapAnalysisRepository,
+    GAP_ANALYSIS_REPOSITORY,
+    GapAnalysisDomainService,
   ],
 })
 export class GapAnalysisModule {}

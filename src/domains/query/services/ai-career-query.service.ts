@@ -1,6 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { eq, inArray, and, ne, desc } from 'drizzle-orm';
-import { AiCareerRepository } from '@domains/services/sessions/ai-career/repositories/ai-career.repository';
 import { SessionFiltersDto } from '@domains/services/sessions/shared/dto/session-query.dto';
 import { SessionNotFoundException } from '@domains/services/sessions/shared/exceptions/session-not-found.exception';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
@@ -19,7 +18,6 @@ import type { DrizzleDatabase } from '@shared/types/database.types';
 @Injectable()
 export class AiCareerQueryService {
   constructor(
-    private readonly repository: AiCareerRepository,
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
   ) {}
