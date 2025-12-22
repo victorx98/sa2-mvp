@@ -130,7 +130,7 @@ export class ProductsController {
       price: snapshot.price,
       currency: snapshot.currency,
       items: snapshot.items,
-      snapshotAt: snapshot.createdAt.toISOString(),
+      snapshotAt: snapshot.snapshotAt.toISOString(),
     };
   }
 

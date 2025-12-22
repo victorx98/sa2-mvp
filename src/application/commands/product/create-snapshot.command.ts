@@ -92,7 +92,7 @@ export class CreateProductSnapshotCommand extends CommandBase {
       price: product.price,
       currency: product.currency,
       items,
-      createdAt: new Date(),
+      snapshotAt: new Date(),
     };
   }
 

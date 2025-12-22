@@ -16,5 +16,5 @@ export interface IProductSnapshot {
   price: string;
   currency: Currency;
   items: IProductSnapshotItem[];
-  createdAt: Date;
+  snapshotAt: Date; // When snapshot was taken [快照捕获时间]
 }
