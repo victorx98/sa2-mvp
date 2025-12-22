@@ -3,10 +3,8 @@ import { ApiTags, ApiOperation, ApiOkResponse, ApiQuery, ApiBearerAuth } from '@
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { GetSessionTypesQuery } from '@application/queries/services/get-session-types.query';
 import { ApiPrefix } from '@api/api.constants';
-import {
-  GetSessionTypesRequestDto,
-  SessionTypeResponseDto,
-} from './dtos';
+import { GetSessionTypesRequestDto } from '@api/dto/request/services/session-types';
+import { SessionTypeResponseDto } from '@api/dto/response/services/session-types';
 
 /**
  * Session Types Controller

@@ -34,9 +34,11 @@ import {
   UpdateSessionRequestDto,
   CancelSessionRequestDto,
   DeleteSessionRequestDto,
+} from '@api/dto/request/services/sessions';
+import {
   SessionResponseDto,
   CreateSessionResponseDto,
-} from './dtos';
+} from '@api/dto/response/services/sessions';
 
 // ============================================================================
 // Controller

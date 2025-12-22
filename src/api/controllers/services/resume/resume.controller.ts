@@ -30,8 +30,8 @@ import {
   SetFinalRequestDto,
   BillResumeRequestDto,
   CancelBillResumeRequestDto,
-  ResumeResponseDto,
-} from './dtos';
+} from '@api/dto/request/services/resume';
+import { ResumeResponseDto } from '@api/dto/response/services/resume';
 
 @ApiTags('Resume Management')
 @Controller(`${ApiPrefix}/services/resumes`)
