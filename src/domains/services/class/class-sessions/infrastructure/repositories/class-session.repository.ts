@@ -26,7 +26,7 @@ export class ClassSessionRepository implements IClassSessionRepository {
       .values({
         id: data.id,
         classId: data.classId,
-        meetingId: data.meetingId,
+        meetingId: data.meetingId || null, // Convert empty string to null
         sessionType: data.sessionType,
         mentorUserId: data.mentorUserId,
         createdByCounselorId: data.createdByCounselorId,
