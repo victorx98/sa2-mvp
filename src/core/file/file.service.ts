@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
 import { UploadResultDto } from './dto/upload-result.dto';
 
@@ -77,6 +78,41 @@ export class FileService {
     } catch (error) {
       throw new BadRequestException(
         `Failed to upload file to S3: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Generate presigned download URL
+   * @param fileUrl - S3 file URL
+   * @param expiresIn - URL expiration time in seconds (default: 900s = 15min)
+   * @returns Presigned download URL
+   */
+  async getDownloadUrl(
+    fileUrl: string,
+    expiresIn: number = 900,
+  ): Promise<string> {
+    try {
+      // Extract S3 key from URL
+      const key = fileUrl.split('.com/')[1];
+      if (!key) {
+        throw new BadRequestException('Invalid file URL');
+      }
+
+      // Generate presigned URL
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+
+      const signedUrl = await getSignedUrl(this.s3Client, command, {
+        expiresIn,
+      });
+
+      return signedUrl;
+    } catch (error) {
+      throw new BadRequestException(
+        `Failed to generate download URL: ${error.message}`,
       );
     }
   }
