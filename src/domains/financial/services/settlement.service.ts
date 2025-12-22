@@ -9,21 +9,84 @@ import { eq, and, sql, inArray } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import type { DrizzleDatabase } from "@shared/types/database.types";
-import type { ISettlementService } from "../interfaces/settlement.interface";
-import type {
-  ICreateSettlementRequest,
-  ISettlementQuery,
-  ISettlementDetailResponse,
-  ISettlementResponse,
-  ISettlementDetailItem,
-} from "../dto/settlement";
-import { SettlementStatus } from "../dto/settlement/settlement.enums";
+import { SettlementStatus } from "@shared/types/financial-enums";
+import type { CreateSettlementRequestDto } from "@api/dto/request/financial/settlement.request.dto";
 import { SETTLEMENT_CONFIRMED_EVENT } from "@shared/events/event-constants";
 import type { ISettlementConfirmedPayload } from "@shared/events/settlement-confirmed.event";
 import {
   parseDateToUTC,
   isValidISODateString,
 } from "../common/utils/date-time.utils";
+
+/**
+ * Internal interfaces for settlement operations (结算操作的内部接口)
+ */
+interface ISettlementQuery {
+  mentorId?: string;
+  settlementMonth?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: SettlementStatus;
+  page?: number;
+  pageSize?: number;
+}
+
+interface ISettlementDetailItem {
+  id?: string;
+  settlementId?: string;
+  mentorPayableId?: string;
+  sessionId?: string;
+  studentId?: string;
+  sessionDate?: string;
+  serviceType?: string;
+  mentorPrice?: string;
+  originalAmount?: string;
+  targetAmount?: string;
+  createdAt?: Date;
+  createdBy?: string;
+}
+
+interface ISettlementDetailResponse {
+  id: string;
+  mentorId: string;
+  mentorName: string;
+  settlementMonth: string;
+  originalAmount: number;
+  targetAmount: number;
+  originalCurrency: string;
+  targetCurrency: string;
+  exchangeRate: number;
+  deductionRate: number;
+  status: SettlementStatus;
+  settlementMethod: string;
+  createdAt: Date;
+  createdBy: string;
+  details: ISettlementDetailItem[];
+}
+
+interface ISettlementResponse {
+  id: string;
+  mentorId: string;
+  settlementMonth: string;
+  originalAmount: number;
+  targetAmount: number;
+  originalCurrency: string;
+  targetCurrency: string;
+  exchangeRate: number;
+  deductionRate: number;
+  status: SettlementStatus;
+  settlementMethod: string;
+  createdAt: Date;
+  createdBy: string;
+}
+
+interface ISettlementService {
+  generateSettlement(request: CreateSettlementRequestDto, createdBy: string): Promise<ISettlementDetailResponse>;
+  getSettlementById(id: string): Promise<ISettlementDetailResponse | null>;
+  getSettlementByMentorAndMonth(mentorId: string, settlementMonth: string): Promise<ISettlementDetailResponse | null>;
+  findSettlements(query: ISettlementQuery): Promise<{ data: ISettlementResponse[]; total: number }>;
+  getSettlementDetails(settlementId: string): Promise<ISettlementDetailItem[]>;
+}
 
 /**
  * Settlement Service Implementation (结算服务实现)
@@ -65,7 +128,7 @@ export class SettlementService implements ISettlementService {
    * @returns Settlement record details (结算记录详情)
    */
   public async generateSettlement(
-    request: ICreateSettlementRequest,
+    request: CreateSettlementRequestDto,
     createdBy: string,
   ): Promise<ISettlementDetailResponse> {
     const { mentorId, settlementMonth, exchangeRate, deductionRate } = request;
@@ -281,6 +344,7 @@ export class SettlementService implements ISettlementService {
       return {
         id: settlement.id,
         mentorId: settlement.mentorId,
+        mentorName: '', // Will be populated in higher layers
         settlementMonth: settlement.settlementMonth,
         originalAmount: Number(settlement.originalAmount),
         targetAmount: Number(settlement.targetAmount),
@@ -293,6 +357,7 @@ export class SettlementService implements ISettlementService {
         settlementMethod: settlement.settlementMethod as any,
         createdAt: settlement.createdAt,
         createdBy: settlement.createdBy,
+        details: [], // Will be populated in getSettlementDetails or higher layers
       };
     });
   }
@@ -324,6 +389,7 @@ export class SettlementService implements ISettlementService {
       return {
         id: settlement.id,
         mentorId: settlement.mentorId,
+        mentorName: '', // Will be populated in higher layers
         settlementMonth: settlement.settlementMonth,
         originalAmount: Number(settlement.originalAmount),
         targetAmount: Number(settlement.targetAmount),
@@ -336,6 +402,7 @@ export class SettlementService implements ISettlementService {
         settlementMethod: settlement.settlementMethod as any,
         createdAt: settlement.createdAt,
         createdBy: settlement.createdBy,
+        details: [], // Will be populated in higher layers
       };
     } catch (error) {
       this.logger.error(
@@ -379,6 +446,7 @@ export class SettlementService implements ISettlementService {
       return {
         id: settlement.id,
         mentorId: settlement.mentorId,
+        mentorName: '', // Will be populated in higher layers
         settlementMonth: settlement.settlementMonth,
         originalAmount: Number(settlement.originalAmount),
         targetAmount: Number(settlement.targetAmount),
@@ -391,6 +459,7 @@ export class SettlementService implements ISettlementService {
         settlementMethod: settlement.settlementMethod as any,
         createdAt: settlement.createdAt,
         createdBy: settlement.createdBy,
+        details: [], // Will be populated in higher layers
       };
     } catch (error) {
       this.logger.error(
@@ -489,6 +558,7 @@ export class SettlementService implements ISettlementService {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         settlementMethod: settlement.settlementMethod as any,
         createdAt: settlement.createdAt,
+        createdBy: settlement.createdBy,
       }));
 
       this.logger.log(

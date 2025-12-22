@@ -28,6 +28,17 @@ export class PlacementReferralManualCreateRequestDto {
   mentorId!: string;
 
   @ApiProperty({
+    description: "Created by user ID (UUID string). [创建人用户ID(UUID字符串)]",
+    type: String,
+    required: false,
+    format: "uuid",
+    example: "123e4567-e89b-12d3-a456-426614174002",
+  })
+  @IsOptional()
+  @IsUUID()
+  createdBy?: string;
+
+  @ApiProperty({
     description: "Job type. [职位类型]",
     type: String,
     required: true,

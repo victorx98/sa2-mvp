@@ -1,5 +1,5 @@
-import { CreateMentorPriceDto } from "../dto/create-mentor-price.dto";
-import { UpdateMentorPriceDto } from "../dto/update-mentor-price.dto";
+import { CreateMentorPriceDto } from "@api/dto/request/financial/mentor-price.request.dto";
+import { UpdateMentorPriceDto } from "@api/dto/request/financial/mentor-price.request.dto";
 import type { MentorPrice } from "@infrastructure/database/schema";
 
 /**

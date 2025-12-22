@@ -3,7 +3,7 @@ import { DatabaseModule } from "@infrastructure/database/database.module";
 import { ContractService } from "./services/contract.service";
 import { ServiceLedgerService } from "./services/service-ledger.service";
 import { ServiceHoldService } from "./services/service-hold.service";
-import { SessionCompletedListener } from "./events/listeners/session-completed-listener";
+import { SessionCompletedListener } from "./event-handlers/session-completed-listener";
 
 /**
  * Contract Domain Module(合约领域模块)
@@ -23,14 +23,8 @@ import { SessionCompletedListener } from "./events/listeners/session-completed-l
  * - Event-driven Architecture(事件驱动架构)
  * - Transactional Event Processing(事务性事件处理)
  *
- * Implemented Services(已实现的服务):
- * ✅ ContractService - Real implementation with 14 methods (合约服务 - 14个方法的完整实现)
- * ✅ ServiceLedgerService - Ledger tracking (账本追踪)
- * ✅ ServiceHoldService - Hold management (预占管理)
- * ✅ SessionCompletedListener - Auto-consumes services on session completion (会话完成自动消费)
- *
  * Implementation Status(实现状态): ✅ Phase 1 Complete (阶段1完成)
- * - ContractService rewritten from mock to real implementation (ContractService从Mock重写为真实实现)
+ * - ContractService moved to Commands (ContractService迁移到Commands)
  * - All lifecycle methods implemented (所有生命周期方法已实现)
  * - Service balance and consumption integrated (服务余额和消费已集成)
  */

@@ -3,14 +3,29 @@ import { eq, and, sql, asc, desc } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { DrizzleDatabase } from "@shared/types/database.types";
 import { recommendedJobs } from "@infrastructure/database/schema";
-import {
-  ICreateJobPositionDto,
-  IMarkJobExpiredDto,
-  IJobPositionSearchFilter,
-} from "../dto";
+import { ICreateJobPositionDto } from "@api/dto/request/placement/placement.index";
 import { IServiceResult } from "../interfaces";
 import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
 import { JobStatus } from "@domains/placement/types";
+
+/**
+ * Search filter for job positions [岗位搜索过滤器]
+ */
+interface IJobPositionSearchFilter {
+  status?: string;
+  companyName?: string;
+  locations?: string[];
+}
+
+/**
+ * DTO for marking a job position as expired [标记岗位为过期的DTO]
+ */
+interface IMarkJobExpiredDto {
+  jobId: string;
+  expiredBy?: string;
+  expiredByType?: string;
+  reason?: string;
+}
 
 /**
  * Job Position Service [岗位服务]
@@ -29,10 +44,12 @@ export class JobPositionService {
    * Create a new job position [创建新岗位]
    *
    * @param dto - Create job position DTO [创建岗位DTO]
+   * @param createdBy - User ID who created the job position [创建岗位的用户ID]
    * @returns Created job position [创建的岗位]
    */
   async createJobPosition(
     dto: ICreateJobPositionDto,
+    createdBy: string,
   ): Promise<
     IServiceResult<typeof recommendedJobs.$inferSelect, Record<string, unknown>>
   > {

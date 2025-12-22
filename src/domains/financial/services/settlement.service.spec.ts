@@ -2,7 +2,7 @@ import { Test } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { SettlementService } from "./settlement.service";
-import type { ICreateSettlementRequest } from "../dto/settlement";
+import type { CreateSettlementRequestDto } from "@api/dto/request/financial/settlement.request.dto";
 
 /**
  * SettlementService Unit Tests (结算服务单元测试)
@@ -98,7 +98,7 @@ describe("SettlementService", () => {
   });
 
   describe("generateSettlement", () => {
-    const mockRequest: ICreateSettlementRequest = {
+    const mockRequest: CreateSettlementRequestDto = {
       mentorId: testMentorId,
       settlementMonth: testSettlementMonth,
       exchangeRate: 7.2,

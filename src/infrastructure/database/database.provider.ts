@@ -18,15 +18,41 @@ export const databaseProviders = [
     provide: DATABASE_CONNECTION,
     inject: [ConfigService],
     useFactory: async (configService: ConfigService) => {
-      // const connectionString = configService.get<string>("DATABASE_URL");
-      const connectionString = createEnhancedDatabaseUrl();
       const isTest =
         process.env.NODE_ENV === "test" ||
         process.env.JEST_WORKER_ID !== undefined;
 
+      // 检查 DATABASE_URL 是否存在
+      if (!process.env.DATABASE_URL) {
+        const error = new Error(
+          "DATABASE_URL environment variable is not set",
+        );
+        logger.error(error.message);
+        throw error;
+      }
+
+      const connectionString = createEnhancedDatabaseUrl();
+      
+      if (!isTest) {
+        logger.log("Initializing database connection...");
+      }
+
       // Parse connection string to extract host
-      const url = new URL(connectionString);
+      let url: URL;
+      try {
+        url = new URL(connectionString);
+      } catch (error) {
+        const err = new Error(
+          `Invalid DATABASE_URL format: ${error.message}`,
+        );
+        logger.error(err.message);
+        throw err;
+      }
+
       const hostname = url.hostname;
+      if (!isTest) {
+        logger.log(`Connecting to database host: ${hostname}:${url.port || 5432}`);
+      }
 
       // Resolve hostname to IPv4 address for both test and production
       let resolvedHost = hostname;
@@ -42,9 +68,8 @@ export const databaseProviders = [
         // DNS resolution failed - hostname may only support IPv6
         // or network may have DNS issues
         if (!isTest) {
-          console.warn(
-            `Failed to resolve ${hostname} to IPv4, using hostname:`,
-            error.message,
+          logger.warn(
+            `Failed to resolve ${hostname} to IPv4, using hostname: ${error.message}`,
           );
         }
       }
@@ -53,7 +78,7 @@ export const databaseProviders = [
       const resolvedUrl = new URL(connectionString);
       resolvedUrl.hostname = resolvedHost;
 
-      // Configure connection pool
+      // Configure connection pool with enhanced reliability settings
       const poolConfig: PoolConfig = {
         connectionString: resolvedUrl.toString(),
         ssl: {
@@ -62,42 +87,77 @@ export const databaseProviders = [
         // Connection pool settings
         max: isTest ? 5 : 20, // Maximum number of clients in the pool
         min: isTest ? 1 : 2, // Minimum number of clients in the pool
-        idleTimeoutMillis: isTest ? 30000 : 300000, // Close idle clients after 5 minutes (non-test) or 30s (test)
-        connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
+        // Reduce idle timeout to prevent using stale connections that may be closed by Supabase
+        idleTimeoutMillis: isTest ? 30000 : 60000, // Close idle clients after 1 minute (non-test) or 30s (test)
+        connectionTimeoutMillis: 120000, // 120 seconds to match connect_timeout in connection string
         // Keep connections alive by validating them before use
         // This prevents using stale connections that were closed by the server
         allowExitOnIdle: false, // Don't exit when pool is idle
+        // Query timeout to prevent hanging queries
+        query_timeout: 30000, // 30 seconds query timeout
       };
 
       const pool = new Pool(poolConfig);
 
       // Handle pool errors gracefully to prevent unhandled error events
-      pool.on("error", (err, _client) => {
+      pool.on("error", (err) => {
         logger.error(
           `Unexpected error on idle database client: ${err.message}`,
           err.stack,
         );
-        // The pool will automatically remove the failed client and create a new one
+        // The pool will automatically remove the failed client
+        // Do NOT manually release here as the client is already removed from the pool
       });
 
-      // Handle connection errors
+      // Handle connection errors and validate connections
       pool.on("connect", (client) => {
+        // Validate connection immediately after connect
+        client.query('SELECT 1').catch((err) => {
+          logger.error(`Connection validation failed: ${err.message}`);
+          client.release(err);
+        });
+
         client.on("error", (err) => {
           logger.error(`Database client error: ${err.message}`, err.stack);
         });
       });
 
-      // Test the connection
-      try {
-        const client = await pool.connect();
-        if (!isTest) {
-          logger.log("Database connection successful");
+      // Test the connection with retry mechanism
+      const maxRetries = 3;
+      let lastError: Error | null = null;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          if (!isTest && attempt > 1) {
+            logger.log(`Connection attempt ${attempt}/${maxRetries}...`);
+          }
+          
+          const client = await pool.connect();
+          if (!isTest) {
+            logger.log("Database connection successful");
+          }
+          client.release();
+          break; // Success, exit retry loop
+        } catch (error) {
+          lastError = error as Error;
+          if (attempt < maxRetries) {
+            const delayMs = 2000 * attempt; // Exponential backoff: 2s, 4s, 6s
+            if (!isTest) {
+              logger.warn(
+                `Database connection attempt ${attempt} failed: ${lastError.message}. Retrying in ${delayMs}ms...`,
+              );
+            }
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+          } else {
+            // Last attempt failed
+            logger.error(
+              `Database connection failed after ${maxRetries} attempts: ${lastError.message}`,
+              lastError.stack,
+            );
+            await pool.end(); // Clean up pool on initialization failure
+            throw lastError;
+          }
         }
-        client.release();
-      } catch (error) {
-        logger.error("Database connection failed:", error);
-        await pool.end(); // Clean up pool on initialization failure
-        throw error;
       }
 
       const isDevelopment = configService.get("NODE_ENV") === "development";

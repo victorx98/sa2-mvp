@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ContractService } from "@domains/contract/services/contract.service";
-import type { StudentContractResponseDto } from "@domains/contract/dto/student-contracts-query.dto";
+import type { StudentContractResponseDto } from "@api/dto/response/contract/contract.response.dto";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { DrizzleDatabase } from "@shared/types/database.types";
 import { sql, and, SQL } from "drizzle-orm";

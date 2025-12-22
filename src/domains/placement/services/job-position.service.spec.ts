@@ -3,9 +3,19 @@ import { ConfigModule } from "@nestjs/config";
 import { NotFoundException } from "@nestjs/common";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { JobPositionService } from "./job-position.service";
-import { ICreateJobPositionDto, IMarkJobExpiredDto } from "../dto";
+import { ICreateJobPositionDto } from "@api/dto/request/placement/placement.index";
 import { randomUUID } from "crypto";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+
+/**
+ * DTO for marking a job position as expired [标记岗位为过期的DTO]
+ */
+interface IMarkJobExpiredDto {
+  jobId: string;
+  expiredBy?: string;
+  expiredByType?: string;
+  reason?: string;
+}
 
 /**
  * Unit Tests for JobPositionService
@@ -161,7 +171,7 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
         jobTitle: "Software Engineer", // Changed from 'title' to 'jobTitle' [从'title'改为'jobTitle']
         companyName: "Test Company",
         source: "web",
-        createdBy: testUserId,
+        // createdBy is passed as separate parameter [createdBy作为单独参数传递]
       };
 
       const createdJob = {
@@ -186,7 +196,7 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
       }));
 
       // Act [执行]
-      const result = await jobPositionService.createJobPosition(dto);
+      const result = await jobPositionService.createJobPosition(dto, testUserId);
 
       // Assert [断言]
       expect(result.data).toEqual(createdJob);
@@ -199,7 +209,8 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
         jobTitle: "Software Engineer", // Changed from 'title' to 'jobTitle' [从'title'改为'jobTitle']
         companyName: "Test Company",
         source: "web",
-        createdBy: testUserId,
+        // createdBy is passed as separate parameter
+
         jobDescription: "Test description", // Changed from 'description' to 'jobDescription' [从'description'改为'jobDescription']
         experienceRequirement: { // Changed from 'requirements' to 'experienceRequirement' [从'requirements'改为'experienceRequirement']
           min_years: 3,
@@ -236,7 +247,7 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
       }));
 
       // Act [执行]
-      const result = await jobPositionService.createJobPosition(dto);
+      const result = await jobPositionService.createJobPosition(dto, testUserId);
 
       // Assert [断言]
       expect(result.data).toEqual(createdJob);

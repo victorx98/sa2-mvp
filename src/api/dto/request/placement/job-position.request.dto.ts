@@ -245,7 +245,22 @@ export class CreateJobPositionRequestDto {
   source!: "web" | "bd";
 }
 
+/**
+ * Request DTO for rolling back job application status [用于回滚投递状态的请求DTO]
+ *
+ * This DTO contains all fields required for status rollback operation.
+ * 此DTO包含状态回滚操作所需的所有字段。
+ */
 export class RollbackJobApplicationStatusRequestDto {
+  @ApiProperty({
+    description: "Application ID (UUID) [投递ID(UUID)]",
+    type: String,
+    format: "uuid",
+    example: "123e4567-e89b-12d3-a456-426614174000",
+  })
+  @IsUUID("4", { message: "applicationId must be a valid UUID [applicationId必须是有效的UUID]" })
+  applicationId!: string; // Unique identifier of the job application to rollback [要回滚的投递的唯一标识符]
+
   @ApiPropertyOptional({
     description:
       "Changed by user ID (UUID). If omitted, server uses current user. [变更人用户ID(UUID)，不传则使用当前用户]",
@@ -255,7 +270,7 @@ export class RollbackJobApplicationStatusRequestDto {
   })
   @IsOptional()
   @IsUUID()
-  changedBy?: string;
+  changedBy?: string; // User ID who performed the rollback [执行回滚的用户ID]
 
   @ApiPropertyOptional({
     description:
@@ -266,6 +281,15 @@ export class RollbackJobApplicationStatusRequestDto {
   })
   @IsOptional()
   @IsUUID()
-  mentorId?: string;
+  mentorId?: string; // ID of the mentor assigned to the application [分配给该投递的导师ID]
+
+  @ApiPropertyOptional({
+    description: "Reason for rollback [回滚原因]",
+    type: String,
+    example: "Status update was made in error",
+  })
+  @IsOptional()
+  @IsString()
+  rollbackReason?: string; // Explanation for why the rollback was performed [执行回滚的解释说明]
 }
 

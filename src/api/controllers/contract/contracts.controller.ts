@@ -30,11 +30,11 @@ import { CreateContractCommand } from "@application/commands/contract/create-con
 import { UpdateContractCommand } from "@application/commands/contract/update-contract.command";
 import { ConsumeServiceCommand } from "@application/commands/contract/consume-service.command";
 import { AddAmendmentLedgerCommand } from "@application/commands/contract/add-amendment-ledger.command";
-import type { CreateContractDto } from "@domains/contract/dto/create-contract.dto";
-import type { UpdateContractDto } from "@domains/contract/dto/update-contract.dto";
-import type { UpdateContractStatusDto } from "@domains/contract/dto/update-contract-status.dto";
-import type { ConsumeServiceDto } from "@domains/contract/dto/consume-service.dto";
-import type { AddAmendmentLedgerDto } from "@domains/contract/dto/add-amendment-ledger.dto";
+import type { CreateContractRequestDto as CreateContractDto } from "@api/dto/request/contract/contract.request.dto";
+import type { UpdateContractRequestDto as UpdateContractDto } from "@api/dto/request/contract/contract.request.dto";
+import type { UpdateContractStatusRequestDto as UpdateContractStatusDto } from "@api/dto/request/contract/contract.request.dto";
+import type { ConsumeServiceRequestDto as ConsumeServiceDto } from "@api/dto/request/contract/contract.request.dto";
+import type { AddAmendmentLedgerRequestDto as AddAmendmentLedgerDto } from "@api/dto/request/contract/contract.request.dto";
 import { UpdateContractStatusCommand } from "@application/commands/contract/update-contract-status.command";
 import { StudentContractsQuery } from "@application/queries/contract/student-contracts.query";
 import { ServiceBalanceQuery } from "@application/queries/contract/service-balance.query";

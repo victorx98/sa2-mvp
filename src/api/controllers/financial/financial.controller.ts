@@ -41,15 +41,16 @@ import { ModifyPaymentParamsCommand } from "@application/commands/financial/modi
 import { CreateOrUpdateMentorPaymentInfoCommand } from "@application/commands/financial/create-or-update-mentor-payment-info.command";
 import { UpdateMentorPaymentInfoStatusCommand } from "@application/commands/financial/update-mentor-payment-info-status.command";
 
-import type { CreateAppealDto } from "@domains/financial/dto/appeals/create-appeal.dto";
-import type { ApproveAppealDto } from "@domains/financial/dto/appeals/approve-appeal.dto";
-import type { RejectAppealDto } from "@domains/financial/dto/appeals/reject-appeal.dto";
-import type { CreateMentorPriceDto } from "@domains/financial/dto/create-mentor-price.dto";
-import type { UpdateMentorPriceDto } from "@domains/financial/dto/update-mentor-price.dto";
-import type { UpdateMentorPriceStatusDto } from "@domains/financial/dto/update-mentor-price-status.dto";
+import type { CreateMentorAppealRequestDto as CreateAppealDto } from "@api/dto/request/financial/mentor-appeal.request.dto";
+import type { ApproveMentorAppealRequestDto as ApproveAppealDto } from "@api/dto/request/financial/mentor-appeal.request.dto";
+import type { RejectMentorAppealRequestDto as RejectAppealDto } from "@api/dto/request/financial/mentor-appeal.request.dto";
+import type { CreateMentorPriceRequestDto as CreateMentorPriceDto } from "@api/dto/request/financial/mentor-price.request.dto";
+import type { UpdateMentorPriceRequestDto as UpdateMentorPriceDto } from "@api/dto/request/financial/mentor-price.request.dto";
+import type { UpdateMentorPriceStatusRequestDto as UpdateMentorPriceStatusDto } from "@api/dto/request/financial/mentor-price.request.dto";
 
-import type { ICreateSettlementRequest, IPaymentParamUpdate } from "@domains/financial/dto/settlement";
-import type { ICreateOrUpdateMentorPaymentInfoRequest } from "@domains/financial/dto/settlement";
+import type { AdjustPayableLedgerRequestDto as AdjustPayableLedgerDto } from "@api/dto/request/financial/payable-ledger.request.dto";
+import type { ICreateSettlementRequest, IPaymentParamUpdate } from "@api/dto/request/financial/settlement.request.dto";
+import type { ICreateOrUpdateMentorPaymentInfoRequest } from "@api/dto/request/financial/mentor-payment-info.request.dto";
 
 import {
   ApproveMentorAppealRequestDto,
@@ -87,8 +88,7 @@ import {
   GustoInternationalPaymentDetailsDto,
   GustoPaymentDetailsDto,
 } from "@api/dto/request/financial/payment-details.dto";
-import type { AdjustPayableLedgerDto } from "@domains/financial/dto/adjust-payable-ledger.dto";
-import { SettlementMethod } from "@domains/financial/dto/settlement";
+import { SettlementMethod } from "@api/dto/request/financial/settlement.request.dto";
 import type { MentorPrice } from "@infrastructure/database/schema";
 
 /**
@@ -155,8 +155,12 @@ export class FinancialController {
       currency: price.currency,
       status: price.status,
       updatedBy: price.updatedBy ?? null,
-      createdAt: price.createdAt.toISOString(),
-      updatedAt: price.updatedAt.toISOString(),
+      createdAt: (price.createdAt as any) instanceof Date
+        ? (price.createdAt as Date).toISOString()
+        : String(price.createdAt),
+      updatedAt: (price.updatedAt as any) instanceof Date
+        ? (price.updatedAt as Date).toISOString()
+        : String(price.updatedAt),
     };
   }
 
@@ -167,7 +171,7 @@ export class FinancialController {
     mentorId: string;
     paymentCurrency: string;
     paymentMethod: SettlementMethod;
-    paymentDetails: Record<string, unknown>;
+    paymentDetails: MentorPaymentInfoResponseDto["paymentDetails"];
     status: string;
     createdAt: Date | string;
     updatedAt: Date | string;
@@ -178,10 +182,7 @@ export class FinancialController {
       mentorId: paymentInfo.mentorId,
       paymentCurrency: paymentInfo.paymentCurrency,
       paymentMethod: paymentInfo.paymentMethod,
-      paymentDetails: this.mapPaymentDetailsByMethod(
-        paymentInfo.paymentMethod,
-        paymentInfo.paymentDetails,
-      ),
+      paymentDetails: paymentInfo.paymentDetails,
       status: paymentInfo.status,
       createdAt:
         paymentInfo.createdAt instanceof Date
@@ -191,7 +192,7 @@ export class FinancialController {
         paymentInfo.updatedAt instanceof Date
           ? paymentInfo.updatedAt.toISOString()
           : paymentInfo.updatedAt,
-      updatedBy: paymentInfo.updatedBy,
+      updatedBy: paymentInfo.updatedBy ?? null,
     };
   }
 
@@ -248,9 +249,15 @@ export class FinancialController {
     });
     return {
       ...appeal,
-      approvedAt: appeal.approvedAt?.toISOString(),
-      rejectedAt: appeal.rejectedAt?.toISOString(),
-      createdAt: appeal.createdAt.toISOString(),
+      approvedAt: (appeal.approvedAt as any) instanceof Date
+        ? (appeal.approvedAt as Date).toISOString()
+        : appeal.approvedAt ? String(appeal.approvedAt) : undefined,
+      rejectedAt: (appeal.rejectedAt as any) instanceof Date
+        ? (appeal.rejectedAt as Date).toISOString()
+        : appeal.rejectedAt ? String(appeal.rejectedAt) : undefined,
+      createdAt: (appeal.createdAt as any) instanceof Date
+        ? (appeal.createdAt as Date).toISOString()
+        : String(appeal.createdAt),
     };
   }
 
@@ -289,9 +296,15 @@ export class FinancialController {
     });
     return {
       ...appeal,
-      approvedAt: appeal.approvedAt?.toISOString(),
-      rejectedAt: appeal.rejectedAt?.toISOString(),
-      createdAt: appeal.createdAt.toISOString(),
+      approvedAt: (appeal.approvedAt as any) instanceof Date
+        ? (appeal.approvedAt as Date).toISOString()
+        : appeal.approvedAt ? String(appeal.approvedAt) : undefined,
+      rejectedAt: (appeal.rejectedAt as any) instanceof Date
+        ? (appeal.rejectedAt as Date).toISOString()
+        : appeal.rejectedAt ? String(appeal.rejectedAt) : undefined,
+      createdAt: (appeal.createdAt as any) instanceof Date
+        ? (appeal.createdAt as Date).toISOString()
+        : String(appeal.createdAt),
     };
   }
 
@@ -327,9 +340,15 @@ export class FinancialController {
     });
     return {
       ...appeal,
-      approvedAt: appeal.approvedAt?.toISOString(),
-      rejectedAt: appeal.rejectedAt?.toISOString(),
-      createdAt: appeal.createdAt.toISOString(),
+      approvedAt: (appeal.approvedAt as any) instanceof Date
+        ? (appeal.approvedAt as Date).toISOString()
+        : appeal.approvedAt ? String(appeal.approvedAt) : undefined,
+      rejectedAt: (appeal.rejectedAt as any) instanceof Date
+        ? (appeal.rejectedAt as Date).toISOString()
+        : appeal.rejectedAt ? String(appeal.rejectedAt) : undefined,
+      createdAt: (appeal.createdAt as any) instanceof Date
+        ? (appeal.createdAt as Date).toISOString()
+        : String(appeal.createdAt),
     };
   }
 
@@ -364,7 +383,9 @@ export class FinancialController {
       targetAmount: String(settlement.targetAmount),
       exchangeRate: String(settlement.exchangeRate),
       deductionRate: String(settlement.deductionRate),
-      createdAt: settlement.createdAt.toISOString(),
+      createdAt: (settlement.createdAt as any) instanceof Date
+        ? new Date(settlement.createdAt).toISOString()
+        : String(settlement.createdAt),
     };
   }
 
@@ -535,14 +556,15 @@ export class FinancialController {
     @Param("id") id: string,
     @Body() body: AdjustPayableLedgerRequestDto,
   ): Promise<void> {
-    const dto: AdjustPayableLedgerDto = {
-      ledgerId: id,
-      adjustmentAmount: body.adjustmentAmount,
-      reason: body.reason,
-      createdBy: String((user as unknown as { id: string }).id),
-      metadata: body.metadata,
+    // Assemble complete DTO with ledgerId from URL parameter [组装完整的DTO，包含来自URL参数的ledgerId]
+    // createdBy is extracted from JWT token, not from request body [createdBy从JWT token提取，不是从请求体]
+    const dto: AdjustPayableLedgerRequestDto = {
+      ...body, // Keep all fields from request body [保留请求体中的所有字段]
+      ledgerId: id, // Override with URL parameter [用URL参数覆盖]
     };
-    return this.adjustPayableLedgerCommand.execute(dto);
+    const createdBy = String((user as unknown as { id: string }).id);
+
+    return this.adjustPayableLedgerCommand.execute(dto, createdBy);
   }
 
   // ----------------------
@@ -647,7 +669,6 @@ export class FinancialController {
     return this.mapMentorPaymentInfoToDto({
       ...paymentInfo,
       paymentMethod: paymentInfo.paymentMethod as SettlementMethod,
-      paymentDetails: paymentInfo.paymentDetails as Record<string, unknown>,
     });
   }
 
@@ -682,7 +703,6 @@ export class FinancialController {
     return this.mapMentorPaymentInfoToDto({
       ...paymentInfo,
       paymentMethod: paymentInfo.paymentMethod as SettlementMethod,
-      paymentDetails: paymentInfo.paymentDetails as Record<string, unknown>,
     });
   }
 }

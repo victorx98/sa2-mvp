@@ -180,3 +180,8 @@ export class BulkUpdateMentorPriceRequestDto {
   updates!: BulkUpdateMentorPriceItemRequestDto[];
 }
 
+
+// Type aliases for backward compatibility
+export type CreateMentorPriceDto = CreateMentorPriceRequestDto;
+export type UpdateMentorPriceDto = UpdateMentorPriceRequestDto;
+export type UpdateMentorPriceStatusDto = UpdateMentorPriceStatusRequestDto;

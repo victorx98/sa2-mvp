@@ -2,7 +2,7 @@ import {
   ICreateJobPositionDto,
   IMarkJobExpiredDto,
   IJobPositionSearchFilter,
-} from "../dto";
+} from "@api/dto/request/placement/placement.index";
 import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
 import { JobStatus } from "@domains/placement/types";
 

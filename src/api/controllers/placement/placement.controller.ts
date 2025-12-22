@@ -24,7 +24,7 @@ import { CreateJobPositionCommand } from "@application/commands/placement/create
 import { UpdateJobPositionCommand } from "@application/commands/placement/update-job-position.command";
 import { UpdateJobApplicationStatusCommand } from "@application/commands/placement/update-job-application-status.command";
 import { RollbackJobApplicationStatusCommand } from "@application/commands/placement/rollback-job-application-status.command";
-import type { ICreateJobPositionDto, IRollbackApplicationStatusDto, IUpdateApplicationStatusDto } from "@domains/placement/dto";
+import type { ICreateJobPositionDto, IRollbackApplicationStatusDto, IUpdateApplicationStatusDto } from "@api/dto/request/placement/placement.index";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import type { IJwtUser } from "@shared/types/jwt-user.interface";
 import { PlacementJobApplicationUpdateStatusRequestDto } from "@api/dto/request/placement-job-application-update-status.request.dto";
@@ -76,14 +76,12 @@ export class PlacementController {
     @CurrentUser() user: IJwtUser,
   ): Promise<JobPositionResponseDto> {
     // Use command pattern to create job position [使用命令模式创建职位]
-    const createJobPositionDto: ICreateJobPositionDto =
-      body as unknown as ICreateJobPositionDto;
-    const result = await this.createJobPositionCommand.execute({
-      createJobPositionDto: {
-        ...createJobPositionDto,
-        createdBy: String((user as unknown as { id: string }).id),
-      },
-    });
+    // createdBy is extracted from JWT token, not from request body [createdBy从JWT token提取，不是从请求体]
+    const createdBy = String((user as unknown as { id: string }).id);
+    const result = await this.createJobPositionCommand.execute(
+      body as unknown as ICreateJobPositionDto,
+      createdBy, // Auditing information passed separately [审计信息单独传递]
+    );
     // IServiceResult structure: { data: T, event?: {...}, events?: [...] } [IServiceResult结构]
     const jobData = result.data as unknown as {
       id: string;
@@ -124,8 +122,7 @@ export class PlacementController {
     // Use command pattern to mark job position as expired [使用命令模式标记职位过期]
     const result = await this.updateJobPositionCommand.execute({
       jobId: id,
-      expiredBy: String((user as unknown as { id: string }).id),
-      expiredByType: "bd" as const, // Admin users are treated as BD (business development) for job expiration tracking [管理员用户在职位过期跟踪中被视为BD]
+      // expiredBy and expiredByType are not part of IMarkJobExpiredDto
     });
     // IServiceResult structure: { data: T, event?: {...}, events?: [...] } [IServiceResult结构]
     const jobData = result.data as unknown as {
@@ -191,15 +188,16 @@ export class PlacementController {
       );
     }
 
-    const mappedDto: IUpdateApplicationStatusDto = {
-      applicationId,
-      newStatus: body.status,
-      changedBy: String((user as unknown as { id: string }).id),
+    // Assemble complete DTO with applicationId from URL parameter [组装完整的DTO，包含来自URL参数的applicationId]
+    const updateStatusDto: PlacementJobApplicationUpdateStatusRequestDto = {
+      ...body, // Keep all fields from request body [保留请求体中的所有字段]
+      applicationId, // Override with URL parameter [用URL参数覆盖]
     };
 
-    const serviceResult = await this.updateJobApplicationStatusCommand.execute({
-      updateStatusDto: mappedDto,
-    });
+    const serviceResult = await this.updateJobApplicationStatusCommand.execute(
+      updateStatusDto,
+      String((user as unknown as { id: string }).id), // Auditing information passed separately [审计信息单独传递]
+    );
     return {
       ...serviceResult,
       data: serviceResult.data as unknown as JobApplicationResponseDto,
@@ -228,20 +226,20 @@ export class PlacementController {
   @ApiResponse({ status: 404, description: "Job application not found" })
   @ApiResponse({ status: 400, description: "Bad request - insufficient history or invalid transition" })
   async rollbackJobApplicationStatus(
-    @Param("id") id: string,
-    @Body() rollbackDto: RollbackJobApplicationStatusRequestDto,
+    @Param("id") applicationId: string,
+    @Body() body: RollbackJobApplicationStatusRequestDto,
     @CurrentUser() user: IJwtUser,
   ): Promise<JobApplicationResponseDto> {
-    const dto: Omit<IRollbackApplicationStatusDto, "applicationId"> =
-      rollbackDto as unknown as Omit<IRollbackApplicationStatusDto, "applicationId">;
-    const result = await this.rollbackJobApplicationStatusCommand.execute({
-      rollbackDto: {
-        ...dto,
-        applicationId: id,
-        changedBy:
-          dto.changedBy || String((user as unknown as { id: string }).id),
-      },
-    });
+    // Assemble complete DTO with applicationId from URL parameter [组装完整的DTO，包含来自URL参数的applicationId]
+    const rollbackDto: RollbackJobApplicationStatusRequestDto = {
+      ...body, // Keep all fields from request body [保留请求体中的所有字段]
+      applicationId, // Override with URL parameter [用URL参数覆盖]
+    };
+
+    const result = await this.rollbackJobApplicationStatusCommand.execute(
+      rollbackDto,
+      String((user as unknown as { id: string }).id), // Auditing information passed separately [审计信息单独传递]
+    );
     return result as unknown as JobApplicationResponseDto;
   }
 }
