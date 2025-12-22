@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, Min } from "class-validator";
+import { SettlementMethod, SettlementStatus } from "@shared/types/financial-enums";
+import { MentorPaymentInfoResponseDto } from "@api/dto/response/financial/settlement.response.dto";
+
+// Re-export enums for backward compatibility
+export { SettlementMethod, SettlementStatus };
+
 
 export class CreateSettlementRequestDto {
   @ApiProperty({
@@ -125,3 +131,8 @@ export class UpdateMentorPaymentInfoStatusRequestDto {
   operatorNote?: string;
 }
 
+
+// Type aliases for backward compatibility
+export type ICreateSettlementRequest = CreateSettlementRequestDto;
+export type IPaymentParamUpdate = PaymentParamUpdateRequestDto;
+export type ModifyPaymentParamsDto = ModifyPaymentParamsRequestDto;

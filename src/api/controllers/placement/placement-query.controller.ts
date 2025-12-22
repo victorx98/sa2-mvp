@@ -9,7 +9,6 @@ import {
   UsePipes,
   ValidationPipe,
   Logger,
-  Inject,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -19,7 +18,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { PlacementQueryService } from '@domains/query/placement/placement-query.service';
+import { QueryJobsQuery } from '@application/queries/placement/query-jobs.query';
 import { JobQueryDto } from '@api/dto/request/placement-query.request.dto';
 import { IJobQueryFilter } from '@domains/query/placement/dto/placement-query.dto';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
@@ -32,8 +31,7 @@ export class PlacementQueryController {
   private readonly logger = new Logger(PlacementQueryController.name);
 
   constructor(
-    @Inject(PlacementQueryService)
-    private readonly placementQueryService: PlacementQueryService,
+    private readonly queryJobsQuery: QueryJobsQuery,
   ) {}
 
   /**
@@ -81,7 +79,11 @@ export class PlacementQueryController {
       };
 
       // Execute query [执行查询]
-      const results = await this.placementQueryService.queryJobs(filter, pagination, sort);
+      const results = await this.queryJobsQuery.execute({
+        filter,
+        pagination,
+        sort,
+      });
 
       this.logger.log(`Job query completed successfully, returned ${results.items.length} items out of ${results.total}`);
 

@@ -68,3 +68,26 @@ export enum ClassMentorPriceStatus {
   INACTIVE = "inactive", // 未激活
   ACTIVE = "active", // 激活
 }
+
+/**
+ * 支付方式枚举
+ * 定义导师支付的不同方式
+ */
+export enum SettlementMethod {
+  DOMESTIC_TRANSFER = "DOMESTIC_TRANSFER", // 国内转账
+  CHANNEL_BATCH_PAY = "CHANNEL_BATCH_PAY", // 渠道批量支付
+  GUSTO = "GUSTO", // Gusto支付
+  GUSTO_INTERNATIONAL = "GUSTO_INTERNATIONAL", // Gusto国际支付
+  CHECK = "CHECK", // 支票支付
+}
+
+/**
+ * 结算状态枚举
+ * 定义结算单的不同状态
+ */
+export enum SettlementStatus {
+  PENDING = "PENDING", // 待确认
+  CONFIRMED = "CONFIRMED", // 已确认
+  PAID = "PAID", // 已支付
+  CANCELLED = "CANCELLED", // 已取消
+}

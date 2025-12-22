@@ -3,14 +3,23 @@ import { EventEmitter2, EventEmitterModule } from "@nestjs/event-emitter";
 import { ConfigModule } from "@nestjs/config";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { ContractService } from "./contract.service";
-import { CreateContractDto } from "../dto/create-contract.dto";
-import { FindOneContractDto } from "../dto/find-one-contract.dto";
+import { CreateContractRequestDto, ConsumeServiceRequestDto, AddAmendmentLedgerRequestDto } from "@api/dto/request/contract/contract.request.dto";
+import type { CreateContractDto, ConsumeServiceDto, AddAmendmentLedgerDto } from "@api/dto/request/contract/contract.request.dto";
+
+/**
+ * Find One Contract Filter DTO [查找合同筛选条件]
+ */
+interface FindOneContractDto {
+  contractId?: string;
+  contractNumber?: string;
+  studentId?: string;
+  status?: string;
+  productId?: string;
+}
 import {
   ContractException,
   ContractNotFoundException,
 } from "../common/exceptions/contract.exception";
-import { ConsumeServiceDto } from "../dto/consume-service.dto";
-import { AddAmendmentLedgerDto } from "../dto/add-amendment-ledger.dto";
 import { Currency } from "@shared/types/catalog-enums";
 import {
   ContractStatus,
@@ -183,7 +192,10 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         snapshotAt: new Date(),
       };
       const createDto: CreateContractDto & { createdBy: string } = {
-        productSnapshot,
+        productSnapshot: {
+          ...productSnapshot,
+          snapshotAt: productSnapshot.snapshotAt.toISOString(),
+        },
         studentId: testStudentId,
         productId: testProductId,
         createdBy: testCreatedBy,
@@ -330,8 +342,8 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
               sortOrder: 1,
             },
           ],
-          snapshotAt: new Date(),
-        } as IProductSnapshot,
+          snapshotAt: new Date().toISOString(),
+        },
         studentId: testStudentId,
         productId: testProductId,
         createdBy: testCreatedBy,
@@ -1123,7 +1135,7 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       const addAmendmentDto: AddAmendmentLedgerDto = {
         studentId: testStudentId,
         contractId: testContractId,
-        serviceType: mockServiceType,
+        serviceType: mockServiceType.code,
         ledgerType: AmendmentLedgerType.ADDON,
         quantityChanged: 5,
         reason: "Additional consultation sessions",
@@ -1194,7 +1206,7 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       const addAmendmentDto: AddAmendmentLedgerDto = {
         studentId: testStudentId,
         contractId: testContractId,
-        serviceType: mockServiceType,
+        serviceType: mockServiceType.code,
         ledgerType: AmendmentLedgerType.ADDON,
         quantityChanged: 5,
         reason: "Additional consultation sessions",
@@ -1283,7 +1295,7 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
       const addAmendmentDto: AddAmendmentLedgerDto = {
         studentId: testStudentId,
         contractId: testContractId,
-        serviceType: mockServiceType,
+        serviceType: mockServiceType.code,
         ledgerType: AmendmentLedgerType.ADDON,
         quantityChanged: 5,
         reason: "Additional consultation sessions",
@@ -1423,7 +1435,10 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
         snapshotAt: new Date(),
       };
       const createDto: CreateContractDto & { createdBy: string } = {
-        productSnapshot,
+        productSnapshot: {
+          ...productSnapshot,
+          snapshotAt: productSnapshot.snapshotAt.toISOString(),
+        },
         studentId: testStudentId,
         productId: testProductId,
         createdBy: testCreatedBy,

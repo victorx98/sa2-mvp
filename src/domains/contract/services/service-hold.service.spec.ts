@@ -6,10 +6,30 @@ import {
   ContractException,
   ContractNotFoundException,
 } from "../common/exceptions/contract.exception";
-import { CreateHoldDto } from "../dto/create-hold.dto";
-import { UpdateHoldDto } from "../dto/update-hold.dto";
 import { HoldStatus } from "@shared/types/contract-enums";
 import { randomUUID } from "crypto";
+
+/**
+ * Create Hold DTO [创建预占DTO]
+ */
+interface CreateHoldDto {
+  studentId: string;
+  serviceType: string;
+  quantity: number;
+  expiryAt?: Date;
+  createdBy: string;
+}
+
+/**
+ * Update Hold DTO [更新预占DTO]
+ */
+interface UpdateHoldDto {
+  holdId: string;
+  quantity?: number;
+  expiryAt?: Date;
+  reason?: string;
+  updatedBy: string;
+}
 
 /**
  * Unit Tests for ServiceHoldService

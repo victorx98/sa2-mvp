@@ -617,3 +617,10 @@ export class ServiceTypeConsumptionQueryDto {
   sortOrder?: "asc" | "desc";
 }
 
+
+// Type aliases for backward compatibility
+export type CreateContractDto = CreateContractRequestDto;
+export type UpdateContractDto = UpdateContractRequestDto;
+export type UpdateContractStatusDto = UpdateContractStatusRequestDto;
+export type ConsumeServiceDto = ConsumeServiceRequestDto;
+export type AddAmendmentLedgerDto = AddAmendmentLedgerRequestDto;

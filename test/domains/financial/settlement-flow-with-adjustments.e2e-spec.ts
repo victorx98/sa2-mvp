@@ -7,7 +7,7 @@ import { DatabaseModule } from "@infrastructure/database/database.module";
 import { SettlementService } from "@domains/financial/services/settlement.service";
 import { MentorPaymentInfoService } from "@domains/financial/services/mentor-payment-info.service";
 import { FinancialModule } from "@domains/financial/financial.module";
-import { SettlementMethod } from "@domains/financial/dto/settlement/settlement.enums";
+import { SettlementMethod } from "@shared/types/financial-enums";
 import { v4 as uuidv4 } from "uuid";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "@infrastructure/database/schema";

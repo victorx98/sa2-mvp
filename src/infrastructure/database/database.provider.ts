@@ -52,7 +52,7 @@ export const databaseProviders = [
       const resolvedUrl = new URL(connectionString);
       resolvedUrl.hostname = resolvedHost;
 
-      // Configure connection pool
+      // Configure connection pool with enhanced reliability settings
       const poolConfig: PoolConfig = {
         connectionString: resolvedUrl.toString(),
         ssl: {
@@ -61,26 +61,36 @@ export const databaseProviders = [
         // Connection pool settings
         max: isTest ? 5 : 20, // Maximum number of clients in the pool
         min: isTest ? 1 : 2, // Minimum number of clients in the pool
-        idleTimeoutMillis: isTest ? 30000 : 300000, // Close idle clients after 5 minutes (non-test) or 30s (test)
-        connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
+        // Reduce idle timeout to prevent using stale connections that may be closed by Supabase
+        idleTimeoutMillis: isTest ? 30000 : 60000, // Close idle clients after 1 minute (non-test) or 30s (test)
+        connectionTimeoutMillis: 30000, // Return an error after 30 seconds if connection could not be established
         // Keep connections alive by validating them before use
         // This prevents using stale connections that were closed by the server
         allowExitOnIdle: false, // Don't exit when pool is idle
+        // Query timeout to prevent hanging queries
+        query_timeout: 30000, // 30 seconds query timeout
       };
 
       const pool = new Pool(poolConfig);
 
       // Handle pool errors gracefully to prevent unhandled error events
-      pool.on("error", (err, _client) => {
+      pool.on("error", (err) => {
         logger.error(
           `Unexpected error on idle database client: ${err.message}`,
           err.stack,
         );
-        // The pool will automatically remove the failed client and create a new one
+        // The pool will automatically remove the failed client
+        // Do NOT manually release here as the client is already removed from the pool
       });
 
-      // Handle connection errors
+      // Handle connection errors and validate connections
       pool.on("connect", (client) => {
+        // Validate connection immediately after connect
+        client.query('SELECT 1').catch((err) => {
+          logger.error(`Connection validation failed: ${err.message}`);
+          client.release(err);
+        });
+
         client.on("error", (err) => {
           logger.error(`Database client error: ${err.message}`, err.stack);
         });

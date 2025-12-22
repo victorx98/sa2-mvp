@@ -8,7 +8,7 @@ import {
   ISubmitApplicationDto,
   IUpdateApplicationStatusDto,
   ICreateManualJobApplicationDto,
-} from "../dto";
+} from "@api/dto/request/placement/placement.index";
 import { ApplicationType } from "../types/application-type.enum";
 import { randomUUID } from "crypto";
 import { EventEmitter2 } from "@nestjs/event-emitter";
@@ -16,7 +16,7 @@ import {
   JOB_APPLICATION_STATUS_CHANGED_EVENT,
   JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
   PLACEMENT_APPLICATION_SUBMITTED_EVENT,
-} from "../events";
+} from "@shared/events/event-constants";
 
 /**
  * Unit Tests for JobApplicationService
@@ -124,7 +124,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         studentId: testStudentId,
         jobId: testJobId,
         applicationType: ApplicationType.DIRECT,
-        coverLetter: "Test cover letter",
+
       };
 
       const createdApplication = {
@@ -132,7 +132,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         studentId: dto.studentId,
         jobId: dto.jobId,
         applicationType: dto.applicationType,
-        coverLetter: dto.coverLetter,
+        
         status: "submitted",
         submittedAt: new Date(),
         createdAt: new Date(),
@@ -206,7 +206,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         studentId: testStudentId,
         jobId: testJobId,
         applicationType: ApplicationType.DIRECT,
-        coverLetter: "Test cover letter",
+
       };
 
       // Mock duplicate application found - first call returns job (existence check), second call returns duplicate
@@ -240,7 +240,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         studentId: testStudentId,
         jobId: testJobId,
         applicationType: ApplicationType.DIRECT,
-        coverLetter: "Test cover letter",
+
       };
 
       // Mock no job found
@@ -265,7 +265,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         studentId: testStudentId,
         jobId: testJobId,
         applicationType: ApplicationType.DIRECT,
-        coverLetter: "Test cover letter",
+
       };
 
       // Mock job found but not active
@@ -418,10 +418,9 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Arrange [准备]
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        newStatus: "interviewed",
-        changedBy: testMentorId,
+        status: "interviewed",
         changeReason: "Moving to interview",
-        changeMetadata: { note: "Initial interview" },
+        changeMetadata: {}
       };
 
       const mockApplication = {
@@ -433,7 +432,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
       const updatedApplication = {
         ...mockApplication,
-        status: dto.newStatus,
+        status: dto.status,
       };
 
       mockDb.select = jest.fn(() => ({
@@ -472,8 +471,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Arrange [准备]
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        newStatus: "interviewed",
-        changedBy: testMentorId,
+        status: "interviewed",
         changeReason: "Moving to interview",
         // mentorId is not provided
       };
@@ -488,7 +486,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
       const updatedApplication = {
         ...mockApplication,
-        status: dto.newStatus,
+        status: dto.status,
         assignedMentorId: testMentorId, // Should remain unchanged
       };
 
@@ -530,8 +528,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const newMentorId = randomUUID();
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        newStatus: "mentor_assigned",
-        changedBy: testMentorId,
+        status: "mentor_assigned",
         changeReason: "Assigning new mentor",
         mentorId: newMentorId, // Explicitly provided
       };
@@ -547,7 +544,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
       const updatedApplication = {
         ...mockApplication,
-        status: dto.newStatus,
+        status: dto.status,
         assignedMentorId: newMentorId, // Should be updated
       };
 
@@ -594,8 +591,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Arrange [准备]
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        newStatus: "submitted",
-        changedBy: testMentorId,
+        status: "submitted",
         // mentorId is omitted; API may be status-only [未传mentorId；API可能仅做状态更新]
         // changeMetadata.screeningResult is omitted by design [按需求不传评估结果]
       };
@@ -611,7 +607,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
       const updatedApplication = {
         ...mockApplication,
-        status: dto.newStatus,
+        status: dto.status,
         updatedAt: new Date(),
       };
 
@@ -664,8 +660,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
     it("should allow recommended -> revoked [允许recommended->revoked]", async () => {
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        newStatus: "revoked",
-        changedBy: testMentorId,
+        status: "revoked",
       };
 
       const mockApplication = {
@@ -677,7 +672,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
       const updatedApplication = {
         ...mockApplication,
-        status: dto.newStatus,
+        status: dto.status,
       };
 
       mockDb.select = jest.fn(() => ({
@@ -708,8 +703,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
     it("should allow interested -> revoked [允许interested->revoked]", async () => {
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        newStatus: "revoked",
-        changedBy: testMentorId,
+        status: "revoked",
       };
 
       const mockApplication = {
@@ -721,7 +715,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
       const updatedApplication = {
         ...mockApplication,
-        status: dto.newStatus,
+        status: dto.status,
       };
 
       mockDb.select = jest.fn(() => ({
@@ -754,8 +748,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const newMentorId = randomUUID();
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        newStatus: "mentor_assigned",
-        changedBy: testMentorId,
+        status: "mentor_assigned",
         changeReason: "Assigning mentor",
         mentorId: newMentorId,
       };
@@ -784,10 +777,9 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Arrange [准备]
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        newStatus: "got_offer",
-        changedBy: testMentorId,
+        status: "got_offer",
         changeReason: "Candidate got offer",
-        changeMetadata: { note: "Offer received" },
+        changeMetadata: {}
       };
 
       const mockApplication = {
@@ -799,7 +791,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
       const updatedApplication = {
         ...mockApplication,
-        status: dto.newStatus,
+        status: dto.status,
       };
 
       mockDb.select = jest.fn(() => ({
@@ -838,10 +830,9 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Arrange [准备]
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        newStatus: "interviewed",
-        changedBy: testMentorId,
+        status: "interviewed",
         changeReason: "Moving to interviewed",
-        changeMetadata: { note: "Initial interviewed" },
+        changeMetadata: {}
       };
 
       // Mock no application found
@@ -863,10 +854,9 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Arrange [准备]
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
-        newStatus: "got_offer",
-        changedBy: testMentorId,
+        status: "got_offer",
         changeReason: "Invalid transition",
-        changeMetadata: { note: "Test invalid transition" },
+        changeMetadata: { context: { note: "Test invalid transition" } },
       };
 
       const mockApplication = {
@@ -1523,7 +1513,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         jobCategories: ["ADMIN"],
         normalJobTitle: "Software Engineer",
         level: "Entry Level",
-        createdBy: testMentorId,
+
       };
 
       const createdApplication = {
@@ -1533,7 +1523,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         applicationType: ApplicationType.REFERRAL,
         status: "mentor_assigned",
         assignedMentorId: dto.mentorId,
-        recommendedBy: dto.createdBy,
+        recommendedBy: "test-user", // Mock value for recommendedBy
         recommendedAt: new Date(),
         submittedAt: dto.resumeSubmittedDate,
         updatedAt: new Date(),
@@ -1577,7 +1567,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
           applicationId: createdApplication.id,
           previousStatus: null,
           newStatus: "mentor_assigned",
-          changedBy: dto.createdBy,
+          changedBy: "test-user", // Mock value for changedBy
           assignedMentorId: dto.mentorId,
         }),
       );
@@ -1595,7 +1585,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         jobLink: "https://example.com/job/123",
         jobId: testJobId, // Use UUID format so duplicate check will execute [使用UUID格式以便重复检查会执行]
         companyName: "Example Company",
-        createdBy: testMentorId,
+
       };
 
       // Mock duplicate application found
@@ -1625,7 +1615,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         jobLink: "https://example.com/job/123",
         jobId: "EXT-123", // Non-UUID format should skip duplicate check [非UUID格式应跳过重复检查]
         companyName: "Example Company",
-        createdBy: testMentorId,
       };
 
       const createdApplication = {
@@ -1635,7 +1624,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         applicationType: ApplicationType.REFERRAL,
         status: "mentor_assigned",
         assignedMentorId: dto.mentorId,
-        recommendedBy: dto.createdBy,
+        recommendedBy: "test-user", // Mock value for recommendedBy
         recommendedAt: new Date(),
         submittedAt: dto.resumeSubmittedDate,
         updatedAt: new Date(),

@@ -7,15 +7,22 @@ import {
   ContractException,
   ContractNotFoundException,
 } from "../common/exceptions/contract.exception";
-import { CreateContractDto } from "../dto/create-contract.dto";
-import { UpdateContractDto } from "../dto/update-contract.dto";
-import { FindOneContractDto } from "../dto/find-one-contract.dto";
-import { ConsumeServiceDto } from "../dto/consume-service.dto";
-import { AddAmendmentLedgerDto } from "../dto/add-amendment-ledger.dto";
+import { CreateContractRequestDto, UpdateContractRequestDto, ConsumeServiceRequestDto, AddAmendmentLedgerRequestDto } from "@api/dto/request/contract/contract.request.dto";
 import {
   validateProductSnapshot,
   validateProductSnapshotMatch,
 } from "../common/utils/validation.utils";
+
+/**
+ * Find One Contract Filter DTO [查找合同筛选条件]
+ */
+interface FindOneContractDto {
+  contractId?: string;
+  contractNumber?: string;
+  studentId?: string;
+  status?: string;
+  productId?: string;
+}
 import type { Contract } from "@infrastructure/database/schema";
 import type {
   IProductSnapshot,
@@ -192,7 +199,7 @@ export class ContractService {
    * - Derive service entitlements from product snapshot (从产品快照派生服务权益)
    */
   async create(
-    dto: CreateContractDto & { createdBy: string },
+    dto: CreateContractRequestDto & { createdBy: string },
   ): Promise<Contract> {
     const { productSnapshot, studentId, createdBy, title, productId } = dto;
 
@@ -378,7 +385,7 @@ export class ContractService {
    * @param createdBy ID of creator (from user context) (创建人ID（来自用户上下文）)
    */
   async consumeService(
-    dto: ConsumeServiceDto,
+    dto: ConsumeServiceRequestDto,
     createdBy: string,
   ): Promise<void> {
     const {
@@ -645,7 +652,7 @@ export class ContractService {
    * @param dto Update data (更新数据)
    * @returns Updated contract (更新后的合同)
    */
-  async update(id: string, dto: UpdateContractDto): Promise<Contract> {
+  async update(id: string, dto: UpdateContractRequestDto): Promise<Contract> {
     if (!dto) {
       throw new ContractException("INVALID_DTO", "Update data is required");
     }
@@ -766,7 +773,7 @@ export class ContractService {
    * @returns Updated entitlement (更新后的权益)
    */
   async addAmendmentLedger(
-    dto: AddAmendmentLedgerDto,
+    dto: AddAmendmentLedgerRequestDto,
   ): Promise<ContractServiceEntitlement> {
     const {
       studentId,
@@ -796,7 +803,7 @@ export class ContractService {
 
     return await this.db.transaction(async (tx) => {
       const serviceTypeCode =
-        typeof serviceType === "string" ? serviceType : serviceType.code;
+        typeof serviceType === "string" ? serviceType : (serviceType as any).code;
       await tx
         .insert(schema.contractAmendmentLedgers)
         .values({

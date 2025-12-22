@@ -9,12 +9,12 @@ import { eq, and } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import type { DrizzleDatabase } from "@shared/types/database.types";
-import type { IMentorPaymentInfoService } from "../interfaces/mentor-payment-info.interface";
-import type {
-  ICreateOrUpdateMentorPaymentInfoRequest,
-  IMentorPaymentInfoResponse,
-} from "../dto/settlement/mentor-payment-info.dtos";
-import { SettlementMethod } from "../dto/settlement/settlement.enums";
+import { SettlementMethod } from "@shared/types/financial-enums";
+import type { 
+  CreateOrUpdateMentorPaymentInfoRequestDto,
+  ICreateOrUpdateMentorPaymentInfoRequest
+} from "@api/dto/request/financial/mentor-payment-info.request.dto";
+import type { IMentorPaymentInfoResponse } from "@api/dto/response/financial/settlement.response.dto";
 
 /**
  * Mentor Payment Info Service Implementation (导师支付信息服务实现)
@@ -27,7 +27,7 @@ import { SettlementMethod } from "../dto/settlement/settlement.enums";
  * 支持多种支付方式，使用灵活的JSON存储。
  */
 @Injectable()
-export class MentorPaymentInfoService implements IMentorPaymentInfoService {
+export class MentorPaymentInfoService {
   private readonly logger = new Logger(MentorPaymentInfoService.name);
 
   constructor(
@@ -103,10 +103,10 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
           mentorId: updated.mentorId,
           paymentCurrency: updated.paymentCurrency,
           paymentMethod: updated.paymentMethod as SettlementMethod,
-          paymentDetails: updated.paymentDetails as Record<string, unknown>,
+          paymentDetails: updated.paymentDetails as unknown as IMentorPaymentInfoResponse['paymentDetails'],
           status: updated.status,
-          createdAt: updated.createdAt,
-          updatedAt: updated.updatedAt,
+          createdAt: updated.createdAt.toISOString(),
+          updatedAt: updated.updatedAt.toISOString(),
         };
       } else {
         // Create new record (创建新记录)
@@ -134,10 +134,10 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
           mentorId: created.mentorId,
           paymentCurrency: created.paymentCurrency,
           paymentMethod: created.paymentMethod as SettlementMethod,
-          paymentDetails: created.paymentDetails as Record<string, unknown>,
+          paymentDetails: created.paymentDetails as unknown as IMentorPaymentInfoResponse['paymentDetails'],
           status: created.status,
-          createdAt: created.createdAt,
-          updatedAt: created.updatedAt,
+          createdAt: created.createdAt.toISOString(),
+          updatedAt: created.updatedAt.toISOString(),
         };
       }
     } catch (error) {
@@ -186,10 +186,10 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
         mentorId: paymentInfo.mentorId,
         paymentCurrency: paymentInfo.paymentCurrency,
         paymentMethod: paymentInfo.paymentMethod as SettlementMethod,
-        paymentDetails: paymentInfo.paymentDetails as Record<string, unknown>,
+        paymentDetails: paymentInfo.paymentDetails as unknown as IMentorPaymentInfoResponse['paymentDetails'],
         status: paymentInfo.status,
-        createdAt: paymentInfo.createdAt,
-        updatedAt: paymentInfo.updatedAt,
+        createdAt: paymentInfo.createdAt.toISOString(),
+        updatedAt: paymentInfo.updatedAt.toISOString(),
       };
     } catch (error) {
       this.logger.error(
@@ -251,10 +251,10 @@ export class MentorPaymentInfoService implements IMentorPaymentInfoService {
         mentorId: updated.mentorId,
         paymentCurrency: updated.paymentCurrency,
         paymentMethod: updated.paymentMethod as SettlementMethod,
-        paymentDetails: updated.paymentDetails as Record<string, unknown>,
+        paymentDetails: updated.paymentDetails as unknown as IMentorPaymentInfoResponse['paymentDetails'],
         status: updated.status,
-        createdAt: updated.createdAt,
-        updatedAt: updated.updatedAt,
+        createdAt: updated.createdAt.toISOString(),
+        updatedAt: updated.updatedAt.toISOString(),
       };
     } catch (error) {
       this.logger.error(

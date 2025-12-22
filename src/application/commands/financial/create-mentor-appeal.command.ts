@@ -1,8 +1,10 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, BadRequestException } from "@nestjs/common";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import type { DrizzleDatabase } from "@shared/types/database.types";
 import { CommandBase } from "@application/core/command.base";
-import { MentorAppealService } from "@domains/financial/services/mentor-appeal.service";
+import * as schema from "@infrastructure/database/schema";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { MENTOR_APPEAL_CREATED_EVENT } from "@shared/events/event-constants";
 
 /**
  * Create Mentor Appeal Command (Application Layer)
@@ -17,7 +19,7 @@ import { MentorAppealService } from "@domains/financial/services/mentor-appeal.s
 export class CreateMentorAppealCommand extends CommandBase {
   constructor(
     @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    private readonly mentorAppealService: MentorAppealService,
+    private readonly eventEmitter: EventEmitter2,
   ) {
     super(db);
   }
@@ -29,19 +31,65 @@ export class CreateMentorAppealCommand extends CommandBase {
    * @param input 创建导师申诉输入参数
    * @returns 创建的导师申诉
    */
-  async execute(input: any) {
+  async execute(input: {
+    mentorId: string;
+    counselorId: string;
+    mentorPayableId?: string;
+    settlementId?: string;
+    appealType: string;
+    appealAmount?: string;
+    currency?: string;
+    reason: string;
+    createdBy: string;
+  }) {
     try {
       this.logger.debug(`Creating mentor appeal for mentor: ${input.mentorId}`);
-      const appeal = await this.mentorAppealService.createAppeal(
-        input,
-        input.createdBy,
-      );
+
+      const dto = input;
+      const createdByUserId = input.createdBy;
+
+      // Validate that mentorId matches createdByUserId
+      if (dto.mentorId !== createdByUserId) {
+        throw new BadRequestException(
+          "Mentor ID must match the creator's user ID",
+        );
+      }
+
+      // Create the appeal record
+      const [appeal] = await this.db
+        .insert(schema.mentorAppeals)
+        .values({
+          mentorId: dto.mentorId,
+          counselorId: dto.counselorId,
+          mentorPayableId: dto.mentorPayableId,
+          settlementId: dto.settlementId,
+          appealType: dto.appealType,
+          appealAmount: dto.appealAmount,
+          currency: dto.currency,
+          reason: dto.reason,
+          status: "PENDING",
+          createdBy: createdByUserId,
+        })
+        .returning();
+
+      // Publish the created event
+      this.eventEmitter.emit(MENTOR_APPEAL_CREATED_EVENT, {
+        appealId: appeal.id,
+        mentorId: appeal.mentorId,
+        counselorId: appeal.counselorId,
+        appealAmount: appeal.appealAmount,
+        appealType: appeal.appealType,
+        currency: appeal.currency,
+        createdAt: appeal.createdAt,
+      });
+
+      this.logger.log(`Appeal created successfully: ${appeal.id}`);
       this.logger.debug(`Mentor appeal created successfully: ${appeal.id}`);
       return appeal;
     } catch (error) {
       this.logger.error(
-        `Failed to create mentor appeal: ${error.message}`,
-        error.stack,
+        `Failed to create mentor appeal: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }

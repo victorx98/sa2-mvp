@@ -1,10 +1,13 @@
-import { Inject, Injectable } from "@nestjs/common";
-import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
-import type { DrizzleDatabase } from "@shared/types/database.types";
+import { Injectable } from "@nestjs/common";
+import { eq, and, desc } from "drizzle-orm";
 import { CommandBase } from "@application/core/command.base";
-import { ContractService } from "@domains/contract/services/contract.service";
-import { AddAmendmentLedgerDto } from "@domains/contract/dto/add-amendment-ledger.dto";
+import { AddAmendmentLedgerDto } from "@api/dto/request/contract/contract.request.dto";
+import * as schema from "@infrastructure/database/schema";
 import type { ContractServiceEntitlement } from "@infrastructure/database/schema";
+import {
+  ContractException,
+  ContractNotFoundException,
+} from "@domains/contract/common/exceptions/contract.exception";
 
 /**
  * Add Amendment Ledger Command (Application Layer)
@@ -12,18 +15,16 @@ import type { ContractServiceEntitlement } from "@infrastructure/database/schema
  *
  * 职责：
  * 1. 编排权益变更台账添加用例
- * 2. 调用 Contract Domain 的 Contract Service
- * 3. 返回更新后的服务权益
+ * 2. 验证bookingSource（如果提供了relatedBookingId）
+ * 3. 查询合同
+ * 4. 插入权益变更台账记录
+ * 5. 查询最后一条台账记录计算当前余额
+ * 6. 插入新的台账记录
+ * 7. 返回更新后的服务权益
+ * 8. 管理事务
  */
 @Injectable()
 export class AddAmendmentLedgerCommand extends CommandBase {
-  constructor(
-    @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    private readonly contractService: ContractService,
-  ) {
-    super(db);
-  }
-
   /**
    * 执行添加权益变更台账用例
    * [Execute add amendment ledger use case]
@@ -34,56 +35,114 @@ export class AddAmendmentLedgerCommand extends CommandBase {
   async execute(
     dto: AddAmendmentLedgerDto,
   ): Promise<ContractServiceEntitlement> {
-    // [修复] Input validation [输入验证]
-    if (!dto) {
-      throw new Error("AddAmendmentLedgerDto is required");
-    }
-    if (
-      !dto.contractId ||
-      typeof dto.contractId !== "string" ||
-      dto.contractId.trim().length === 0
-    ) {
-      throw new Error("Contract ID is required and must be a non-empty string");
-    }
-    if (
-      !dto.studentId ||
-      typeof dto.studentId !== "string" ||
-      dto.studentId.trim().length === 0
-    ) {
-      throw new Error("Student ID is required and must be a non-empty string");
-    }
-    if (!dto.serviceType) {
-      throw new Error("Service type is required");
-    }
-    if (!dto.ledgerType) {
-      throw new Error("Ledger type is required");
-    }
-    if (typeof dto.quantityChanged !== "number") {
-      throw new Error("Quantity changed is required and must be a number");
-    }
-    if (
-      !dto.createdBy ||
-      typeof dto.createdBy !== "string" ||
-      dto.createdBy.trim().length === 0
-    ) {
-      throw new Error("CreatedBy is required and must be a non-empty string");
+    const {
+      studentId,
+      contractId,
+      serviceType,
+      ledgerType,
+      quantityChanged,
+      reason,
+      description,
+      attachments,
+      relatedBookingId,
+      bookingSource,
+      createdBy,
+    } = dto;
+
+    // 1. 验证bookingSource（如果提供了relatedBookingId）
+    if (relatedBookingId && !bookingSource) {
+      throw new ContractException(
+        "BOOKING_SOURCE_REQUIRED",
+        "bookingSource is required when relatedBookingId is provided",
+      );
     }
 
-    try {
-      this.logger.debug(
-        `Adding amendment ledger for student: ${dto.studentId}`,
-      );
-      const entitlement = await this.contractService.addAmendmentLedger(dto);
-      this.logger.debug(
-        `Amendment ledger added successfully for student: ${dto.studentId}`,
-      );
-      return entitlement;
-    } catch (error) {
-      this.logger.error(
-        `Failed to add amendment ledger: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
+    this.logger.debug(
+      `Adding amendment ledger for student: ${studentId}`,
+    );
+
+    const entitlement = await this.db.transaction(async (tx) => {
+      // 2. 查询合同
+      const contract = await tx.query.contracts.findFirst({
+        where: eq(schema.contracts.id, contractId),
+      });
+
+      if (!contract) {
+        throw new ContractNotFoundException("CONTRACT_NOT_FOUND");
+      }
+
+      // 3. 插入权益变更台账记录
+      const serviceTypeCode =
+        typeof serviceType === "string" ? serviceType : (serviceType as any).code;
+
+      await tx
+        .insert(schema.contractAmendmentLedgers)
+        .values({
+          studentId,
+          serviceType: serviceTypeCode,
+          ledgerType,
+          quantityChanged,
+          reason,
+          description:
+            description ||
+            `Add ${serviceTypeCode} entitlement for contract ${contractId}`,
+          attachments,
+          createdBy,
+          snapshot: {
+            contractId,
+            contractNumber: contract.contractNumber,
+          },
+        })
+        .returning();
+
+      // 4. 查询最后一条台账记录计算当前余额
+      const lastLedger = await tx.query.serviceLedgers.findFirst({
+        where: and(
+          eq(schema.serviceLedgers.studentId, studentId),
+          eq(schema.serviceLedgers.serviceType, serviceTypeCode),
+        ),
+        orderBy: [desc(schema.serviceLedgers.createdAt)],
+      });
+
+      const currentBalance = lastLedger?.balanceAfter || 0;
+      const newBalance = currentBalance + quantityChanged;
+
+      // 5. 插入新的台账记录
+      await tx.insert(schema.serviceLedgers).values({
+        studentId,
+        serviceType: serviceTypeCode,
+        quantity: quantityChanged,
+        type: "adjustment",
+        source: "manual_adjustment",
+        balanceAfter: newBalance,
+        relatedBookingId: relatedBookingId || undefined,
+        reason: `Added ${serviceTypeCode} entitlement: ${reason || "No reason provided"}`,
+        createdBy,
+        metadata:
+          relatedBookingId && bookingSource ? { bookingSource } : undefined,
+      });
+
+      // 6. 查询并返回更新后的服务权益
+      const updatedEntitlement = await tx.query.contractServiceEntitlements.findFirst({
+        where: and(
+          eq(schema.contractServiceEntitlements.studentId, studentId),
+          eq(schema.contractServiceEntitlements.serviceType, serviceTypeCode),
+        ),
+      });
+
+      if (!updatedEntitlement) {
+        throw new ContractException(
+          "ENTITLEMENT_UPDATE_FAILED",
+          "Failed to update entitlement after amendment ledger insertion. Trigger may have failed.",
+        );
+      }
+
+      return updatedEntitlement;
+    });
+
+    this.logger.debug(
+      `Amendment ledger added successfully for student: ${studentId}`,
+    );
+    return entitlement;
   }
 }

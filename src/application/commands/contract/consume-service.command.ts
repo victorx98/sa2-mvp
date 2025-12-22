@@ -1,9 +1,13 @@
-import { Inject, Injectable } from "@nestjs/common";
-import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
-import type { DrizzleDatabase } from "@shared/types/database.types";
+import { Injectable } from "@nestjs/common";
+import { eq, and } from "drizzle-orm";
 import { CommandBase } from "@application/core/command.base";
-import { ContractService } from "@domains/contract/services/contract.service";
-import { ConsumeServiceDto } from "@domains/contract/dto/consume-service.dto";
+import { ConsumeServiceDto } from "@api/dto/request/contract/contract.request.dto";
+import * as schema from "@infrastructure/database/schema";
+import { HoldStatus } from "@shared/types/contract-enums";
+import {
+  ContractException,
+  ContractNotFoundException,
+} from "@domains/contract/common/exceptions/contract.exception";
 
 /**
  * Consume Service Command (Application Layer)
@@ -11,78 +15,154 @@ import { ConsumeServiceDto } from "@domains/contract/dto/consume-service.dto";
  *
  * 职责：
  * 1. 编排服务消费用例
- * 2. 调用 Contract Domain 的 Contract Service
- * 3. 返回执行结果
+ * 2. 验证学生存在
+ * 3. 查询服务权益并加行锁
+ * 4. 验证余额充足
+ * 5. 按优先级扣除服务权益
+ * 6. 创建服务台账记录
+ * 7. 释放相关预留（如果有）
+ * 8. 管理事务
  */
 @Injectable()
 export class ConsumeServiceCommand extends CommandBase {
-  constructor(
-    @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    private readonly contractService: ContractService,
-  ) {
-    super(db);
-  }
-
   /**
    * 执行服务消费用例
    * [Execute consume service use case]
    *
    * @param dto 服务消费DTO
-   * @param userId 用户ID（来自用户上下文）
+   * @param createdBy 创建人ID（来自用户上下文）
    * @returns 执行结果
    */
   async execute(
     dto: ConsumeServiceDto,
-    userId: string,
+    createdBy: string,
   ): Promise<{ success: boolean; message: string }> {
-    // Input validation [输入验证]
-    if (!dto) {
-      throw new Error("ConsumeServiceDto is required");
-    }
-    if (
-      !dto.studentId ||
-      typeof dto.studentId !== "string" ||
-      dto.studentId.trim().length === 0
-    ) {
-      throw new Error("Student ID is required and must be a non-empty string");
-    }
-    if (
-      !dto.serviceType ||
-      typeof dto.serviceType !== "string" ||
-      dto.serviceType.trim().length === 0
-    ) {
-      throw new Error(
-        "Service type is required and must be a non-empty string",
+    const {
+      studentId,
+      serviceType,
+      quantity,
+      relatedBookingId,
+      relatedHoldId,
+      bookingSource,
+    } = dto;
+
+    // 1. 验证bookingSource（如果提供了relatedBookingId）
+    if (relatedBookingId && !bookingSource) {
+      throw new ContractException(
+        "BOOKING_SOURCE_REQUIRED",
+        "bookingSource is required when relatedBookingId is provided",
       );
-    }
-    if (
-      dto.quantity === undefined ||
-      dto.quantity === null ||
-      typeof dto.quantity !== "number" ||
-      dto.quantity <= 0
-    ) {
-      throw new Error("Quantity is required and must be a positive number");
-    }
-    if (!userId || typeof userId !== "string" || userId.trim().length === 0) {
-      throw new Error("UserId is required and must be a non-empty string");
     }
 
-    try {
-      this.logger.debug(`Consuming service for student: ${dto.studentId}`);
-      await this.contractService.consumeService(dto, userId);
-      this.logger.debug(
-        `Service consumed successfully for student: ${dto.studentId}`,
+    this.logger.debug(`Consuming service for student: ${studentId}`);
+
+    await this.db.transaction(async (tx) => {
+      // 2. 验证学生存在
+      const [student] = await tx
+        .select({ id: schema.studentTable.id })
+        .from(schema.studentTable)
+        .where(eq(schema.studentTable.id, studentId))
+        .limit(1);
+
+      if (!student) {
+        throw new ContractException("STUDENT_NOT_FOUND");
+      }
+
+      // 3. 查询服务权益并加行锁
+      const entitlements = await tx
+        .select()
+        .from(schema.contractServiceEntitlements)
+        .where(
+          and(
+            eq(schema.contractServiceEntitlements.studentId, studentId),
+            eq(
+              schema.contractServiceEntitlements.serviceType,
+              serviceType as string,
+            ),
+          ),
+        )
+        .for("update");
+
+      if (entitlements.length === 0) {
+        throw new ContractNotFoundException("NO_ENTITLEMENTS_FOUND");
+      }
+
+      // 4. 验证余额充足
+      const totalAvailable = entitlements.reduce(
+        (sum, ent) => sum + ent.availableQuantity,
+        0,
       );
-      return {
-        success: true,
-        message: "Service consumed successfully",
-      };
-    } catch (error) {
-      this.logger.error(
-        `Failed to consume service: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
+
+      if (totalAvailable < quantity) {
+        throw new ContractException("INSUFFICIENT_BALANCE");
+      }
+
+      // 5. 按优先级扣除服务权益
+      let remainingQuantity = quantity;
+      let currentTotalBalance = totalAvailable;
+      const ledgerRecords: Array<{
+        studentId: string;
+        serviceType: string;
+        quantity: number;
+        type: "consumption";
+        source: "booking_completed";
+        balanceAfter: number;
+        relatedHoldId: string | null;
+        relatedBookingId: string | null;
+        metadata?: { bookingSource?: string };
+        createdBy: string;
+      }> = [];
+
+      for (const entitlement of entitlements) {
+        if (remainingQuantity <= 0) break;
+        if (entitlement.availableQuantity <= 0) continue;
+
+        const deductAmount = Math.min(
+          remainingQuantity,
+          entitlement.availableQuantity,
+        );
+
+        currentTotalBalance -= deductAmount;
+
+        ledgerRecords.push({
+          studentId: studentId,
+          serviceType: serviceType,
+          quantity: -deductAmount,
+          type: "consumption",
+          source: "booking_completed",
+          balanceAfter: currentTotalBalance,
+          relatedHoldId: relatedHoldId,
+          relatedBookingId: relatedBookingId,
+          metadata:
+            relatedBookingId && bookingSource ? { bookingSource } : undefined,
+          createdBy,
+        });
+
+        remainingQuantity -= deductAmount;
+      }
+
+      // 6. 创建服务台账记录
+      if (ledgerRecords.length > 0) {
+        await tx.insert(schema.serviceLedgers).values(ledgerRecords);
+      }
+
+      // 7. 释放相关预留（如果有）
+      if (relatedHoldId) {
+        await tx
+          .update(schema.serviceHolds)
+          .set({
+            status: HoldStatus.RELEASED,
+            releaseReason: "completed",
+            releasedAt: new Date(),
+          })
+          .where(eq(schema.serviceHolds.id, relatedHoldId));
+      }
+    });
+
+    this.logger.debug(`Service consumed successfully for student: ${studentId}`);
+    return {
+      success: true,
+      message: "Service consumed successfully",
+    };
   }
 }

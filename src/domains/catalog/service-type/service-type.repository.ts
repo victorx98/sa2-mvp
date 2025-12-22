@@ -3,11 +3,34 @@ import { eq, like, ne, and, count, desc } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { DrizzleDatabase } from "@shared/types/database.types";
 import { serviceTypes } from "@infrastructure/database/schema/service-types.schema";
-import { ServiceTypeFilterDto } from "./dto/service-type-filter.dto";
-import { PaginationDto } from "../common/dto/pagination.dto";
-import { SortDto } from "../common/dto/sort.dto";
 import { ServiceType } from "@infrastructure/database/schema/service-types.schema";
 import { buildLikePattern } from "../common/utils/sql.utils";
+
+/**
+ * Service Type Filter DTO [服务类型筛选DTO]
+ */
+interface ServiceTypeFilterDto {
+  code?: string;
+  name?: string;
+  status?: string;
+  includeDeleted?: boolean;
+}
+
+/**
+ * Pagination DTO [分页DTO]
+ */
+interface PaginationDto {
+  page?: number;
+  pageSize?: number;
+}
+
+/**
+ * Sort DTO [排序DTO]
+ */
+interface SortDto {
+  orderField?: string;
+  orderDirection?: 'asc' | 'desc';
+}
 
 /**
  * Service Type Repository [服务类型仓库]

@@ -26,6 +26,8 @@ import { ClassSessionQueryService } from "./queries/services/class-session.query
 import { CommSessionQueryService } from "./queries/services/comm-session.query.service";
 import { GetSessionTypesQuery } from "./queries/services/get-session-types.query";
 import { GetProductDetailQuery } from "./queries/product/get-product-detail.query";
+import { SearchProductsQuery } from "./queries/product/search-products.query";
+import { QueryJobsQuery } from "./queries/placement/query-jobs.query";
 
 // Application Layer - Commands
 import { RegisterCommand } from "./commands/auth/register.command";
@@ -139,6 +141,8 @@ import { QueryModule } from "@domains/query/query.module";
     CommSessionQueryService,
     GetSessionTypesQuery,
     GetProductDetailQuery,
+    SearchProductsQuery,
+    QueryJobsQuery,
 
     // Commands
     RegisterCommand,
@@ -235,6 +239,8 @@ import { QueryModule } from "@domains/query/query.module";
     CommSessionQueryService,
     GetSessionTypesQuery,
     GetProductDetailQuery,
+    SearchProductsQuery,
+    QueryJobsQuery,
 
     // Commands
     RegisterCommand,

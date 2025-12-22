@@ -1,9 +1,12 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, BadRequestException, NotFoundException, ForbiddenException } from "@nestjs/common";
 import { CommandBase } from "@application/core/command.base";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import type { DrizzleDatabase } from "@shared/types/database.types";
-import { MentorAppealService } from "@domains/financial/services/mentor-appeal.service";
 import { IMentorAppeal } from "@domains/financial/interfaces/mentor-appeal.interface";
+import { eq } from "drizzle-orm";
+import * as schema from "@infrastructure/database/schema";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { MENTOR_APPEAL_REJECTED_EVENT } from "@shared/events/event-constants";
 
 /**
  * Reject Mentor Appeal Command
@@ -15,7 +18,7 @@ import { IMentorAppeal } from "@domains/financial/interfaces/mentor-appeal.inter
 export class RejectMentorAppealCommand extends CommandBase {
   constructor(
     @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    private readonly mentorAppealService: MentorAppealService,
+    private readonly eventEmitter: EventEmitter2,
   ) {
     super(db);
   }
@@ -32,12 +35,66 @@ export class RejectMentorAppealCommand extends CommandBase {
     rejectedBy: string;
     rejectReason: string;
   }): Promise<IMentorAppeal> {
-    return this.withTransaction(async () => {
-      return this.mentorAppealService.rejectAppeal(
-        input.id,
-        { rejectionReason: input.rejectReason },
-        input.rejectedBy,
+    this.logger.log(`Rejecting appeal: ${input.id} by user: ${input.rejectedBy}`);
+
+    try {
+      // Find the appeal
+      const appeal = await this.db.query.mentorAppeals.findFirst({
+        where: eq(schema.mentorAppeals.id, input.id),
+      });
+
+      if (!appeal) {
+        throw new NotFoundException(`Appeal not found: ${input.id}`);
+      }
+
+      // Verify status is PENDING
+      if (appeal.status !== "PENDING") {
+        throw new BadRequestException(
+          `Cannot reject appeal with status: ${appeal.status}. Only PENDING appeals can be rejected.`,
+        );
+      }
+
+      // Verify the rejector matches the assigned counselor
+      if (appeal.counselorId !== input.rejectedBy) {
+        throw new ForbiddenException(
+          "Only the assigned counselor can reject this appeal",
+        );
+      }
+
+      // Update status to REJECTED
+      const now = new Date();
+      const [updatedAppeal] = await this.db
+        .update(schema.mentorAppeals)
+        .set({
+          status: "REJECTED",
+          rejectionReason: input.rejectReason,
+          rejectedBy: input.rejectedBy,
+          rejectedAt: now,
+          approvedBy: undefined,
+          approvedAt: undefined,
+        })
+        .where(eq(schema.mentorAppeals.id, input.id))
+        .returning();
+
+      // Publish the rejected event
+      this.eventEmitter.emit(MENTOR_APPEAL_REJECTED_EVENT, {
+        appealId: updatedAppeal.id,
+        mentorId: updatedAppeal.mentorId,
+        counselorId: updatedAppeal.counselorId,
+        rejectionReason: input.rejectReason,
+        rejectedBy: input.rejectedBy,
+        rejectedAt: now,
+      });
+
+      this.logger.log(`Appeal rejected successfully: ${input.id}`);
+
+      return updatedAppeal;
+    } catch (error) {
+      this.logger.error(
+        `Failed to reject appeal ${input.id}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
-    });
+      throw error;
+    }
   }
 }

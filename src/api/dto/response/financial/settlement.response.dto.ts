@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, getSchemaPath } from "@nestjs/swagger";
-import { SettlementMethod, SettlementStatus } from "@domains/financial/dto/settlement";
+import { SettlementMethod, SettlementStatus } from "@shared/types/financial-enums";
 import {
   ChannelBatchPayPaymentDetailsDto,
   CheckPaymentDetailsDto,
@@ -147,4 +147,9 @@ export class MentorPaymentInfoResponseDto {
   })
   updatedBy?: string;
 }
+
+// Type aliases for backward compatibility
+export type IMentorPaymentInfoResponse = MentorPaymentInfoResponseDto;
+export type ISettlementDetailResponse = SettlementDetailResponseDto;
+
 

@@ -4,7 +4,7 @@ import {
   SERVICE_SESSION_COMPLETED_EVENT,
   IServiceSessionCompletedEvent,
 } from "@shared/events/service-session-completed.event";
-import { SessionCompletedListener } from "@domains/contract/events/listeners/session-completed-listener";
+import { SessionCompletedListener } from "@domains/contract/event-handlers/session-completed-listener";
 import { ServiceHoldService } from "@domains/contract/services/service-hold.service";
 import { ServiceLedgerService } from "@domains/contract/services/service-ledger.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";

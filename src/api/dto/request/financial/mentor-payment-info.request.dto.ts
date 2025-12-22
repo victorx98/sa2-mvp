@@ -5,7 +5,7 @@ import {
   IsString,
   IsUUID,
 } from "class-validator";
-import { SettlementMethod } from "@domains/financial/dto/settlement";
+import { SettlementMethod } from "@api/dto/request/financial/settlement.request.dto";
 import {
   ChannelBatchPayPaymentDetailsDto,
   CheckPaymentDetailsDto,
@@ -67,4 +67,7 @@ export class CreateOrUpdateMentorPaymentInfoRequestDto {
     | CheckPaymentDetailsDto
     | ChannelBatchPayPaymentDetailsDto;
 }
+
+// Type aliases for backward compatibility
+export type ICreateOrUpdateMentorPaymentInfoRequest = CreateOrUpdateMentorPaymentInfoRequestDto;
 

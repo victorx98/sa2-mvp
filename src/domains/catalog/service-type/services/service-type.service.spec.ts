@@ -1,10 +1,33 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ServiceTypeService } from "./service-type.service";
 import { ServiceTypeRepository } from "../service-type.repository";
-import { ServiceTypeFilterDto } from "../dto/service-type-filter.dto";
-import { PaginationDto } from "../../common/dto/pagination.dto";
-import { SortDto } from "../../common/dto/sort.dto";
 import { randomUUID } from "crypto";
+
+/**
+ * Service Type Filter DTO [服务类型筛选DTO]
+ */
+interface ServiceTypeFilterDto {
+  code?: string;
+  name?: string;
+  status?: string;
+  includeDeleted?: boolean;
+}
+
+/**
+ * Pagination DTO [分页DTO]
+ */
+interface PaginationDto {
+  page?: number;
+  pageSize?: number;
+}
+
+/**
+ * Sort DTO [排序DTO]
+ */
+interface SortDto {
+  orderField?: string;
+  orderDirection?: 'asc' | 'desc';
+}
 
 // Mock ServiceTypeRepository
 const mockServiceTypeRepository = {

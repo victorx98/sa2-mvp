@@ -4,8 +4,8 @@ import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider"
 import * as schema from "@infrastructure/database/schema";
 import type { DrizzleDatabase } from "@shared/types/database.types";
 import { IMentorPriceService } from "../interfaces/mentor-price.interface";
-import { CreateMentorPriceDto } from "../dto/create-mentor-price.dto";
-import { UpdateMentorPriceDto } from "../dto/update-mentor-price.dto";
+import { CreateMentorPriceRequestDto } from "@api/dto/request/financial/mentor-price.request.dto";
+import { UpdateMentorPriceRequestDto } from "@api/dto/request/financial/mentor-price.request.dto";
 import {
   validateMentorPrice,
   validateCurrency,
@@ -77,7 +77,7 @@ export class MentorPriceService implements IMentorPriceService {
    * @returns Created mentor price record[创建的导师价格记录]
    */
   public async createMentorPrice(
-    dto: CreateMentorPriceDto,
+    dto: CreateMentorPriceRequestDto,
     updatedBy?: string,
   ): Promise<MentorPrice> {
     try {
@@ -113,7 +113,7 @@ export class MentorPriceService implements IMentorPriceService {
           currency: dto.currency || "USD",
           status: dto.status || "active",
           packageCode: dto.packageCode,
-          updatedBy: updatedBy || dto.updatedBy,
+          updatedBy: updatedBy,
           updatedAt: new Date(),
         })
         .returning();
@@ -152,7 +152,7 @@ export class MentorPriceService implements IMentorPriceService {
    */
   public async updateMentorPrice(
     id: string,
-    dto: UpdateMentorPriceDto,
+    dto: UpdateMentorPriceRequestDto,
     updatedBy?: string,
   ): Promise<MentorPrice> {
     try {
@@ -424,7 +424,7 @@ export class MentorPriceService implements IMentorPriceService {
    * @returns Array of created mentor price records[创建的导师价格记录数组]
    */
   public async batchCreateMentorPrices(
-    dtos: CreateMentorPriceDto[],
+    dtos: CreateMentorPriceRequestDto[],
     createdBy?: string,
   ): Promise<MentorPrice[]> {
     try {
@@ -487,7 +487,7 @@ export class MentorPriceService implements IMentorPriceService {
               currency: dto.currency || "USD",
               status: dto.status || "active",
               packageCode: dto.packageCode,
-              updatedBy: createdBy || dto.updatedBy,
+              updatedBy: createdBy,
               updatedAt: new Date(),
             })
             .returning();
@@ -526,7 +526,7 @@ export class MentorPriceService implements IMentorPriceService {
    * @returns Array of updated mentor price records[更新后的导师价格记录数组]
    */
   public async batchUpdateMentorPrices(
-    updates: Array<{ id: string; dto: UpdateMentorPriceDto }>,
+    updates: Array<{ id: string; dto: UpdateMentorPriceRequestDto }>,
     updatedBy?: string,
   ): Promise<MentorPrice[]> {
     try {

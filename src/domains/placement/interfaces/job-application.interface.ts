@@ -4,7 +4,7 @@ import {
   IUpdateApplicationStatusDto,
   IJobApplicationSearchFilter,
   IRollbackApplicationStatusDto,
-} from "../dto";
+} from "@api/dto/request/placement/placement.index";
 import { IPaginatedResult, IServiceResult } from "./job-position.interface";
 import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
 import { ApplicationStatus, ApplicationType } from "@domains/placement/types";

@@ -28,9 +28,7 @@ import { UpdateProductCommand } from "@application/commands/product/update-produ
 import { UpdateProductStatusCommand } from "@application/commands/product/update-product-status.command";
 import { CreateProductSnapshotCommand } from "@application/commands/product/create-snapshot.command";
 import { GetProductDetailQuery } from "@application/queries/product/get-product-detail.query";
-import { ProductService } from "@domains/catalog/product/services/product.service";
-import type { CreateProductDto } from "@domains/catalog/product/dto/create-product.dto";
-import type { UpdateProductDto } from "@domains/catalog/product/dto/update-product.dto";
+import { SearchProductsQuery } from "@application/queries/product/search-products.query";
 import { CreateProductRequestDto, UpdateProductRequestDto, UpdateProductStatusRequestDto } from "@api/dto/request/catalog/product.request.dto";
 import { ProductDetailResponseDto, ProductItemResponseDto, ProductResponseDto, ProductSnapshotResponseDto } from "@api/dto/response/catalog/product.response.dto";
 import { ProductListQueryDto } from "@api/dto/request/catalog/product-list.request.dto";
@@ -58,7 +56,7 @@ export class ProductsController {
     private readonly updateProductStatusCommand: UpdateProductStatusCommand,
     private readonly createProductSnapshotCommand: CreateProductSnapshotCommand,
     private readonly getProductDetailQuery: GetProductDetailQuery,
-    private readonly productService: ProductService,
+    private readonly searchProductsQuery: SearchProductsQuery,
   ) {}
 
   @Post()
@@ -79,9 +77,8 @@ export class ProductsController {
   ): Promise<ProductResponseDto> {
     // Guard ensures user is authenticated and has valid structure [守卫确保用户已认证且结构有效]
     // User object from JwtAuthGuard has 'id' property [来自JwtAuthGuard的用户对象具有'id'属性]
-    const createProductDto: CreateProductDto = body as unknown as CreateProductDto;
     const product = await this.createProductCommand.execute(
-      createProductDto,
+      body,
       String((user as unknown as { id: string }).id),
     );
     return this.mapProductToDto(product);
@@ -127,8 +124,13 @@ export class ProductsController {
   async createSnapshot(@Param("id") id: string): Promise<ProductSnapshotResponseDto> {
     const snapshot = await this.createProductSnapshotCommand.execute(id);
     return {
-      ...snapshot,
-      snapshotAt: snapshot.snapshotAt.toISOString(),
+      productId: snapshot.productId,
+      productName: snapshot.name,
+      productCode: snapshot.code,
+      price: snapshot.price,
+      currency: snapshot.currency,
+      items: snapshot.items,
+      snapshotAt: snapshot.createdAt.toISOString(),
     };
   }
 
@@ -181,7 +183,7 @@ export class ProductsController {
   async getProducts(
     @Query() queryDto: ProductListQueryDto,
   ): Promise<ProductListResponseDto> {
-    const result = await this.productService.search(
+    const result = await this.searchProductsQuery.execute(
       {
         includeDeleted: false,
         status: queryDto.status,
@@ -192,8 +194,8 @@ export class ProductsController {
         pageSize: queryDto.pageSize || 20,
       },
       {
-        orderField: "createdAt",
-        orderDirection: "desc",
+        field: queryDto.field || "createdAt",
+        order: queryDto.order || "desc",
       },
     );
 
@@ -275,10 +277,9 @@ export class ProductsController {
   ): Promise<ProductResponseDto> {
     // Guard ensures user is authenticated and has valid structure [守卫确保用户已认证且结构有效]
     // User object from JwtAuthGuard has 'id' property [来自JwtAuthGuard的用户对象具有'id'属性]
-    const updateProductDto: UpdateProductDto = body as unknown as UpdateProductDto;
     const product = await this.updateProductCommand.execute(
       id,
-      updateProductDto,
+      body,
       String((user as unknown as { id: string }).id),
     );
     return this.mapProductToDto(product);

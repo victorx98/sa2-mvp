@@ -1,10 +1,33 @@
 import { Injectable } from "@nestjs/common";
 import { ServiceTypeRepository } from "../service-type.repository";
-import { ServiceTypeFilterDto } from "../dto/service-type-filter.dto";
-import { PaginationDto } from "../../common/dto/pagination.dto";
-import { SortDto } from "../../common/dto/sort.dto";
 import { PaginatedResult } from "@shared/types/paginated-result";
 import { IServiceType } from "../interfaces/service-type.interface";
+
+/**
+ * Service Type Filter DTO [服务类型筛选DTO]
+ */
+interface ServiceTypeFilterDto {
+  code?: string;
+  name?: string;
+  status?: string;
+  includeDeleted?: boolean;
+}
+
+/**
+ * Pagination DTO [分页DTO]
+ */
+interface PaginationDto {
+  page?: number;
+  pageSize?: number;
+}
+
+/**
+ * Sort DTO [排序DTO]
+ */
+interface SortDto {
+  orderField?: string;
+  orderDirection?: 'asc' | 'desc';
+}
 
 /**
  * Service Type Service [服务类型服务]
