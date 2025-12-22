@@ -1,13 +1,15 @@
 import {
   Controller,
   Post,
+  Get,
   UploadedFile,
   UseInterceptors,
   BadRequestException,
   Body,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { FileService } from '../../core/file/file.service';
 import { UploadResultDto } from '../../core/file/dto/upload-result.dto';
 
@@ -59,6 +61,43 @@ export class FileController {
       code: 200,
       message: 'File uploaded successfully',
       data: result,
+    };
+  }
+
+  /**
+   * Get presigned download URL
+   */
+  @Get('download-url')
+  @ApiOperation({ summary: 'Get presigned download URL for S3 file' })
+  @ApiQuery({
+    name: 'fileUrl',
+    description: 'S3 file URL',
+    example: 'https://bucket.s3.amazonaws.com/uploads/xxx.pdf',
+  })
+  @ApiQuery({
+    name: 'expiresIn',
+    description: 'URL expiration time in seconds (default: 900)',
+    required: false,
+    example: 900,
+  })
+  async getDownloadUrl(
+    @Query('fileUrl') fileUrl: string,
+    @Query('expiresIn') expiresIn?: number,
+  ): Promise<{ code: number; message: string; data: { downloadUrl: string; expiresIn: number } }> {
+    if (!fileUrl) {
+      throw new BadRequestException('fileUrl is required');
+    }
+
+    const expires = expiresIn ? parseInt(expiresIn.toString()) : 900;
+    const downloadUrl = await this.fileService.getDownloadUrl(fileUrl, expires);
+
+    return {
+      code: 200,
+      message: 'Download URL generated successfully',
+      data: {
+        downloadUrl,
+        expiresIn: expires,
+      },
     };
   }
 }
