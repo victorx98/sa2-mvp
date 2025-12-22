@@ -1,21 +1,18 @@
+import * as dotenv from "dotenv";
+dotenv.config();
+import { shutdownTelemetry } from "./telemetry/opentelemetry";
+
 import { Logger, ValidationPipe, BadRequestException } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
-import * as dotenv from "dotenv";
 
 import { AppModule } from "./app.module";
 import { OtelLoggerService } from "./shared/logging/otel-logger.service";
-import {
-  ensureTelemetryStarted,
-  shutdownTelemetry,
-} from "./telemetry/opentelemetry";
 import { ResponseInterceptor } from "./shared/interceptors/response.interceptor";
 import { ErrorInterceptor } from "./shared/interceptors/error.interceptor";
 
-dotenv.config();
-
 async function bootstrap() {
-  await ensureTelemetryStarted();
+  // await ensureTelemetryStarted();
 
   const logger = new OtelLoggerService();
   const app = await NestFactory.create(AppModule, {

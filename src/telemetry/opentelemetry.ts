@@ -191,7 +191,7 @@ export async function ensureTelemetryStarted(): Promise<void> {
 
   sdkStarting = true;
   try {
-    await sdk.start();
+    sdk.start();
     console.log(`OpenTelemetry SDK started successfully for service: ${serviceName}`);
     sdkStarted = true;
     startupError = null;
@@ -249,3 +249,7 @@ export function getTelemetryStatus(): {
     serviceName,
   };
 }
+
+void (async () => {
+  await ensureTelemetryStarted();
+})();
