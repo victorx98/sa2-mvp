@@ -1,5 +1,7 @@
 import * as dotenv from "dotenv";
+// 从.env中初始化环境变量
 dotenv.config();
+// 初始化OpenTelemetry，必须要在import/require HTTP Server(后面的@nestjs/core)之前
 import { shutdownTelemetry } from "./telemetry/opentelemetry";
 
 import { Logger, ValidationPipe, BadRequestException } from "@nestjs/common";
@@ -12,8 +14,6 @@ import { ResponseInterceptor } from "./shared/interceptors/response.interceptor"
 import { ErrorInterceptor } from "./shared/interceptors/error.interceptor";
 
 async function bootstrap() {
-  // await ensureTelemetryStarted();
-
   const logger = new OtelLoggerService();
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
