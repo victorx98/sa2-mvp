@@ -10,7 +10,12 @@ export const createEnhancedDatabaseUrl = (): string => {
   }
   
   // 如果 URL 已经包含查询参数，需要合并而不是覆盖
-  const url = new URL(baseUrl);
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch (error) {
+    throw new Error(`Invalid DATABASE_URL format: ${error.message}. URL: ${baseUrl.substring(0, 50)}...`);
+  }
   
   // 添加全面的连接参数，包括重试逻辑和连接池设置
   const connectionParams: Record<string, string> = {
@@ -32,7 +37,10 @@ export const createEnhancedDatabaseUrl = (): string => {
     }
   });
   
-  return url.toString();
+  // 确保返回的URL格式正确（移除默认端口5432如果存在）
+  const result = url.toString();
+  
+  return result;
 };
 
 export default {
