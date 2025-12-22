@@ -8,6 +8,14 @@ import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { trace } from '@opentelemetry/api';
 
+const safeStringify = (value: unknown): string => {
+  try {
+    return JSON.stringify(value);
+  } catch (_err) {
+    return '[unserializable]';
+  }
+};
+
 /**
  * Interceptor that enriches OpenTelemetry spans with HTTP request context
  *
@@ -32,9 +40,17 @@ export class TracingInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const httpContext = context.switchToHttp();
     const request = httpContext.getRequest();
+    const response = httpContext.getResponse();
     const span = trace.getActiveSpan();
 
+    if (span) {
+      const { traceId, spanId } = span.spanContext();
+      console.log('TracingInterceptor traceId:', traceId, 'spanId:', spanId);
+    }
+
+    console.log('tracing.interceptor, span=', span);
     if (span && request) {
+      console.log('request.user: ', request.user);
       // Add user context if authenticated
       if (request.user) {
         span.setAttribute('user.id', request.user.id || 'unknown');
@@ -72,6 +88,15 @@ export class TracingInterceptor implements NestInterceptor {
       span.setAttribute('controller.name', controller);
       span.setAttribute('controller.handler', handler);
 
+      // Add request payload details
+      if (request.query) {
+        span.setAttribute('request.query', safeStringify(request.query));
+      }
+
+      if (request.body) {
+        span.setAttribute('request.body', safeStringify(request.body));
+      }
+
       // Add correlation ID if present (for distributed tracing)
       if (request.headers['x-correlation-id']) {
         span.setAttribute(
@@ -88,6 +113,9 @@ export class TracingInterceptor implements NestInterceptor {
           if (span) {
             // Record if response has data
             span.setAttribute('response.has_data', data !== null && data !== undefined);
+            if (response?.statusCode) {
+              span.setAttribute('response.status_code', response.statusCode);
+            }
           }
         },
         error: (error) => {
@@ -95,6 +123,9 @@ export class TracingInterceptor implements NestInterceptor {
           // But we can add HTTP-specific context here
           if (span && error) {
             span.setAttribute('error.source', 'http_response');
+            if (response?.statusCode) {
+              span.setAttribute('response.status_code', response.statusCode);
+            }
           }
         },
       }),

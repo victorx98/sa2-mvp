@@ -1,8 +1,9 @@
-import { Injectable, BadRequestException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { StudentQueryService, StudentCounselorViewItem } from "@domains/query/services/student-query.service";
 import { StudentListItem } from "@domains/query/services/student-query.service";
 import { User } from "@domains/identity/user/user-interface";
 import { IPaginatedResult } from "@shared/types/paginated-result";
+import { Trace } from "@shared/decorators/trace.decorator";
 
 /**
  * Student List Query (Application Layer)
@@ -23,6 +24,9 @@ export class StudentListQuery {
    * 如果传入了 counselorId，调用 findByCounselorId
    * 如果都没有传入，调用 findAllStudents 查询全部学生
    */
+  @Trace({
+    name: 'application.student-list.find',
+  })
   async find(
     user: User,
     search?: string,
@@ -30,38 +34,18 @@ export class StudentListQuery {
     mentorId?: string,
   ): Promise<StudentListItem[]> {
     if (mentorId) {
-      return this.findByMentorId(mentorId, search);
+      return this.studentQueryService.findStudentsByMentorId(mentorId, search);
     }
     
     if (counselorId) {
-      return this.findByCounselorId(counselorId, search);
+      return this.studentQueryService.findStudentsByCounselorId(
+        counselorId,
+        search,
+      );
     }
     
     // 如果都没有传入，查询全部学生
     return this.studentQueryService.findAllStudents(search);
-  }
-
-  /**
-   * 根据导师ID获取学生列表
-   */
-  async findByMentorId(
-    mentorId: string,
-    search?: string,
-  ): Promise<StudentListItem[]> {
-    return this.studentQueryService.findStudentsByMentorId(mentorId, search);
-  }
-
-  /**
-   * 根据顾问ID获取学生列表
-   */
-  async findByCounselorId(
-    counselorId: string,
-    search?: string,
-  ): Promise<StudentListItem[]> {
-    return this.studentQueryService.findStudentsByCounselorId(
-      counselorId,
-      search,
-    );
   }
 
   /**
