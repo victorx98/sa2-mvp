@@ -1,5 +1,5 @@
-import { Inject, Injectable } from "@nestjs/common";
-import { eq } from "drizzle-orm";
+import { Inject, Injectable, Logger } from "@nestjs/common";
+import { eq, getTableColumns } from "drizzle-orm";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { v4 as uuidv4 } from "uuid";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
@@ -26,6 +26,8 @@ import {
  */
 @Injectable()
 export class UserService implements IUserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
@@ -54,35 +56,44 @@ export class UserService implements IUserService {
    * @returns User entity including roles or null
    */
   async findByIdWithRoles(id: string): Promise<User | null> {
-    const rows = await this.db
-      .select({
-        user: schema.userTable,
-        roleId: schema.userRolesTable.roleId,
-      })
-      .from(schema.userTable)
-      .leftJoin(
-        schema.userRolesTable,
-        eq(schema.userRolesTable.userId, schema.userTable.id),
-      )
-      .where(eq(schema.userTable.id, id));
+    try {
+      const userColumns = getTableColumns(schema.userTable);
+      const rows = await this.db
+        .select({
+          ...userColumns,
+          roleId: schema.userRolesTable.roleId,
+        })
+        .from(schema.userTable)
+        .leftJoin(
+          schema.userRolesTable,
+          eq(schema.userRolesTable.userId, schema.userTable.id),
+        )
+        .where(eq(schema.userTable.id, id));
 
-    if (rows.length === 0 || !rows[0].user) {
-      return null;
+      if (rows.length === 0) {
+        return null;
+      }
+
+      const user = this.mapToUser(rows[0] as typeof schema.userTable.$inferSelect);
+      const roles = Array.from(
+        new Set(
+          rows
+            .map((row) => row.roleId)
+            .filter((roleId): roleId is string => !!roleId),
+        ),
+      );
+
+      return {
+        ...user,
+        roles,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to find user with roles: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
     }
-
-    const user = this.mapToUser(rows[0].user);
-    const roles = Array.from(
-      new Set(
-        rows
-          .map((row) => row.roleId)
-          .filter((roleId): roleId is string => !!roleId),
-      ),
-    );
-
-    return {
-      ...user,
-      roles,
-    };
   }
 
   /**
