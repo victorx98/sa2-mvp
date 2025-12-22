@@ -30,9 +30,11 @@ import { CommSessionService } from '@application/commands/services/comm-session.
 import {
   CreateCommSessionRequestDto,
   UpdateCommSessionRequestDto,
+} from '@api/dto/request/services/comm-sessions';
+import {
   CommSessionResponseDto,
   CreateCommSessionResponseDto,
-} from './dtos';
+} from '@api/dto/response/services/comm-sessions';
 
 /**
  * API Layer - Counselor Communication Session Controller

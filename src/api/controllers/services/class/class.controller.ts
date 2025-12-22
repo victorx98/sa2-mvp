@@ -39,13 +39,15 @@ import {
   AddStudentRequestDto,
   AddCounselorRequestDto,
   GetClassesQueryDto,
+} from '@api/dto/request/services/class';
+import {
   CreateClassResponseDto,
   UpdateClassResponseDto,
   ClassStatusResponseDto,
   AddMemberResponseDto,
   RemoveMemberResponseDto,
   GetAllClassesResponseDto,
-} from './dtos';
+} from '@api/dto/response/services/class';
 
 // Removed inline DTOs - now imported from ./dtos
 
