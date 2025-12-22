@@ -186,3 +186,20 @@ Event 不是日志，也不是独立存在的，它属于某一个 Span：
 | Span 内部的关键事件点 | ❌ | optional | ✅ |
 | 状态变化（如 cache hit/miss） | ❌ | optional | ✅ |
 | 阶段性 checkpoint | ❌ | optional | ✅ |
+
+#### 统一异常可观测性上报：异常作为 Event 记录
+
+**核心原则**
+在 OTel 里，异常 ≠ 日志，而是一个**结构化事件（Event）**，挂在 Span 上。
+
+**标准做法（语义规范）**
+1. 在当前 Span 上记录 exception event（使用 `span.recordException()`）
+2. 将 Span 状态标记为 ERROR（使用 `span.setStatus({ code: SpanStatusCode.ERROR })`）
+
+**实现方式**
+通过全局 ExceptionFilter 统一处理，避免在每个 service 中重复编写：
+
+**效果**
+- 任意 controller/service 抛异常 → 自动挂到当前 HTTP Span 上
+- Trace 页面直接标红显示异常的 Span
+- 异常信息作为 Event 包含在 Trace 中，便于排查问题
