@@ -25,6 +25,7 @@ import { ClassQueryService } from "./queries/services/class.query.service";
 import { ClassSessionQueryService } from "./queries/services/class-session.query.service";
 import { CommSessionQueryService } from "./queries/services/comm-session.query.service";
 import { GetSessionTypesQuery } from "./queries/services/get-session-types.query";
+import { GetRecommLetterTypesQuery } from "./queries/services/get-recomm-letter-types.query";
 import { GetProductDetailQuery } from "./queries/product/get-product-detail.query";
 
 // Application Layer - Commands
@@ -46,6 +47,8 @@ import { ClassSessionService } from "./commands/services/class-session.service";
 import { ClassSessionCreatedEventHandler } from "./commands/services/class-session-event.handler";
 import { SessionOrchestratorService } from "./commands/services/session-orchestrator.service";
 import { ResumeService } from "./commands/services/resume.service";
+import { RecommLetterTypeCommand } from "./commands/services/recomm-letter-type.command";
+import { RecommLetterService } from "./commands/services/recomm-letter.service";
 import { CreateProductCommand } from "./commands/product/create-product.command";
 import { UpdateProductCommand } from "./commands/product/update-product.command";
 import { UpdateProductStatusCommand } from "./commands/product/update-product-status.command";
@@ -138,6 +141,7 @@ import { QueryModule } from "@domains/query/query.module";
     ClassSessionQueryService,
     CommSessionQueryService,
     GetSessionTypesQuery,
+    GetRecommLetterTypesQuery,
     GetProductDetailQuery,
 
     // Commands
@@ -154,6 +158,8 @@ import { QueryModule } from "@domains/query/query.module";
     ClassSessionService,
     SessionOrchestratorService,
     ResumeService,
+    RecommLetterTypeCommand,
+    RecommLetterService,
 
     // Event Handlers
     RegularMentoringCreatedEventHandler,
@@ -234,6 +240,7 @@ import { QueryModule } from "@domains/query/query.module";
     ClassSessionQueryService,
     CommSessionQueryService,
     GetSessionTypesQuery,
+    GetRecommLetterTypesQuery,
     GetProductDetailQuery,
 
     // Commands
@@ -250,6 +257,8 @@ import { QueryModule } from "@domains/query/query.module";
     ClassSessionService,
     SessionOrchestratorService,
     ResumeService,
+    RecommLetterTypeCommand,
+    RecommLetterService,
 
     // Event Handlers
     RegularMentoringCreatedEventHandler,
