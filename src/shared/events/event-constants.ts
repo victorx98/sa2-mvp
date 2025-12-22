@@ -76,6 +76,10 @@ export const PLACEMENT_APPLICATION_SUBMITTED_EVENT = "placement.application.subm
 export const RESUME_BILLED_EVENT = "resume.billed";
 export const RESUME_BILL_CANCELLED_EVENT = "resume.bill.cancelled";
 
+// Recommendation Letter Billing Events
+export const RECOMM_LETTER_BILLED_EVENT = "recomm_letter.billed";
+export const RECOMM_LETTER_BILL_CANCELLED_EVENT = "recomm_letter.bill.cancelled";
+
 // Class Student Events
 export const CLASS_STUDENT_ADDED_EVENT = "class.student.added";
 export const CLASS_STUDENT_REMOVED_EVENT = "class.student.removed";

@@ -49,6 +49,8 @@ export * from "./class-sessions.schema";
 export * from "./comm-sessions.schema";
 export * from "./service-references.schema";
 export * from "./resumes.schema";
+export * from "./recomm-letter-types.schema";
+export * from "./recomm-letters.schema";
 
 // Financial domain
 export * from "./mentor-payable-ledgers.schema";

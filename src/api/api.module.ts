@@ -23,7 +23,9 @@ import { SessionController as UnifiedSessionController } from "./controllers/ser
 import { ClassController } from "./controllers/services/class/class.controller";
 import { ClassSessionController } from "./controllers/services/class/class-session.controller";
 import { SessionTypesController } from "./controllers/services/session-types/session-types.controller";
+import { RecommLetterTypesController } from "./controllers/services/recomm-letter-types/recomm-letter-types.controller";
 import { ResumeController } from "./controllers/services/resume/resume.controller";
+import { RecommLetterController } from "./controllers/services/recomm-letter/recomm-letter.controller";
 import { FileController } from "./controllers/file.controller";
 import { FileModule } from "@core/file/file.module";
 
@@ -61,10 +63,12 @@ import { FileModule } from "@core/file/file.module";
     // Service Controllers
     UnifiedSessionController, // Unified session API endpoint
     SessionTypesController, // Session types query API
+    RecommLetterTypesController, // Recommendation letter types API
     CommSessionController,
     ClassController, // Class management
     ClassSessionController, // Class session management
     ResumeController, // Resume management
+    RecommLetterController, // Recommendation letter management
     // Mentor Controllers
     MentorsController,
     MentorProfileController,
