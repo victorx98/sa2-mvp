@@ -3,14 +3,17 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MeetingManagerService } from '@core/meeting';
 import { CalendarService } from '@core/calendar';
-import { AiCareerService as DomainAiCareerService } from '@domains/services/sessions/ai-career/services/ai-career.service';
+import { AiCareerDomainService } from '@domains/services/sessions/ai-career/services/ai-career-domain.service';
+import { ServiceRegistryService } from '@domains/services/service-registry/services/service-registry.service';
 import {
   AI_CAREER_SESSION_CREATED_EVENT,
   AI_CAREER_SESSION_UPDATED_EVENT,
   AI_CAREER_SESSION_CANCELLED_EVENT,
   AI_CAREER_SESSION_MEETING_OPERATION_RESULT_EVENT,
+  MEETING_LIFECYCLE_COMPLETED_EVENT,
+  SERVICE_SESSION_COMPLETED_EVENT,
 } from '@shared/events/event-constants';
-import type { AiCareerSessionCreatedEvent } from '@shared/events';
+import type { AiCareerSessionCreatedEvent, MeetingLifecycleCompletedPayload } from '@shared/events';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase } from '@shared/types/database.types';
 import { FEISHU_DEFAULT_HOST_USER_ID } from 'src/constants';
@@ -38,7 +41,8 @@ export class AiCareerCreatedEventHandler {
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
     private readonly meetingManagerService: MeetingManagerService,
-    private readonly domainAiCareerService: DomainAiCareerService,
+    private readonly domainAiCareerService: AiCareerDomainService,
+    private readonly serviceRegistryService: ServiceRegistryService,
     private readonly calendarService: CalendarService,
     private readonly eventEmitter: EventEmitter2,
     private readonly userService: UserService,
@@ -88,7 +92,7 @@ export class AiCareerCreatedEventHandler {
       // Step 3: Update session and calendar slots in a transaction
       await this.db.transaction(async (tx) => {
         // 3.1: Complete meeting setup for session (update meeting_id and status)
-        await this.domainAiCareerService.completeMeetingSetup(
+        await this.domainAiCareerService.scheduleMeeting(
           event.sessionId,
           meeting.id,
           tx,
@@ -395,6 +399,94 @@ export class AiCareerCreatedEventHandler {
       return FEISHU_DEFAULT_HOST_USER_ID;
     }
     return undefined;
+  }
+
+  /**
+   * Handle Meeting Lifecycle Completed Event
+   * 
+   * Orchestrates session completion flow:
+   * 1. Find session by meetingId
+   * 2. Complete session (update status)
+   * 3. Register service reference (with actual duration in hours)
+   * 4. Publish SERVICE_SESSION_COMPLETED_EVENT (for downstream domains)
+   */
+  @OnEvent(MEETING_LIFECYCLE_COMPLETED_EVENT)
+  async handleMeetingCompletion(
+    payload: MeetingLifecycleCompletedPayload,
+  ): Promise<void> {
+    this.logger.log(
+      `Received meeting.lifecycle.completed event for meeting ${payload.meetingId}`,
+    );
+
+    try {
+      const session = await this.domainAiCareerService.findByMeetingId(
+        payload.meetingId,
+      );
+
+      if (!session) {
+        this.logger.debug(
+          `No AI career session found for meeting ${payload.meetingId}, skipping`,
+        );
+        return;
+      }
+
+      this.logger.log(
+        `Found AI career session ${session.getId()} for meeting ${payload.meetingId}`,
+      );
+
+      // Execute completion flow in transaction
+      await this.db.transaction(async (tx) => {
+        // Step 1: Complete session (update status to COMPLETED)
+        await this.domainAiCareerService.completeSession(session.getId(), tx);
+
+        // Step 2: Calculate consumed hours from actual duration (seconds -> hours)
+        const actualDurationHours = payload.actualDuration / 3600;
+
+        // Step 3: Register service reference (for billing and contract tracking)
+        await this.serviceRegistryService.registerService(
+          {
+            id: session.getId(),
+            service_type: session.getSessionType(),
+            title: session.getTitle(),
+            student_user_id: session.getStudentUserId(),
+            provider_user_id: session.getMentorUserId(),
+            consumed_units: actualDurationHours,
+            unit_type: 'hour', // Session units are measured in hours
+            completed_time: payload.endedAt,
+          },
+          tx,
+        );
+
+        this.logger.log(
+          `Successfully registered service reference for session ${session.getId()}, consumed ${actualDurationHours.toFixed(2)} hours`,
+        );
+      });
+
+      // Step 4: Publish SERVICE_SESSION_COMPLETED_EVENT for downstream domains
+      const actualDurationMinutes = Math.round(payload.actualDuration / 60);
+      const scheduledDurationMinutes = payload.scheduleDuration;
+
+      this.eventEmitter.emit(SERVICE_SESSION_COMPLETED_EVENT, {
+        sessionId: session.getId(),
+        studentId: session.getStudentUserId(),
+        mentorId: session.getMentorUserId(),
+        serviceTypeCode: session.getServiceType() || 'Internal',
+        sessionTypeCode: session.getSessionType(),
+        actualDurationMinutes,
+        durationMinutes: scheduledDurationMinutes,
+        allowBilling: true,
+      });
+
+      this.logger.log(
+        `Successfully completed AI career session ${session.getId()} and published SERVICE_SESSION_COMPLETED_EVENT`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error handling meeting completion for meeting ${payload.meetingId}: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
   }
 }
 

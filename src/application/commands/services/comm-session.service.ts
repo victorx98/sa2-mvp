@@ -18,11 +18,8 @@ import {
   COMM_SESSION_UPDATED_EVENT,
   COMM_SESSION_CANCELLED_EVENT,
 } from '@shared/events/event-constants';
-import { CommSessionService as DomainCommSessionService } from '@domains/services/comm-sessions/services/comm-session.service';
+import { CommSessionDomainService } from '@domains/services/comm-sessions/services/comm-session-domain.service';
 import { CommSessionQueryService as DomainCommSessionQueryService } from '@domains/query/services/comm-session-query.service';
-import { CommSessionStatus, CommSessionType } from '@domains/services/comm-sessions/entities/comm-session.entity';
-import { CreateCommSessionDto as DomainCreateCommSessionDto } from '@domains/services/comm-sessions/dto/create-comm-session.dto';
-import { UpdateCommSessionDto as DomainUpdateCommSessionDto } from '@domains/services/comm-sessions/dto/update-comm-session.dto';
 import { StudentCounselorService } from '@domains/identity/student/student-counselor.service';
 
 // DTOs
@@ -60,7 +57,7 @@ export class CommSessionService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-    private readonly domainCommSessionService: DomainCommSessionService,
+    private readonly domainCommSessionService: CommSessionDomainService,
     private readonly domainCommSessionQueryService: DomainCommSessionQueryService,
     private readonly calendarService: CalendarService,
     private readonly eventEmitter: EventEmitter2,
@@ -152,23 +149,25 @@ export class CommSessionService {
         }
 
         // Step 3: Create session record in domain layer
-      const session = await this.domainCommSessionService.createSession({
-        meetingId: undefined, // Meeting ID is null initially
-          sessionType: CommSessionType.COMM_SESSION,
+        const { randomUUID } = await import('crypto');
+        const sessionId = randomUUID();
+        
+        const session = await this.domainCommSessionService.createSession({
+          id: sessionId,
+          sessionType: 'comm_session',
           studentUserId: dto.studentId,
           mentorUserId: dto.mentorId,
           counselorUserId: dto.counselorId,
           createdByCounselorId: dto.counselorId,
           title: dto.title,
           description: dto.description,
-        scheduledAt: scheduledAtIso, // Pass ISO string
-          status: CommSessionStatus.PENDING_MEETING, // Set initial status (async meeting creation)
-      });
+          scheduledAt: new Date(scheduledAtIso),
+        }, tx);
 
         return {
-          sessionId: session.id,
-          status: session.status, // PENDING_MEETING
-          scheduledAt: session.scheduledAt, // Date object from domain entity
+          sessionId: session.getId(),
+          status: session.getStatus(),
+          scheduledAt: session.getScheduledAt(),
           studentCalendarSlotId: studentCalendarSlot.id,
           mentorCalendarSlotId: mentorCalendarSlot?.id,
         };
@@ -329,10 +328,11 @@ export class CommSessionService {
         const updated = await this.domainCommSessionService.updateSession(
           sessionId,
           {
-          title: dto.title,
-          description: dto.description,
-          scheduledAt: scheduledAtIso,
+            title: dto.title,
+            description: dto.description,
+            scheduledAt: scheduledAtIso ? new Date(scheduledAtIso) : undefined,
           },
+          tx,
         );
 
         return updated;
@@ -366,9 +366,9 @@ export class CommSessionService {
       // Meeting URL does not change when rescheduling, so include it from oldSession
       return {
         ...updatedSession,
-        title: dto.title || updatedSession.title,
-        description: dto.description !== undefined ? dto.description : updatedSession.description,
-        scheduledAt: scheduledAtIso || updatedSession.scheduledAt,
+        title: dto.title || updatedSession.getTitle(),
+        description: dto.description !== undefined ? dto.description : updatedSession.getDescription(),
+        scheduledAt: scheduledAtIso || updatedSession.getScheduledAt(),
         duration: newDuration, // Use the newly calculated duration
         // Include complete meeting object for mapper to extract all meeting-related fields
         meeting: oldSession.meeting,
@@ -416,7 +416,7 @@ export class CommSessionService {
       // Step 3: Execute transaction to update session and calendar
       await this.db.transaction(async (tx: DrizzleTransaction) => {
         // Update session status to CANCELLED
-        await this.domainCommSessionService.cancelSession(sessionId, reason);
+        await this.domainCommSessionService.cancelSession(sessionId, tx);
 
         // Release calendar slots (update status to cancelled)
         await this.calendarService.updateSlots(
@@ -478,7 +478,7 @@ export class CommSessionService {
 
     try {
       await this.db.transaction(async (tx: DrizzleTransaction) => {
-        await this.domainCommSessionService.deleteSession(sessionId);
+        await this.domainCommSessionService.deleteSession(sessionId, tx);
 
         // Note: Calendar slots and meetings are not deleted, just marked as part of deleted session
       });

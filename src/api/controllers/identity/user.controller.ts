@@ -7,7 +7,7 @@ import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import { ApiPrefix } from "@api/api.constants";
 import { UserResponseDto } from "@api/dto/response/user-response.dto";
 import { plainToInstance } from "class-transformer";
-
+import { trace } from "@opentelemetry/api";
 /**
  * API Layer - User Controller
  * 职责：
@@ -39,6 +39,9 @@ export class UserController {
     type: UserResponseDto,
   })
   async getCurrentUser(@CurrentUser() user: User): Promise<UserResponseDto> {
+    const tracer = trace.getTracer('test');
+    const span = tracer.startSpan('manual-test');
+    span.end();
     return this.toUserResponseDto(user);
   }
 

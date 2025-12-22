@@ -1,11 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { ResumeService as DomainResumeService } from '@domains/services/resume/services/resume.service';
+import { ResumeDomainService } from '@domains/services/resume/services/resume-domain.service';
 import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
-import { BillResumeDto, CancelBillResumeDto } from '@domains/services/resume/dto/bill-resume.dto';
-import { ResumeDetail } from '@domains/services/resume/entities/resume.entity';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase, DrizzleTransaction } from '@shared/types/database.types';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { ResumeEntity } from '@domains/services/resume/entities/resume.entity';
 
 /**
  * Application Layer - Resume Service
@@ -20,7 +19,7 @@ export class ResumeService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-    private readonly domainResumeService: DomainResumeService,
+    private readonly domainResumeService: ResumeDomainService,
     private readonly serviceHoldService: ServiceHoldService,
   ) {}
 
@@ -32,15 +31,20 @@ export class ResumeService {
    * 2. Call domain layer billing logic
    * 
    * @param resumeId Resume ID
-   * @param dto Billing DTO (includes studentId from frontend)
+   * @param params Billing params (mentorId, description, studentId, serviceType)
    * @param userId Counselor ID
    */
   async billResume(
     resumeId: string,
-    dto: BillResumeDto,
+    params: {
+      mentorId: string;
+      description?: string;
+      studentId: string;
+      serviceType?: string;
+    },
     userId: string,
-  ): Promise<ResumeDetail> {
-    this.logger.log(`Billing resume: resumeId=${resumeId}, studentId=${dto.studentId}`);
+  ): Promise<ResumeEntity> {
+    this.logger.log(`Billing resume: resumeId=${resumeId}, studentId=${params.studentId}`);
 
     try {
       // Execute in transaction
@@ -48,8 +52,8 @@ export class ResumeService {
         // Step 1: Create service hold (check and reserve balance)
         const hold = await this.serviceHoldService.createHold(
           {
-            studentId: dto.studentId,
-            serviceType: dto.serviceType || 'Resume',
+            studentId: params.studentId,
+            serviceType: params.serviceType || 'Resume',
             quantity: 1,
             createdBy: userId,
           },
@@ -61,7 +65,10 @@ export class ResumeService {
         // Step 2: Call domain layer billing logic
         const result = await this.domainResumeService.billResume(
           resumeId,
-          dto,
+          {
+            mentorId: params.mentorId,
+            description: params.description,
+          },
           userId,
           tx,
         );
@@ -82,14 +89,17 @@ export class ResumeService {
    * 2. Release service hold
    * 
    * @param resumeId Resume ID
-   * @param dto Cancel billing DTO
+   * @param params Cancel params (description, serviceType)
    * @param userId Counselor ID
    */
   async cancelBillResume(
     resumeId: string,
-    dto: CancelBillResumeDto,
+    params: {
+      description?: string;
+      serviceType?: string;
+    },
     userId: string,
-  ): Promise<ResumeDetail> {
+  ): Promise<ResumeEntity> {
     this.logger.log(`Canceling resume billing: resumeId=${resumeId}`);
 
     try {
@@ -99,7 +109,7 @@ export class ResumeService {
         throw new NotFoundException('RESUME_NOT_FOUND');
       }
 
-      if (!resume.mentorUserId) {
+      if (!resume.getMentorUserId()) {
         throw new BadRequestException('RESUME_NOT_BILLED');
       }
 
@@ -108,19 +118,19 @@ export class ResumeService {
         // Step 1: Cancel billing in domain layer
         const result = await this.domainResumeService.cancelBillResume(
           resumeId,
-          dto,
+          {
+            description: params.description,
+          },
           userId,
           tx,
         );
 
-        // Step 2: Find and release related hold (use resumeId as related booking ID)
-        // Note: Assumes hold was linked to resume via updateRelatedBooking
+        // Step 2: Find and release related hold
         const activeHolds = await this.serviceHoldService.getActiveHolds(
-          resume.studentUserId,
-          dto.serviceType || 'resume_revision',
+          resume.getStudentUserId(),
+          params.serviceType || 'resume_revision',
         );
 
-        // Find hold with matching related booking ID
         const relatedHold = activeHolds.find(
           (h) => h.relatedBookingId === resumeId,
         );

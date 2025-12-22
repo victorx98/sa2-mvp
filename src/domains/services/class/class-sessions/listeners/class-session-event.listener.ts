@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { ClassSessionService } from '../services/class-session.service';
+import { ClassSessionDomainService } from '../services/class-session-domain.service';
 import {
   MeetingLifecycleCompletedPayload,
   MEETING_LIFECYCLE_COMPLETED_EVENT,
@@ -15,7 +15,7 @@ import {
 export class ClassSessionEventListener {
   private readonly logger = new Logger(ClassSessionEventListener.name);
 
-  constructor(private readonly classSessionService: ClassSessionService) {}
+  constructor(private readonly classSessionService: ClassSessionDomainService) {}
 
   /**
    * Handle meeting lifecycle completion event
@@ -32,12 +32,12 @@ export class ClassSessionEventListener {
 
       if (session) {
         // 2. Found it - this meeting belongs to Class Session
-        this.logger.log(`Found class session ${session.id} for meeting ${payload.meetingId}`);
+        this.logger.log(`Found class session ${session.getId()} for meeting ${payload.meetingId}`);
 
         // 3. Complete the session
-        await this.classSessionService.completeSession(session.id, payload);
+        await this.classSessionService.completeSession(session.getId());
 
-        this.logger.log(`Successfully completed class session ${session.id}`);
+        this.logger.log(`Successfully completed class session ${session.getId()}`);
       } else {
         // 4. Not found - this meeting may belong to other domain, skip
         this.logger.debug(`No class session found for meeting ${payload.meetingId}, skipping`);

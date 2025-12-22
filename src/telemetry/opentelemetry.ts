@@ -27,7 +27,7 @@ let startupError: Error | null = null;
  * 从 OTEL_RESOURCE_ATTRIBUTES 解析服务名
  * 格式: "service.name=mentorxsa2,key2=value2"
  */
-function parseServiceNameFromResourceAttributes(): string | undefined {
+export function parseServiceNameFromResourceAttributes(): string | undefined {
   const resourceAttrs = process.env.OTEL_RESOURCE_ATTRIBUTES;
   if (resourceAttrs) {
     const pairs = resourceAttrs.split(',');
@@ -41,12 +41,19 @@ function parseServiceNameFromResourceAttributes(): string | undefined {
   return undefined;
 }
 
-const serviceName =
-  parseServiceNameFromResourceAttributes() ??
-  process.env.SERVICE_NAME ??
-  process.env.OTEL_SERVICE_NAME ??
-  process.env.npm_package_name ??
-  "sa2-mvp";
+/**
+ * 获取服务名称，与 Resource 中的 service.name 保持一致
+ * 用于 tracer 和 logger 的命名，确保可观测性数据的一致性
+ */
+export function getServiceName(): string {
+  return (
+    parseServiceNameFromResourceAttributes() ??
+    process.env.SERVICE_NAME ??
+    process.env.OTEL_SERVICE_NAME
+  );
+}
+
+const serviceName = getServiceName();
 
 const resource = resourceFromAttributes({
   [ATTR_SERVICE_NAME]: serviceName,
@@ -73,12 +80,25 @@ function parseAuthHeaders(): Record<string, string> | undefined {
     const headers: Record<string, string> = {};
     const pairs = process.env.OTEL_EXPORTER_OTLP_HEADERS.split(',');
     for (const pair of pairs) {
-      const [key, value] = pair.split('=').map(s => s.trim());
-      if (key && value) {
-        headers[key] = value;
+      // 只分割第一个 '='，因为值中可能包含 '=' (如 base64 token 的填充 '==')
+      // 企业版本的 token 通常以 '==' 结尾，个人版本可能没有
+      const equalIndex = pair.indexOf('=');
+      if (equalIndex > 0) {
+        const key = pair.substring(0, equalIndex).trim();
+        const value = pair.substring(equalIndex + 1).trim();
+        if (key && value) {
+          headers[key] = value;
+        }
       }
     }
     if (Object.keys(headers).length > 0) {
+      // 调试：检查 Authorization header 是否完整（特别是检查末尾的 ==）
+      if (headers.Authorization) {
+        const authValue = headers.Authorization;
+        // 隐藏敏感信息，只显示格式
+        const sanitized = authValue.substring(0, 20) + '...' + authValue.substring(authValue.length - 5);
+        console.log('[OpenTelemetry] Authorization (sanitized):', sanitized);
+      }
       return headers;
     }
   }
@@ -98,7 +118,6 @@ function parseAuthHeaders(): Record<string, string> | undefined {
 
 function buildSdk(): NodeSDK {
   const authHeaders = parseAuthHeaders();
-
   const traceExporter = new OTLPTraceExporter({
     url:
       process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ??
@@ -179,7 +198,7 @@ export async function ensureTelemetryStarted(): Promise<void> {
 
   sdkStarting = true;
   try {
-    await sdk.start();
+    sdk.start();
     console.log(`OpenTelemetry SDK started successfully for service: ${serviceName}`);
     sdkStarted = true;
     startupError = null;
@@ -237,3 +256,7 @@ export function getTelemetryStatus(): {
     serviceName,
   };
 }
+
+void (async () => {
+  await ensureTelemetryStarted();
+})();

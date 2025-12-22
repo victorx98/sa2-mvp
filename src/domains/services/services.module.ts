@@ -5,6 +5,8 @@ import { ServiceRegistryModule } from './service-registry/service-registry.modul
 import { ClassModule } from './class/class.module';
 import { CommSessionsModule } from './comm-sessions/comm-sessions.module';
 import { ResumeModule } from './resume/resume.module';
+import { RecommLetterTypesModule } from './recomm-letter-types/recomm-letter-types.module';
+import { RecommLetterModule } from './recomm-letter/recomm-letter.module';
 
 /**
  * Services Domain Module
@@ -19,6 +21,8 @@ import { ResumeModule } from './resume/resume.module';
     ClassModule,
     CommSessionsModule,
     ResumeModule,
+    RecommLetterTypesModule,
+    RecommLetterModule,
   ],
   exports: [
     SessionsModule,
@@ -27,6 +31,8 @@ import { ResumeModule } from './resume/resume.module';
     ClassModule,
     CommSessionsModule,
     ResumeModule,
+    RecommLetterTypesModule,
+    RecommLetterModule,
   ],
 })
 export class ServicesModule {}

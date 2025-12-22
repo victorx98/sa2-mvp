@@ -12,21 +12,20 @@ import { MentorProfileController } from "./controllers/identity/mentor-profile.c
 import { CounselorProfileController } from "./controllers/identity/counselor-profile.controller";
 import { ApplicationModule } from "@application/application.module";
 import { WebhookModule } from "@core/webhook/webhook.module";
-import { RegularMentoringController } from "./controllers/services/regular-mentoring.controller";
-import { GapAnalysisController } from "./controllers/services/gap-analysis.controller";
-import { AiCareerController } from "./controllers/services/ai-career.controller";
-import { CommSessionController } from "./controllers/services/comm-session.controller";
+import { CommSessionController } from "./controllers/services/comm-sessions/comm-session.controller";
 import { ProductsController } from "./controllers/catalog/products.controller";
 import { ContractsController } from "./controllers/contract/contracts.controller";
 import { FinancialController } from "./controllers/financial/financial.controller";
 import { PlacementController } from "./controllers/placement/placement.controller";
 import { PlacementQueryController } from "./controllers/placement/placement-query.controller";
 import { PlacementReferralController } from "./controllers/placement/placement-referral.controller";
-import { SessionController as UnifiedSessionController } from "./controllers/services/session.controller";
-import { ClassController } from "./controllers/services/class.controller";
-import { ClassSessionController } from "./controllers/services/class-session.controller";
-import { SessionTypesController } from "./controllers/services/session-types.controller";
-import { ResumeController } from "./controllers/services/resume.controller";
+import { SessionController as UnifiedSessionController } from "./controllers/services/sessions/session.controller";
+import { ClassController } from "./controllers/services/class/class.controller";
+import { ClassSessionController } from "./controllers/services/class/class-session.controller";
+import { SessionTypesController } from "./controllers/services/session-types/session-types.controller";
+import { RecommLetterTypesController } from "./controllers/services/recomm-letter-types/recomm-letter-types.controller";
+import { ResumeController } from "./controllers/services/resume/resume.controller";
+import { RecommLetterController } from "./controllers/services/recomm-letter/recomm-letter.controller";
 import { FileController } from "./controllers/file.controller";
 import { FileModule } from "@core/file/file.module";
 
@@ -61,16 +60,15 @@ import { FileModule } from "@core/file/file.module";
     CounselorProfileController,
     CounselorsController,
     
-    // Service Controllers (Unified + Legacy)
-    UnifiedSessionController, // New unified API endpoint
+    // Service Controllers
+    UnifiedSessionController, // Unified session API endpoint
     SessionTypesController, // Session types query API
-    RegularMentoringController, // Legacy - kept for backward compatibility
-    GapAnalysisController, // Legacy - kept for backward compatibility
-    AiCareerController, // Legacy - kept for backward compatibility
+    RecommLetterTypesController, // Recommendation letter types API
     CommSessionController,
     ClassController, // Class management
     ClassSessionController, // Class session management
     ResumeController, // Resume management
+    RecommLetterController, // Recommendation letter management
     // Mentor Controllers
     MentorsController,
     MentorProfileController,

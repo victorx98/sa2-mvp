@@ -4,14 +4,17 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { sql } from 'drizzle-orm';
 import { MeetingManagerService } from '@core/meeting';
 import { CalendarService } from '@core/calendar';
-import { RegularMentoringService as DomainRegularMentoringService } from '@domains/services/sessions/regular-mentoring/services/regular-mentoring.service';
+import { RegularMentoringDomainService } from '@domains/services/sessions/regular-mentoring/services/regular-mentoring-domain.service';
+import { ServiceRegistryService } from '@domains/services/service-registry/services/service-registry.service';
 import {
   REGULAR_MENTORING_SESSION_CREATED_EVENT,
   REGULAR_MENTORING_SESSION_UPDATED_EVENT,
   REGULAR_MENTORING_SESSION_CANCELLED_EVENT,
   REGULAR_MENTORING_SESSION_MEETING_OPERATION_RESULT_EVENT,
+  MEETING_LIFECYCLE_COMPLETED_EVENT,
+  SERVICE_SESSION_COMPLETED_EVENT,
 } from '@shared/events/event-constants';
-import type { RegularMentoringSessionCreatedEvent } from '@shared/events';
+import type { RegularMentoringSessionCreatedEvent, MeetingLifecycleCompletedPayload } from '@shared/events';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase } from '@shared/types/database.types';
 import { FEISHU_DEFAULT_HOST_USER_ID } from 'src/constants';
@@ -38,7 +41,8 @@ export class RegularMentoringCreatedEventHandler {
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
     private readonly meetingManagerService: MeetingManagerService,
-    private readonly domainRegularMentoringService: DomainRegularMentoringService,
+    private readonly domainRegularMentoringService: RegularMentoringDomainService,
+    private readonly serviceRegistryService: ServiceRegistryService,
     private readonly calendarService: CalendarService,
     private readonly eventEmitter: EventEmitter2,
     private readonly userService: UserService,
@@ -88,7 +92,7 @@ export class RegularMentoringCreatedEventHandler {
       // Step 3: Update session and calendar slots in a transaction
       await this.db.transaction(async (tx) => {
         // 3.1: Complete meeting setup for session (update meeting_id and status)
-        await this.domainRegularMentoringService.completeMeetingSetup(
+        await this.domainRegularMentoringService.scheduleMeeting(
           event.sessionId,
           meeting.id,
           tx,
@@ -409,6 +413,96 @@ export class RegularMentoringCreatedEventHandler {
       return FEISHU_DEFAULT_HOST_USER_ID;
     }
     return undefined;
+  }
+
+  /**
+   * Handle Meeting Lifecycle Completed Event
+   * 
+   * Orchestrates session completion flow:
+   * 1. Find session by meetingId
+   * 2. Complete session (update status)
+   * 3. Register service reference (with actual duration in hours)
+   * 4. Publish SERVICE_SESSION_COMPLETED_EVENT (for downstream domains)
+   */
+  @OnEvent(MEETING_LIFECYCLE_COMPLETED_EVENT)
+  async handleMeetingCompletion(
+    payload: MeetingLifecycleCompletedPayload,
+  ): Promise<void> {
+    this.logger.log(
+      `Received meeting.lifecycle.completed event for meeting ${payload.meetingId}`,
+    );
+
+    try {
+      // Find session by meetingId
+      const session = await this.domainRegularMentoringService.findByMeetingId(
+        payload.meetingId,
+      );
+
+      if (!session) {
+        this.logger.debug(
+          `No regular mentoring session found for meeting ${payload.meetingId}, skipping`,
+        );
+        return;
+      }
+
+      this.logger.log(
+        `Found regular mentoring session ${session.getId()} for meeting ${payload.meetingId}`,
+      );
+
+      // Execute completion flow in transaction
+      await this.db.transaction(async (tx) => {
+        // Step 1: Complete session (update status to COMPLETED)
+        await this.domainRegularMentoringService.completeSession(session.getId(), tx);
+
+        // Step 2: Calculate consumed hours from actual duration (seconds -> hours)
+        const actualDurationHours = payload.actualDuration / 3600;
+
+        // Step 3: Register service reference (for billing and contract tracking)
+        await this.serviceRegistryService.registerService(
+          {
+            id: session.getId(),
+            service_type: session.getSessionType(),
+            title: session.getTitle(),
+            student_user_id: session.getStudentUserId(),
+            provider_user_id: session.getMentorUserId(),
+            consumed_units: actualDurationHours,
+            unit_type: 'hour', // Session units are measured in hours
+            completed_time: payload.endedAt,
+          },
+          tx,
+        );
+
+        this.logger.log(
+          `Successfully registered service reference for session ${session.getId()}, consumed ${actualDurationHours.toFixed(2)} hours`,
+        );
+      });
+
+      // Step 4: Publish SERVICE_SESSION_COMPLETED_EVENT for downstream domains
+      // Convert durations from seconds/minutes to minutes for consistency
+      const actualDurationMinutes = Math.round(payload.actualDuration / 60);
+      const scheduledDurationMinutes = payload.scheduleDuration;
+
+      this.eventEmitter.emit(SERVICE_SESSION_COMPLETED_EVENT, {
+        sessionId: session.getId(),
+        studentId: session.getStudentUserId(),
+        mentorId: session.getMentorUserId(),
+        serviceTypeCode: session.getServiceType() || 'External', // Business-level service type
+        sessionTypeCode: session.getSessionType(), // Technical session type (regular_mentoring)
+        actualDurationMinutes,
+        durationMinutes: scheduledDurationMinutes,
+        allowBilling: true, // Session completed successfully
+      });
+
+      this.logger.log(
+        `Successfully completed regular mentoring session ${session.getId()} and published SERVICE_SESSION_COMPLETED_EVENT`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error handling meeting completion for meeting ${payload.meetingId}: ${error.message}`,
+        error.stack,
+      );
+      throw error; // Re-throw to trigger retry if configured
+    }
   }
 }
 

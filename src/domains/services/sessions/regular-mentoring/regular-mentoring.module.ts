@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
-import { RegularMentoringRepository } from './repositories/regular-mentoring.repository';
-import { RegularMentoringService } from './services/regular-mentoring.service';
-import { RegularMentoringEventListener } from './listeners/regular-mentoring-event.listener';
+import { RegularMentoringDomainService } from './services/regular-mentoring-domain.service';
 import { SessionTypesModule } from '@domains/services/session-types/session-types.module';
 import { ServiceRegistryModule } from '@domains/services/service-registry/service-registry.module';
+import { REGULAR_MENTORING_REPOSITORY } from './repositories/regular-mentoring.repository.interface';
+import { DrizzleRegularMentoringRepository } from './infrastructure/repositories/regular-mentoring.repository';
+import { RegularMentoringMapper } from './infrastructure/mappers/regular-mentoring.mapper';
 
 @Module({
   imports: [
@@ -11,13 +12,21 @@ import { ServiceRegistryModule } from '@domains/services/service-registry/servic
     ServiceRegistryModule,
   ],
   providers: [
-    RegularMentoringRepository,
-    RegularMentoringService,
-    RegularMentoringEventListener,
+    // Mapper
+    RegularMentoringMapper,
+    
+    // Repository (dependency injection)
+    {
+      provide: REGULAR_MENTORING_REPOSITORY,
+      useClass: DrizzleRegularMentoringRepository,
+    },
+    
+    // Domain Service
+    RegularMentoringDomainService,
   ],
   exports: [
-    RegularMentoringService,
-    RegularMentoringRepository,
+    REGULAR_MENTORING_REPOSITORY,
+    RegularMentoringDomainService,
   ],
 })
 export class RegularMentoringModule {}

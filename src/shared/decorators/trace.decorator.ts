@@ -1,4 +1,5 @@
-import { trace, Span, SpanStatusCode, context } from '@opentelemetry/api';
+import { trace, Span, SpanStatusCode } from '@opentelemetry/api';
+import { getServiceName } from '@telemetry/opentelemetry';
 
 /**
  * Options for the @Trace decorator
@@ -53,11 +54,11 @@ export function Trace(options: TraceOptions = {}) {
     const className = target.constructor.name;
 
     descriptor.value = async function (...args: any[]) {
-      // Build span name
+      // Build span name(默认是className.functionName)
       const spanName = options.name || `${className}.${propertyKey}`;
 
-      // Get tracer
-      const tracer = trace.getTracer('mentorx-backend');
+      // Get tracer - 使用与 Resource service.name 一致的服务名
+      const tracer = trace.getTracer(getServiceName());
 
       // Start span
       return await tracer.startActiveSpan(spanName, async (span: Span) => {
