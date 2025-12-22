@@ -5,6 +5,7 @@ import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider"
 import * as schema from "@infrastructure/database/schema";
 import { Country, Gender } from "@shared/types/identity-enums";
 import { IPaginatedResult } from "@shared/types/paginated-result";
+import { Trace } from "@shared/decorators/trace.decorator";
 
 /**
  * Student Query Service
@@ -27,6 +28,9 @@ export class StudentQueryService {
    * 根据导师ID获取学生列表
    * 通过 student_mentor 表关联，查找分配给该导师的学生
    */
+  @Trace({
+    name: 'domain.query.findStudentsByMentorId',
+  })
   async findStudentsByMentorId(
     mentorId: string,
     text?: string,
@@ -77,6 +81,9 @@ export class StudentQueryService {
    * 根据顾问ID获取学生列表
    * 通过 student_counselor 表关联，查找分配给该顾问的学生
    */
+  @Trace({
+    name: 'domain.query.findStudentsByCounselorId',
+  })
   async findStudentsByCounselorId(
     counselorId: string,
     text?: string,
@@ -134,6 +141,9 @@ export class StudentQueryService {
    * 以 student 表为主表，关联 user 表获取用户信息
    * 可以根据需要添加分页和过滤逻辑
    */
+  @Trace({
+    name: 'domain.query.findAllStudents',
+  })
   async findAllStudents(text?: string): Promise<StudentListItem[]> {
     this.logger.log(
       `Finding all students${text ? ` with text=${text}` : ""}`,

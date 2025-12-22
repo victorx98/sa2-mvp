@@ -12,6 +12,7 @@ import { AppModule } from "./app.module";
 import { OtelLoggerService } from "./shared/logging/otel-logger.service";
 import { ResponseInterceptor } from "./shared/interceptors/response.interceptor";
 import { ErrorInterceptor } from "./shared/interceptors/error.interceptor";
+import { TracingInterceptor } from "./shared/interceptors/tracing.interceptor";
 import { OtelExceptionFilter } from "./shared/filters/otel-exception.filter";
 
 async function bootstrap() {
@@ -114,7 +115,7 @@ async function bootstrap() {
   );
 
   // Enable global interceptors
-  app.useGlobalInterceptors(new ResponseInterceptor(), new ErrorInterceptor());
+  app.useGlobalInterceptors(new TracingInterceptor(), new ResponseInterceptor(), new ErrorInterceptor());
 
   // Enable global exception filter for OpenTelemetry tracing
   // 全局异常过滤器：自动将异常记录到当前 Span 上，并将 Span 标记为 ERROR
