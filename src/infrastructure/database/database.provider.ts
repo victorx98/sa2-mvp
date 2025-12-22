@@ -2,6 +2,7 @@ import { ConfigService } from "@nestjs/config";
 import { Logger } from "@nestjs/common";
 import { Pool, PoolConfig } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
+import { instrumentDrizzleClient } from "@kubiks/otel-drizzle";
 import * as dns from "dns";
 import { promisify } from "util";
 import * as schema from "./schema";
@@ -100,13 +101,29 @@ export const databaseProviders = [
       }
 
       const isDevelopment = configService.get("NODE_ENV") === "development";
-      const _isTelemetryEnabled = process.env.OTEL_ENABLED !== "false";
+      const isTelemetryEnabled = process.env.OTEL_ENABLED !== "false";
 
       // 创建基础的 Drizzle 客户端
       const db = drizzle(pool, {
         schema,
         logger: isDevelopment && !isTest,
       });
+
+      // 如果启用了 OpenTelemetry 且不在测试环境，使用 instrumentDrizzleClient 包装
+      // instrumentDrizzleClient 会自动追踪所有 SQL 查询，包括 SQL 语句、执行时长、操作类型等
+      if (isTelemetryEnabled && !isTest) {
+        // 从连接字符串中提取数据库信息
+        const url = new URL(resolvedUrl.toString());
+        const dbName = url.pathname.slice(1); // 移除前导斜杠
+        
+        instrumentDrizzleClient(db, {
+          dbSystem: "postgresql",
+          dbName: dbName || undefined,
+          peerName: resolvedHost,
+          peerPort: parseInt(url.port) || 5432,
+          captureQueryText: true,
+        });
+      }
 
       return db;
     },

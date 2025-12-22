@@ -1,22 +1,20 @@
+import * as dotenv from "dotenv";
+// 从.env中初始化环境变量
+dotenv.config();
+// 初始化OpenTelemetry，必须要在import/require HTTP Server(后面的@nestjs/core)之前
+import { shutdownTelemetry } from "./telemetry/opentelemetry";
+
 import { Logger, ValidationPipe, BadRequestException } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
-import * as dotenv from "dotenv";
 
 import { AppModule } from "./app.module";
 import { OtelLoggerService } from "./shared/logging/otel-logger.service";
-import {
-  ensureTelemetryStarted,
-  shutdownTelemetry,
-} from "./telemetry/opentelemetry";
 import { ResponseInterceptor } from "./shared/interceptors/response.interceptor";
 import { ErrorInterceptor } from "./shared/interceptors/error.interceptor";
-
-dotenv.config();
+import { OtelExceptionFilter } from "./shared/filters/otel-exception.filter";
 
 async function bootstrap() {
-  await ensureTelemetryStarted();
-
   const logger = new OtelLoggerService();
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
@@ -117,6 +115,10 @@ async function bootstrap() {
 
   // Enable global interceptors
   app.useGlobalInterceptors(new ResponseInterceptor(), new ErrorInterceptor());
+
+  // Enable global exception filter for OpenTelemetry tracing
+  // 全局异常过滤器：自动将异常记录到当前 Span 上，并将 Span 标记为 ERROR
+  app.useGlobalFilters(new OtelExceptionFilter());
 
   // Enable CORS
   app.enableCors();

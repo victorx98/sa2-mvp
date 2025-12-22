@@ -57,7 +57,7 @@ OpenTelemetry 的工作流程可以被看作一个数据处理管道，从应用
 
 #### 上报的核心数据结构
 
-OpenTelemetry 的核心数据结构包括 **Resource**、**Span**、**Attribute**、**Tracer**，它们构成了完整的追踪体系。
+OpenTelemetry 上报的核心数据结构包括 **Resource**、**Span**、**Attribute**、**log**，另外还有抽象工具**Trace**，它们构成了完整的追踪体系。
 
 **1. Resource（资源）**
 - **定义**：表示"是谁"在上报，描述发出 trace 的实体身份信息
@@ -70,7 +70,15 @@ OpenTelemetry 的核心数据结构包括 **Resource**、**Span**、**Attribute*
   cloud.provider=aws
   ```
 
-**2. Span（追踪单元）**
+**2. Trace（追踪）**
+- **定义**：表示"一次完整的请求/事务"，是由多个 Span 组成的有向无环图（DAG）
+- **特点**：请求级抽象概念，通过 traceId 唯一标识，包含该请求在整个系统中的完整执行路径
+- **示例**：
+  - 一次 HTTP API 调用 → 包含 HTTP Span、DB Span、Redis Span 等
+  - 一次订单处理事务 → 包含支付 Span、库存 Span、通知 Span 等
+  - 跨服务调用链路 → 通过 traceId 关联前端、API Gateway、后端服务、数据库等多个 Span
+
+**3. Span（追踪单元）**
 - **定义**：表示"做了什么"，是 trace 中的一个行为片段
 - **特点**：请求/操作级，包含 traceId、spanId、parentSpanId、name 等核心信息
 - **示例**：
@@ -78,28 +86,41 @@ OpenTelemetry 的核心数据结构包括 **Resource**、**Span**、**Attribute*
   - 数据库操作 → `Span: "SQL SELECT orders"`
   - Redis 调用 → `Span: "Redis GET order:12"`
 
-**3. Attribute（属性）**
+**4. Attribute（属性）**
 - **定义**：描述资源或动作的额外信息（Details）
 - **特点**：键值对形式，可挂载在 Resource 或 Span 上
 - **示例**：
   - Resource Attributes: `service.name=payment-service`, `deployment.environment=staging`
   - Span Attributes: `http.method=GET`, `db.system=postgresql`, `db.response_time_ms=84`
 
-**4. Tracer（追踪器）**
-- **定义**：用于创建 Span 的对象，代表一个可追踪操作来源（instrumentation source）
-- **特点**：区分不同框架/库的追踪来源，不能直接创建 Span，必须通过 Tracer
-- **示例**：
-  - NestJS 追踪 → `"@opentelemetry/instrumentation-nestjs"`
-  - HTTP 客户端追踪 → `"@opentelemetry/instrumentation-http"`
-  - 业务追踪 → `"payment-service"`
+**5. Trace（追踪工具）**
+- **定义**：OpenTelemetry 提供的工具对象，用于获取当前上下文中的 Tracer 和 Span
+- **特点**：提供上下文感知的 API，能够访问当前执行环境中的追踪信息
+- **核心方法**：
+  - `trace.getTracer(name, version?)`：获取指定名称的 Tracer 实例，用于创建新的 Span
+    - 示例：`const tracer = trace.getTracer('payment-service')`
+    - 用途：在装饰器、拦截器等场景中创建业务 Span
+  - `trace.getActiveSpan()`：获取当前上下文中活跃的 Span
+    - 示例：`const span = trace.getActiveSpan()`
+    - 用途：获取当前 traceId、spanId，或在日志中关联追踪上下文
 
 **层级关系**
 
 ```
-Service Process (Resource)
- ├─ Span A: "Http GET /orders" [Attributes: http.method=GET, http.status_code=200]
- ├─ Span B: "SQL SELECT orders" [Attributes: db.system=postgresql, db.response_time_ms=84]
- └─ Span C: "Redis GET order:12" [Attributes: db.system=redis]
+Resource (进程级)
+ └─ Trace (一次请求 / 事务)
+     ├─ Span A (HTTP)
+     │   ├─ Attributes: http.method=GET, http.status_code=200
+     │   ├─ Event: request.received
+     │   └─ ─ ─ ─ Log: "Processing HTTP request"
+     ├─ Span B (DB)
+     │   ├─ Attributes: db.system=postgresql, db.response_time_ms=84
+     │   └─ Event: query.completed
+     │   └─ ─ ─ ─ Log: "Executing SQL query"
+     └─ Span C (Redis)
+         ├─ Attributes: db.system=redis
+         └─ Event: cache.hit
+         └─ ─ ─ ─ Log: "Cache lookup"
 ```
 
 **关系总结**
@@ -107,9 +128,11 @@ Service Process (Resource)
 | 概念 | 表示意义 | 生命周期 | 关系 |
 |------|---------|---------|------|
 | Resource | 谁发出的 | 进程级 | 所有 Span 的父级 |
-| Span | 做了什么 | 请求/操作级 | 通过 Tracer 创建，共享 Resource |
+| Trace | 一次完整请求/事务 | 请求级 | 包含多个 Span，通过 traceId 唯一标识 |
+| Span | 做了什么 | 请求/操作级 | 属于某个 Trace，共享 Resource |
 | Attribute | 描述细节 | 依附于 Resource/Span | 为 Resource 或 Span 提供额外信息 |
-| Tracer | 追踪来源 | 工具对象 | 用于创建 Span，标记 instrumentation 来源 |
+| Log | 事件记录 | 事件级 | 通过 traceId/spanId 关联到 Trace/Span |
+| trace (工具) | 追踪工具对象 | 工具对象 | 提供 `getTracer()` 和 `getActiveSpan()` 方法，用于获取或创建 Tracer 和当前 Span |
 
 #### Span vs Log vs Event 使用决策
 
@@ -163,3 +186,20 @@ Event 不是日志，也不是独立存在的，它属于某一个 Span：
 | Span 内部的关键事件点 | ❌ | optional | ✅ |
 | 状态变化（如 cache hit/miss） | ❌ | optional | ✅ |
 | 阶段性 checkpoint | ❌ | optional | ✅ |
+
+#### 统一异常可观测性上报：异常作为 Event 记录
+
+**核心原则**
+在 OTel 里，异常 ≠ 日志，而是一个**结构化事件（Event）**，挂在 Span 上。
+
+**标准做法（语义规范）**
+1. 在当前 Span 上记录 exception event（使用 `span.recordException()`）
+2. 将 Span 状态标记为 ERROR（使用 `span.setStatus({ code: SpanStatusCode.ERROR })`）
+
+**实现方式**
+通过全局 ExceptionFilter 统一处理，避免在每个 service 中重复编写：
+
+**效果**
+- 任意 controller/service 抛异常 → 自动挂到当前 HTTP Span 上
+- Trace 页面直接标红显示异常的 Span
+- 异常信息作为 Event 包含在 Trace 中，便于排查问题
