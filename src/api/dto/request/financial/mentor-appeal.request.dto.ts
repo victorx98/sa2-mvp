@@ -155,3 +155,8 @@ export class RejectMentorAppealRequestDto {
   rejectionReason!: string;
 }
 
+
+// Type aliases for backward compatibility
+export type CreateAppealDto = CreateMentorAppealRequestDto;
+export type ApproveAppealDto = ApproveMentorAppealRequestDto;
+export type RejectAppealDto = RejectMentorAppealRequestDto;

@@ -3,12 +3,9 @@ import { Logger } from "@nestjs/common";
 import { Pool, PoolConfig } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { instrumentDrizzleClient } from "@kubiks/otel-drizzle";
-import * as dns from "dns";
-import { promisify } from "util";
 import * as schema from "./schema";
 import { createEnhancedDatabaseUrl } from "../../../drizzle.config";
 
-const resolve4 = promisify(dns.resolve4);
 const logger = new Logger("DatabaseProvider");
 
 export const DATABASE_CONNECTION = "DATABASE_CONNECTION";
@@ -18,86 +15,170 @@ export const databaseProviders = [
     provide: DATABASE_CONNECTION,
     inject: [ConfigService],
     useFactory: async (configService: ConfigService) => {
-      // const connectionString = configService.get<string>("DATABASE_URL");
-      const connectionString = createEnhancedDatabaseUrl();
       const isTest =
         process.env.NODE_ENV === "test" ||
         process.env.JEST_WORKER_ID !== undefined;
 
-      // Parse connection string to extract host
-      const url = new URL(connectionString);
-      const hostname = url.hostname;
+      // 检查 DATABASE_URL 是否存在
+      if (!process.env.DATABASE_URL) {
+        const error = new Error(
+          "DATABASE_URL environment variable is not set",
+        );
+        logger.error(error.message);
+        throw error;
+      }
 
-      // Resolve hostname to IPv4 address for both test and production
-      let resolvedHost = hostname;
+      const connectionString = createEnhancedDatabaseUrl();
+      
+      if (!isTest) {
+        logger.log("Initializing database connection...");
+      }
+
+      // Parse connection string to extract host for logging
+      let hostname: string | null = null;
+      let port: string | null = null;
       try {
-        const addresses = await resolve4(hostname);
-        if (addresses && addresses.length > 0) {
-          resolvedHost = addresses[0];
-          if (!isTest) {
-            logger.log(`Resolved ${hostname} to IPv4 address: ${resolvedHost}`);
-          }
+        const url = new URL(connectionString);
+        hostname = url.hostname;
+        port = url.port || "5432";
+        if (!isTest) {
+          logger.log(`Connecting to database host: ${hostname}:${port}`);
         }
       } catch (error) {
-        // DNS resolution failed - hostname may only support IPv6
-        // or network may have DNS issues
         if (!isTest) {
-          console.warn(
-            `Failed to resolve ${hostname} to IPv4, using hostname:`,
-            error.message,
-          );
+          logger.warn(`Could not parse connection string for logging: ${error.message}`);
         }
       }
 
-      // Reconstruct connection string with resolved IPv4 address
-      const resolvedUrl = new URL(connectionString);
-      resolvedUrl.hostname = resolvedHost;
+      // Detect if using Supabase connection pooler (port 6543)
+      const isPooler = port === "6543" || hostname?.includes("pooler");
+      if (!isTest && isPooler) {
+        logger.log("Detected Supabase connection pooler - using optimized settings");
+      }
 
-      // Configure connection pool
+      // Configure connection pool with enhanced reliability settings
+      // Let pg library handle DNS resolution automatically - it's more reliable
       const poolConfig: PoolConfig = {
-        connectionString: resolvedUrl.toString(),
+        connectionString: connectionString,
         ssl: {
           rejectUnauthorized: false, // Required for Supabase
         },
         // Connection pool settings
-        max: isTest ? 5 : 20, // Maximum number of clients in the pool
-        min: isTest ? 1 : 2, // Minimum number of clients in the pool
-        idleTimeoutMillis: isTest ? 30000 : 300000, // Close idle clients after 5 minutes (non-test) or 30s (test)
-        connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
+        // For Supabase pooler, use smaller pool sizes as pooler manages connections
+        max: isTest ? 5 : (isPooler ? 10 : 20), // Maximum number of clients in the pool
+        min: isTest ? 1 : (isPooler ? 1 : 2), // Minimum number of clients in the pool
+        // Reduce idle timeout to prevent using stale connections that may be closed by Supabase
+        idleTimeoutMillis: isTest ? 30000 : (isPooler ? 30000 : 60000), // Shorter timeout for pooler
+        connectionTimeoutMillis: 120000, // 120 seconds to match connect_timeout in connection string
         // Keep connections alive by validating them before use
         // This prevents using stale connections that were closed by the server
         allowExitOnIdle: false, // Don't exit when pool is idle
+        // Query timeout to prevent hanging queries
+        query_timeout: 30000, // 30 seconds query timeout
       };
 
       const pool = new Pool(poolConfig);
 
       // Handle pool errors gracefully to prevent unhandled error events
-      pool.on("error", (err, _client) => {
+      pool.on("error", (err) => {
         logger.error(
           `Unexpected error on idle database client: ${err.message}`,
           err.stack,
         );
-        // The pool will automatically remove the failed client and create a new one
+        // The pool will automatically remove the failed client
+        // Do NOT manually release here as the client is already removed from the pool
       });
 
-      // Handle connection errors
+      // Handle connection errors and validate connections
       pool.on("connect", (client) => {
+        // Validate connection immediately after connect
+        client.query('SELECT 1').catch((err) => {
+          logger.error(`Connection validation failed: ${err.message}`);
+          client.release(err);
+        });
+
         client.on("error", (err) => {
           logger.error(`Database client error: ${err.message}`, err.stack);
         });
       });
 
-      // Test the connection
-      try {
-        const client = await pool.connect();
-        if (!isTest) {
-          logger.log("Database connection successful");
+      // Test the connection with retry mechanism and timeout
+      const maxRetries = 3;
+      let lastError: Error | null = null;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          if (!isTest) {
+            if (attempt > 1) {
+              logger.log(`Connection attempt ${attempt}/${maxRetries}...`);
+            } else {
+              logger.log("Testing database connection...");
+            }
+          }
+          
+          // Connect - pg library's connectionTimeoutMillis will handle timeout
+          // For Supabase pooler, connections may take longer to establish
+          const client = await pool.connect();
+          
+          // Validate connection with a simple query
+          try {
+            await client.query('SELECT 1');
+            if (!isTest) {
+              logger.log("Database connection successful and validated");
+            }
+            client.release();
+            break; // Success, exit retry loop
+          } catch (queryError) {
+            client.release(queryError);
+            throw new Error(`Connection validation query failed: ${queryError.message}`);
+          }
+        } catch (error) {
+          lastError = error as Error;
+          
+          // Log detailed error information for diagnosis
+          if (!isTest) {
+            const errorDetails: string[] = [
+              `Attempt ${attempt}/${maxRetries} failed: ${lastError.message}`,
+            ];
+            
+            if (hostname) {
+              errorDetails.push(`Host: ${hostname}:${port || 5432}`);
+            }
+            
+            if (lastError.message.includes('timeout')) {
+              errorDetails.push('Possible causes: Network connectivity issues, firewall blocking, or database server unreachable');
+            } else if (lastError.message.includes('ECONNREFUSED')) {
+              errorDetails.push('Possible causes: Database server not running or wrong host/port');
+            } else if (lastError.message.includes('ENOTFOUND') || lastError.message.includes('getaddrinfo')) {
+              errorDetails.push('Possible causes: DNS resolution failure, check network settings');
+            } else if (lastError.message.includes('SSL') || lastError.message.includes('certificate')) {
+              errorDetails.push('Possible causes: SSL/TLS configuration issue');
+            }
+            
+            if (attempt < maxRetries) {
+              const delayMs = 2000 * attempt; // Exponential backoff: 2s, 4s, 6s
+              errorDetails.push(`Retrying in ${delayMs}ms...`);
+              logger.warn(errorDetails.join(' | '));
+            } else {
+              errorDetails.push('All retry attempts exhausted');
+              logger.error(errorDetails.join(' | '));
+              logger.error(`Full error stack: ${lastError.stack}`);
+            }
+          }
+          
+          if (attempt < maxRetries) {
+            const delayMs = 2000 * attempt; // Exponential backoff: 2s, 4s, 6s
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+          } else {
+            // Last attempt failed - clean up and throw
+            try {
+              await pool.end();
+            } catch (cleanupError) {
+              logger.warn(`Error during pool cleanup: ${cleanupError.message}`);
+            }
+            throw lastError;
+          }
         }
-        client.release();
-      } catch (error) {
-        logger.error("Database connection failed:", error);
-        await pool.end(); // Clean up pool on initialization failure
-        throw error;
       }
 
       const isDevelopment = configService.get("NODE_ENV") === "development";
@@ -112,17 +193,21 @@ export const databaseProviders = [
       // 如果启用了 OpenTelemetry 且不在测试环境，使用 instrumentDrizzleClient 包装
       // instrumentDrizzleClient 会自动追踪所有 SQL 查询，包括 SQL 语句、执行时长、操作类型等
       if (isTelemetryEnabled && !isTest) {
-        // 从连接字符串中提取数据库信息
-        const url = new URL(resolvedUrl.toString());
-        const dbName = url.pathname.slice(1); // 移除前导斜杠
-        
-        instrumentDrizzleClient(db, {
-          dbSystem: "postgresql",
-          dbName: dbName || undefined,
-          peerName: resolvedHost,
-          peerPort: parseInt(url.port) || 5432,
-          captureQueryText: true,
-        });
+        try {
+          // 从连接字符串中提取数据库信息
+          const url = new URL(connectionString);
+          const dbName = url.pathname.slice(1); // 移除前导斜杠
+          
+          instrumentDrizzleClient(db, {
+            dbSystem: "postgresql",
+            dbName: dbName || undefined,
+            peerName: hostname || undefined,
+            peerPort: parseInt(port || "5432"),
+            captureQueryText: true,
+          });
+        } catch (error) {
+          logger.warn(`Failed to configure OpenTelemetry instrumentation: ${error.message}`);
+        }
       }
 
       return db;

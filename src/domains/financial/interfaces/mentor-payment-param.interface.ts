@@ -1,4 +1,4 @@
-import { IPaymentParamUpdate } from "../dto/settlement";
+import { IPaymentParamUpdate } from "@api/dto/request/financial/settlement.request.dto";
 
 /**
  * Mentor Payment Parameter Service Interface (导师支付参数服务接口)

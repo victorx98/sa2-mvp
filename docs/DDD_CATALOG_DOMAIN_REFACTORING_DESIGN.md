@@ -8,6 +8,66 @@
 
 ---
 
+## 决策清单（Decisions Log）
+
+以下是本设计文档中的关键架构决策（已团队讨论确认）：
+
+### ✅ D1: 领域事件定义的位置
+**决策**: 所有领域事件定义必须统一放置在 `src/shared/events/` 目录
+**理由**: 促进跨领域复用，保持项目结构一致性
+**影响**: Domain → Shared 的依赖方向
+
+### ✅ D2: Repository 接口与实现的分离方式
+**决策**: 在 Domain 层内创建 `infrastructure/` 子目录，Repository 接口放在 `repositories/`，实现放在 `infrastructure/repositories/`
+**理由**: 依赖倒置原则，接口与实现分离，便于替换 ORM
+**影响**: 明确区分 Domain 和 Infrastructure 边界
+
+### ✅ D3: Domain 层是否使用 DTO
+**决策**: Domain 层不使用 DTO，使用 Entity 和 Value Object
+**理由**: DTO 是跨边界传输对象，Domain 层应使用领域对象
+**影响**: 使用 Criteria 作为 Repository 接口的查询参数
+
+### ✅ D4: 值对象（Value Object）的使用范围
+**决策**: 选项 B - 只有需要封装复杂规则或行为的字段才使用值对象
+**理由**: 保持代码简洁，避免过度设计
+**示例**: Price（验证+格式化）、ProductCode（格式验证）、ProductStatus（状态机）
+**反例**: name、description 等简单字段不需要值对象
+
+### ✅ D5: Repository 查询参数的命名
+**决策**: 选项 A - 使用 `Criteria`（如 `ProductSearchCriteria`）
+**理由**: 语义清晰，名称简洁，与 NestJS、Spring 等现代框架的命名习惯一致
+
+### ✅ D6: 领域服务（Domain Service）的使用场景
+**决策**: 选项 B - 当业务逻辑不适合放在单个实体时（即使不跨聚合）
+**理由**: 保持实体简洁，遵循单一职责原则
+**示例**: 批量操作、复杂验证规则、状态转换策略
+
+### ✅ D7: 领域异常的层次结构
+**决策**: 选项 A - 使用 `DomainException` 基类（code + message + metadata）
+**实现**:
+```typescript
+export class DomainException extends Error {
+  constructor(
+    public readonly code: string,        // 如 'PRODUCT_NOT_DRAFT'
+    message: string,
+    public readonly metadata?: Record<string, any>,
+  ) {
+    super(message);
+  }
+}
+```
+**理由**: 统一异常处理机制，便于在应用层统一捕获和转换
+
+### ✅ D8: 渐进式重构的粒度
+**决策**: 选项 A - 一次性迁移所有 Command（2-3 天）
+**实施步骤**:
+1. 第 1 天：实现实体、值对象、仓储接口和实现
+2. 第 2 天：迁移所有 Command Handler
+3. 第 3 天：集成测试和验证
+**理由**: 快速完成，减少新旧代码并存时间
+
+---
+
 ## 〇、架构分层原则
 
 ### 0.1 整体分层结构
@@ -36,10 +96,18 @@ src/
 │       │   ├── repositories/      # 仓储接口
 │       │   ├── services/          # 领域服务
 │       │   ├── exceptions/        # 领域异常
+│       │   ├── event-handlers/             # 事件处理器（仅实现，不含定义）
+│       │   │   └── index.ts
 │       │   └── infrastructure/    # 基础设施实现
 │       │       ├── repositories/  # Drizzle 仓储实现
 │       │       └── mappers/       # 数据映射器
 │       └── service-type/
+│
+├── shared/                 # 共享层（跨领域共享代码）
+│   ├── events/             # 事件定义（所有领域共享）
+│   │   ├── product-published.event.ts   # 产品发布事件定义
+│   │   ├── product-unpublished.event.ts # 产品下架事件定义
+│   │   └── index.ts
 │
 └── infrastructure/         # 全局基础设施
     └── database/          # 数据库连接、schema
@@ -97,6 +165,11 @@ src/domains/catalog/product/
 │   ├── invalid-product-code.exception.ts
 │   └── index.ts
 │
+├── event-handlers/                             # 事件处理器
+│   ├── product-published.handler.ts     # 产品发布事件处理器
+│   ├── product-unpublished.handler.ts   # 产品下架事件处理器
+│   └── index.ts
+│
 ├── infrastructure/                     # 基础设施层实现
 │   ├── repositories/                   # 仓储实现
 │   │   ├── drizzle-product.repository.ts  # Drizzle ORM 实现
@@ -120,11 +193,150 @@ src/domains/catalog/product/
 - `repositories/`: 仓储接口（只有接口，无实现）
 - `services/`: 领域服务
 - `exceptions/`: 领域异常
+- `event-handlers/`: 事件处理器
 
 **依赖规则**：
 - ✅ 可以依赖：同层其他模块、共享的领域概念
 - ❌ 禁止依赖：`@infrastructure/**`、`@api/**`、`@application/**`
 - ❌ 禁止引用：Drizzle、数据库连接、HTTP 相关库
+
+#### **Events 目录设计**
+
+**核心功能定位**：
+- **Shared 目录**：统一管理所有领域事件的定义，促进代码复用和一致性
+- **Domain 目录**：仅负责实现事件处理器，处理领域内的事件订阅和业务逻辑
+- 实现领域事件的异步处理
+- 维护领域内的最终一致性
+- 解耦领域内的不同模块
+
+**设计规范**：
+- **所有事件定义必须统一放置到 shared 目录**：基于事件定义的公用性质，促进代码复用并维持项目结构的一致性
+- **Domain 目录仅负责实现事件处理器**：不应包含事件定义代码
+- **事件定义遵循共享代码的设计原则**：
+  - 事件定义应具有良好的通用性
+  - 避免过度依赖特定领域的实现细节
+  - 便于跨领域使用
+
+**命名规范**：
+- **Shared 目录事件定义文件**：`{event-name}.event.ts`（例如：`product-published.event.ts`）
+- **Domain 目录事件处理器文件**：`{event-name}.handler.ts`（例如：`product-published.handler.ts`）
+- **事件处理器目录**：`domains/xxx/event-handlers/`
+
+**层级结构**：
+
+1. **Shared 目录（事件定义）**：
+```
+src/shared/
+├── events/                     # 事件定义（所有领域共享）
+│   ├── product-published.event.ts   # 产品发布事件定义
+│   ├── product-unpublished.event.ts # 产品下架事件定义
+│   └── index.ts                    # 统一导出
+```
+
+2. **Domain 目录（事件处理器）**：
+```
+src/domains/catalog/product/
+├── event-handlers/                   # 事件处理器（领域内的事件处理）
+│   ├── product-published.handler.ts   # 产品发布事件处理器
+│   ├── product-unpublished.handler.ts # 产品下架事件处理器
+│   └── index.ts                # 统一导出
+└── index.ts                    # 统一导出
+```
+
+**文件类型与职责划分**：
+
+1. **Shared 目录事件定义文件**（`*.event.ts`）：
+   - **职责**：定义领域事件的数据结构，供所有领域使用
+   - **位置**：必须放置在 `src/shared/events/` 目录下
+   - **特点**：
+     - 定义事件的所有必要字段
+     - 不包含业务逻辑，只定义数据结构
+     - 具有良好的通用性，便于跨领域使用
+   - **示例**：
+     ```typescript
+     // src/shared/events/product-published.event.ts
+     export class ProductPublishedEvent {
+       constructor(
+         public readonly productId: string,
+         public readonly publishedAt: Date,
+         public readonly publishedBy: string,
+       ) {}
+     }
+     ```
+
+2. **Domain 目录事件处理器文件**（`*.handler.ts`）：
+   - **职责**：处理领域事件的业务逻辑，实现事件订阅和处理
+   - **位置**：放置在 `domains/xxx/event-handlers/` 目录下
+   - **特点**：
+     - 实现事件订阅和处理逻辑
+     - 可以调用领域服务和仓储
+     - 仅负责当前领域内的事件处理
+   - **示例**：
+     ```typescript
+     // src/domains/catalog/product/event-handlers/product-published.handler.ts
+     import { ProductPublishedEvent } from "@shared/events/product-published.event";
+     
+     @Injectable()
+     export class ProductPublishedHandler {
+       constructor(
+         private readonly productService: ProductLifecycleService,
+         private readonly productRepository: IProductRepository,
+       ) {}
+       
+       @OnEvent('product.published')
+       async handle(event: ProductPublishedEvent): Promise<void> {
+         // 处理产品发布事件
+         // 可以调用领域服务、更新其他实体等
+       }
+     }
+     ```
+
+**依赖关系**：
+- **Domain 依赖 Shared**：事件处理器依赖 shared 目录中的事件定义
+- **Shared 不依赖 Domain**：事件定义不能依赖任何领域的实现细节
+- **依赖方向**：`Domain → Shared`（符合依赖倒置原则）
+
+**与其他目录的关系及交互方式**：
+
+1. **与 Entities 的关系**：
+   - 事件处理器可以读取和更新实体
+   - 实体可以发布事件（使用 shared 目录中的事件定义）
+   - 事件通常由实体的状态变更触发
+
+2. **与 Value Objects 的关系**：
+   - 事件可以包含值对象作为字段
+   - 事件处理器可以使用值对象进行业务逻辑处理
+
+3. **与 Services 的关系**：
+   - 事件处理器可以调用领域服务
+   - 领域服务可以发布事件
+   - 事件处理器可以实现跨实体的业务逻辑
+
+4. **与 Repositories 的关系**：
+   - 事件处理器可以使用仓储读取和保存实体
+   - 仓储不直接处理事件
+
+5. **与 Exceptions 的关系**：
+   - 事件处理器可以抛出领域异常
+   - 异常处理由应用层统一处理
+
+**事件处理流程**：
+1. 实体状态变更时，使用 shared 目录中的事件定义发布事件
+2. 事件总线接收事件
+3. 事件总线将事件分发给注册的处理器
+4. 事件处理器执行业务逻辑
+5. 事件处理器可以更新实体或调用领域服务
+6. 更新后的实体通过仓储保存到数据库
+
+**依赖规则**：
+- **事件定义**：
+  - ✅ 可以使用：基础类型、值对象
+  - ❌ 禁止依赖：领域实体、领域服务、仓储接口
+  - ❌ 禁止引用：数据库相关代码、HTTP 相关库
+- **事件处理器**：
+  - ✅ 可以依赖：shared 目录中的事件定义、领域服务、仓储接口、实体
+  - ❌ 禁止依赖：基础设施层
+  - ❌ 禁止处理跨领域的事件（跨领域事件由应用层处理）
 
 #### **Infrastructure 子目录（技术实现）**
 
@@ -1367,10 +1579,14 @@ src/
 
 ---
 
-**文档版本**：v3.0（最终版）
-**更新日期**：2025-12-18
+**文档版本**：v3.2（更新版）
+**更新日期**：2025-12-19
 **主要变更**：
 - 移除所有版本比较说明
 - 加入 DTO 使用指南和数据流转说明
 - 明确 Domain 层不需要 DTO 目录
 - 简化文档结构，更加直接实用
+- 添加了 event-handler 目录设计
+- 明确要求所有事件定义必须统一放置到 shared 目录中
+- 规定 domain 目录仅负责实现事件处理器，不应包含事件定义代码
+- 更新了目录结构示例，清晰展示了 shared 目录和 domain 目录的职责划分

@@ -9,6 +9,7 @@ import {
   pgEnum,
   uniqueIndex,
   index,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { APPLICATION_STATUSES } from "@domains/placement/types/application-status.types";
 
@@ -168,6 +169,8 @@ export const recommendedJobs = pgTable(
 /**
  * Job applications table [投递申请表]
  * Stores job application records [存储投递申请记录]
+ * 
+ * Note: This schema matches the actual database structure [此schema与实际数据库结构一致]
  */
 export const jobApplications = pgTable(
   "job_applications",
@@ -177,23 +180,20 @@ export const jobApplications = pgTable(
 
     // Basic information [基础信息]
     studentId: varchar("student_id", { length: 36 }).notNull(), // Student ID (string reference) [学生ID]
-    jobId: uuid("job_id") // Job ID (foreign key references recommended_jobs) [岗位ID]
-      .notNull()
+    
+    // Recommended job reference (UUID) [推荐岗位引用（UUID）]
+    recommendedJobId: uuid("recommended_job_id") // Recommended job ID (foreign key references recommended_jobs) [推荐岗位ID]
       .references(() => recommendedJobs.id, { onDelete: "cascade" }),
-
+    
     // Application information [申请信息]
-    applicationType: applicationTypeEnum("application_type").notNull(), // Application type (direct/counselor/mentor/bd) [申请类型]
+    applicationType: varchar("application_type", { length: 50 }).notNull(), // Application type (direct/proxy/referral/bd) [申请类型]
     coverLetter: text("cover_letter"), // Cover letter [求职信]
+    customAnswers: jsonb("custom_answers"), // Custom answers for application questions [申请问题的自定义答案]
 
     // Status management [状态管理]
-    status: applicationStatusEnum("status").notNull().default("submitted"), // Application status [申请状态]
-
-    // Assigned mentor for referral applications [推荐申请分配的导师ID]
-    assignedMentorId: varchar("assigned_mentor_id", { length: 36 }), // Assigned mentor ID for referral applications [内推申请分配的导师ID]
-
-    // Recommendation information [推荐信息]
-    recommendedBy: varchar("recommended_by", { length: 36 }), // Recommender user ID (counselor/mentor) [推荐人ID（顾问/导师）]
-    recommendedAt: timestamp("recommended_at", { withTimezone: true }), // Recommendation time [推荐时间]
+    status: varchar("status", { length: 50 }).notNull().default("submitted"), // Application status [申请状态]
+    result: varchar("result", { length: 50 }), // Application result (e.g., accepted, rejected) [申请结果]
+    resultReason: text("result_reason"), // Reason for result [结果原因]
 
     // Timestamps [时间戳]
     submittedAt: timestamp("submitted_at", { withTimezone: true })
@@ -204,25 +204,29 @@ export const jobApplications = pgTable(
       .notNull(), // Update time [更新时间]
 
     // Business fields [业务字段]
+    isUrgent: boolean("is_urgent").notNull().default(false), // Urgent flag [紧急标记]
     notes: text("notes"), // Internal notes [内部备注]
+    
+    // Assigned mentor for referral applications [推荐申请分配的导师ID]
+    assignedMentorId: varchar("assigned_mentor_id", { length: 36 }), // Assigned mentor ID for referral applications [内推申请分配的导师ID]
 
-    // Manual creation fields (for counselor manual job application creation) [手工创建字段（用于顾问手工创建投递申请）]
-    jobType: varchar("job_type", { length: 100 }), // Job type [职位类型]
-    jobTitle: varchar("job_title", { length: 500 }), // Job title [职位标题]
-    jobLink: text("job_link"), // Job posting link [职位链接]
-    companyName: varchar("company_name", { length: 500 }), // Company name [公司名称]
-    location: text("location"), // Job location [工作地点]
-    jobCategories: text("job_categories").array(), // Job categories array [职位类别数组]
-    normalJobTitle: varchar("normal_job_title", { length: 500 }), // Normalized job title for search [标准化职位标题（用于搜索）]
-    level: varchar("level", { length: 100 }), // Job level [职位级别]
+    // Recommendation information [推荐信息]
+    recommendedBy: varchar("recommended_by", { length: 36 }), // Recommender user ID (counselor/mentor) [推荐人ID（顾问/导师）]
+    recommendedAt: timestamp("recommended_at", { withTimezone: true }), // Recommendation time [推荐时间]
+    
+    // External job ID (string) for non-recommended jobs [外部岗位ID（字符串）用于非推荐岗位]
+    jobId: varchar("job_id", { length: 255 }), // External job ID [外部岗位ID]
+    
+    // Job link for quick access [岗位链接便于快速访问]
+    jobLink: varchar("job_link", { length: 255 }), // Job posting link [岗位链接]
   },
   (table) => [
-    // Unique constraint [唯一约束]
-    uniqueIndex("idx_student_job").on(table.studentId, table.jobId), // Student+job unique constraint [学生+岗位唯一]
+    // Unique constraint on student + recommended_job [学生+推荐岗位唯一约束]
+    uniqueIndex("idx_student_recommended_job").on(table.studentId, table.recommendedJobId),
 
     // Core query indexes [核心查询索引]
     index("idx_job_applications_student").on(table.studentId),
-    index("idx_job_applications_job").on(table.jobId),
+    index("idx_job_applications_recommended_job").on(table.recommendedJobId),
     index("idx_job_applications_status").on(table.status),
     index("idx_job_applications_type").on(table.applicationType),
     index("idx_job_applications_submitted").on(table.submittedAt),
@@ -255,7 +259,7 @@ export const applicationHistory = pgTable(
     newStatus: applicationStatusEnum("new_status").notNull(), // New status [新状态]
 
     // Change information [变更信息]
-    changedBy: varchar("changed_by", { length: 36 }), // Changer ID (system or user) [变更人ID]
+    changedBy: uuid("changed_by"), // Changer ID (UUID) [变更人ID(UUID)]
     changeReason: text("change_reason"), // Change reason [变更原因]
     changeMetadata: jsonb("change_metadata"), // Change metadata [变更元数据]
 

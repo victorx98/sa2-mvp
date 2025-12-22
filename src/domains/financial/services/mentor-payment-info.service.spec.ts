@@ -1,8 +1,8 @@
 import { Test } from "@nestjs/testing";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { MentorPaymentInfoService } from "./mentor-payment-info.service";
-import type { ICreateOrUpdateMentorPaymentInfoRequest } from "../dto/settlement";
-import { SettlementMethod } from "../dto/settlement/settlement.enums";
+import type { ICreateOrUpdateMentorPaymentInfoRequest } from "@api/dto/request/financial/mentor-payment-info.request.dto";
+import { SettlementMethod } from "@shared/types/financial-enums";
 
 /**
  * MentorPaymentInfoService Unit Tests (导师支付信息服务单元测试)
@@ -127,7 +127,7 @@ describe("MentorPaymentInfoService", () => {
         );
 
       expect(mockDb.update).toHaveBeenCalled();
-      expect(result.paymentDetails.bankName).toBe("Updated Bank");
+      expect((result.paymentDetails as any).bankName).toBe("Updated Bank");
     });
 
     it("should fail if mentorId is missing", async () => {
@@ -195,7 +195,7 @@ describe("MentorPaymentInfoService", () => {
         await paymentInfoService.createOrUpdateMentorPaymentInfo(gustoRequest);
 
       expect(result.paymentMethod).toBe("GUSTO");
-      expect(result.paymentDetails.employeeId).toBe("EMP123");
+      expect((result.paymentDetails as any).employeeId).toBe("EMP123");
     });
 
     it("should handle CHECK payment method", async () => {
@@ -222,7 +222,7 @@ describe("MentorPaymentInfoService", () => {
         await paymentInfoService.createOrUpdateMentorPaymentInfo(checkRequest);
 
       expect(result.paymentMethod).toBe("CHECK");
-      expect(result.paymentDetails.payee).toBe("John Doe");
+      expect((result.paymentDetails as any).payee).toBe("John Doe");
     });
 
     it("should handle CHANNEL_BATCH_PAY payment method", async () => {
@@ -232,8 +232,8 @@ describe("MentorPaymentInfoService", () => {
         ...mockRequest,
         paymentMethod: SettlementMethod.CHANNEL_BATCH_PAY as const,
         paymentDetails: {
-          channelId: "CH123",
-          channelName: "Test Channel",
+          channel: "CH123",
+          accountIdentifier: "acct_789",
         },
       };
 
@@ -251,7 +251,7 @@ describe("MentorPaymentInfoService", () => {
         );
 
       expect(result.paymentMethod).toBe("CHANNEL_BATCH_PAY");
-      expect(result.paymentDetails.channelId).toBe("CH123");
+      expect((result.paymentDetails as any).channel).toBe("CH123");
     });
 
     it("should handle GUSTO_INTERNATIONAL payment method", async () => {
@@ -280,7 +280,7 @@ describe("MentorPaymentInfoService", () => {
         );
 
       expect(result.paymentMethod).toBe("GUSTO_INTERNATIONAL");
-      expect(result.paymentDetails.employeeId).toBe("EMP789");
+      expect((result.paymentDetails as any).employeeId).toBe("EMP789");
     });
   });
 

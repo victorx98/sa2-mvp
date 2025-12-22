@@ -1,10 +1,65 @@
-import {
+import type {
   ICreateSettlementRequest,
-  ISettlementQuery,
-  ISettlementDetailResponse,
-  ISettlementResponse,
-  ISettlementDetailItem,
-} from "../dto/settlement";
+} from "@api/dto/request/financial/settlement.request.dto";
+import { SettlementStatus, SettlementMethod } from "@shared/types/financial-enums";
+
+/**
+ * Settlement query interface (结算查询接口)
+ */
+export interface ISettlementQuery {
+  mentorId?: string;
+  settlementMonth?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: SettlementStatus;
+  page?: number;
+  pageSize?: number;
+}
+
+/**
+ * Settlement detail item interface (结算明细项接口)
+ */
+export interface ISettlementDetailItem {
+  id?: string;
+  settlementId?: string;
+  mentorPayableId?: string;
+  sessionId?: string;
+  studentId?: string;
+  sessionDate?: string;
+  serviceType?: string;
+  mentorPrice?: string;
+  originalAmount?: string;
+  targetAmount?: string;
+  createdAt?: Date;
+  createdBy?: string;
+}
+
+/**
+ * Settlement response interface (结算响应接口)
+ */
+export interface ISettlementResponse {
+  id: string;
+  mentorId: string;
+  settlementMonth: string;
+  originalAmount: number;
+  targetAmount: number;
+  originalCurrency: string;
+  targetCurrency: string;
+  exchangeRate: number;
+  deductionRate: number;
+  status: SettlementStatus;
+  settlementMethod: SettlementMethod;
+  createdAt: Date;
+  createdBy: string;
+}
+
+/**
+ * Settlement detail response interface (结算详情响应接口)
+ */
+export interface ISettlementDetailResponse extends ISettlementResponse {
+  mentorName: string;
+  details: ISettlementDetailItem[];
+}
 
 /**
  * Settlement Service Interface (结算服务接口)

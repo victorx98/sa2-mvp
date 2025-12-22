@@ -1,10 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { inArray } from "drizzle-orm";
-import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import { eq, inArray } from "drizzle-orm";
+import type { DrizzleDatabase } from "@shared/types/database.types";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
-import { ProductService } from "@domains/catalog/product/services/product.service";
 import { CatalogException, CatalogNotFoundException } from "@domains/catalog/common/exceptions/catalog.exception";
+import { ProductStatus } from "@shared/types/catalog-enums";
 
 export interface ProductEntitlementItem {
   id: string;
@@ -42,17 +42,28 @@ export interface ProductDetailWithEntitlements {
 export class GetProductDetailQuery {
   constructor(
     @Inject(DATABASE_CONNECTION)
-    private readonly db: NodePgDatabase<typeof schema>,
-    private readonly productService: ProductService,
+    private readonly db: DrizzleDatabase,
   ) {}
 
   async execute(productId: string): Promise<ProductDetailWithEntitlements> {
-    const product = await this.productService.findOne({ id: productId });
+    // 1. 查找产品
+    const [product] = await this.db
+      .select()
+      .from(schema.products)
+      .where(eq(schema.products.id, productId))
+      .limit(1);
+
     if (!product) {
       throw new CatalogNotFoundException("PRODUCT_NOT_FOUND");
     }
 
-    const items = product.items ?? [];
+    // 2. 获取产品项
+    const items = await this.db
+      .select()
+      .from(schema.productItems)
+      .where(eq(schema.productItems.productId, product.id))
+      .orderBy(schema.productItems.sortOrder, schema.productItems.createdAt);
+
     if (items.length === 0) {
       return {
         ...(product as unknown as ProductDetailWithEntitlements),
@@ -60,6 +71,7 @@ export class GetProductDetailQuery {
       };
     }
 
+    // 3. 查询服务类型信息
     const serviceTypeIds = Array.from(new Set(items.map((i) => i.serviceTypeId)));
     const serviceTypes = await this.db
       .select({
@@ -74,6 +86,7 @@ export class GetProductDetailQuery {
       serviceTypes.map((st) => [st.id, { code: st.code, name: st.name }]),
     );
 
+    // 4. 构建富化后的产品项
     const enrichedItems: ProductEntitlementItem[] = items.map((i) => {
       const st = serviceTypeMap.get(i.serviceTypeId);
       if (!st) {

@@ -10,10 +10,11 @@ export interface IProductSnapshotItem {
 // Product snapshot interface (used for contracts)
 export interface IProductSnapshot {
   productId: string;
-  productName: string;
-  productCode: string;
+  code: string;
+  name: string;
+  description?: string;
   price: string;
   currency: Currency;
   items: IProductSnapshotItem[];
-  snapshotAt: Date;
+  snapshotAt: Date; // When snapshot was taken [快照捕获时间]
 }

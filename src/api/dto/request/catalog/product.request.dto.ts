@@ -470,3 +470,64 @@ export class UpdateProductStatusRequestDto {
   status!: ProductStatus;
 }
 
+// Type aliases for backward compatibility
+export type AddProductItemDto = AddProductItemRequestDto;
+export type CreateProductDto = CreateProductRequestDto;
+export type UpdateProductDto = UpdateProductRequestDto;
+
+export class ProductFilterDto {
+  @ApiPropertyOptional({
+    description: "Whether to include deleted products. Default: false. [是否包含已删除产品，默认: false]",
+    type: Boolean,
+    required: false,
+    default: false,
+  })
+  @IsOptional()
+  includeDeleted?: boolean;
+
+  @ApiPropertyOptional({
+    description: "Product status filter. [产品状态筛选]",
+    enum: ProductStatus,
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(ProductStatus)
+  status?: ProductStatus;
+
+  @ApiPropertyOptional({
+    description: "User persona filter. [用户画像筛选]",
+    enum: UserPersona,
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(UserPersona)
+  userPersona?: UserPersona;
+
+  @ApiPropertyOptional({
+    description: "Marketing label filter. [营销标签筛选]",
+    enum: MARKETING_LABEL_VALUES,
+    required: false,
+  })
+  @IsOptional()
+  @IsIn(MARKETING_LABEL_VALUES)
+  marketingLabel?: MarketingLabel;
+
+  @ApiPropertyOptional({
+    description: "Product name filter (partial match). [产品名称筛选(部分匹配)]",
+    type: String,
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({
+    description: "Product code filter (partial match). [产品编码筛选(部分匹配)]",
+    type: String,
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  code?: string;
+}
+

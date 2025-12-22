@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DtoMapperBase } from '../core/dto.mapper.base';
-import { CreateProductDto } from '@domains/catalog/product/dto/create-product.dto';
-import { UpdateProductDto } from '@domains/catalog/product/dto/update-product.dto';
+import { CreateProductDto } from '@api/dto/request/catalog/product.request.dto';
+import { UpdateProductDto } from '@api/dto/request/catalog/product.request.dto';
 import type { Product } from '@infrastructure/database/schema';
 
 /**

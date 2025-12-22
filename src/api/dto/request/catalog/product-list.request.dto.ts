@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsInt, Min, Max, IsString, IsEnum } from 'class-validator';
+import { IsOptional, IsInt, Min, Max, IsString, IsEnum, IsIn } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ProductStatus } from '@shared/types/catalog-enums';
 
@@ -47,4 +47,85 @@ export class ProductListQueryDto {
   @IsOptional()
   @IsString()
   maxPrice?: string;
+
+  @ApiPropertyOptional({ description: 'Sort field [排序字段]', example: 'createdAt' })
+  @IsOptional()
+  @IsString()
+  field?: string;
+
+  @ApiPropertyOptional({ description: 'Sort order [排序方向]', enum: ['asc', 'desc'], example: 'desc' })
+  @IsOptional()
+  @IsString()
+  @IsIn(['asc', 'desc'])
+  order?: 'asc' | 'desc';
+}
+
+/**
+ * Product Filter DTO [产品筛选DTO]
+ * Used for filtering products [用于筛选产品]
+ */
+export class ProductFilterDto {
+  @ApiPropertyOptional({ description: 'Include deleted products [包含已删除产品]' })
+  @IsOptional()
+  includeDeleted?: boolean;
+
+  @ApiPropertyOptional({ description: 'Product status filter [产品状态筛选]', enum: ProductStatus })
+  @IsOptional()
+  @IsEnum(ProductStatus)
+  status?: ProductStatus;
+
+  @ApiPropertyOptional({ description: 'Target user persona [目标用户画像]' })
+  @IsOptional()
+  @IsString()
+  userPersona?: string;
+
+  @ApiPropertyOptional({ description: 'Marketing label [营销标签]' })
+  @IsOptional()
+  @IsString()
+  marketingLabel?: string;
+
+  @ApiPropertyOptional({ description: 'Product name filter [产品名称筛选]' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ description: 'Product code filter [产品编码筛选]' })
+  @IsOptional()
+  @IsString()
+  code?: string;
+}
+
+/**
+ * Pagination DTO [分页DTO]
+ * Used for pagination parameters [用于分页参数]
+ */
+export class PaginationDto {
+  @ApiPropertyOptional({ description: 'Page number [页码]', default: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ description: 'Items per page [每页条数]', default: 20 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  pageSize?: number;
+}
+
+/**
+ * Sort DTO [排序DTO]
+ * Used for sorting parameters [用于排序参数]
+ */
+export class SortDto {
+  @ApiPropertyOptional({ description: 'Sort field [排序字段]' })
+  @IsOptional()
+  @IsString()
+  field?: string;
+
+  @ApiPropertyOptional({ description: 'Sort order [排序方向]', enum: ['asc', 'desc'] })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  order?: 'asc' | 'desc';
 }

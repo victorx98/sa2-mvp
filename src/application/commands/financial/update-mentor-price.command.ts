@@ -3,7 +3,7 @@ import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider"
 import type { DrizzleDatabase } from "@shared/types/database.types";
 import { CommandBase } from "@application/core/command.base";
 import { MentorPriceService } from "@domains/financial/services/mentor-price.service";
-import { UpdateMentorPriceDto } from "@domains/financial/dto/update-mentor-price.dto";
+import { UpdateMentorPriceDto } from "@api/dto/request/financial/mentor-price.request.dto";
 import type { MentorPrice } from "@infrastructure/database/schema";
 
 /**

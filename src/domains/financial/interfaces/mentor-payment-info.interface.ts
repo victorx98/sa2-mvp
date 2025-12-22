@@ -1,7 +1,9 @@
 import {
   ICreateOrUpdateMentorPaymentInfoRequest,
+} from "@api/dto/request/financial/mentor-payment-info.request.dto";
+import {
   IMentorPaymentInfoResponse,
-} from "../dto/settlement";
+} from "@api/dto/response/financial/settlement.response.dto";
 
 /**
  * Mentor Payment Info Service Interface (导师支付信息服务接口)

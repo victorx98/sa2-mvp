@@ -21,6 +21,7 @@ import { PlacementReferralAssignMentorRequestDto } from "@api/dto/request/placem
 import { CreateManualJobApplicationCommand } from "@application/commands/placement/create-manual-job-application.command";
 import { PlacementReferralManualCreateRequestDto } from "@api/dto/request/placement-referral-manual-create.request.dto";
 import { BatchRecommendReferralApplicationsResponseDto, JobApplicationResponseDto } from "@api/dto/response/placement/placement.response.dto";
+import type { IUpdateApplicationStatusDto } from "@api/dto/request/placement/placement.index";
 
 /**
  * Placement Referral Controller [内推推荐控制器]
@@ -95,15 +96,19 @@ export class PlacementReferralController {
     @CurrentUser() user: IJwtUser,
   ): Promise<JobApplicationResponseDto> {
     const counselorId = String((user as unknown as { id: string }).id);
-    const result = await this.assignReferralMentorCommand.execute({
-      updateStatusDto: {
-        applicationId,
-        newStatus: "mentor_assigned",
-        mentorId: body.mentorId,
-        changedBy: counselorId,
-        changeReason: "Assign referral mentor",
-      },
-    });
+
+    // Assemble complete DTO with all required fields for status update [组装完整的DTO，包含状态更新所需的所有字段]
+    const updateStatusDto: IUpdateApplicationStatusDto = {
+      applicationId, // From URL parameter [来自URL参数]
+      status: "mentor_assigned", // Controller sets the target status [Controller设置目标状态]
+      mentorId: body.mentorId, // From request body [来自请求体]
+      changeReason: "Assign referral mentor",
+    };
+
+    const result = await this.assignReferralMentorCommand.execute(
+      updateStatusDto,
+      counselorId, // Auditing information passed separately [审计信息单独传递]
+    );
 
     return result.data as unknown as JobApplicationResponseDto;
   }
@@ -133,7 +138,7 @@ export class PlacementReferralController {
       dto: {
         studentId: body.studentId,
         mentorId: body.mentorId,
-        jobType: body.jobType,
+        jobType: body.jobType ? [body.jobType] : [], // Convert string to string[] [将字符串转换为字符串数组]
         resumeSubmittedDate: body.resumeSubmittedDate,
         jobTitle: body.jobTitle,
         jobLink: body.jobLink,
@@ -141,7 +146,7 @@ export class PlacementReferralController {
         companyName: body.companyName,
         location: body.location,
         jobCategories: body.jobCategories,
-        normalJobTitle: body.normalJobTitle,
+        normalJobTitle: body.normalJobTitle ? [body.normalJobTitle] : [], // Convert string to string[] [将字符串转换为字符串数组]
         level: body.level,
         createdBy: counselorId,
       },

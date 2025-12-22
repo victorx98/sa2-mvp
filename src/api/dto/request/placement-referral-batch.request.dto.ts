@@ -37,6 +37,16 @@ export class PlacementReferralBatchRecommendRequestDto {
   @ArrayUnique()
   @IsString({ each: true })
   jobIds!: string[]; // Job IDs [岗位ID列表]
+
+  @ApiProperty({
+    description:
+      "Recommended by (UUID). The ID of the counselor who recommends the jobs. [推荐人ID(UUID)，推荐岗位的顾问ID]",
+    type: String,
+    required: true,
+    example: "123e4567-e89b-12d3-a456-426614174002",
+  })
+  @IsString()
+  recommendedBy!: string; // Recommended by [推荐人ID]
 }
 
 

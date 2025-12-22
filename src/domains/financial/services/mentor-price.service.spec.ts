@@ -1,8 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { MentorPriceService } from "./mentor-price.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
-import { CreateMentorPriceDto } from "../dto/create-mentor-price.dto";
-import { UpdateMentorPriceDto } from "../dto/update-mentor-price.dto";
+import { CreateMentorPriceRequestDto } from "@api/dto/request/financial/mentor-price.request.dto";
+import { UpdateMentorPriceRequestDto } from "@api/dto/request/financial/mentor-price.request.dto";
 import {
   FinancialException
 } from "../common/exceptions/financial.exception";
@@ -112,7 +112,7 @@ describe("MentorPriceService", () => {
   describe("createMentorPrice", () => {
     it("should create mentor price successfully", async () => {
       // Arrange
-      const dto: CreateMentorPriceDto = {
+      const dto: CreateMentorPriceRequestDto = {
         mentorUserId: "mentor-123",
         sessionTypeCode: "consultation",
         price: 100,
@@ -143,7 +143,7 @@ describe("MentorPriceService", () => {
 
     it("should throw FinancialConflictException when mentor price already exists", async () => {
       // Arrange
-      const dto: CreateMentorPriceDto = {
+      const dto: CreateMentorPriceRequestDto = {
         mentorUserId: "mentor-123",
         sessionTypeCode: "consultation",
         price: 100,
@@ -162,7 +162,7 @@ describe("MentorPriceService", () => {
 
     it("should throw FinancialException when price is invalid", async () => {
       // Arrange
-      const dto: CreateMentorPriceDto = {
+      const dto: CreateMentorPriceRequestDto = {
         mentorUserId: "mentor-123",
         sessionTypeCode: "consultation",
         price: -100, // Invalid price
@@ -179,7 +179,7 @@ describe("MentorPriceService", () => {
     it("should update mentor price successfully", async () => {
       // Arrange
       const priceId = "price-123";
-      const dto: UpdateMentorPriceDto = {
+      const dto: UpdateMentorPriceRequestDto = {
         price: 150,
       };
 
@@ -214,7 +214,7 @@ describe("MentorPriceService", () => {
     it("should throw FinancialNotFoundException when mentor price not found", async () => {
       // Arrange
       const priceId = "non-existent-price";
-      const dto: UpdateMentorPriceDto = {
+      const dto: UpdateMentorPriceRequestDto = {
         price: 150,
       };
 
@@ -235,7 +235,7 @@ describe("MentorPriceService", () => {
         currency: "USD",
         status: "active",
       };
-      const dto: UpdateMentorPriceDto = {
+      const dto: UpdateMentorPriceRequestDto = {
         currency: "CNY",
       };
 
@@ -258,7 +258,7 @@ describe("MentorPriceService", () => {
         currency: "USD",
         status: "active",
       };
-      const dto: UpdateMentorPriceDto = {
+      const dto: UpdateMentorPriceRequestDto = {
         status: "inactive",
       };
 
@@ -281,7 +281,7 @@ describe("MentorPriceService", () => {
         currency: "USD",
         status: "active",
       };
-      const dto: UpdateMentorPriceDto = {
+      const dto: UpdateMentorPriceRequestDto = {
         price: 150,
       };
       const dbError = new Error("Database error");
@@ -522,7 +522,7 @@ describe("MentorPriceService", () => {
 
     it("should bulk create mentor prices successfully", async () => {
       // Arrange
-      const dtos: CreateMentorPriceDto[] = [
+      const dtos: CreateMentorPriceRequestDto[] = [
         {
           mentorUserId: "mentor-123",
           sessionTypeCode: "consultation",
@@ -565,7 +565,7 @@ describe("MentorPriceService", () => {
 
     it("should throw error when batch contains duplicate combinations", async () => {
       // Arrange
-      const dtos: CreateMentorPriceDto[] = [
+      const dtos: CreateMentorPriceRequestDto[] = [
         {
           mentorUserId: "mentor-123",
           sessionTypeCode: "consultation",
@@ -591,11 +591,11 @@ describe("MentorPriceService", () => {
       const updates = [
         {
           id: "price-123",
-          dto: { price: 110 } as UpdateMentorPriceDto,
+          dto: { price: 110 } as UpdateMentorPriceRequestDto,
         },
         {
           id: "price-456",
-          dto: { price: 160 } as UpdateMentorPriceDto,
+          dto: { price: 160 } as UpdateMentorPriceRequestDto,
         },
       ];
 
@@ -629,7 +629,7 @@ describe("MentorPriceService", () => {
       const updates = [
         {
           id: "non-existent-price",
-          dto: { price: 110 } as UpdateMentorPriceDto,
+          dto: { price: 110 } as UpdateMentorPriceRequestDto,
         },
       ];
 

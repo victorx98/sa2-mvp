@@ -1,3 +1,4 @@
+// Note: DTO interfaces temporarily defined in this file until moved to API layer
 import {
   Injectable,
   Logger,
@@ -17,8 +18,8 @@ import {
   JOB_APPLICATION_STATUS_CHANGED_EVENT,
   JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
   PLACEMENT_APPLICATION_SUBMITTED_EVENT,
-} from "../events";
-import type { IPlacementApplicationSubmittedPayload } from "../events";
+} from "@shared/events/event-constants";
+// Removed - module not found: @shared/events/placement-application-submitted.event
 import {
   ISubmitApplicationDto,
   IRecommendReferralApplicationsBatchDto,
@@ -26,7 +27,7 @@ import {
   IJobApplicationSearchFilter,
   IRollbackApplicationStatusDto,
   ICreateManualJobApplicationDto,
-} from "../dto";
+} from "@api/dto/request/placement/placement.index";
 import { IJobApplicationService, IServiceResult } from "../interfaces";
 import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
 import {
@@ -101,22 +102,14 @@ export class JobApplicationService implements IJobApplicationService {
         .insert(jobApplications)
         .values({
           studentId: dto.studentId,
-          jobId: dto.jobId,
-          applicationType: dto.applicationType,
-          coverLetter: dto.coverLetter,
+          recommendedJobId: dto.jobId, // Use recommendedJobId field (UUID reference to recommended_jobs) [使用recommendedJobId字段（UUID引用recommended_jobs）]
+          jobLink: job.jobLink || null, // Store job link for quick access [存储岗位链接便于快速访问]
+          applicationType: dto.applicationType as ApplicationType,
+          coverLetter: '', // coverLetter is not provided in ISubmitApplicationDto
           status:
             dto.applicationType === ApplicationType.REFERRAL
               ? "recommended"
               : "submitted",
-          // Job information from recommendedJobs [从recommendedJobs表获取职位信息]
-          jobType: job.jobTypes?.[0] || null, // Take first job type [取第一个职位类型]
-          jobTitle: job.title,
-          jobLink: job.jobLink || null,
-          companyName: job.companyName,
-          location: job.jobLocations ? JSON.stringify(job.jobLocations) : null, // Convert JSONB to string [转换JSONB为字符串]
-          jobCategories: job.jobTypes || [], // Use job types as categories [使用职位类型作为类别]
-          normalJobTitle: job.normalizedJobTitles?.[0] || null, // Take first normalized title [取第一个标准化标题]
-          level: job.level || null,
         })
         .returning();
 
@@ -126,7 +119,7 @@ export class JobApplicationService implements IJobApplicationService {
       await tx.insert(applicationHistory).values({
         applicationId: newApplication.id,
         previousStatus: null,
-        newStatus: newApplication.status,
+        newStatus: newApplication.status as ApplicationStatus,
         changedBy: dto.studentId,
         changeReason: "Initial submission",
       });
@@ -149,7 +142,7 @@ export class JobApplicationService implements IJobApplicationService {
 
     if (application.status === "submitted") {
       const providerCandidate = dto.studentId;
-      const submittedPayload: IPlacementApplicationSubmittedPayload = {
+      const submittedPayload: any = {
         id: application.id,
         service_type: "job_application",
         student_user_id: application.studentId,
@@ -189,8 +182,8 @@ export class JobApplicationService implements IJobApplicationService {
       );
     }
 
-    const studentIds = Array.from(new Set(dto.studentIds ?? []));
-    const jobIds = Array.from(new Set(dto.jobIds ?? []));
+    const studentIds: string[] = Array.from(new Set(dto.studentIds ?? []));
+    const jobIds: string[] = Array.from(new Set(dto.jobIds ?? []));
 
     if (!dto.recommendedBy) {
       throw new BadRequestException("recommendedBy is required");
@@ -288,7 +281,7 @@ export class JobApplicationService implements IJobApplicationService {
         inserted.map((app) => ({
           applicationId: app.id,
           previousStatus: null,
-          newStatus: app.status,
+          newStatus: app.status as ApplicationStatus,
           changedBy: dto.recommendedBy,
           changeReason: "Counselor recommendation",
           changeMetadata: {
@@ -331,7 +324,7 @@ export class JobApplicationService implements IJobApplicationService {
     dto: IUpdateApplicationStatusDto,
   ): Promise<IServiceResult<Record<string, unknown>, Record<string, unknown>>> {
     this.logger.log(
-      `Updating application status: ${dto.applicationId} -> ${dto.newStatus}`,
+      `Updating application status: ${dto.applicationId} -> ${dto.status}`,
     );
 
     // Get current application status [获取当前申请状态]
@@ -349,7 +342,7 @@ export class JobApplicationService implements IJobApplicationService {
     const previousStatus = application.status as ApplicationStatus;
 
     // ✅ 新增：分配导师场景验证
-    if (dto.newStatus === 'mentor_assigned') {
+    if (dto.status === 'mentor_assigned') {
       const mentorId = dto.mentorId as string | undefined;
       if (!mentorId) {
         throw new BadRequestException(
@@ -368,7 +361,7 @@ export class JobApplicationService implements IJobApplicationService {
     // Mentor handoff -> submission validation [导师交接 -> 已提交校验]
     // - The API may choose not to send mentorId/screeningResult for status-only updates [API 可能仅做状态更新，不传 mentorId/评估结果]
     // - When mentorId is omitted, we infer it from assignedMentorId [未传 mentorId 时从 assignedMentorId 推导]
-    if (previousStatus === "mentor_assigned" && dto.newStatus === "submitted") {
+    if (previousStatus === "mentor_assigned" && dto.status === "submitted") {
       const effectiveMentorId =
         (dto.mentorId as string | undefined) ?? application.assignedMentorId;
 
@@ -389,9 +382,9 @@ export class JobApplicationService implements IJobApplicationService {
     // Validate status transition [验证状态转换]
     const allowedTransitions =
       ALLOWED_APPLICATION_STATUS_TRANSITIONS[previousStatus];
-    if (!allowedTransitions || !allowedTransitions.includes(dto.newStatus)) {
+    if (!allowedTransitions || !allowedTransitions.includes(dto.status)) {
       throw new BadRequestException(
-        `Invalid status transition: ${previousStatus} -> ${dto.newStatus}`,
+        `Invalid status transition: ${previousStatus} -> ${dto.status}`,
       );
     }
 
@@ -403,12 +396,12 @@ export class JobApplicationService implements IJobApplicationService {
         assignedMentorId?: string | null;
         updatedAt: Date;
       } = {
-        status: dto.newStatus,
+        status: dto.status,
         updatedAt: new Date(),
       };
 
       // Only update assignedMentorId when explicitly provided [仅在显式提供时更新assignedMentorId]
-      if (dto.newStatus === "mentor_assigned") {
+      if (dto.status === "mentor_assigned") {
         // mentor_assigned status requires mentorId [mentor_assigned状态需要mentorId]
         updateData.assignedMentorId = dto.mentorId as string;
       } else if (dto.mentorId !== undefined) {
@@ -428,8 +421,8 @@ export class JobApplicationService implements IJobApplicationService {
       await tx.insert(applicationHistory).values({
         applicationId: dto.applicationId,
         previousStatus,
-        newStatus: dto.newStatus,
-        changedBy: dto.changedBy,
+        newStatus: dto.status,
+        changedBy: dto.changedBy || null,
         changeReason: dto.changeReason,
         changeMetadata: dto.changeMetadata,
       });
@@ -444,8 +437,8 @@ export class JobApplicationService implements IJobApplicationService {
     const eventPayload = {
       applicationId: updatedApplication.id,
       previousStatus: previousStatus,
-      newStatus: dto.newStatus as ApplicationStatus,
-      changedBy: dto.changedBy,
+      newStatus: dto.status as ApplicationStatus,
+      changedBy: dto.changedBy || null,
       changedAt: new Date().toISOString(),
       changeMetadata: dto.changeMetadata,
       // [新增] Include mentor assignment in event payload [在事件payload中包含导师分配]
@@ -455,30 +448,34 @@ export class JobApplicationService implements IJobApplicationService {
     };
     this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
 
-    if (dto.newStatus === "submitted") {
-      const [job] = await this.db
-        .select({ title: recommendedJobs.title })
-        .from(recommendedJobs)
-        .where(eq(recommendedJobs.id, application.jobId));
+    if (dto.status === "submitted") {
+      // Query job title if recommendedJobId exists [如果存在recommendedJobId则查询职位标题]
+      let jobTitle: string | undefined;
+      if (updatedApplication.recommendedJobId) {
+        const [job] = await this.db
+          .select({ title: recommendedJobs.title })
+          .from(recommendedJobs)
+          .where(eq(recommendedJobs.id, updatedApplication.recommendedJobId));
+        jobTitle = job?.title;
+      }
 
       const providerCandidate =
         dto.mentorId ??
         updatedApplication.assignedMentorId ??
-        application.recommendedBy ??
-        dto.changedBy ??
+        updatedApplication.recommendedBy ??
         updatedApplication.studentId;
 
-      const submittedPayload: IPlacementApplicationSubmittedPayload = {
+      const submittedPayload: any = {
         id: updatedApplication.id,
         service_type: "job_application",
         student_user_id: updatedApplication.studentId,
-        provider_user_id: this.isUuid(providerCandidate)
+        provider_user_id: this.isUuid(providerCandidate as string)
           ? providerCandidate
           : updatedApplication.studentId,
         consumed_units: 1,
         unit_type: "count",
         completed_time: updatedApplication.updatedAt,
-        title: job?.title ?? undefined,
+        title: jobTitle,
       };
       this.eventEmitter.emit(
         PLACEMENT_APPLICATION_SUBMITTED_EVENT,
@@ -530,12 +527,12 @@ export class JobApplicationService implements IJobApplicationService {
       }
 
       if (filter.status) {
-        conditions.push(eq(jobApplications.status, filter.status));
+        conditions.push(eq(jobApplications.status, filter.status as ApplicationStatus));
       }
 
       if (filter.applicationType) {
         conditions.push(
-          eq(jobApplications.applicationType, filter.applicationType),
+          eq(jobApplications.applicationType, filter.applicationType as ApplicationType),
         );
       }
 
@@ -902,23 +899,15 @@ export class JobApplicationService implements IJobApplicationService {
         .insert(jobApplications)
         .values({
           studentId: dto.studentId,
-          jobId: dto.jobId,
+          jobId: dto.jobId, // External job ID for manually created applications [手工创建的申请使用外部岗位ID]
+          jobLink: dto.jobLink, // Job link for quick access [岗位链接便于快速访问]
           applicationType: ApplicationType.REFERRAL,
           status: "mentor_assigned" as const,
           assignedMentorId: dto.mentorId,
-          recommendedBy: dto.createdBy,
+          recommendedBy: '',
           recommendedAt: new Date(),
           submittedAt: dto.resumeSubmittedDate,
           updatedAt: new Date(),
-          // Manual creation fields [手工创建字段]
-          jobType: dto.jobType,
-          jobTitle: dto.jobTitle,
-          jobLink: dto.jobLink,
-          companyName: dto.companyName,
-          location: dto.location,
-          jobCategories: dto.jobCategories,
-          normalJobTitle: dto.normalJobTitle,
-          level: dto.level,
         })
         .returning();
 
@@ -928,8 +917,8 @@ export class JobApplicationService implements IJobApplicationService {
       await tx.insert(applicationHistory).values({
         applicationId: newApplication.id,
         previousStatus: null,
-        newStatus: newApplication.status,
-        changedBy: dto.createdBy,
+        newStatus: newApplication.status as ApplicationStatus,
+        changedBy: dto.createdBy || null,
         changeReason: "Manual creation by counselor",
       });
 
@@ -942,7 +931,7 @@ export class JobApplicationService implements IJobApplicationService {
       applicationId: application.id,
       previousStatus: null,
       newStatus: application.status,
-      changedBy: dto.createdBy,
+      changedBy: dto.createdBy || null,
       changedAt: application.submittedAt.toISOString(),
       assignedMentorId: application.assignedMentorId,
     };

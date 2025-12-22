@@ -1,10 +1,12 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, BadRequestException } from "@nestjs/common";
+import { eq } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import type { DrizzleDatabase } from "@shared/types/database.types";
 import { CommandBase } from "@application/core/command.base";
-import { MentorPaymentInfoService } from "@domains/financial/services/mentor-payment-info.service";
-import type { ICreateOrUpdateMentorPaymentInfoRequest } from "@domains/financial/dto/settlement";
-import type { IMentorPaymentInfoResponse } from "@domains/financial/dto/settlement";
+import * as schema from "@infrastructure/database/schema";
+import { SettlementMethod } from "@api/dto/request/financial/settlement.request.dto";
+import type { ICreateOrUpdateMentorPaymentInfoRequest } from "@api/dto/request/financial/mentor-payment-info.request.dto";
+import type { IMentorPaymentInfoResponse } from "@api/dto/response/financial/settlement.response.dto";
 
 /**
  * Create Or Update Mentor Payment Info Command (Application Layer)
@@ -17,7 +19,6 @@ import type { IMentorPaymentInfoResponse } from "@domains/financial/dto/settleme
 export class CreateOrUpdateMentorPaymentInfoCommand extends CommandBase {
   constructor(
     @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    private readonly mentorPaymentInfoService: MentorPaymentInfoService,
   ) {
     super(db);
   }
@@ -36,14 +37,95 @@ export class CreateOrUpdateMentorPaymentInfoCommand extends CommandBase {
       this.logger.debug(
         `Creating/updating payment info for mentor: ${input.mentorId}`,
       );
-      const paymentInfo =
-        await this.mentorPaymentInfoService.createOrUpdateMentorPaymentInfo(
-          input,
+
+      const { mentorId, paymentCurrency, paymentMethod, paymentDetails } =
+        input;
+
+      // 1. Validate request
+      if (!mentorId || !paymentCurrency || !paymentMethod) {
+        throw new BadRequestException(
+          "Mentor ID, payment currency, and payment method are required",
         );
-      this.logger.debug(
-        `Payment info created/updated successfully: ${paymentInfo.id}`,
+      }
+
+      if (!paymentDetails || Object.keys(paymentDetails).length === 0) {
+        throw new BadRequestException("Payment details are required");
+      }
+
+      this.logger.log(
+        `Creating/updating payment info for mentor: ${mentorId}, method: ${paymentMethod}`,
       );
-      return paymentInfo;
+
+      // 2. Check for existing payment info
+      const existingPaymentInfo =
+        await this.db.query.mentorPaymentInfos.findFirst({
+          where: eq(schema.mentorPaymentInfos.mentorId, mentorId),
+        });
+
+      let result;
+
+      if (existingPaymentInfo) {
+        // Update existing record
+        this.logger.log(
+          `Updating existing payment info: ${existingPaymentInfo.id}`,
+        );
+
+        const [updated] = await this.db
+          .update(schema.mentorPaymentInfos)
+          .set({
+            paymentCurrency,
+            paymentMethod,
+            paymentDetails,
+            status: "ACTIVE",
+            updatedAt: new Date(),
+            updatedBy: mentorId, // Assume mentor updates their own info
+          })
+          .where(eq(schema.mentorPaymentInfos.id, existingPaymentInfo.id))
+          .returning();
+
+        if (!updated) {
+          throw new BadRequestException("Failed to update payment info: Update returned no result");
+        }
+
+        result = updated;
+      } else {
+        // Create new record
+        this.logger.log(`Creating new payment info for mentor: ${mentorId}`);
+
+        const [created] = await this.db
+          .insert(schema.mentorPaymentInfos)
+          .values({
+            mentorId,
+            paymentCurrency,
+            paymentMethod,
+            paymentDetails,
+            status: "ACTIVE",
+            createdBy: mentorId,
+            updatedBy: mentorId,
+          })
+          .returning();
+
+        if (!created) {
+          throw new BadRequestException("Failed to create payment info: Create returned no result");
+        }
+
+        result = created;
+      }
+
+      this.logger.debug(
+        `Payment info created/updated successfully: ${result.id}`,
+      );
+
+      return {
+        id: result.id,
+        mentorId: result.mentorId,
+        paymentCurrency: result.paymentCurrency,
+        paymentMethod: result.paymentMethod as SettlementMethod,
+        paymentDetails: result.paymentDetails as unknown as IMentorPaymentInfoResponse['paymentDetails'],
+        status: result.status,
+        createdAt: result.createdAt,
+        updatedAt: result.updatedAt,
+      };
     } catch (error) {
       this.logger.error(
         `Failed to create/update mentor payment info: ${error instanceof Error ? error.message : String(error)}`,
