@@ -786,6 +786,47 @@
         ]
       }
     },
+    "/api/services/recomm-letter-types/{studentId}/available": {
+      "get": {
+        "description": "Retrieve recommendation letter types that student can still upload based on contract balance",
+        "operationId": "RecommLetterTypesController_getAvailableTypes",
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": true,
+            "in": "path",
+            "description": "Student user ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Available types retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecommLetterTypeResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get available recommendation letter types for student",
+        "tags": [
+          "Recommendation Letter Types"
+        ]
+      }
+    },
     "/api/services/recomm-letter-types/{id}": {
       "delete": {
         "description": "Delete a recommendation letter type (cascade delete children, counselor/admin only)",
@@ -3831,8 +3872,158 @@
       }
     },
     "/api/financial/mentor-appeals": {
+      "get": {
+        "description": "Lists mentor appeals with pagination, sorting, and filtering. [分页查询导师申诉列表，支持排序和筛选]",
+        "operationId": "FinancialController_listMentorAppeals",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "当前页码，默认值：1. [Page number, default: 1]",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "每页条数，默认值：20，最大值：100. [Page size, default: 20, max: 100]",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "description": "排序字段，默认：createdAt. [Sort field, default: createdAt]. 可选值: createdAt, appealAmount, status",
+            "schema": {
+              "default": "createdAt",
+              "example": "createdAt",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortDirection",
+            "required": false,
+            "in": "query",
+            "description": "排序方向，默认：desc. [Sort direction, default: desc]",
+            "schema": {
+              "default": "desc",
+              "example": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "筛选：申诉状态. [Filter: Appeal status]",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "APPROVED",
+                "REJECTED"
+              ]
+            }
+          },
+          {
+            "name": "mentorId",
+            "required": false,
+            "in": "query",
+            "description": "筛选：导师ID. [Filter: Mentor ID]",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "counselorId",
+            "required": false,
+            "in": "query",
+            "description": "筛选：顾问ID. [Filter: Counselor ID]",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "studentId",
+            "required": false,
+            "in": "query",
+            "description": "筛选：学生ID. [Filter: Student ID]",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "appealType",
+            "required": false,
+            "in": "query",
+            "description": "筛选：申诉类型. [Filter: Appeal type]",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "billing_error",
+                "missing_service",
+                "price_dispute",
+                "other"
+              ]
+            }
+          },
+          {
+            "name": "paymentMonth",
+            "required": false,
+            "in": "query",
+            "description": "筛选：支付月份 (YYYY-MM格式). [Filter: Payment month (YYYY-MM format)]",
+            "schema": {
+              "example": "2025-11",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mentor appeals retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedMentorAppealResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List mentor appeals",
+        "tags": [
+          "Financial"
+        ]
+      },
       "post": {
-        "description": "Creates a mentor appeal record and sets createdBy from current user. [创建导师申诉记录，createdBy 从当前用户注入]",
+        "description": "Creates a mentor appeal record. IMPORTANT: mentorId is automatically extracted from JWT token and should NOT be included in the request body. [创建导师申诉记录。重要：mentorId从JWT token自动提取，不应包含在请求体中]",
         "operationId": "FinancialController_createMentorAppeal",
         "parameters": [],
         "requestBody": {
@@ -4667,7 +4858,7 @@
     },
     "/api/placement/job-applications/{id}/status": {
       "patch": {
-        "description": "Updates application status. Counselor role is restricted to 'revoked' only. [更新投递状态；顾问角色仅允许revoked]",
+        "description": "Updates application status based on state machine rules. Cannot set mentor_assigned status (use dedicated endpoint). Audit info is automatically captured from JWT. (基于状态机规则更新投递状态；不能设置mentor_assigned状态需使用专用接口；审计信息从JWT自动记录)",
         "operationId": "PlacementController_updateJobApplicationStatus",
         "parameters": [
           {
@@ -4685,7 +4876,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PlacementJobApplicationUpdateStatusRequestDto"
+                "$ref": "#/components/schemas/UpdateJobApplicationStatusRequestDto"
               }
             }
           }
@@ -6529,6 +6720,12 @@
           "sessionType": {
             "type": "string",
             "description": "Session type",
+            "maxLength": 50
+          },
+          "serviceType": {
+            "type": "string",
+            "description": "Service type",
+            "default": "Resume",
             "maxLength": 50
           },
           "fileName": {
@@ -8903,17 +9100,178 @@
           "accountIdentifier"
         ]
       },
+      "UserSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "User ID (UUID). [用户ID(UUID)]",
+            "format": "uuid"
+          },
+          "name_cn": {
+            "type": "string",
+            "description": "Chinese name. [中文名]"
+          },
+          "name_en": {
+            "type": "string",
+            "description": "English name. [英文名]"
+          }
+        },
+        "required": [
+          "id",
+          "name_cn",
+          "name_en"
+        ]
+      },
+      "MentorAppealWithRelationsResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Appeal ID (UUID). [申诉ID(UUID)]",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "description": "Service title. [服务标题]"
+          },
+          "appealType": {
+            "type": "string",
+            "description": "Appeal type. [申诉类型]",
+            "example": "billing_error"
+          },
+          "appealAmount": {
+            "type": "string",
+            "description": "Appeal amount. [申诉金额]",
+            "example": "100.00"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency (ISO 4217). [币种(ISO 4217)]",
+            "example": "USD"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status (PENDING/APPROVED/REJECTED). [状态：待处理/已批准/已驳回]",
+            "example": "PENDING"
+          },
+          "counselor": {
+            "description": "Counselor information. [顾问信息]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserSummaryDto"
+              }
+            ]
+          },
+          "mentor": {
+            "description": "Mentor information. [导师信息]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserSummaryDto"
+              }
+            ]
+          },
+          "student": {
+            "description": "Student information. [学生信息]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserSummaryDto"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Created time (ISO 8601). [创建时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "approvedAt": {
+            "type": "string",
+            "description": "Approved time (ISO 8601). [审批时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "rejectedAt": {
+            "type": "string",
+            "description": "Rejected time (ISO 8601). [驳回时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "rejectionReason": {
+            "type": "string",
+            "description": "Rejection reason. [驳回理由]"
+          },
+          "updatedByName": {
+            "type": "string",
+            "description": "Updated by name. [更新人姓名]"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Updated time (ISO 8601). [更新时间(ISO 8601)]",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "appealType",
+          "appealAmount",
+          "currency",
+          "status",
+          "counselor",
+          "mentor",
+          "createdAt",
+          "updatedByName",
+          "updatedAt"
+        ]
+      },
+      "PaginatedMentorAppealResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Appeal list. [申诉列表]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MentorAppealWithRelationsResponseDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "Total count. [总数]",
+            "example": 100
+          },
+          "page": {
+            "type": "number",
+            "description": "Current page. [当前页码]",
+            "example": 1
+          },
+          "pageSize": {
+            "type": "number",
+            "description": "Page size. [每页条数]",
+            "example": 20
+          },
+          "totalPages": {
+            "type": "number",
+            "description": "Total pages. [总页数]",
+            "example": 5
+          }
+        },
+        "required": [
+          "data",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ]
+      },
       "CreateMentorAppealRequestDto": {
         "type": "object",
         "properties": {
-          "mentorId": {
-            "type": "string",
-            "description": "Mentor ID (UUID). The mentor who submits the appeal. [导师ID(UUID)，提交申诉的导师]",
-            "format": "uuid"
-          },
           "counselorId": {
             "type": "string",
             "description": "Counselor ID (UUID). The assigned counselor to process the appeal. [顾问ID(UUID)，负责处理该申诉]",
+            "format": "uuid"
+          },
+          "studentId": {
+            "type": "string",
+            "description": "Student ID (UUID). The student related to this appeal. [学生ID(UUID)，关联的学生]",
             "format": "uuid"
           },
           "mentorPayableId": {
@@ -8921,10 +9279,10 @@
             "description": "Mentor payable ledger ID (UUID). Optional linkage to the disputed payable record. [关联应付账款ID(UUID，可选)，关联被争议账款]",
             "format": "uuid"
           },
-          "settlementId": {
+          "title": {
             "type": "string",
-            "description": "Settlement ledger ID (UUID). Optional linkage to a settlement batch. [关联结算ID(UUID，可选)，关联结算批次]",
-            "format": "uuid"
+            "description": "Service title. Redundant field from service_references for query optimization. No uniqueness validation is performed on this field. [服务标题，从service_references冗余，用于查询优化。此字段不进行唯一性验证]",
+            "example": "Resume Revision"
           },
           "appealType": {
             "type": "string",
@@ -8948,8 +9306,8 @@
           }
         },
         "required": [
-          "mentorId",
           "counselorId",
+          "studentId",
           "appealType",
           "appealAmount",
           "currency",
@@ -9002,6 +9360,10 @@
           "reason": {
             "type": "string",
             "description": "Appeal reason. [申诉理由]"
+          },
+          "title": {
+            "type": "string",
+            "description": "Service title (redundant field from service_references). [服务标题(从service_references冗余)]"
           },
           "status": {
             "type": "string",
@@ -10130,35 +10492,12 @@
           "updatedAt"
         ]
       },
-      "ChangeMetadata": {
+      "UpdateJobApplicationStatusRequestDto": {
         "type": "object",
         "properties": {
-          "context": {
-            "type": "object",
-            "description": "Additional context [额外上下文]"
-          },
-          "previousStatus": {
-            "type": "string",
-            "description": "Previous status [之前的投递状态]"
-          },
-          "timestamp": {
-            "type": "string",
-            "description": "Operation timestamp [操作时间戳]"
-          }
-        }
-      },
-      "PlacementJobApplicationUpdateStatusRequestDto": {
-        "type": "object",
-        "properties": {
-          "applicationId": {
-            "type": "string",
-            "description": "Application ID (UUID) [投递ID(UUID)]",
-            "format": "uuid",
-            "example": "123e4567-e89b-12d3-a456-426614174000"
-          },
           "status": {
             "type": "string",
-            "description": "Target status of the application [目标投递状态]",
+            "description": "Target status of the application (目标投递状态)",
             "enum": [
               "recommended",
               "interested",
@@ -10171,35 +10510,9 @@
               "rejected"
             ],
             "example": "interested"
-          },
-          "mentorId": {
-            "type": "string",
-            "description": "Assigned mentor ID (UUID) [分配的导师ID(UUID)]",
-            "format": "uuid",
-            "example": "123e4567-e89b-12d3-a456-426614174001"
-          },
-          "changedBy": {
-            "type": "string",
-            "description": "Changed by user ID (UUID) [变更人用户ID(UUID)]",
-            "format": "uuid",
-            "example": "123e4567-e89b-12d3-a456-426614174002"
-          },
-          "changeReason": {
-            "type": "string",
-            "description": "Reason for status change [状态变更原因]",
-            "example": "Assign referral mentor"
-          },
-          "changeMetadata": {
-            "description": "Metadata about the change operation [变更操作的元数据]",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeMetadata"
-              }
-            ]
           }
         },
         "required": [
-          "applicationId",
           "status"
         ]
       },

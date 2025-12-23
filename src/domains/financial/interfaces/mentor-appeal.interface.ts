@@ -31,6 +31,13 @@ export interface IMentorAppeal {
    */
   counselorId: string;
 
+  /**
+   * Student ID (学生ID)
+   * References: user.id
+   * (引用用户表的ID)
+   */
+  studentId: string;
+
   // ========== Related Financial Records ==========
   /**
    * Mentor Payable Ledger ID (关联应付账款ID)
@@ -168,6 +175,13 @@ export interface ICreateAppealDTO {
    * (指定处理该申诉的顾问ID)
    */
   counselorId: string;
+
+  /**
+   * Student ID (学生ID)
+   * The student related to this appeal
+   * (关联的学生ID)
+   */
+  studentId: string;
 
   /**
    * Mentor Payable Ledger ID (关联应付账款ID)

@@ -88,6 +88,7 @@ export class MentorAppealService implements IMentorAppealService {
         .values({
           mentorId: dto.mentorId,
           counselorId: dto.counselorId,
+          studentId: dto.studentId,
           mentorPayableId: dto.mentorPayableId,
           settlementId: dto.settlementId,
           appealType: dto.appealType,

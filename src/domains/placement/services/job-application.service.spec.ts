@@ -419,8 +419,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
         status: "interviewed",
-        changeReason: "Moving to interview",
-        changeMetadata: {}
       };
 
       const mockApplication = {
@@ -472,8 +470,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
         status: "interviewed",
-        changeReason: "Moving to interview",
-        // mentorId is not provided
       };
 
       const mockApplication = {
@@ -529,8 +525,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
         status: "mentor_assigned",
-        changeReason: "Assigning new mentor",
-        mentorId: newMentorId, // Explicitly provided
       };
 
       const mockApplication = {
@@ -749,8 +743,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
         status: "mentor_assigned",
-        changeReason: "Assigning mentor",
-        mentorId: newMentorId,
       };
 
       const mockApplication = {
@@ -778,8 +770,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
         status: "got_offer",
-        changeReason: "Candidate got offer",
-        changeMetadata: {}
       };
 
       const mockApplication = {
@@ -831,8 +821,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
         status: "interviewed",
-        changeReason: "Moving to interviewed",
-        changeMetadata: {}
       };
 
       // Mock no application found
@@ -855,8 +843,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       const dto: IUpdateApplicationStatusDto = {
         applicationId: testApplicationId,
         status: "got_offer",
-        changeReason: "Invalid transition",
-        changeMetadata: { context: { note: "Test invalid transition" } },
       };
 
       const mockApplication = {

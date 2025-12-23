@@ -41,6 +41,12 @@ export interface IUpdateApplicationStatusDto {
   status: string;
 }
 
+// Internal DTO interface for assigning mentor (内部使用的导师分配DTO接口)
+// Extended from status update with mentor-specific fields (从状态更新扩展的导师专用字段)
+export interface IAssignReferralMentorDto extends IUpdateApplicationStatusDto {
+  mentorId: string;
+}
+
 // Interfaces used by Service layer [服务层使用的接口]
 export interface IJobPositionSearchFilter {
   status?: string;

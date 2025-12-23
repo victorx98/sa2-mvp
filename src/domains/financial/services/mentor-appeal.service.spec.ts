@@ -29,6 +29,7 @@ jest.mock("@infrastructure/database/schema", () => ({
     id: "id",
     mentorId: "mentorId",
     counselorId: "counselorId",
+    studentId: "studentId",
     mentorPayableId: "mentorPayableId",
     settlementId: "settlementId",
     appealType: "appealType",
@@ -105,6 +106,7 @@ describe("MentorAppealService", () => {
       const createAppealDto: ICreateAppealDTO = {
         mentorId: "550e8400-e29b-41d4-a716-446655440001",
         counselorId: "550e8400-e29b-41d4-a716-446655440002",
+        studentId: "550e8400-e29b-41d4-a716-446655440006",
         appealType: "billing_error",
         appealAmount: "100.00",
         currency: "USD",
@@ -165,6 +167,7 @@ describe("MentorAppealService", () => {
       const createAppealDto: ICreateAppealDTO = {
         mentorId: "550e8400-e29b-41d4-a716-446655440001",
         counselorId: "550e8400-e29b-41d4-a716-446655440002",
+        studentId: "550e8400-e29b-41d4-a716-446655440006",
         appealType: "billing_error",
         appealAmount: "100.00",
         currency: "USD",
@@ -186,6 +189,7 @@ describe("MentorAppealService", () => {
       const createAppealDto: ICreateAppealDTO = {
         mentorId: "550e8400-e29b-41d4-a716-446655440001",
         counselorId: "550e8400-e29b-41d4-a716-446655440002",
+        studentId: "550e8400-e29b-41d4-a716-446655440006",
         appealType: "billing_error",
         appealAmount: "100.00",
         currency: "USD",
