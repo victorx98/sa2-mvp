@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RecommLetterDomainService } from '@domains/services/recomm-letter/services/recomm-letter-domain.service';
 import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
 import { RecommLetterTypesService } from '@domains/services/recomm-letter-types/services/recomm-letter-types.service';
+import { UserQueryService } from '@application/queries/user-query.service';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase, DrizzleTransaction } from '@shared/types/database.types';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
@@ -25,8 +26,74 @@ export class RecommLetterService {
     private readonly domainRecommLetterService: RecommLetterDomainService,
     private readonly serviceHoldService: ServiceHoldService,
     private readonly recommLetterTypesService: RecommLetterTypesService,
+    private readonly userQueryService: UserQueryService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  /**
+   * List recommendation letters with enriched details (types + mentor info)
+   * 
+   * @param studentUserId Student user ID
+   */
+  async listRecommLettersWithDetails(studentUserId: string) {
+    const letters = await this.domainRecommLetterService.listByStudent(studentUserId);
+    
+    // Enrich with letter type, package type, and mentor info
+    const enrichedLetters = await Promise.all(
+      letters.map(async (letter) => {
+        // Get letter type
+        const letterType = await this.recommLetterTypesService.findById(letter.getLetterTypeId());
+        
+        // Get package type if exists
+        let packageType = null;
+        if (letter.getPackageTypeId()) {
+          packageType = await this.recommLetterTypesService.findById(letter.getPackageTypeId()!);
+        }
+
+        // Get mentor info if billed
+        let mentorName = null;
+        if (letter.getMentorUserId()) {
+          try {
+            const mentor = await this.userQueryService.getUserById(letter.getMentorUserId());
+            mentorName = {
+              en: mentor.nameEn || mentor.email,
+              zh: mentor.nameZh || mentor.nameEn || mentor.email,
+            };
+          } catch (error) {
+            this.logger.warn(`Failed to fetch mentor info for ${letter.getMentorUserId()}`);
+          }
+        }
+
+        return {
+          id: letter.getId(),
+          studentUserId: letter.getStudentUserId(),
+          letterType: letterType ? {
+            id: letterType.id,
+            code: letterType.typeCode,
+            name: letterType.typeName,
+          } : undefined,
+          packageType: packageType ? {
+            id: packageType.id,
+            code: packageType.typeCode,
+            name: packageType.typeName,
+          } : undefined,
+          serviceType: letter.getServiceType(),
+          fileName: letter.getFileName(),
+          fileUrl: letter.getFileUrl(),
+          status: letter.getStatus(),
+          uploadedBy: letter.getUploadedBy(),
+          createdAt: letter.getCreatedAt(),
+          updatedAt: letter.getUpdatedAt(),
+          description: letter.getDescription(),
+          mentorUserId: letter.getMentorUserId(),
+          mentorName,
+          billedAt: letter.getBilledAt(),
+        };
+      }),
+    );
+
+    return enrichedLetters;
+  }
 
   /**
    * Bill recommendation letter with service hold validation
