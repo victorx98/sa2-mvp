@@ -43,6 +43,7 @@ export const calendarSessionTypeEnum = pgEnum("calendar_session_type", [
   "ai_career",
   "comm_session",
   "class_session",
+  "mock_interview",
 ]);
 
 /**
@@ -239,7 +240,7 @@ export const calendarSlots = pgTable(
     ),
     sessionTypeCheck: check(
       "check_calendar_session_type",
-      sql`session_type IN ('regular_mentoring', 'gap_analysis', 'ai_career', 'comm_session', 'class_session')`,
+      sql`session_type IN ('regular_mentoring', 'gap_analysis', 'ai_career', 'comm_session', 'class_session', 'mock_interview')`,
     ),
     statusCheck: check(
       "check_calendar_status",
