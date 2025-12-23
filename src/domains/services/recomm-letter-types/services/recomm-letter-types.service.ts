@@ -79,6 +79,16 @@ export class RecommLetterTypesService {
   }
 
   /**
+   * Find multiple recommendation letter types by IDs (batch query)
+   */
+  async findByIds(ids: string[]): Promise<RecommLetterTypeEntity[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+    return this.repository.findByIds(ids);
+  }
+
+  /**
    * Delete recommendation letter type (cascade delete children)
    */
   async deleteType(id: string): Promise<void> {

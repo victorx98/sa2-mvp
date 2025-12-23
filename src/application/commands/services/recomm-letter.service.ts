@@ -31,68 +31,76 @@ export class RecommLetterService {
   ) {}
 
   /**
-   * List recommendation letters with enriched details (types + mentor info)
-   * 
-   * @param studentUserId Student user ID
+   * List recommendation letters with enriched details
+   * Batch queries for better performance
    */
-  async listRecommLettersWithDetails(studentUserId: string) {
+  async listLettersWithDetails(studentUserId: string) {
     const letters = await this.domainRecommLetterService.listByStudent(studentUserId);
-    
-    // Enrich with letter type, package type, and mentor info
-    const enrichedLetters = await Promise.all(
-      letters.map(async (letter) => {
-        // Get letter type
-        const letterType = await this.recommLetterTypesService.findById(letter.getLetterTypeId());
-        
-        // Get package type if exists
-        let packageType = null;
-        if (letter.getPackageTypeId()) {
-          packageType = await this.recommLetterTypesService.findById(letter.getPackageTypeId()!);
-        }
 
-        // Get mentor info if billed
-        let mentorName = null;
-        if (letter.getMentorUserId()) {
-          try {
-            const mentor = await this.userQueryService.getUserById(letter.getMentorUserId());
-            mentorName = {
-              en: mentor.nameEn || mentor.email,
-              zh: mentor.nameZh || mentor.nameEn || mentor.email,
-            };
-          } catch (error) {
-            this.logger.warn(`Failed to fetch mentor info for ${letter.getMentorUserId()}`);
-          }
-        }
+    // Step 1: Collect all unique IDs
+    const letterTypeIds = [...new Set(letters.map(l => l.getLetterTypeId()))];
+    const packageTypeIds = [...new Set(
+      letters.map(l => l.getPackageTypeId()).filter(Boolean)
+    )] as string[];
+    const mentorIds = [...new Set(
+      letters.map(l => l.getMentorUserId()).filter(Boolean)
+    )] as string[];
 
-        return {
-          id: letter.getId(),
-          studentUserId: letter.getStudentUserId(),
-          letterType: letterType ? {
-            id: letterType.id,
-            code: letterType.typeCode,
-            name: letterType.typeName,
-          } : undefined,
-          packageType: packageType ? {
-            id: packageType.id,
-            code: packageType.typeCode,
-            name: packageType.typeName,
-          } : undefined,
-          serviceType: letter.getServiceType(),
-          fileName: letter.getFileName(),
-          fileUrl: letter.getFileUrl(),
-          status: letter.getStatus(),
-          uploadedBy: letter.getUploadedBy(),
-          createdAt: letter.getCreatedAt(),
-          updatedAt: letter.getUpdatedAt(),
-          description: letter.getDescription(),
-          mentorUserId: letter.getMentorUserId(),
-          mentorName,
-          billedAt: letter.getBilledAt(),
-        };
-      }),
-    );
+    // Step 2: Batch query all data (3 queries instead of N queries)
+    const [letterTypes, packageTypes, mentors] = await Promise.all([
+      this.recommLetterTypesService.findByIds(letterTypeIds),
+      packageTypeIds.length > 0 
+        ? this.recommLetterTypesService.findByIds(packageTypeIds) 
+        : Promise.resolve([]),
+      mentorIds.length > 0 
+        ? this.userQueryService.getUsersByIds(mentorIds) 
+        : Promise.resolve([]),
+    ]);
 
-    return enrichedLetters;
+    // Step 3: Build lookup maps
+    const letterTypeMap = new Map(letterTypes.map(t => [t.id, t]));
+    const packageTypeMap = new Map(packageTypes.map(t => [t.id, t]));
+    const mentorMap = new Map(mentors.map(m => [m.id, m]));
+
+    // Step 4: Enrich letters with all details
+    return letters.map(letter => {
+      const letterType = letterTypeMap.get(letter.getLetterTypeId());
+      const packageType = letter.getPackageTypeId() 
+        ? packageTypeMap.get(letter.getPackageTypeId()!) 
+        : null;
+      const mentor = letter.getMentorUserId() 
+        ? mentorMap.get(letter.getMentorUserId()!) 
+        : null;
+
+      return {
+        id: letter.getId(),
+        studentUserId: letter.getStudentUserId(),
+        letterType: letterType ? {
+          id: letterType.id,
+          code: letterType.typeCode,
+          name: letterType.typeName,
+        } : undefined,
+        packageType: packageType ? {
+          id: packageType.id,
+          code: packageType.typeCode,
+          name: packageType.typeName,
+        } : undefined,
+        serviceType: letter.getServiceType(),
+        fileName: letter.getFileName(),
+        fileUrl: letter.getFileUrl(),
+        status: letter.getStatus(),
+        uploadedBy: letter.getUploadedBy(),
+        createdAt: letter.getCreatedAt(),
+        updatedAt: letter.getUpdatedAt(),
+        description: letter.getDescription(),
+        mentorUserId: letter.getMentorUserId(),
+        mentorName: mentor ? {
+          en: mentor.nameEn || mentor.email,
+          zh: mentor.nameZh || mentor.nameEn || mentor.email,
+        } : undefined,
+        billedAt: letter.getBilledAt(),
+      };
+    });
   }
 
   /**

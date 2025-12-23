@@ -82,8 +82,8 @@ export class RecommLetterController {
   async listRecommLettersByStudent(
     @Param('studentUserId') studentUserId: string,
   ) {
-    const enrichedLetters = await this.applicationRecommLetterService.listRecommLettersWithDetails(studentUserId);
-    
+    const enrichedLetters = await this.applicationRecommLetterService.listLettersWithDetails(studentUserId);
+
     return {
       code: HttpStatus.OK,
       message: 'Success',

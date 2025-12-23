@@ -33,45 +33,50 @@ export class ResumeService {
   async listResumesWithDetails(studentUserId: string) {
     const grouped = await this.domainResumeService.listByStudent(studentUserId);
     
-    // Enrich with mentor info
+    // Step 1: Collect all unique mentor IDs
+    const allResumes = Object.values(grouped).flat();
+    const mentorIds = [...new Set(
+      allResumes.map(r => r.getMentorUserId()).filter(Boolean)
+    )] as string[];
+    
+    // Step 2: Batch query all mentors (1 query instead of N queries)
+    const mentors = mentorIds.length > 0 
+      ? await this.userQueryService.getUsersByIds(mentorIds)
+      : [];
+    const mentorMap = new Map(mentors.map(m => [m.id, m]));
+    
+    // Step 3: Enrich resumes with mentor info
     const enrichedGrouped: Record<string, any[]> = {};
     
     for (const [jobTitle, resumes] of Object.entries(grouped)) {
-      enrichedGrouped[jobTitle] = await Promise.all(
-        resumes.map(async (resume) => {
-          // Get mentor info if exists
-          let mentorName = null;
-          if (resume.getMentorUserId()) {
-            try {
-              const mentor = await this.userQueryService.getUserById(resume.getMentorUserId());
-              mentorName = {
-                en: mentor.nameEn || mentor.email,
-                zh: mentor.nameZh || mentor.nameEn || mentor.email,
-              };
-            } catch (error) {
-              this.logger.warn(`Failed to fetch mentor info for ${resume.getMentorUserId()}`);
-            }
-          }
+      enrichedGrouped[jobTitle] = resumes.map(resume => {
+        const mentor = resume.getMentorUserId() 
+          ? mentorMap.get(resume.getMentorUserId()) 
+          : null;
+        
+        const mentorName = mentor ? {
+          en: mentor.nameEn || mentor.email,
+          zh: mentor.nameZh || mentor.nameEn || mentor.email,
+        } : null;
 
-          return {
-            id: resume.getId(),
-            studentUserId: resume.getStudentUserId(),
-            jobTitle: resume.getJobTitle(),
-            sessionType: resume.getSessionType(),
-            fileName: resume.getFileName(),
-            fileUrl: resume.getFileUrl(),
-            status: resume.getStatus(),
-            uploadedBy: resume.getUploadedBy(),
-            createdAt: resume.getCreatedAt(),
-            updatedAt: resume.getUpdatedAt(),
-            description: resume.getDescription(),
-            finalSetAt: resume.getFinalSetAt(),
-            mentorUserId: resume.getMentorUserId(),
-            mentorName,
-            billedAt: resume.getBilledAt(),
-          };
-        }),
-      );
+        return {
+          id: resume.getId(),
+          studentUserId: resume.getStudentUserId(),
+          jobTitle: resume.getJobTitle(),
+          sessionType: resume.getSessionType(),
+          fileName: resume.getFileName(),
+          fileUrl: resume.getFileUrl(),
+          status: resume.getStatus(),
+          uploadedBy: resume.getUploadedBy(),
+          createdAt: resume.getCreatedAt(),
+          updatedAt: resume.getUpdatedAt(),
+          description: resume.getDescription(),
+          finalSetAt: resume.getFinalSetAt(),
+          mentorUserId: resume.getMentorUserId(),
+          mentorName,
+          billedAt: resume.getBilledAt(),
+        };
+      });
     }
 
     return enrichedGrouped;
