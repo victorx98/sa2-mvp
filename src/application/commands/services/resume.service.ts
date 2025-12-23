@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ResumeDomainService } from '@domains/services/resume/services/resume-domain.service';
 import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
+import { UserQueryService } from '@application/queries/user-query.service';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase, DrizzleTransaction } from '@shared/types/database.types';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
@@ -21,7 +22,60 @@ export class ResumeService {
     private readonly db: DrizzleDatabase,
     private readonly domainResumeService: ResumeDomainService,
     private readonly serviceHoldService: ServiceHoldService,
+    private readonly userQueryService: UserQueryService,
   ) {}
+
+  /**
+   * List resumes with enriched mentor details
+   * 
+   * @param studentUserId Student user ID
+   */
+  async listResumesWithDetails(studentUserId: string) {
+    const grouped = await this.domainResumeService.listByStudent(studentUserId);
+    
+    // Enrich with mentor info
+    const enrichedGrouped: Record<string, any[]> = {};
+    
+    for (const [jobTitle, resumes] of Object.entries(grouped)) {
+      enrichedGrouped[jobTitle] = await Promise.all(
+        resumes.map(async (resume) => {
+          // Get mentor info if exists
+          let mentorName = null;
+          if (resume.getMentorUserId()) {
+            try {
+              const mentor = await this.userQueryService.getUserById(resume.getMentorUserId());
+              mentorName = {
+                en: mentor.nameEn || mentor.email,
+                zh: mentor.nameZh || mentor.nameEn || mentor.email,
+              };
+            } catch (error) {
+              this.logger.warn(`Failed to fetch mentor info for ${resume.getMentorUserId()}`);
+            }
+          }
+
+          return {
+            id: resume.getId(),
+            studentUserId: resume.getStudentUserId(),
+            jobTitle: resume.getJobTitle(),
+            sessionType: resume.getSessionType(),
+            fileName: resume.getFileName(),
+            fileUrl: resume.getFileUrl(),
+            status: resume.getStatus(),
+            uploadedBy: resume.getUploadedBy(),
+            createdAt: resume.getCreatedAt(),
+            updatedAt: resume.getUpdatedAt(),
+            description: resume.getDescription(),
+            finalSetAt: resume.getFinalSetAt(),
+            mentorUserId: resume.getMentorUserId(),
+            mentorName,
+            billedAt: resume.getBilledAt(),
+          };
+        }),
+      );
+    }
+
+    return enrichedGrouped;
+  }
 
   /**
    * Bill resume with service hold validation

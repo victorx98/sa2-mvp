@@ -35,6 +35,7 @@ export class ResumeDomainService {
     studentUserId: string;
     jobTitle: string;
     sessionType?: string;
+    serviceType?: string; // Service type for billing
     fileName: string;
     fileUrl: string;
     uploadedBy: string;
@@ -48,7 +49,7 @@ export class ResumeDomainService {
       id: uuidv4(),
       studentUserId: params.studentUserId,
       jobTitle: params.jobTitle,
-      sessionType: params.sessionType || 'Resume',
+      sessionType: params.serviceType || params.sessionType || 'Resume', // Use serviceType as primary, fallback to sessionType
       fileName: params.fileName,
       fileUrl: params.fileUrl,
       status: ResumeStatus.UPLOADED,

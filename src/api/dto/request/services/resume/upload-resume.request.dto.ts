@@ -22,6 +22,12 @@ export class UploadResumeRequestDto {
   @MaxLength(50)
   sessionType?: string;
 
+  @ApiProperty({ description: 'Service type', required: false, default: 'Resume', maxLength: 50 })
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  serviceType?: string;
+
   @ApiProperty({ description: 'File name', maxLength: 500 })
   @IsString()
   @IsNotEmpty()
