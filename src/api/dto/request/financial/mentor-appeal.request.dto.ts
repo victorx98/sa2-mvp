@@ -9,18 +9,13 @@ import {
   MaxLength,
 } from "class-validator";
 
+/**
+ * Create Mentor Appeal Request DTO (创建导师申诉请求DTO)
+ * 
+ * Note: mentorId is NOT included in this DTO as it is automatically extracted from the JWT token for security.
+ * (注意：mentorId不包含在此DTO中，因为它会自动从JWT token中提取以确保安全)
+ */
 export class CreateMentorAppealRequestDto {
-  @ApiProperty({
-    description:
-      "Mentor ID (UUID). The mentor who submits the appeal. [导师ID(UUID)，提交申诉的导师]",
-    type: String,
-    format: "uuid",
-    required: true,
-  })
-  @IsUUID()
-  @IsNotEmpty()
-  mentorId!: string;
-
   @ApiProperty({
     description:
       "Counselor ID (UUID). The assigned counselor to process the appeal. [顾问ID(UUID)，负责处理该申诉]",
@@ -31,6 +26,17 @@ export class CreateMentorAppealRequestDto {
   @IsUUID()
   @IsNotEmpty()
   counselorId!: string;
+
+  @ApiProperty({
+    description:
+      "Student ID (UUID). The student related to this appeal. [学生ID(UUID)，关联的学生]",
+    type: String,
+    format: "uuid",
+    required: true,
+  })
+  @IsUUID()
+  @IsNotEmpty()
+  studentId!: string;
 
   @ApiPropertyOptional({
     description:
@@ -45,14 +51,15 @@ export class CreateMentorAppealRequestDto {
 
   @ApiPropertyOptional({
     description:
-      "Settlement ledger ID (UUID). Optional linkage to a settlement batch. [关联结算ID(UUID，可选)，关联结算批次]",
+      "Service title. Redundant field from service_references for query optimization. No uniqueness validation is performed on this field. [服务标题，从service_references冗余，用于查询优化。此字段不进行唯一性验证]",
     type: String,
-    format: "uuid",
     required: false,
+    example: "Resume Revision",
   })
-  @IsUUID()
+  @IsString()
   @IsOptional()
-  settlementId?: string;
+  @MaxLength(255)
+  title?: string;
 
   @ApiProperty({
     description:

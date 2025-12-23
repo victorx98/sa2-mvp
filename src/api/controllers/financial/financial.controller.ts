@@ -41,6 +41,7 @@ import { ModifyPaymentParamsCommand } from "@application/commands/financial/modi
 import { CreateOrUpdateMentorPaymentInfoCommand } from "@application/commands/financial/create-or-update-mentor-payment-info.command";
 import { UpdateMentorPaymentInfoStatusCommand } from "@application/commands/financial/update-mentor-payment-info-status.command";
 import { ListMentorPricesQuery } from "@application/queries/financial/list-mentor-prices.query";
+import { ListMentorAppealsQuery } from "@application/queries/financial/list-mentor-appeals.query";
 
 import type { CreateMentorAppealRequestDto as CreateAppealDto } from "@api/dto/request/financial/mentor-appeal.request.dto";
 import type { ApproveMentorAppealRequestDto as ApproveAppealDto } from "@api/dto/request/financial/mentor-appeal.request.dto";
@@ -49,6 +50,7 @@ import type { CreateMentorPriceRequestDto as CreateMentorPriceDto } from "@api/d
 import type { UpdateMentorPriceRequestDto as UpdateMentorPriceDto } from "@api/dto/request/financial/mentor-price.request.dto";
 import type { UpdateMentorPriceStatusRequestDto as UpdateMentorPriceStatusDto } from "@api/dto/request/financial/mentor-price.request.dto";
 import { ListMentorPricesQueryDto } from "@api/dto/request/financial/mentor-price.request.dto";
+import { ListMentorAppealsQueryDto } from "@api/dto/request/financial/list-mentor-appeals.request.dto";
 
 import type { AdjustPayableLedgerRequestDto as AdjustPayableLedgerDto } from "@api/dto/request/financial/payable-ledger.request.dto";
 import type { ICreateSettlementRequest, IPaymentParamUpdate } from "@api/dto/request/financial/settlement.request.dto";
@@ -59,7 +61,11 @@ import {
   CreateMentorAppealRequestDto,
   RejectMentorAppealRequestDto,
 } from "@api/dto/request/financial/mentor-appeal.request.dto";
-import { MentorAppealResponseDto } from "@api/dto/response/financial/mentor-appeal.response.dto";
+import {
+  MentorAppealResponseDto,
+  MentorAppealWithRelationsResponseDto,
+  PaginatedMentorAppealResponseDto,
+} from "@api/dto/response/financial/mentor-appeal.response.dto";
 import {
   BulkCreateMentorPriceRequestDto,
   BulkUpdateMentorPriceRequestDto,
@@ -111,7 +117,6 @@ import type { MentorPrice } from "@infrastructure/database/schema";
 @Controller("api/financial")
 @ApiTags("Financial")
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles("admin")
 @ApiBearerAuth()
 @ApiExtraModels(
   DomesticTransferPaymentDetailsDto,
@@ -150,6 +155,7 @@ export class FinancialController {
 
     // 查询相关
     private readonly listMentorPricesQuery: ListMentorPricesQuery,
+    private readonly listMentorAppealsQuery: ListMentorAppealsQuery,
   ) {}
 
   // Helper methods for mapping domain objects to DTOs [将领域对象映射到DTO的辅助方法]
@@ -233,11 +239,81 @@ export class FinancialController {
   // 导师申诉管理
   // ----------------------
 
+  @Get("mentor-appeals")
+  @ApiOperation({
+    summary: "List mentor appeals",
+    description:
+      "Lists mentor appeals with pagination, sorting, and filtering. [分页查询导师申诉列表，支持排序和筛选]",
+  })
+  @ApiOkResponse({
+    description: "Mentor appeals retrieved successfully",
+    type: PaginatedMentorAppealResponseDto,
+  })
+  @ApiResponse({ status: 400, description: "Bad request" })
+  async listMentorAppeals(
+    @Query() query: ListMentorAppealsQueryDto,
+  ): Promise<PaginatedMentorAppealResponseDto> {
+    const result = await this.listMentorAppealsQuery.execute(query);
+
+    // 映射结果到响应 DTO [Map results to response DTO]
+    const data: MentorAppealWithRelationsResponseDto[] = result.data.map((item) => ({
+      id: item.id,
+      title: item.title ?? "",
+      appealType: item.appealType,
+      appealAmount: item.appealAmount,
+      currency: item.currency,
+      status: item.status,
+      counselor: {
+        id: item.counselorId,
+        name_cn: item.counselorNameCn ?? "",
+        name_en: item.counselorNameEn ?? "",
+      },
+      mentor: {
+        id: item.mentorId,
+        name_cn: item.mentorNameCn ?? "",
+        name_en: item.mentorNameEn ?? "",
+      },
+      student: item.studentId
+        ? {
+            id: item.studentId,
+            name_cn: item.studentNameCn ?? "",
+            name_en: item.studentNameEn ?? "",
+          }
+        : null,
+      createdAt: item.createdAt instanceof Date
+        ? item.createdAt.toISOString()
+        : String(item.createdAt),
+      approvedAt: item.approvedAt
+        ? item.approvedAt instanceof Date
+          ? item.approvedAt.toISOString()
+          : String(item.approvedAt)
+        : undefined,
+      rejectedAt: item.rejectedAt
+        ? item.rejectedAt instanceof Date
+          ? item.rejectedAt.toISOString()
+          : String(item.rejectedAt)
+        : undefined,
+      rejectionReason: item.rejectionReason ?? undefined,
+      updatedByName: item.updatedByName,
+      updatedAt: item.updatedAt instanceof Date
+        ? item.updatedAt.toISOString()
+        : String(item.updatedAt),
+    }));
+
+    return {
+      data,
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      totalPages: result.totalPages,
+    };
+  }
+
   @Post("mentor-appeals")
   @ApiOperation({
     summary: "Create a new mentor appeal",
     description:
-      "Creates a mentor appeal record and sets createdBy from current user. [创建导师申诉记录，createdBy 从当前用户注入]",
+      "Creates a mentor appeal record. IMPORTANT: mentorId is automatically extracted from JWT token and should NOT be included in the request body. [创建导师申诉记录。重要：mentorId从JWT token自动提取，不应包含在请求体中]",
   })
   @ApiBody({ type: CreateMentorAppealRequestDto })
   @ApiCreatedResponse({
@@ -249,13 +325,16 @@ export class FinancialController {
     @CurrentUser() user: IJwtUser,
     @Body() body: CreateMentorAppealRequestDto,
   ): Promise<MentorAppealResponseDto> {
-    // Guard ensures user is authenticated and has valid structure [守卫确保用户已认证且结构有效]
-    const createMentorAppealDto: CreateAppealDto =
-      body as unknown as CreateAppealDto;
+    // Extract mentorId from JWT token (not from request body) for security
+    // [从JWT token提取mentorId（不是从请求体），确保安全性]
+    const userId = String((user as unknown as { id: string }).id);
+    
     const appeal = await this.createMentorAppealCommand.execute({
-      ...createMentorAppealDto,
-      createdBy: String((user as unknown as { id: string }).id),
+      ...body,
+      mentorId: userId, // Always use userId from JWT, never from request body [始终使用JWT中的userId，绝不使用请求体中的]
+      createdBy: userId,
     });
+    
     return {
       ...appeal,
       approvedAt: (appeal.approvedAt as any) instanceof Date

@@ -34,8 +34,9 @@ export class CreateMentorAppealCommand extends CommandBase {
   async execute(input: {
     mentorId: string;
     counselorId: string;
+    studentId: string;
     mentorPayableId?: string;
-    settlementId?: string;
+    title?: string;
     appealType: string;
     appealAmount?: string;
     currency?: string;
@@ -48,7 +49,8 @@ export class CreateMentorAppealCommand extends CommandBase {
       const dto = input;
       const createdByUserId = input.createdBy;
 
-      // Validate that mentorId matches createdByUserId
+      // Validate that mentorId matches createdByUserId (mentorId is from JWT)
+      // [验证mentorId与createdByUserId一致（mentorId来自JWT）]
       if (dto.mentorId !== createdByUserId) {
         throw new BadRequestException(
           "Mentor ID must match the creator's user ID",
@@ -56,13 +58,16 @@ export class CreateMentorAppealCommand extends CommandBase {
       }
 
       // Create the appeal record
+      // [创建申诉记录，settlementId在创建时不需要]
       const [appeal] = await this.db
         .insert(schema.mentorAppeals)
         .values({
           mentorId: dto.mentorId,
           counselorId: dto.counselorId,
+          studentId: dto.studentId,
           mentorPayableId: dto.mentorPayableId,
-          settlementId: dto.settlementId,
+          settlementId: undefined, // Not provided at creation time
+          title: dto.title,
           appealType: dto.appealType,
           appealAmount: dto.appealAmount,
           currency: dto.currency,
