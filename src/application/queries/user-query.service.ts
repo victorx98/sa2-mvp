@@ -31,4 +31,8 @@ export class UserQueryService {
       roles,
     };
   }
+
+  async getUsersByIds(ids: string[]): Promise<User[]> {
+    return this.userService.findByIds(ids);
+  }
 }

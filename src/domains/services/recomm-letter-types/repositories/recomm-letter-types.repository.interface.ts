@@ -17,6 +17,11 @@ export interface IRecommLetterTypesRepository {
   findById(id: string): Promise<RecommLetterTypeEntity | null>;
 
   /**
+   * Find multiple recommendation letter types by IDs
+   */
+  findByIds(ids: string[]): Promise<RecommLetterTypeEntity[]>;
+
+  /**
    * Find recommendation letter type by type code
    */
   findByTypeCode(typeCode: string): Promise<RecommLetterTypeEntity | null>;

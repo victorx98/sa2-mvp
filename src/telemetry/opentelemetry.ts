@@ -148,6 +148,7 @@ function buildSdk(): NodeSDK {
       enabled: true,
       requireParentforOutgoingSpans: false,
     },
+    // 自动为controller的方法创建span
     "@opentelemetry/instrumentation-nestjs-core": {
       enabled: true,
     },

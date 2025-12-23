@@ -97,6 +97,26 @@ export class UserService implements IUserService {
   }
 
   /**
+   * Find multiple users by IDs (batch query)
+   *
+   * @param ids - Array of user IDs
+   * @returns Array of user entities
+   */
+  async findByIds(ids: string[]): Promise<User[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const { inArray } = await import('drizzle-orm');
+    const users = await this.db
+      .select()
+      .from(schema.userTable)
+      .where(inArray(schema.userTable.id, ids));
+
+    return users.map(user => this.mapToUser(user));
+  }
+
+  /**
    * Find user by email
    *
    * @param email - User email

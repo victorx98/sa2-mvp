@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RecommLetterDomainService } from '@domains/services/recomm-letter/services/recomm-letter-domain.service';
 import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
 import { RecommLetterTypesService } from '@domains/services/recomm-letter-types/services/recomm-letter-types.service';
+import { UserQueryService } from '@application/queries/user-query.service';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase, DrizzleTransaction } from '@shared/types/database.types';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
@@ -25,8 +26,82 @@ export class RecommLetterService {
     private readonly domainRecommLetterService: RecommLetterDomainService,
     private readonly serviceHoldService: ServiceHoldService,
     private readonly recommLetterTypesService: RecommLetterTypesService,
+    private readonly userQueryService: UserQueryService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  /**
+   * List recommendation letters with enriched details
+   * Batch queries for better performance
+   */
+  async listLettersWithDetails(studentUserId: string) {
+    const letters = await this.domainRecommLetterService.listByStudent(studentUserId);
+
+    // Step 1: Collect all unique IDs
+    const letterTypeIds = [...new Set(letters.map(l => l.getLetterTypeId()))];
+    const packageTypeIds = [...new Set(
+      letters.map(l => l.getPackageTypeId()).filter(Boolean)
+    )] as string[];
+    const mentorIds = [...new Set(
+      letters.map(l => l.getMentorUserId()).filter(Boolean)
+    )] as string[];
+
+    // Step 2: Batch query all data (3 queries instead of N queries)
+    const [letterTypes, packageTypes, mentors] = await Promise.all([
+      this.recommLetterTypesService.findByIds(letterTypeIds),
+      packageTypeIds.length > 0 
+        ? this.recommLetterTypesService.findByIds(packageTypeIds) 
+        : Promise.resolve([]),
+      mentorIds.length > 0 
+        ? this.userQueryService.getUsersByIds(mentorIds) 
+        : Promise.resolve([]),
+    ]);
+
+    // Step 3: Build lookup maps
+    const letterTypeMap = new Map(letterTypes.map(t => [t.id, t]));
+    const packageTypeMap = new Map(packageTypes.map(t => [t.id, t]));
+    const mentorMap = new Map(mentors.map(m => [m.id, m]));
+
+    // Step 4: Enrich letters with all details
+    return letters.map(letter => {
+      const letterType = letterTypeMap.get(letter.getLetterTypeId());
+      const packageType = letter.getPackageTypeId() 
+        ? packageTypeMap.get(letter.getPackageTypeId()!) 
+        : null;
+      const mentor = letter.getMentorUserId() 
+        ? mentorMap.get(letter.getMentorUserId()!) 
+        : null;
+
+      return {
+        id: letter.getId(),
+        studentUserId: letter.getStudentUserId(),
+        letterType: letterType ? {
+          id: letterType.id,
+          code: letterType.typeCode,
+          name: letterType.typeName,
+        } : undefined,
+        packageType: packageType ? {
+          id: packageType.id,
+          code: packageType.typeCode,
+          name: packageType.typeName,
+        } : undefined,
+        serviceType: letter.getServiceType(),
+        fileName: letter.getFileName(),
+        fileUrl: letter.getFileUrl(),
+        status: letter.getStatus(),
+        uploadedBy: letter.getUploadedBy(),
+        createdAt: letter.getCreatedAt(),
+        updatedAt: letter.getUpdatedAt(),
+        description: letter.getDescription(),
+        mentorUserId: letter.getMentorUserId(),
+        mentorName: mentor ? {
+          en: mentor.nameEn || mentor.email,
+          zh: mentor.nameZh || mentor.nameEn || mentor.email,
+        } : undefined,
+        billedAt: letter.getBilledAt(),
+      };
+    });
+  }
 
   /**
    * Bill recommendation letter with service hold validation

@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ResumeDomainService } from '@domains/services/resume/services/resume-domain.service';
 import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
+import { UserQueryService } from '@application/queries/user-query.service';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase, DrizzleTransaction } from '@shared/types/database.types';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
@@ -21,7 +22,65 @@ export class ResumeService {
     private readonly db: DrizzleDatabase,
     private readonly domainResumeService: ResumeDomainService,
     private readonly serviceHoldService: ServiceHoldService,
+    private readonly userQueryService: UserQueryService,
   ) {}
+
+  /**
+   * List resumes with enriched mentor details
+   * 
+   * @param studentUserId Student user ID
+   */
+  async listResumesWithDetails(studentUserId: string) {
+    const grouped = await this.domainResumeService.listByStudent(studentUserId);
+    
+    // Step 1: Collect all unique mentor IDs
+    const allResumes = Object.values(grouped).flat();
+    const mentorIds = [...new Set(
+      allResumes.map(r => r.getMentorUserId()).filter(Boolean)
+    )] as string[];
+    
+    // Step 2: Batch query all mentors (1 query instead of N queries)
+    const mentors = mentorIds.length > 0 
+      ? await this.userQueryService.getUsersByIds(mentorIds)
+      : [];
+    const mentorMap = new Map(mentors.map(m => [m.id, m]));
+    
+    // Step 3: Enrich resumes with mentor info
+    const enrichedGrouped: Record<string, any[]> = {};
+    
+    for (const [jobTitle, resumes] of Object.entries(grouped)) {
+      enrichedGrouped[jobTitle] = resumes.map(resume => {
+        const mentor = resume.getMentorUserId() 
+          ? mentorMap.get(resume.getMentorUserId()) 
+          : null;
+        
+        const mentorName = mentor ? {
+          en: mentor.nameEn || mentor.email,
+          zh: mentor.nameZh || mentor.nameEn || mentor.email,
+        } : null;
+
+        return {
+          id: resume.getId(),
+          studentUserId: resume.getStudentUserId(),
+          jobTitle: resume.getJobTitle(),
+          sessionType: resume.getSessionType(),
+          fileName: resume.getFileName(),
+          fileUrl: resume.getFileUrl(),
+          status: resume.getStatus(),
+          uploadedBy: resume.getUploadedBy(),
+          createdAt: resume.getCreatedAt(),
+          updatedAt: resume.getUpdatedAt(),
+          description: resume.getDescription(),
+          finalSetAt: resume.getFinalSetAt(),
+          mentorUserId: resume.getMentorUserId(),
+          mentorName,
+          billedAt: resume.getBilledAt(),
+        };
+      });
+    }
+
+    return enrichedGrouped;
+  }
 
   /**
    * Bill resume with service hold validation

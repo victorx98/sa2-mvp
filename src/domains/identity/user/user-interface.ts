@@ -39,6 +39,7 @@ export interface CreateUserInput {
 export interface IUserService {
   findById(id: string): Promise<User | null>;
   findByIdWithRoles(id: string): Promise<User | null>;
+  findByIds(ids: string[]): Promise<User[]>;
   findByEmail(email: string): Promise<User | null>;
   create(user: CreateUserInput, tx?: DrizzleTransaction): Promise<User>;
   createWithRoles(

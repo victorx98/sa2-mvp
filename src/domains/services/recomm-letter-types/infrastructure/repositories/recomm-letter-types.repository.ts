@@ -31,6 +31,16 @@ export class RecommLetterTypesRepository implements IRecommLetterTypesRepository
     return result || null;
   }
 
+  async findByIds(ids: string[]): Promise<RecommLetterTypeEntity[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+    const { inArray } = await import('drizzle-orm');
+    return this.db.query.recommLetterTypes.findMany({
+      where: inArray(recommLetterTypes.id, ids),
+    });
+  }
+
   async findByTypeCode(typeCode: string): Promise<RecommLetterTypeEntity | null> {
     const result = await this.db.query.recommLetterTypes.findFirst({
       where: eq(recommLetterTypes.typeCode, typeCode),

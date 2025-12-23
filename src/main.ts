@@ -12,6 +12,7 @@ import { AppModule } from "./app.module";
 import { OtelLoggerService } from "./shared/logging/otel-logger.service";
 import { ResponseInterceptor } from "./shared/interceptors/response.interceptor";
 import { ErrorInterceptor } from "./shared/interceptors/error.interceptor";
+import { TracingInterceptor } from "./shared/interceptors/tracing.interceptor";
 import { OtelExceptionFilter } from "./shared/filters/otel-exception.filter";
 import { HttpExceptionFilter } from "./shared/filters/http-exception.filter";
 
@@ -115,7 +116,7 @@ async function bootstrap() {
   );
 
   // Enable global interceptors
-  app.useGlobalInterceptors(new ResponseInterceptor(), new ErrorInterceptor());
+  app.useGlobalInterceptors(new TracingInterceptor(), new ResponseInterceptor(), new ErrorInterceptor());
 
   // Enable global exception filters
   // 全局异常过滤器：先记录 OpenTelemetry 追踪，再统一返回 JSON 格式的错误响应
