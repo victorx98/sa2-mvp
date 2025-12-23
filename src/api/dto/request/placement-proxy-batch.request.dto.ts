@@ -19,7 +19,7 @@ export class ProxyJobDto {
       "Algolia object ID. Required. [Algolia岗位ID，必填]",
     type: String,
     required: true,
-    example: "algolia_job_123",
+    example: "algolia_job_123456789",
     maxLength: 50,
   })
   @IsString()
@@ -31,7 +31,7 @@ export class ProxyJobDto {
       "External job ID. Required. [外部岗位ID，必填]",
     type: String,
     required: true,
-    example: "EXT-123",
+    example: "EXT-JOB-2024-001",
     maxLength: 255,
   })
   @IsString()
@@ -43,7 +43,7 @@ export class ProxyJobDto {
       "Job link URL. Required. [岗位链接，必填]",
     type: String,
     required: true,
-    example: "https://example.com/job/123",
+    example: "https://example.com/jobs/software-engineer-2024-001",
     maxLength: 255,
   })
   @IsString()
@@ -55,7 +55,7 @@ export class ProxyJobDto {
       "Job type. Required. [职位类型，必填]",
     type: String,
     required: true,
-    example: "full-time",
+    example: "Full-time",
     maxLength: 50,
   })
   @IsString()
@@ -79,7 +79,7 @@ export class ProxyJobDto {
       "Company name. Required. [公司名称，必填]",
     type: String,
     required: true,
-    example: "Example Company",
+    example: "Tech Company Inc.",
     maxLength: 300,
   })
   @IsString()
@@ -104,7 +104,7 @@ export class ProxyJobDto {
     type: [String],
     isArray: true,
     required: true,
-    example: ["ADMIN", "TECH"],
+    example: ["TECH", "ADMIN"],
   })
   @IsArray()
   @IsString({ each: true })
@@ -127,7 +127,7 @@ export class ProxyJobDto {
       "Job level. Required. [职位级别，必填]",
     type: String,
     required: true,
-    example: "entry_level",
+    example: "mid_level",
     maxLength: 20,
   })
   @IsString()
@@ -142,7 +142,7 @@ export class PlacementProxyBatchRequestDto {
     type: [String],
     isArray: true,
     required: true,
-    example: ["123e4567-e89b-12d3-a456-426614174000"],
+    example: ["9e50af7d-5f08-4516-939f-7f765ce131b8", "f2c3737c-1b37-4736-8633-251731ddcdec"],
   })
   @IsArray()
   @ArrayNotEmpty()
@@ -156,6 +156,20 @@ export class PlacementProxyBatchRequestDto {
     type: [ProxyJobDto],
     isArray: true,
     required: true,
+    example: [
+      {
+        objectId: "algolia_job_123456789",
+        externalJobId: "EXT-JOB-2024-001",
+        jobLink: "https://example.com/jobs/software-engineer-2024-001",
+        jobType: "Full-time",
+        jobTitle: "Software Engineer",
+        companyName: "Tech Company Inc.",
+        location: "San Francisco, CA",
+        jobCategories: ["TECH", "ADMIN"],
+        normalJobTitle: "Software Engineer",
+        level: "mid_level",
+      },
+    ],
   })
   @IsArray()
   @ArrayNotEmpty()

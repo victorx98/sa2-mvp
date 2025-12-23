@@ -10768,7 +10768,8 @@
           "studentIds": {
             "description": "Student IDs (UUID strings). Unique and non-empty. [学生ID(UUID字符串)列表，需去重且非空]",
             "example": [
-              "123e4567-e89b-12d3-a456-426614174000"
+              "9e50af7d-5f08-4516-939f-7f765ce131b8",
+              "f2c3737c-1b37-4736-8633-251731ddcdec"
             ],
             "items": {
               "type": "array"
@@ -10777,6 +10778,23 @@
           },
           "jobs": {
             "description": "Jobs array. Each job contains objectId and redundant fields. Required. [岗位数组，每个岗位包含objectId和冗余字段，必填]",
+            "example": [
+              {
+                "objectId": "algolia_job_123456789",
+                "externalJobId": "EXT-JOB-2024-001",
+                "jobLink": "https://example.com/jobs/software-engineer-2024-001",
+                "jobType": "Full-time",
+                "jobTitle": "Software Engineer",
+                "companyName": "Tech Company Inc.",
+                "location": "San Francisco, CA",
+                "jobCategories": [
+                  "TECH",
+                  "ADMIN"
+                ],
+                "normalJobTitle": "Software Engineer",
+                "level": "mid_level"
+              }
+            ],
             "items": {
               "type": "array"
             },
