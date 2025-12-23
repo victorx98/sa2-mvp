@@ -4981,6 +4981,176 @@
         ]
       }
     },
+    "/api/query/placement/job-applications": {
+      "get": {
+        "description": "Queries job applications with filter/pagination/sort. Returns applications with student, mentor, and counselor information. [带筛选/分页/排序查询投递申请，返回包含学生、导师、顾问信息]",
+        "operationId": "PlacementQueryController_queryJobApplications",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (1-based). Default: 1. [页码(从1开始)，默认1]",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "Page size. Default: 20. [每页条数，默认20]",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
+            "in": "query",
+            "description": "Sort field. Default: submittedAt. [排序字段，默认submittedAt]",
+            "schema": {
+              "default": "submittedAt",
+              "example": "submittedAt",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortDirection",
+            "required": false,
+            "in": "query",
+            "description": "Sort direction. Default: desc. [排序方向，默认desc]",
+            "schema": {
+              "default": "desc",
+              "example": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Application status filter. [申请状态筛选]",
+            "schema": {
+              "example": "submitted",
+              "type": "string",
+              "enum": [
+                "recommended",
+                "interested",
+                "not_interested",
+                "revoked",
+                "mentor_assigned",
+                "submitted",
+                "interviewed",
+                "got_offer",
+                "rejected"
+              ]
+            }
+          },
+          {
+            "name": "applicationType",
+            "required": false,
+            "in": "query",
+            "description": "Application type filter. [申请类型筛选]",
+            "schema": {
+              "example": "referral",
+              "type": "string",
+              "enum": [
+                "direct",
+                "proxy",
+                "referral",
+                "bd"
+              ]
+            }
+          },
+          {
+            "name": "studentId",
+            "required": false,
+            "in": "query",
+            "description": "Student ID filter. [学生ID筛选]",
+            "schema": {
+              "example": "4d521e1f-7477-4744-b01b-845eab4155a0",
+              "type": "string"
+            }
+          },
+          {
+            "name": "assignedMentorId",
+            "required": false,
+            "in": "query",
+            "description": "Assigned mentor ID filter. [分配的导师ID筛选]",
+            "schema": {
+              "example": "65d6a77c-5a21-4c67-b6bb-6ef905bf4e0f",
+              "type": "string"
+            }
+          },
+          {
+            "name": "recommendedBy",
+            "required": false,
+            "in": "query",
+            "description": "Recommended by (counselor) ID filter. [推荐人(顾问)ID筛选]",
+            "schema": {
+              "example": "65d6a77c-5a21-4c67-b6bb-6ef905bf4e0f",
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Start date (ISO 8601). [开始日期(ISO 8601)]",
+            "schema": {
+              "example": "2025-01-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "End date (ISO 8601). [结束日期(ISO 8601)]",
+            "schema": {
+              "example": "2025-12-31",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job application query completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobApplicationQueryResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Query job applications",
+        "tags": [
+          "Placement"
+        ]
+      }
+    },
     "/api/placement/referrals/recommendations/batch": {
       "post": {
         "description": "Counselor recommends jobs to students by creating referral applications (all-or-nothing). [顾问批量给学生推荐岗位并创建内推投递记录(全成功事务)]",
@@ -10203,6 +10373,221 @@
           "total": {
             "type": "number",
             "description": "Total jobs. [总数]"
+          },
+          "page": {
+            "type": "number",
+            "description": "Current page. [当前页码]"
+          },
+          "pageSize": {
+            "type": "number",
+            "description": "Page size. [每页条数]"
+          },
+          "totalPages": {
+            "type": "number",
+            "description": "Total pages. [总页数]"
+          }
+        },
+        "required": [
+          "data",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
+        ]
+      },
+      "UserInfoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "User ID (UUID). [用户ID(UUID)]",
+            "format": "uuid"
+          },
+          "name_cn": {
+            "type": "string",
+            "description": "Chinese name. [中文名]"
+          },
+          "name_en": {
+            "type": "string",
+            "description": "English name. [英文名]"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "JobApplicationQueryItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Application ID (UUID). [投递ID(UUID)]",
+            "format": "uuid"
+          },
+          "studentId": {
+            "type": "string",
+            "description": "Student ID (UUID string). [学生ID(UUID字符串)]"
+          },
+          "recommendedJobId": {
+            "type": "string",
+            "description": "Recommended job ID (UUID). [推荐岗位ID(UUID)]",
+            "format": "uuid"
+          },
+          "applicationType": {
+            "type": "string",
+            "description": "Application type. [投递类型]",
+            "example": "referral"
+          },
+          "coverLetter": {
+            "type": "string",
+            "description": "Cover letter. [求职信]"
+          },
+          "customAnswers": {
+            "type": "object",
+            "description": "Custom answers. [自定义答案]"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status. [投递状态]",
+            "enum": [
+              "recommended",
+              "interested",
+              "not_interested",
+              "revoked",
+              "mentor_assigned",
+              "submitted",
+              "interviewed",
+              "got_offer",
+              "rejected"
+            ],
+            "example": "submitted"
+          },
+          "result": {
+            "type": "string",
+            "description": "Result. [结果]"
+          },
+          "resultReason": {
+            "type": "string",
+            "description": "Result reason. [结果原因]"
+          },
+          "submittedAt": {
+            "type": "string",
+            "description": "Submitted at (ISO 8601). [提交时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Updated at (ISO 8601). [更新时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes. [备注]"
+          },
+          "assignedMentorId": {
+            "type": "string",
+            "description": "Assigned mentor ID (UUID string). [分配导师ID(UUID字符串)]"
+          },
+          "recommendedBy": {
+            "type": "string",
+            "description": "Recommended by user ID (UUID string). [推荐人ID(UUID字符串)]"
+          },
+          "recommendedAt": {
+            "type": "string",
+            "description": "Recommended at (ISO 8601). [推荐时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "objectId": {
+            "type": "string",
+            "description": "Object ID. [对象ID]"
+          },
+          "jobId": {
+            "type": "string",
+            "description": "Job ID. [岗位ID]"
+          },
+          "jobLink": {
+            "type": "string",
+            "description": "Job link. [岗位链接]"
+          },
+          "jobType": {
+            "type": "string",
+            "description": "Job type. [职位类型]"
+          },
+          "jobTitle": {
+            "type": "string",
+            "description": "Job title. [职位标题]"
+          },
+          "companyName": {
+            "type": "string",
+            "description": "Company name. [公司名称]"
+          },
+          "location": {
+            "type": "string",
+            "description": "Location. [工作地点]"
+          },
+          "jobCategories": {
+            "description": "Job categories. [职位类别]",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "normalJobTitle": {
+            "type": "string",
+            "description": "Normalized job title. [标准化职位标题]"
+          },
+          "level": {
+            "type": "string",
+            "description": "Level. [级别]"
+          },
+          "student": {
+            "description": "Student information. [学生信息]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserInfoDto"
+              }
+            ]
+          },
+          "mentor": {
+            "description": "Mentor information. [导师信息]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserInfoDto"
+              }
+            ]
+          },
+          "counselor": {
+            "description": "Counselor information. [顾问信息]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserInfoDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "studentId",
+          "applicationType",
+          "status",
+          "submittedAt",
+          "updatedAt",
+          "student"
+        ]
+      },
+      "JobApplicationQueryResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Job application items. [投递申请列表]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobApplicationQueryItemDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "Total applications. [总数]"
           },
           "page": {
             "type": "number",

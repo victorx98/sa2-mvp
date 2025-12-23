@@ -19,10 +19,13 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { QueryJobsQuery } from '@application/queries/placement/query-jobs.query';
+import { QueryJobApplicationsQuery } from '@application/queries/placement/query-job-applications.query';
 import { JobQueryDto } from '@api/dto/request/placement-query.request.dto';
+import { JobApplicationQueryDto } from '@api/dto/request/job-application-query.request.dto';
 import { IJobQueryFilter } from '@domains/query/placement/dto/placement-query.dto';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { JobQueryResponseDto, JobPositionResponseDto } from '@api/dto/response/placement/placement.response.dto';
+import { JobApplicationQueryResponseDto } from '@api/dto/response/placement/job-application-query.response.dto';
 
 @Controller('api/query/placement')
 @ApiTags('Placement')
@@ -32,6 +35,7 @@ export class PlacementQueryController {
 
   constructor(
     private readonly queryJobsQuery: QueryJobsQuery,
+    private readonly queryJobApplicationsQuery: QueryJobApplicationsQuery,
   ) {}
 
   /**
@@ -180,5 +184,79 @@ export class PlacementQueryController {
     }
 
     return filter;
+  }
+
+  /**
+   * Query job applications with pagination, filtering and sorting [带分页、筛选和排序的投递申请查询]
+   *
+   * @param queryDto - Job application query DTO [投递申请查询DTO]
+   * @returns Paginated job application results [分页投递申请结果]
+   */
+  @Get('job-applications')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Query job applications',
+    description:
+      'Queries job applications with filter/pagination/sort. Returns applications with student, mentor, and counselor information. [带筛选/分页/排序查询投递申请，返回包含学生、导师、顾问信息]',
+  })
+  @ApiOkResponse({
+    description: 'Job application query completed successfully',
+    type: JobApplicationQueryResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @UsePipes(new ValidationPipe({
+    transform: true,
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transformOptions: {
+      enableImplicitConversion: true,
+    },
+  }))
+  async queryJobApplications(@Query() queryDto: JobApplicationQueryDto): Promise<JobApplicationQueryResponseDto> {
+    this.logger.log(`Received job application query request: ${JSON.stringify(queryDto)}`);
+
+    try {
+      // Build filter from query DTO [从查询DTO构建筛选条件]
+      const filter = {
+        status: queryDto.status,
+        applicationType: queryDto.applicationType,
+        studentId: queryDto.studentId,
+        assignedMentorId: queryDto.assignedMentorId,
+        recommendedBy: queryDto.recommendedBy,
+        startDate: queryDto.startDate,
+        endDate: queryDto.endDate,
+      };
+
+      // Build pagination and sorting parameters [构建分页和排序参数]
+      const pagination = {
+        page: queryDto.page,
+        pageSize: queryDto.pageSize,
+      };
+
+      const sort = {
+        field: queryDto.sortField,
+        direction: queryDto.sortDirection,
+      };
+
+      // Execute query [执行查询]
+      const results = await this.queryJobApplicationsQuery.execute({
+        filter,
+        pagination,
+        sort,
+      });
+
+      this.logger.log(`Job application query completed successfully, returned ${results.items.length} items out of ${results.total}`);
+
+      return {
+        data: results.items,
+        total: results.total,
+        page: results.page,
+        pageSize: results.pageSize,
+        totalPages: results.totalPages,
+      };
+    } catch (error) {
+      this.logger.error(`Job application query failed: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 }

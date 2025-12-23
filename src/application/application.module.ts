@@ -29,6 +29,7 @@ import { GetRecommLetterTypesQuery } from "./queries/services/get-recomm-letter-
 import { GetProductDetailQuery } from "./queries/product/get-product-detail.query";
 import { SearchProductsQuery } from "./queries/product/search-products.query";
 import { QueryJobsQuery } from "./queries/placement/query-jobs.query";
+import { QueryJobApplicationsQuery } from "./queries/placement/query-job-applications.query";
 import { ListMentorPricesQuery } from "./queries/financial/list-mentor-prices.query";
 
 // Application Layer - Commands
@@ -149,6 +150,7 @@ import { QueryModule } from "@domains/query/query.module";
     GetProductDetailQuery,
     SearchProductsQuery,
     QueryJobsQuery,
+    QueryJobApplicationsQuery,
     ListMentorPricesQuery,
 
     // Commands
@@ -252,6 +254,7 @@ import { QueryModule } from "@domains/query/query.module";
     GetProductDetailQuery,
     SearchProductsQuery,
     QueryJobsQuery,
+    QueryJobApplicationsQuery,
     ListMentorPricesQuery,
 
     // Commands
