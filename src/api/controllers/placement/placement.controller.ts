@@ -151,7 +151,7 @@ export class PlacementController {
   @ApiOperation({
     summary: "Update job application status",
     description:
-      "Updates application status. Counselor role is restricted to 'revoked' only. Audit info is automatically captured from JWT. (更新投递状态；顾问角色仅允许revoked；审计信息从JWT自动记录)",
+      "Updates application status based on state machine rules. Cannot set mentor_assigned status (use dedicated endpoint). Audit info is automatically captured from JWT. (基于状态机规则更新投递状态；不能设置mentor_assigned状态需使用专用接口；审计信息从JWT自动记录)",
   })
   @ApiParam({
     name: "id",
@@ -170,17 +170,6 @@ export class PlacementController {
     @Body() body: UpdateJobApplicationStatusRequestDto,
     @CurrentUser() user: IJwtUser,
   ): Promise<JobApplicationServiceResultResponseDto> {
-    // Restrict counselor to revoked only (限制顾问只能设置revoked)
-    const userRoles: string[] = Array.isArray((user as unknown as { roles?: string[] }).roles)
-      ? (user as unknown as { roles: string[] }).roles
-      : [];
-    const isCounselor = userRoles.includes("counselor");
-    if (isCounselor && body.status !== "revoked") {
-      throw new BadRequestException(
-        "Counselor can only set status to 'revoked' (顾问只能将状态设置为'revoked')",
-      );
-    }
-
     // Block mentor assignment here to force using counselor-facing endpoint (禁止在旧接口分配导师，强制使用顾问专用接口)
     if (body.status === "mentor_assigned") {
       throw new BadRequestException(
