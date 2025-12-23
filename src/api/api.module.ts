@@ -13,6 +13,7 @@ import { CounselorProfileController } from "./controllers/identity/counselor-pro
 import { ApplicationModule } from "@application/application.module";
 import { WebhookModule } from "@core/webhook/webhook.module";
 import { CommSessionController } from "./controllers/services/comm-sessions/comm-session.controller";
+import { MockInterviewController } from "./controllers/services/mock-interviews/mock-interview.controller";
 import { ProductsController } from "./controllers/catalog/products.controller";
 import { ContractsController } from "./controllers/contract/contracts.controller";
 import { FinancialController } from "./controllers/financial/financial.controller";
@@ -66,6 +67,7 @@ import { FileModule } from "@core/file/file.module";
     SessionTypesController, // Session types query API
     RecommLetterTypesController, // Recommendation letter types API
     CommSessionController,
+    MockInterviewController,
     ClassController, // Class management
     ClassSessionController, // Class session management
     ResumeController, // Resume management

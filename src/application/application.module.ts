@@ -24,6 +24,7 @@ import { RegularMentoringQueryService } from "./queries/services/regular-mentori
 import { ClassQueryService } from "./queries/services/class.query.service";
 import { ClassSessionQueryService } from "./queries/services/class-session.query.service";
 import { CommSessionQueryService } from "./queries/services/comm-session.query.service";
+import { MockInterviewQueryService } from "@domains/query/services/mock-interview-query.service";
 import { GetSessionTypesQuery } from "./queries/services/get-session-types.query";
 import { GetRecommLetterTypesQuery } from "./queries/services/get-recomm-letter-types.query";
 import { GetProductDetailQuery } from "./queries/product/get-product-detail.query";
@@ -47,6 +48,7 @@ import { AiCareerService } from "./commands/services/ai-career.service";
 import { AiCareerCreatedEventHandler } from "./commands/services/ai-career-event.handler";
 import { CommSessionService } from "./commands/services/comm-session.service";
 import { CommSessionCreatedEventHandler } from "./commands/services/comm-session-event.handler";
+import { MockInterviewService } from "./commands/services/mock-interview.service";
 import { ClassService } from "./commands/services/class.service";
 import { ClassSessionService } from "./commands/services/class-session.service";
 import { ClassSessionCreatedEventHandler } from "./commands/services/class-session-event.handler";
@@ -146,6 +148,7 @@ import { QueryModule } from "@domains/query/query.module";
     ClassQueryService,
     ClassSessionQueryService,
     CommSessionQueryService,
+    MockInterviewQueryService,
     GetSessionTypesQuery,
     GetRecommLetterTypesQuery,
     GetProductDetailQuery,
@@ -165,6 +168,7 @@ import { QueryModule } from "@domains/query/query.module";
     GapAnalysisService,
     AiCareerService,
     CommSessionService,
+    MockInterviewService,
     ClassService,
     ClassSessionService,
     SessionOrchestratorService,
@@ -251,6 +255,7 @@ import { QueryModule } from "@domains/query/query.module";
     ClassQueryService,
     ClassSessionQueryService,
     CommSessionQueryService,
+    MockInterviewQueryService,
     GetSessionTypesQuery,
     GetRecommLetterTypesQuery,
     GetProductDetailQuery,
@@ -270,6 +275,7 @@ import { QueryModule } from "@domains/query/query.module";
     GapAnalysisService,
     AiCareerService,
     CommSessionService,
+    MockInterviewService,
     ClassService,
     ClassSessionService,
     SessionOrchestratorService,

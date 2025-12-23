@@ -16,6 +16,7 @@ export enum SessionType {
   AI_CAREER = "ai_career",
   COMM_SESSION = "comm_session",
   CLASS_SESSION = "class_session",
+  MOCK_INTERVIEW = "mock_interview",
 }
 
 /**
