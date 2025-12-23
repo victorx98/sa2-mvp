@@ -3,11 +3,13 @@ import { Type } from "class-transformer";
 import {
   IsArray,
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   Min,
+  Max,
   ValidateNested,
 } from "class-validator";
 
@@ -185,3 +187,79 @@ export class BulkUpdateMentorPriceRequestDto {
 export type CreateMentorPriceDto = CreateMentorPriceRequestDto;
 export type UpdateMentorPriceDto = UpdateMentorPriceRequestDto;
 export type UpdateMentorPriceStatusDto = UpdateMentorPriceStatusRequestDto;
+
+export enum SortDirection {
+  ASC = "asc",
+  DESC = "desc",
+}
+
+export class ListMentorPricesQueryDto {
+  @ApiPropertyOptional({
+    description: "当前页码，默认值：1. [Page number, default: 1]",
+    type: Number,
+    minimum: 1,
+    default: 1,
+    example: 1,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({
+    description: "每页条数，默认值：20，最大值：100. [Page size, default: 20, max: 100]",
+    type: Number,
+    minimum: 1,
+    maximum: 100,
+    default: 20,
+    example: 20,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  pageSize?: number = 20;
+
+  @ApiPropertyOptional({
+    description:
+      "排序字段，默认：createdAt. [Sort field, default: createdAt]. 可选值: createdAt, updatedAt, price, mentorUserId, status",
+    type: String,
+    default: "createdAt",
+    example: "createdAt",
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(["createdAt", "updatedAt", "price", "mentorUserId", "status"])
+  sortBy?: string = "createdAt";
+
+  @ApiPropertyOptional({
+    description: "排序方向，默认：desc. [Sort direction, default: desc]",
+    enum: SortDirection,
+    default: SortDirection.DESC,
+    example: SortDirection.DESC,
+  })
+  @IsOptional()
+  @IsEnum(SortDirection)
+  sortDirection?: SortDirection = SortDirection.DESC;
+
+  @ApiPropertyOptional({
+    description: "筛选：导师用户ID. [Filter: Mentor user ID]",
+    type: String,
+    format: "uuid",
+  })
+  @IsOptional()
+  @IsString()
+  mentorUserId?: string;
+
+  @ApiPropertyOptional({
+    description: "筛选：状态. [Filter: Status]",
+    type: String,
+    enum: ["active", "inactive"],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(["active", "inactive"])
+  status?: string;
+}

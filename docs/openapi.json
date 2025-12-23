@@ -512,7 +512,7 @@
         ]
       },
       "patch": {
-        "description": "Update session details like title, description, or scheduled time. Requires sessionType query parameter.",
+        "description": "Update session details like title, description, or scheduled time. Requires sessionType in request body.",
         "operationId": "SessionController_updateSession",
         "parameters": [
           {
@@ -520,14 +520,6 @@
             "required": true,
             "in": "path",
             "description": "Session ID",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "sessionType",
-            "required": true,
-            "in": "query",
             "schema": {
               "type": "string"
             }
@@ -575,7 +567,7 @@
         ]
       },
       "delete": {
-        "description": "Soft delete a session (marks as deleted). Requires sessionType query parameter.",
+        "description": "Soft delete a session (marks as deleted). Requires sessionType in request body.",
         "operationId": "SessionController_deleteSession",
         "parameters": [
           {
@@ -586,16 +578,18 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "sessionType",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteSessionRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Session deleted successfully"
@@ -620,7 +614,7 @@
     },
     "/api/services/sessions/{id}/cancel": {
       "post": {
-        "description": "\n      Cancel an existing session with optional reason. Requires sessionType query parameter.\n      \n      Sync Flow (immediate response):\n      - Update session status to CANCELLED\n      - Release calendar slots\n      - Return cancelled session details\n      \n      Async Flow (background):\n      - Cancel meeting via third-party API (max 3 retries)\n      - Update meetings table\n      - Send notifications based on result\n    ",
+        "description": "\n      Cancel an existing session with optional description. Requires sessionType in request body.\n      \n      Sync Flow (immediate response):\n      - Update session status to CANCELLED\n      - Release calendar slots\n      - Return cancelled session details\n      \n      Async Flow (background):\n      - Cancel meeting via third-party API (max 3 retries)\n      - Update meetings table\n      - Send notifications based on result\n    ",
         "operationId": "SessionController_cancelSession",
         "parameters": [
           {
@@ -631,16 +625,18 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "sessionType",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelSessionRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Session cancelled successfully",
@@ -694,7 +690,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/SessionTypeDto"
+                    "$ref": "#/components/schemas/SessionTypeResponseDto"
                   }
                 }
               }
@@ -712,90 +708,31 @@
         ]
       }
     },
-    "/api/services/regular-mentoring": {
-      "post": {
-        "description": "\n      Creates a new regular mentoring session asynchronously.\n      \n      Sync Flow (returns immediately):\n      1. Create calendar slots for mentor and student\n      2. Create session record with PENDING_MEETING status\n      3. Return response with sessionId and status\n      \n      Async Flow (runs in background):\n      1. Create meeting link via third-party API\n      2. Update session with meeting_id and status=SCHEDULED\n      3. Publish SESSION_BOOKED_EVENT\n      \n      Response includes:\n      - sessionId: unique session identifier\n      - status: PENDING_MEETING (meeting creation in progress)\n      - scheduledAt: scheduled start time\n      \n      Client should poll GET /api/services/regular-mentoring/:id to check status and get meetingUrl\n    ",
-        "operationId": "RegularMentoringController_createSession",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateRegularMentoringRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Session created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreateSessionResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request parameters or insufficient balance"
-          },
-          "403": {
-            "description": "Not authorized to book for this student"
-          },
-          "409": {
-            "description": "Time conflict (mentor or student already scheduled)"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Create a new regular mentoring session",
-        "tags": [
-          "Counselor Portal - Regular Mentoring"
-        ]
-      },
+    "/api/services/recomm-letter-types": {
       "get": {
-        "description": "\n      Retrieve regular mentoring sessions with support for multiple query combinations:\n      \n      Query Parameters:\n      - studentId (optional): Filter by specific student ID\n      - mentorId (optional): Filter by specific mentor ID\n      - counselorId (optional): Filter by specific counselor ID (counselor role only)\n      - status (optional): Filter by session status (SCHEDULED, COMPLETED, CANCELLED, etc.)\n      - startDate (optional): Filter by start date\n      - endDate (optional): Filter by end date\n      - page (optional): Pagination page number\n      - limit (optional): Results per page\n      \n      Examples:\n      - GET /api/services/regular-mentoring (returns user's own sessions)\n      - GET /api/services/regular-mentoring?studentId=xxx (returns student's sessions)\n      - GET /api/services/regular-mentoring?mentorId=xxx (returns mentor's sessions)\n      - GET /api/services/regular-mentoring?mentorId=xxx&studentId=yyy (returns sessions for specific mentor-student pair)\n    ",
-        "operationId": "RegularMentoringController_getSessionsList",
+        "description": "Retrieve recommendation letter types as tree structure with parent-children relationships, optionally filtered by service type code",
+        "operationId": "RecommLetterTypesController_getTypes",
         "parameters": [
           {
-            "name": "studentId",
-            "required": true,
+            "name": "serviceTypeCode",
+            "required": false,
             "in": "query",
+            "description": "Filter by service type code (e.g., External, Internal)",
             "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "mentorId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "counselorId",
-            "required": true,
-            "in": "query",
-            "schema": {
+              "example": "External",
               "type": "string"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Sessions retrieved successfully",
+            "description": "Types retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/RegularMentoringSessionResponseDto"
+                    "$ref": "#/components/schemas/RecommLetterTypeResponseDto"
                   }
                 }
               }
@@ -807,203 +744,32 @@
             "bearer": []
           }
         ],
-        "summary": "Get list of regular mentoring sessions with flexible filtering",
+        "summary": "Get recommendation letter types",
         "tags": [
-          "Counselor Portal - Regular Mentoring"
-        ]
-      }
-    },
-    "/api/services/regular-mentoring/{id}": {
-      "get": {
-        "description": "Retrieve detailed information about a specific regular mentoring session",
-        "operationId": "RegularMentoringController_getSessionDetail",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Session ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Session retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegularMentoringSessionResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Session not found"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Get regular mentoring session details",
-        "tags": [
-          "Counselor Portal - Regular Mentoring"
+          "Recommendation Letter Types"
         ]
       },
-      "patch": {
-        "description": "Update session details like title, description, or scheduled time",
-        "operationId": "RegularMentoringController_updateSession",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Session ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateRegularMentoringRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Session updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegularMentoringSessionResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Session not found"
-          },
-          "409": {
-            "description": "Time conflict detected"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Update a regular mentoring session",
-        "tags": [
-          "Counselor Portal - Regular Mentoring"
-        ]
-      },
-      "delete": {
-        "description": "Soft delete a regular mentoring session (marks as deleted)",
-        "operationId": "RegularMentoringController_deleteSession",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Session ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Session deleted successfully"
-          },
-          "404": {
-            "description": "Session not found"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Delete a regular mentoring session",
-        "tags": [
-          "Counselor Portal - Regular Mentoring"
-        ]
-      }
-    },
-    "/api/services/regular-mentoring/{id}/cancel": {
       "post": {
-        "description": "\n      Cancel an existing regular mentoring session with optional reason.\n      \n      Sync Flow (immediate response):\n      - Update session status to CANCELLED\n      - Release calendar slots\n      - Return cancelled session details\n      \n      Async Flow (background):\n      - Cancel meeting via third-party API (max 3 retries)\n      - Update meetings table\n      - Send notifications based on result (success: all parties, failed: counselor only)\n    ",
-        "operationId": "RegularMentoringController_cancelSession",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Session ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Session cancelled successfully (meeting cancellation in progress)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegularMentoringSessionResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid session status (only SCHEDULED/PENDING_MEETING can be cancelled)"
-          },
-          "404": {
-            "description": "Session not found"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Cancel a regular mentoring session",
-        "tags": [
-          "Counselor Portal - Regular Mentoring"
-        ]
-      }
-    },
-    "/api/services/gap-analysis": {
-      "post": {
-        "description": "\n      Creates a new gap analysis session asynchronously.\n      \n      Sync Flow (returns immediately):\n      1. Create calendar slots for mentor and student\n      2. Create session record with PENDING_MEETING status\n      3. Return response with sessionId and status\n      \n      Async Flow (runs in background):\n      1. Create meeting link via third-party API\n      2. Update session with meeting_id and status=SCHEDULED\n      3. Publish SESSION_BOOKED_EVENT\n      \n      Client should poll GET /api/services/gap-analysis/:id to check status and get meetingUrl\n    ",
-        "operationId": "GapAnalysisController_createSession",
+        "description": "Create a new recommendation letter type (counselor/admin only)",
+        "operationId": "RecommLetterTypesController_createType",
         "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateGapAnalysisRequestDto"
+                "$ref": "#/components/schemas/CreateRecommLetterTypeDto"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Session created successfully",
+            "description": "Type created successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreateSessionResponseDto"
+                  "$ref": "#/components/schemas/RecommLetterTypeResponseDto"
                 }
               }
             }
@@ -1014,149 +780,22 @@
             "bearer": []
           }
         ],
-        "summary": "Create a new gap analysis session",
+        "summary": "Create recommendation letter type",
         "tags": [
-          "Counselor Portal - Gap Analysis"
-        ]
-      },
-      "get": {
-        "description": "\n      Retrieve gap analysis sessions with support for multiple query combinations:\n      \n      Query Parameters:\n      - studentId (optional): Filter by specific student ID\n      - mentorId (optional): Filter by specific mentor ID\n      - counselorId (optional): Filter by specific counselor ID (counselor role only)\n      - status (optional): Filter by session status (SCHEDULED, COMPLETED, CANCELLED, etc.)\n      - startDate (optional): Filter by start date\n      - endDate (optional): Filter by end date\n      - page (optional): Pagination page number\n      - limit (optional): Results per page\n      \n      Examples:\n      - GET /api/services/gap-analysis (returns user's own sessions)\n      - GET /api/services/gap-analysis?studentId=xxx (returns student's sessions)\n      - GET /api/services/gap-analysis?mentorId=xxx (returns mentor's sessions)\n      - GET /api/services/gap-analysis?mentorId=xxx&studentId=yyy (returns sessions for specific mentor-student pair)\n    ",
-        "operationId": "GapAnalysisController_getSessionsList",
-        "parameters": [
-          {
-            "name": "studentId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "mentorId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "counselorId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Sessions retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/GapAnalysisSessionResponseDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Get list of gap analysis sessions with flexible filtering",
-        "tags": [
-          "Counselor Portal - Gap Analysis"
+          "Recommendation Letter Types"
         ]
       }
     },
-    "/api/services/gap-analysis/{id}": {
-      "get": {
-        "operationId": "GapAnalysisController_getSessionDetail",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Session ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Get gap analysis session details",
-        "tags": [
-          "Counselor Portal - Gap Analysis"
-        ]
-      },
-      "patch": {
-        "description": "Update session details like title, description, or scheduled time",
-        "operationId": "GapAnalysisController_updateSession",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Session ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateGapAnalysisRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Session updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GapAnalysisSessionResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Update a gap analysis session",
-        "tags": [
-          "Counselor Portal - Gap Analysis"
-        ]
-      },
+    "/api/services/recomm-letter-types/{id}": {
       "delete": {
-        "operationId": "GapAnalysisController_deleteSession",
+        "description": "Delete a recommendation letter type (cascade delete children, counselor/admin only)",
+        "operationId": "RecommLetterTypesController_deleteType",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
-            "description": "Session ID",
+            "description": "Type ID",
             "schema": {
               "type": "string"
             }
@@ -1164,7 +803,7 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Type deleted successfully"
           }
         },
         "security": [
@@ -1172,285 +811,9 @@
             "bearer": []
           }
         ],
-        "summary": "Delete a gap analysis session",
+        "summary": "Delete recommendation letter type",
         "tags": [
-          "Counselor Portal - Gap Analysis"
-        ]
-      }
-    },
-    "/api/services/gap-analysis/{id}/cancel": {
-      "post": {
-        "description": "\n      Cancel an existing gap analysis session with optional reason.\n      \n      Sync Flow (immediate response):\n      - Update session status to CANCELLED\n      - Release calendar slots\n      - Return cancelled session details\n      \n      Async Flow (background):\n      - Cancel meeting via third-party API (max 3 retries)\n      - Update meetings table\n      - Send notifications based on result (success: all parties, failed: counselor only)\n    ",
-        "operationId": "GapAnalysisController_cancelSession",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Session ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Session cancelled successfully (meeting cancellation in progress)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GapAnalysisSessionResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid session status (only SCHEDULED/PENDING_MEETING can be cancelled)"
-          },
-          "404": {
-            "description": "Session not found"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Cancel a gap analysis session",
-        "tags": [
-          "Counselor Portal - Gap Analysis"
-        ]
-      }
-    },
-    "/api/services/ai-career": {
-      "post": {
-        "description": "\n      Creates a new AI career session asynchronously.\n      \n      Sync Flow (returns immediately):\n      1. Create calendar slots for mentor and student\n      2. Create session record with PENDING_MEETING status\n      3. Return response with sessionId and status\n      \n      Async Flow (runs in background):\n      1. Create meeting link via third-party API\n      2. Update session with meeting_id and status=SCHEDULED\n      3. Publish SESSION_BOOKED_EVENT\n      \n      Client should poll GET /api/services/ai-career/:id to check status and get meetingUrl\n    ",
-        "operationId": "AiCareerController_createSession",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateAiCareerRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Session created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreateSessionResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Create a new AI career session",
-        "tags": [
-          "Counselor Portal - AI Career"
-        ]
-      },
-      "get": {
-        "description": "\n      Retrieve AI career sessions with support for multiple query combinations:\n      \n      Query Parameters:\n      - studentId (optional): Filter by specific student ID\n      - mentorId (optional): Filter by specific mentor ID\n      - counselorId (optional): Filter by specific counselor ID (counselor role only)\n      - status (optional): Filter by session status (SCHEDULED, COMPLETED, CANCELLED, etc.)\n      - startDate (optional): Filter by start date\n      - endDate (optional): Filter by end date\n      - page (optional): Pagination page number\n      - limit (optional): Results per page\n      \n      Examples:\n      - GET /api/services/ai-career (returns user's own sessions)\n      - GET /api/services/ai-career?studentId=xxx (returns student's sessions)\n      - GET /api/services/ai-career?mentorId=xxx (returns mentor's sessions)\n      - GET /api/services/ai-career?mentorId=xxx&studentId=yyy (returns sessions for specific mentor-student pair)\n    ",
-        "operationId": "AiCareerController_getSessionsList",
-        "parameters": [
-          {
-            "name": "studentId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "mentorId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "counselorId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Sessions retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AiCareerSessionResponseDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Get list of AI career sessions with flexible filtering",
-        "tags": [
-          "Counselor Portal - AI Career"
-        ]
-      }
-    },
-    "/api/services/ai-career/{id}": {
-      "get": {
-        "operationId": "AiCareerController_getSessionDetail",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Session ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Get AI career session details",
-        "tags": [
-          "Counselor Portal - AI Career"
-        ]
-      },
-      "patch": {
-        "operationId": "AiCareerController_updateSession",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Session ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateAiCareerRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Update an AI career session",
-        "tags": [
-          "Counselor Portal - AI Career"
-        ]
-      },
-      "delete": {
-        "operationId": "AiCareerController_deleteSession",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Session ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Delete an AI career session",
-        "tags": [
-          "Counselor Portal - AI Career"
-        ]
-      }
-    },
-    "/api/services/ai-career/{id}/cancel": {
-      "post": {
-        "description": "\n      Cancel an existing AI career session with optional reason.\n      \n      Sync Flow (immediate response):\n      - Update session status to CANCELLED\n      - Release calendar slots\n      - Return cancelled session details\n      \n      Async Flow (background):\n      - Cancel meeting via third-party API (max 3 retries)\n      - Update meetings table\n      - Send notifications based on result (success: all parties, failed: counselor only)\n    ",
-        "operationId": "AiCareerController_cancelSession",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Session ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Session cancelled successfully (meeting cancellation in progress)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AiCareerSessionResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid session status (only SCHEDULED/PENDING_MEETING can be cancelled)"
-          },
-          "404": {
-            "description": "Session not found"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Cancel an AI career session",
-        "tags": [
-          "Counselor Portal - AI Career"
+          "Recommendation Letter Types"
         ]
       }
     },
@@ -1475,7 +838,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreateSessionResponseDto"
+                  "$ref": "#/components/schemas/CreateCommSessionResponseDto"
                 }
               }
             }
@@ -1498,7 +861,7 @@
         ]
       },
       "get": {
-        "description": "\n      Retrieve communication sessions with support for multiple query combinations:\n      \n      Query Parameters:\n      - studentId (optional): Filter by specific student ID\n      - mentorId (optional): Filter by specific mentor ID\n      - counselorId (optional): Filter by specific counselor ID (counselor role only)\n      - status (optional): Filter by session status (SCHEDULED, COMPLETED, CANCELLED, etc.)\n      - startDate (optional): Filter by start date\n      - endDate (optional): Filter by end date\n      - page (optional): Pagination page number\n      - limit (optional): Results per page\n      \n      Examples:\n      - GET /api/services/comm-session (returns user's own sessions)\n      - GET /api/services/comm-session?studentId=xxx (returns student's sessions)\n      - GET /api/services/comm-session?mentorId=xxx (returns mentor's sessions)\n      - GET /api/services/comm-session?mentorId=xxx&studentId=yyy (returns sessions for specific mentor-student pair)\n    ",
+        "description": "\n      Retrieve communication sessions with support for multiple query combinations.\n      \n      Query Parameters:\n      - studentId (optional): Filter by specific student ID\n      - mentorId (optional): Filter by specific mentor ID\n      - counselorId (optional): Filter by specific counselor ID (counselor role only)\n      - status (optional): Filter by session status\n      - startDate (optional): Filter by start date\n      - endDate (optional): Filter by end date\n      - page (optional): Pagination page number\n      - limit (optional): Results per page\n    ",
         "operationId": "CommSessionController_getSessionsList",
         "parameters": [
           {
@@ -1679,7 +1042,7 @@
     },
     "/api/services/comm-session/{id}/cancel": {
       "post": {
-        "description": "\n      Cancel an existing communication session with optional reason.\n      \n      Sync Flow (immediate response):\n      - Update session status to CANCELLED\n      - Release calendar slots\n      - Return cancelled session details\n      \n      Async Flow (background):\n      - Cancel meeting via third-party API (max 3 retries)\n      - Update meetings table\n      - Send notifications based on result (success: all parties, failed: counselor only)\n    ",
+        "description": "\n      Cancel an existing communication session with optional reason.\n      \n      Sync Flow (immediate response):\n      - Update session status to CANCELLED\n      - Release calendar slots\n      - Return cancelled session details\n      \n      Async Flow (background):\n      - Cancel meeting via third-party API (max 3 retries)\n      - Update meetings table\n      - Send notifications based on result\n    ",
         "operationId": "CommSessionController_cancelSession",
         "parameters": [
           {
@@ -1694,7 +1057,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Session cancelled successfully (meeting cancellation in progress)",
+            "description": "Session cancelled successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -1704,7 +1067,7 @@
             }
           },
           "400": {
-            "description": "Invalid session status (only SCHEDULED/PENDING_MEETING can be cancelled)"
+            "description": "Invalid session status"
           },
           "404": {
             "description": "Session not found"
@@ -2757,7 +2120,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UploadResumeDto"
+                "$ref": "#/components/schemas/UploadResumeRequestDto"
               }
             }
           }
@@ -2827,7 +2190,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetFinalDto"
+                "$ref": "#/components/schemas/SetFinalRequestDto"
               }
             }
           }
@@ -2867,7 +2230,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetFinalDto"
+                "$ref": "#/components/schemas/SetFinalRequestDto"
               }
             }
           }
@@ -2907,7 +2270,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BillResumeDto"
+                "$ref": "#/components/schemas/BillResumeRequestDto"
               }
             }
           }
@@ -2947,7 +2310,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CancelBillResumeDto"
+                "$ref": "#/components/schemas/CancelBillResumeRequestDto"
               }
             }
           }
@@ -2995,6 +2358,176 @@
         "summary": "Delete resume",
         "tags": [
           "Resume Management"
+        ]
+      }
+    },
+    "/api/services/recomm-letters/upload": {
+      "post": {
+        "operationId": "RecommLetterController_uploadRecommLetter",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadRecommLetterRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Recommendation letter uploaded successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Upload recommendation letter (counselor only)",
+        "tags": [
+          "Recommendation Letter Management"
+        ]
+      }
+    },
+    "/api/services/recomm-letters/student/{studentUserId}": {
+      "get": {
+        "operationId": "RecommLetterController_listRecommLettersByStudent",
+        "parameters": [
+          {
+            "name": "studentUserId",
+            "required": true,
+            "in": "path",
+            "description": "Student user ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recommendation letters retrieved successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get student recommendation letters",
+        "tags": [
+          "Recommendation Letter Management"
+        ]
+      }
+    },
+    "/api/services/recomm-letters/{letterId}/bill": {
+      "post": {
+        "operationId": "RecommLetterController_billRecommLetter",
+        "parameters": [
+          {
+            "name": "letterId",
+            "required": true,
+            "in": "path",
+            "description": "Recommendation letter ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillRecommLetterRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recommendation letter billed successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Bill recommendation letter to mentor (counselor only)",
+        "tags": [
+          "Recommendation Letter Management"
+        ]
+      }
+    },
+    "/api/services/recomm-letters/{letterId}/cancel-bill": {
+      "post": {
+        "operationId": "RecommLetterController_cancelBillRecommLetter",
+        "parameters": [
+          {
+            "name": "letterId",
+            "required": true,
+            "in": "path",
+            "description": "Recommendation letter ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelBillRecommLetterRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recommendation letter billing cancelled successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancel recommendation letter billing (counselor only)",
+        "tags": [
+          "Recommendation Letter Management"
+        ]
+      }
+    },
+    "/api/services/recomm-letters/{letterId}": {
+      "delete": {
+        "operationId": "RecommLetterController_deleteRecommLetter",
+        "parameters": [
+          {
+            "name": "letterId",
+            "required": true,
+            "in": "path",
+            "description": "Recommendation letter ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recommendation letter deleted successfully"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete recommendation letter (counselor only)",
+        "tags": [
+          "Recommendation Letter Management"
         ]
       }
     },
@@ -3134,6 +2667,24 @@
             "required": false,
             "in": "query",
             "description": "Search keyword (searches in both Chinese and English names)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "counselorId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by counselor ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mentorId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by mentor ID",
             "schema": {
               "type": "string"
             }
@@ -4279,189 +3830,6 @@
         ]
       }
     },
-    "/api/contracts/service-type-consumption": {
-      "get": {
-        "description": "Retrieve all service type consumption records with complete data for frontend chart layout. [获取所有服务类型权益消费记录，为前端图表布局提供完整数据支持]",
-        "operationId": "ContractsController_getServiceTypeConsumptionRecords",
-        "parameters": [
-          {
-            "name": "studentId",
-            "required": false,
-            "in": "query",
-            "description": "Student ID (UUID) for filtering. [用于筛选的学生ID(UUID)]",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "name": "mentorId",
-            "required": false,
-            "in": "query",
-            "description": "Mentor ID (UUID) for filtering. [用于筛选的导师ID(UUID)]",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "name": "status",
-            "required": false,
-            "in": "query",
-            "description": "Status for filtering. [用于筛选的状态]",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "description": "Page number. Default: 1. [页码，默认值：1]",
-            "schema": {
-              "minimum": 1,
-              "example": 1,
-              "type": "number"
-            }
-          },
-          {
-            "name": "pageSize",
-            "required": false,
-            "in": "query",
-            "description": "Page size. Default: 20. Max: 100. [每页条数，默认值：20，最大值：100]",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "example": 20,
-              "type": "number"
-            }
-          },
-          {
-            "name": "sortField",
-            "required": false,
-            "in": "query",
-            "description": "Sort field. Default: startDate. [排序字段，默认值：startDate]",
-            "schema": {
-              "example": "startDate",
-              "type": "string"
-            }
-          },
-          {
-            "name": "sortOrder",
-            "required": false,
-            "in": "query",
-            "description": "Sort order. Default: desc. [排序方向，默认值：desc]",
-            "schema": {
-              "example": "desc",
-              "type": "string",
-              "enum": [
-                "asc",
-                "desc"
-              ]
-            }
-          },
-          {
-            "description": "Student ID (UUID) for filtering. [用于筛选的学生ID(UUID)]",
-            "required": false,
-            "name": "studentId",
-            "in": "query",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Mentor ID (UUID) for filtering. [用于筛选的导师ID(UUID)]",
-            "required": false,
-            "name": "mentorId",
-            "in": "query",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Status for filtering. [用于筛选的状态]",
-            "required": false,
-            "name": "status",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Page number. Default: 1. [页码，默认值：1]",
-            "required": false,
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "example": 1,
-              "type": "number"
-            }
-          },
-          {
-            "description": "Page size. Default: 20. Max: 100. [每页条数，默认值：20，最大值：100]",
-            "required": false,
-            "name": "pageSize",
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "example": 20,
-              "type": "number"
-            }
-          },
-          {
-            "description": "Sort field. Default: startDate. [排序字段，默认值：startDate]",
-            "required": false,
-            "name": "sortField",
-            "in": "query",
-            "schema": {
-              "example": "startDate",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Sort order. Default: desc. [排序方向，默认值：desc]",
-            "required": false,
-            "name": "sortOrder",
-            "in": "query",
-            "schema": {
-              "example": "desc",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Service type consumption records retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Get all service type consumption records",
-        "tags": [
-          "Contracts"
-        ]
-      }
-    },
     "/api/financial/mentor-appeals": {
       "post": {
         "description": "Creates a mentor appeal record and sets createdBy from current user. [创建导师申诉记录，createdBy 从当前用户注入]",
@@ -4650,6 +4018,110 @@
       }
     },
     "/api/financial/mentor-prices": {
+      "get": {
+        "description": "Lists mentor prices with pagination, sorting, and mentor information. [分页查询导师价格列表，支持排序和导师信息]",
+        "operationId": "FinancialController_listMentorPrices",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "当前页码，默认值：1. [Page number, default: 1]",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "description": "每页条数，默认值：20，最大值：100. [Page size, default: 20, max: 100]",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "description": "排序字段，默认：createdAt. [Sort field, default: createdAt]. 可选值: createdAt, updatedAt, price, mentorUserId, status",
+            "schema": {
+              "default": "createdAt",
+              "example": "createdAt",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortDirection",
+            "required": false,
+            "in": "query",
+            "description": "排序方向，默认：desc. [Sort direction, default: desc]",
+            "schema": {
+              "default": "desc",
+              "example": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "mentorUserId",
+            "required": false,
+            "in": "query",
+            "description": "筛选：导师用户ID. [Filter: Mentor user ID]",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "筛选：状态. [Filter: Status]",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mentor prices retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedMentorPriceResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List mentor prices with pagination",
+        "tags": [
+          "Financial"
+        ]
+      },
       "post": {
         "description": "Creates mentor pricing configuration for a session type. [创建导师某会话类型的价格配置]",
         "operationId": "FinancialController_createMentorPrice",
@@ -5680,6 +5152,42 @@
           "Files"
         ]
       }
+    },
+    "/api/files/download-url": {
+      "get": {
+        "operationId": "FileController_getDownloadUrl",
+        "parameters": [
+          {
+            "name": "fileUrl",
+            "required": true,
+            "in": "query",
+            "description": "S3 file URL",
+            "schema": {
+              "example": "https://bucket.s3.amazonaws.com/uploads/xxx.pdf",
+              "type": "string"
+            }
+          },
+          {
+            "name": "expiresIn",
+            "required": false,
+            "in": "query",
+            "description": "URL expiration time in seconds (default: 900)",
+            "schema": {
+              "example": 900,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get presigned download URL for S3 file",
+        "tags": [
+          "Files"
+        ]
+      }
     }
   },
   "info": {
@@ -6199,6 +5707,18 @@
       "UpdateSessionRequestDto": {
         "type": "object",
         "properties": {
+          "sessionType": {
+            "type": "string",
+            "description": "Session Type",
+            "example": "regular_mentoring",
+            "enum": [
+              "regular_mentoring",
+              "gap_analysis",
+              "ai_career",
+              "comm_session",
+              "class_session"
+            ]
+          },
           "title": {
             "type": "string",
             "description": "Session Title",
@@ -6219,29 +5739,74 @@
             "description": "Session Duration in minutes",
             "example": 60
           }
-        }
+        },
+        "required": [
+          "sessionType"
+        ]
       },
-      "SessionTypeItemDto": {
+      "CancelSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "sessionType": {
+            "type": "string",
+            "description": "Session Type",
+            "example": "regular_mentoring",
+            "enum": [
+              "regular_mentoring",
+              "gap_analysis",
+              "ai_career",
+              "comm_session",
+              "class_session"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "description": "Session Description",
+            "example": "Cancelled by counselor"
+          }
+        },
+        "required": [
+          "sessionType"
+        ]
+      },
+      "DeleteSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "sessionType": {
+            "type": "string",
+            "description": "Session Type",
+            "example": "regular_mentoring",
+            "enum": [
+              "regular_mentoring",
+              "gap_analysis",
+              "ai_career",
+              "comm_session",
+              "class_session"
+            ]
+          }
+        },
+        "required": [
+          "sessionType"
+        ]
+      },
+      "SessionTypeItemResponseDto": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
-            "description": "Session type ID",
-            "example": "123e4567-e89b-12d3-a456-426614174000"
+            "description": "Session type ID"
           },
           "code": {
             "type": "string",
-            "description": "Session type code",
-            "example": "regular_mentoring"
+            "description": "Session type code"
           },
           "name": {
-            "type": "string",
-            "description": "Session type name",
-            "example": "Regular Mentoring"
+            "type": "object",
+            "description": "Session type name (i18n)"
           },
           "isBilling": {
             "type": "boolean",
-            "description": "Whether this session type is billable"
+            "description": "Is billing enabled"
           }
         },
         "required": [
@@ -6251,19 +5816,18 @@
           "isBilling"
         ]
       },
-      "SessionTypeDto": {
+      "SessionTypeResponseDto": {
         "type": "object",
         "properties": {
           "serviceTypeCode": {
             "type": "string",
-            "description": "Service type code",
-            "example": "External"
+            "description": "Service type code (e.g., External, Internal)"
           },
           "sessionTypes": {
-            "description": "List of session types",
+            "description": "Session types under this service type",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/SessionTypeItemDto"
+              "$ref": "#/components/schemas/SessionTypeItemResponseDto"
             }
           }
         },
@@ -6272,248 +5836,103 @@
           "sessionTypes"
         ]
       },
-      "CreateRegularMentoringRequestDto": {
+      "RecommLetterTypeResponseDto": {
         "type": "object",
         "properties": {
-          "studentId": {
+          "id": {
             "type": "string",
-            "description": "Student ID",
-            "example": "9e50af7d-5f08-4516-939f-7f765ce131b8"
+            "description": "Type ID",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
           },
-          "mentorId": {
+          "typeCode": {
             "type": "string",
-            "description": "Mentor/Tutor ID",
-            "example": "4903b94b-67cc-42a1-9b3e-91ebc51bcefc"
+            "description": "Type code",
+            "example": "online_package"
           },
-          "sessionTypeId": {
+          "typeName": {
             "type": "string",
-            "description": "Session Type ID",
-            "example": "uuid-session-type-id"
+            "description": "Type name",
+            "example": "网申推荐信(Package)"
           },
-          "title": {
+          "serviceTypeCode": {
             "type": "string",
-            "description": "Session Title",
-            "example": "Resume Coaching"
+            "description": "Service type code",
+            "example": "External"
           },
-          "description": {
+          "parentId": {
             "type": "string",
-            "description": "Session Description",
-            "example": "Session description"
+            "description": "Parent type ID",
+            "example": "123e4567-e89b-12d3-a456-426614174000",
+            "nullable": true
           },
-          "scheduledAt": {
+          "active": {
+            "type": "boolean",
+            "description": "Active status",
+            "example": true
+          },
+          "children": {
+            "description": "Child types",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecommLetterTypeResponseDto"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
             "type": "string",
-            "description": "Scheduled Start Time (ISO 8601)",
-            "example": "2025-12-03T06:00:00Z"
+            "description": "Created timestamp",
+            "example": "2024-01-01T00:00:00.000Z"
           },
-          "duration": {
-            "type": "number",
-            "description": "Session Duration in minutes",
-            "example": 60
-          },
-          "meetingProvider": {
+          "updatedAt": {
+            "format": "date-time",
             "type": "string",
-            "description": "Meeting Provider",
-            "example": "feishu"
+            "description": "Updated timestamp",
+            "example": "2024-01-01T00:00:00.000Z"
           }
         },
         "required": [
-          "studentId",
-          "mentorId",
-          "sessionTypeId",
-          "title",
-          "scheduledAt"
+          "id",
+          "typeCode",
+          "typeName",
+          "serviceTypeCode",
+          "active",
+          "children",
+          "createdAt",
+          "updatedAt"
         ]
       },
-      "RegularMentoringSessionResponseDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "UpdateRegularMentoringRequestDto": {
+      "CreateRecommLetterTypeDto": {
         "type": "object",
         "properties": {
-          "title": {
+          "typeCode": {
             "type": "string",
-            "description": "Session Title",
-            "example": "Resume Coaching"
+            "description": "Type code (unique identifier)",
+            "example": "online_5",
+            "maxLength": 50
           },
-          "description": {
+          "typeName": {
             "type": "string",
-            "description": "Session Description",
-            "example": "Session description"
+            "description": "Type name (display name)",
+            "example": "5 Online",
+            "maxLength": 100
           },
-          "scheduledAt": {
+          "serviceTypeCode": {
             "type": "string",
-            "description": "Scheduled Start Time (ISO 8601)",
-            "example": "2025-12-03T06:00:00Z"
+            "description": "Service type code (e.g., External, Internal)",
+            "example": "External",
+            "maxLength": 50
           },
-          "duration": {
-            "type": "number",
-            "description": "Session Duration in minutes",
-            "example": 60
-          }
-        }
-      },
-      "CreateGapAnalysisRequestDto": {
-        "type": "object",
-        "properties": {
-          "studentId": {
+          "parentId": {
             "type": "string",
-            "description": "Student ID",
-            "example": "9e50af7d-5f08-4516-939f-7f765ce131b8"
-          },
-          "mentorId": {
-            "type": "string",
-            "description": "Mentor/Tutor ID",
-            "example": "4903b94b-67cc-42a1-9b3e-91ebc51bcefc"
-          },
-          "sessionTypeId": {
-            "type": "string",
-            "description": "Session Type ID",
-            "example": "uuid-session-type-id"
-          },
-          "title": {
-            "type": "string",
-            "description": "Session Title",
-            "example": "Gap Analysis Session"
-          },
-          "description": {
-            "type": "string",
-            "description": "Session Description",
-            "example": "Gap analysis session description"
-          },
-          "scheduledAt": {
-            "type": "string",
-            "description": "Scheduled Start Time (ISO 8601)",
-            "example": "2025-12-03T06:00:00Z"
-          },
-          "duration": {
-            "type": "number",
-            "description": "Session Duration in minutes",
-            "example": 60
-          },
-          "meetingProvider": {
-            "type": "string",
-            "description": "Meeting Provider",
-            "example": "feishu"
+            "description": "Parent type ID (for hierarchical structure)",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
           }
         },
         "required": [
-          "studentId",
-          "mentorId",
-          "sessionTypeId",
-          "title",
-          "scheduledAt"
+          "typeCode",
+          "typeName",
+          "serviceTypeCode"
         ]
-      },
-      "GapAnalysisSessionResponseDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "UpdateGapAnalysisRequestDto": {
-        "type": "object",
-        "properties": {
-          "title": {
-            "type": "string",
-            "description": "Session Title",
-            "example": "Gap Analysis Session"
-          },
-          "description": {
-            "type": "string",
-            "description": "Session Description",
-            "example": "Gap analysis session description"
-          },
-          "scheduledAt": {
-            "type": "string",
-            "description": "Scheduled Start Time (ISO 8601)",
-            "example": "2025-12-03T06:00:00Z"
-          },
-          "duration": {
-            "type": "number",
-            "description": "Session Duration in minutes",
-            "example": 60
-          }
-        }
-      },
-      "CreateAiCareerRequestDto": {
-        "type": "object",
-        "properties": {
-          "studentId": {
-            "type": "string",
-            "description": "Student ID",
-            "example": "9e50af7d-5f08-4516-939f-7f765ce131b8"
-          },
-          "mentorId": {
-            "type": "string",
-            "description": "Mentor/Tutor ID",
-            "example": "4903b94b-67cc-42a1-9b3e-91ebc51bcefc"
-          },
-          "sessionTypeId": {
-            "type": "string",
-            "description": "Session Type ID",
-            "example": "uuid-session-type-id"
-          },
-          "title": {
-            "type": "string",
-            "description": "Session Title",
-            "example": "AI Career Assessment"
-          },
-          "description": {
-            "type": "string",
-            "description": "Session Description",
-            "example": "AI career assessment session description"
-          },
-          "scheduledAt": {
-            "type": "string",
-            "description": "Scheduled Start Time (ISO 8601)",
-            "example": "2025-12-03T06:00:00Z"
-          },
-          "duration": {
-            "type": "number",
-            "description": "Session Duration in minutes",
-            "example": 60
-          },
-          "meetingProvider": {
-            "type": "string",
-            "description": "Meeting Provider",
-            "example": "feishu"
-          }
-        },
-        "required": [
-          "studentId",
-          "mentorId",
-          "sessionTypeId",
-          "title",
-          "scheduledAt"
-        ]
-      },
-      "AiCareerSessionResponseDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "UpdateAiCareerRequestDto": {
-        "type": "object",
-        "properties": {
-          "title": {
-            "type": "string",
-            "description": "Session Title",
-            "example": "AI Career Assessment"
-          },
-          "description": {
-            "type": "string",
-            "description": "Session Description",
-            "example": "AI career assessment session description"
-          },
-          "scheduledAt": {
-            "type": "string",
-            "description": "Scheduled Start Time (ISO 8601)",
-            "example": "2025-12-03T06:00:00Z"
-          },
-          "duration": {
-            "type": "number",
-            "description": "Session Duration in minutes",
-            "example": 60
-          }
-        }
       },
       "CreateCommSessionRequestDto": {
         "type": "object",
@@ -6557,6 +5976,31 @@
         "required": [
           "studentId",
           "title",
+          "scheduledAt"
+        ]
+      },
+      "CreateCommSessionResponseDto": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "Session ID",
+            "example": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+          },
+          "status": {
+            "type": "string",
+            "description": "Session Status",
+            "example": "pending_meeting"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "description": "Scheduled Start Time (ISO 8601)",
+            "example": "2025-12-03T06:00:00Z"
+          }
+        },
+        "required": [
+          "sessionId",
+          "status",
           "scheduledAt"
         ]
       },
@@ -6859,26 +6303,169 @@
         "type": "object",
         "properties": {}
       },
-      "UploadResumeDto": {
+      "UploadResumeRequestDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "studentUserId": {
+            "type": "string",
+            "description": "Student user ID"
+          },
+          "jobTitle": {
+            "type": "string",
+            "description": "Job title",
+            "maxLength": 200
+          },
+          "sessionType": {
+            "type": "string",
+            "description": "Session type",
+            "maxLength": 50
+          },
+          "fileName": {
+            "type": "string",
+            "description": "File name",
+            "maxLength": 500
+          },
+          "fileUrl": {
+            "type": "string",
+            "description": "File URL (S3)",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "studentUserId",
+          "jobTitle",
+          "fileName",
+          "fileUrl"
+        ]
       },
-      "SetFinalDto": {
+      "SetFinalRequestDto": {
         "type": "object",
         "properties": {
           "description": {
             "type": "string",
-            "description": "Description"
+            "description": "Description",
+            "maxLength": 1000
           }
         }
       },
-      "BillResumeDto": {
+      "BillResumeRequestDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "description": "Student user ID"
+          },
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor user ID"
+          },
+          "serviceType": {
+            "type": "string",
+            "description": "Service type"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "studentId",
+          "mentorId"
+        ]
       },
-      "CancelBillResumeDto": {
+      "CancelBillResumeRequestDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "serviceType": {
+            "type": "string",
+            "description": "Service type"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description",
+            "maxLength": 1000
+          }
+        }
+      },
+      "UploadRecommLetterRequestDto": {
+        "type": "object",
+        "properties": {
+          "studentUserId": {
+            "type": "string",
+            "description": "Student user ID"
+          },
+          "letterTypeId": {
+            "type": "string",
+            "description": "Letter Type ID"
+          },
+          "packageTypeId": {
+            "type": "string",
+            "description": "Package Type ID"
+          },
+          "serviceType": {
+            "type": "string",
+            "description": "Service type",
+            "maxLength": 50
+          },
+          "fileName": {
+            "type": "string",
+            "description": "File name",
+            "maxLength": 500
+          },
+          "fileUrl": {
+            "type": "string",
+            "description": "File URL (S3)",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "studentUserId",
+          "letterTypeId",
+          "serviceType",
+          "fileName",
+          "fileUrl"
+        ]
+      },
+      "BillRecommLetterRequestDto": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "description": "Student user ID"
+          },
+          "mentorId": {
+            "type": "string",
+            "description": "Mentor user ID"
+          },
+          "serviceType": {
+            "type": "string",
+            "description": "Service type"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "studentId",
+          "mentorId"
+        ]
+      },
+      "CancelBillRecommLetterRequestDto": {
+        "type": "object",
+        "properties": {
+          "serviceType": {
+            "type": "string",
+            "description": "Service type"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description",
+            "maxLength": 1000
+          }
+        }
       },
       "MentorSummaryResponseDto": {
         "type": "object",
@@ -9422,6 +9009,139 @@
           "settlementMethod",
           "createdAt",
           "createdBy"
+        ]
+      },
+      "MentorInfoDto": {
+        "type": "object",
+        "properties": {
+          "mentorId": {
+            "type": "string",
+            "description": "导师用户ID (UUID). [Mentor user ID (UUID)]",
+            "format": "uuid"
+          },
+          "name_cn": {
+            "type": "string",
+            "description": "导师中文名称. [Mentor Chinese name]",
+            "nullable": true
+          },
+          "name_en": {
+            "type": "string",
+            "description": "导师英文名称. [Mentor English name]",
+            "nullable": true
+          }
+        },
+        "required": [
+          "mentorId"
+        ]
+      },
+      "MentorPriceWithMentorResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Mentor price ID (UUID). [导师价格ID(UUID)]"
+          },
+          "mentorUserId": {
+            "type": "string",
+            "description": "Mentor user ID (UUID). [导师用户ID(UUID)]",
+            "format": "uuid"
+          },
+          "serviceTypeId": {
+            "type": "string",
+            "description": "Service type ID (deprecated). [服务类型ID(已废弃)]"
+          },
+          "sessionTypeCode": {
+            "type": "string",
+            "description": "Session type code. [会话类型代码]",
+            "example": "regular_mentoring"
+          },
+          "packageCode": {
+            "type": "string",
+            "description": "Package code (optional). [课程包编码(可选)]"
+          },
+          "price": {
+            "type": "string",
+            "description": "Price stored as decimal string (DB numeric/decimal). [价格(字符串，DB numeric/decimal)]",
+            "example": "200.0"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency (ISO 4217). [币种(ISO 4217)]",
+            "example": "USD"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status (active/inactive). [状态：active/inactive]",
+            "example": "active"
+          },
+          "updatedBy": {
+            "type": "string",
+            "description": "Updated by user ID (UUID). [更新人用户ID(UUID)]",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Created time (ISO 8601). [创建时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Updated time (ISO 8601). [更新时间(ISO 8601)]",
+            "format": "date-time"
+          },
+          "mentor": {
+            "description": "导师信息. [Mentor information]",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MentorInfoDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "mentorUserId",
+          "price",
+          "currency",
+          "status",
+          "createdAt",
+          "updatedAt",
+          "mentor"
+        ]
+      },
+      "PaginatedMentorPriceResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "数据列表. [Data list]",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MentorPriceWithMentorResponseDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "总记录数. [Total records count]"
+          },
+          "page": {
+            "type": "number",
+            "description": "当前页码. [Current page number]"
+          },
+          "pageSize": {
+            "type": "number",
+            "description": "每页条数. [Page size]"
+          },
+          "totalPages": {
+            "type": "number",
+            "description": "总页数. [Total pages]"
+          }
+        },
+        "required": [
+          "data",
+          "total",
+          "page",
+          "pageSize",
+          "totalPages"
         ]
       },
       "CreateMentorPriceRequestDto": {

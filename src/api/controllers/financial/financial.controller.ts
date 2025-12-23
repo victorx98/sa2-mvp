@@ -40,6 +40,7 @@ import { UpdateOrCreatePaymentParamsCommand } from "@application/commands/financ
 import { ModifyPaymentParamsCommand } from "@application/commands/financial/modify-payment-params.command";
 import { CreateOrUpdateMentorPaymentInfoCommand } from "@application/commands/financial/create-or-update-mentor-payment-info.command";
 import { UpdateMentorPaymentInfoStatusCommand } from "@application/commands/financial/update-mentor-payment-info-status.command";
+import { ListMentorPricesQuery } from "@application/queries/financial/list-mentor-prices.query";
 
 import type { CreateMentorAppealRequestDto as CreateAppealDto } from "@api/dto/request/financial/mentor-appeal.request.dto";
 import type { ApproveMentorAppealRequestDto as ApproveAppealDto } from "@api/dto/request/financial/mentor-appeal.request.dto";
@@ -47,6 +48,7 @@ import type { RejectMentorAppealRequestDto as RejectAppealDto } from "@api/dto/r
 import type { CreateMentorPriceRequestDto as CreateMentorPriceDto } from "@api/dto/request/financial/mentor-price.request.dto";
 import type { UpdateMentorPriceRequestDto as UpdateMentorPriceDto } from "@api/dto/request/financial/mentor-price.request.dto";
 import type { UpdateMentorPriceStatusRequestDto as UpdateMentorPriceStatusDto } from "@api/dto/request/financial/mentor-price.request.dto";
+import { ListMentorPricesQueryDto } from "@api/dto/request/financial/mentor-price.request.dto";
 
 import type { AdjustPayableLedgerRequestDto as AdjustPayableLedgerDto } from "@api/dto/request/financial/payable-ledger.request.dto";
 import type { ICreateSettlementRequest, IPaymentParamUpdate } from "@api/dto/request/financial/settlement.request.dto";
@@ -65,7 +67,11 @@ import {
   UpdateMentorPriceRequestDto,
   UpdateMentorPriceStatusRequestDto,
 } from "@api/dto/request/financial/mentor-price.request.dto";
-import { MentorPriceResponseDto } from "@api/dto/response/financial/mentor-price.response.dto";
+import {
+  MentorPriceResponseDto,
+  MentorPriceWithMentorResponseDto,
+  PaginatedMentorPriceResponseDto,
+} from "@api/dto/response/financial/mentor-price.response.dto";
 import {
   CreateSettlementRequestDto,
   ModifyPaymentParamsRequestDto,
@@ -141,6 +147,9 @@ export class FinancialController {
     // 支付信息相关
     private readonly createOrUpdateMentorPaymentInfoCommand: CreateOrUpdateMentorPaymentInfoCommand,
     private readonly updateMentorPaymentInfoStatusCommand: UpdateMentorPaymentInfoStatusCommand,
+
+    // 查询相关
+    private readonly listMentorPricesQuery: ListMentorPricesQuery,
   ) {}
 
   // Helper methods for mapping domain objects to DTOs [将领域对象映射到DTO的辅助方法]
@@ -392,6 +401,55 @@ export class FinancialController {
   // ----------------------
   // 导师价格管理
   // ----------------------
+
+  @Get("mentor-prices")
+  @ApiOperation({
+    summary: "List mentor prices with pagination",
+    description:
+      "Lists mentor prices with pagination, sorting, and mentor information. [分页查询导师价格列表，支持排序和导师信息]",
+  })
+  @ApiOkResponse({
+    description: "Mentor prices retrieved successfully",
+    type: PaginatedMentorPriceResponseDto,
+  })
+  @ApiResponse({ status: 400, description: "Bad request" })
+  async listMentorPrices(
+    @Query() query: ListMentorPricesQueryDto,
+  ): Promise<PaginatedMentorPriceResponseDto> {
+    const result = await this.listMentorPricesQuery.execute(query);
+
+    // 映射结果到响应 DTO [Map results to response DTO]
+    const data: MentorPriceWithMentorResponseDto[] = result.data.map((item) => ({
+      id: item.id,
+      mentorUserId: item.mentorUserId,
+      serviceTypeId: item.serviceTypeId,
+      sessionTypeCode: item.sessionTypeCode,
+      packageCode: item.packageCode,
+      price: item.price,
+      currency: item.currency,
+      status: item.status,
+      updatedBy: item.updatedBy,
+      createdAt: item.createdAt instanceof Date
+        ? item.createdAt.toISOString()
+        : String(item.createdAt),
+      updatedAt: item.updatedAt instanceof Date
+        ? item.updatedAt.toISOString()
+        : String(item.updatedAt),
+      mentor: {
+        mentorId: item.mentorId,
+        name_cn: item.name_cn,
+        name_en: item.name_en,
+      },
+    }));
+
+    return {
+      data,
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      totalPages: result.totalPages,
+    };
+  }
 
   @Post("mentor-prices")
   @ApiOperation({
