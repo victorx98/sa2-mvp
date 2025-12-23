@@ -51,7 +51,7 @@ import { ClassSessionService } from "./commands/services/class-session.service";
 import { ClassSessionCreatedEventHandler } from "./commands/services/class-session-event.handler";
 import { SessionOrchestratorService } from "./commands/services/session-orchestrator.service";
 import { ResumeService } from "./commands/services/resume.service";
-import { RecommLetterTypeCommand } from "./commands/services/recomm-letter-type.command";
+import { RecommLetterTypeService } from "./commands/services/recomm-letter-type.service";
 import { RecommLetterService } from "./commands/services/recomm-letter.service";
 import { CreateProductCommand } from "./commands/product/create-product.command";
 import { UpdateProductCommand } from "./commands/product/update-product.command";
@@ -167,7 +167,7 @@ import { QueryModule } from "@domains/query/query.module";
     ClassSessionService,
     SessionOrchestratorService,
     ResumeService,
-    RecommLetterTypeCommand,
+    RecommLetterTypeService,
     RecommLetterService,
 
     // Event Handlers
@@ -271,7 +271,7 @@ import { QueryModule } from "@domains/query/query.module";
     ClassSessionService,
     SessionOrchestratorService,
     ResumeService,
-    RecommLetterTypeCommand,
+    RecommLetterTypeService,
     RecommLetterService,
 
     // Event Handlers

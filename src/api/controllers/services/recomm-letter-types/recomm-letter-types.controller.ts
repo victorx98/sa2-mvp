@@ -24,7 +24,7 @@ import { RolesGuard } from '@shared/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
 import { ApiPrefix } from '@api/api.constants';
 import { GetRecommLetterTypesQuery } from '@application/queries/services/get-recomm-letter-types.query';
-import { RecommLetterTypeCommand } from '@application/commands/services/recomm-letter-type.command';
+import { RecommLetterTypeService } from '@application/commands/services/recomm-letter-type.service';
 import { CreateRecommLetterTypeDto } from '@api/dto/request/services/recomm-letter-types';
 import { RecommLetterTypeResponseDto } from '@api/dto/response/services/recomm-letter-types';
 
@@ -40,7 +40,7 @@ import { RecommLetterTypeResponseDto } from '@api/dto/response/services/recomm-l
 export class RecommLetterTypesController {
   constructor(
     private readonly getRecommLetterTypesQuery: GetRecommLetterTypesQuery,
-    private readonly recommLetterTypeCommand: RecommLetterTypeCommand,
+    private readonly recommLetterTypeService: RecommLetterTypeService,
   ) {}
 
   /**
@@ -88,7 +88,32 @@ export class RecommLetterTypesController {
   async createType(
     @Body() dto: CreateRecommLetterTypeDto,
   ): Promise<RecommLetterTypeResponseDto> {
-    return this.recommLetterTypeCommand.create(dto) as any;
+    return this.recommLetterTypeService.create(dto) as any;
+  }
+
+  /**
+   * Get available recommendation letter types for student
+   * GET /api/services/recomm-letter-types/:studentId/available
+   */
+  @Get(':studentId/available')
+  @ApiOperation({
+    summary: 'Get available recommendation letter types for student',
+    description: 'Retrieve recommendation letter types that student can still upload based on contract balance',
+  })
+  @ApiParam({
+    name: 'studentId',
+    description: 'Student user ID',
+    type: String,
+  })
+  @ApiOkResponse({
+    description: 'Available types retrieved successfully',
+    type: RecommLetterTypeResponseDto,
+    isArray: true,
+  })
+  async getAvailableTypes(
+    @Param('studentId') studentId: string,
+  ): Promise<RecommLetterTypeResponseDto[]> {
+    return this.recommLetterTypeService.getAvailableTypes(studentId);
   }
 
   /**
@@ -112,7 +137,7 @@ export class RecommLetterTypesController {
     description: 'Type deleted successfully',
   })
   async deleteType(@Param('id') id: string): Promise<{ message: string }> {
-    await this.recommLetterTypeCommand.delete(id);
+    await this.recommLetterTypeService.delete(id);
     return { message: 'Type deleted successfully' };
   }
 }
