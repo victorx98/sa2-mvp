@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger, NotFoundException, BadRequestException } fr
 import { CommandBase } from "@application/core/command.base";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import type { DrizzleDatabase } from "@shared/types/database.types";
-import type { IUpdateApplicationStatusDto } from "@api/dto/request/placement/placement.index";
+import type { IAssignReferralMentorDto } from "@api/dto/request/placement/placement.index";
 import { jobApplications, applicationHistory, recommendedJobs } from "@infrastructure/database/schema";
 import { eq, and } from "drizzle-orm";
 import { ApplicationStatus, ApplicationType, ALLOWED_APPLICATION_STATUS_TRANSITIONS } from "@domains/placement/types";
@@ -33,15 +33,15 @@ export class AssignReferralMentorCommand extends CommandBase {
    * - Records history and publishes events [记录历史并发布事件]
    */
   async execute(
-    dto: IUpdateApplicationStatusDto,
+    dto: IAssignReferralMentorDto,
     changedBy: string,
   ) {
 
     this.logger.log(
-      `Assigning mentor to application: ${dto.applicationId} -> ${dto.status}`,
+      `Assigning mentor to application: ${dto.applicationId} -> mentor_assigned`,
     );
 
-    // Get current application status [获取当前申请状态]
+    // Get current application (获取当前申请)
     const [application] = await this.db
       .select()
       .from(jobApplications)
@@ -55,63 +55,43 @@ export class AssignReferralMentorCommand extends CommandBase {
 
     const previousStatus = application.status as ApplicationStatus;
 
-    // Validate mentor assignment is only for referral applications [验证仅内推申请允许分配导师]
+    // Validate mentor assignment is only for referral applications (验证仅内推申请允许分配导师)
     if (application.applicationType !== ApplicationType.REFERRAL) {
       throw new BadRequestException(
         "mentor assignment is only allowed for referral applications",
       );
     }
 
-    // Validate status transition [验证状态转换]
-    const allowedTransitions =
-      ALLOWED_APPLICATION_STATUS_TRANSITIONS[previousStatus];
-    if (!allowedTransitions || !allowedTransitions.includes(dto.status)) {
+    // Validate status transition (验证状态转换)
+    const targetStatus: ApplicationStatus = "mentor_assigned";
+    const allowedTransitions = ALLOWED_APPLICATION_STATUS_TRANSITIONS[previousStatus];
+    if (!allowedTransitions || !allowedTransitions.includes(targetStatus)) {
       throw new BadRequestException(
-        `Invalid status transition: ${previousStatus} -> ${dto.status}`,
+        `Invalid status transition: ${previousStatus} -> ${targetStatus}`,
       );
     }
 
-    // Ensure mentorId is provided for mentor_assigned status [确保mentor_assigned状态提供mentorId]
-    if (dto.status === 'mentor_assigned' && !dto.mentorId) {
-      throw new BadRequestException(
-        'mentorId is required when assigning mentor',
-      );
-    }
-
-    // Update application status in transaction [在事务中更新申请状态]
+    // Update application status in transaction (在事务中更新申请状态)
     const updatedApplication = await this.db.transaction(async (tx) => {
-      // Build update data [构建更新数据]
-      const updateData: {
-        status: ApplicationStatus;
-        assignedMentorId?: string | null;
-        updatedAt: Date;
-      } = {
-        status: dto.status,
-        updatedAt: new Date(),
-      };
-
-      // Update assigned mentor ID [更新分配的导师ID]
-      if (dto.status === "mentor_assigned") {
-        updateData.assignedMentorId = dto.mentorId as string;
-      } else if (dto.mentorId !== undefined) {
-        updateData.assignedMentorId = dto.mentorId || null;
-      }
-
-      // Update application status [更新申请状态]
+      // Update application with mentor assignment (更新申请并分配导师)
       const [app] = await tx
         .update(jobApplications)
-        .set(updateData)
+        .set({
+          status: targetStatus,
+          assignedMentorId: dto.mentorId,
+          updatedAt: new Date(),
+        })
         .where(eq(jobApplications.id, dto.applicationId))
         .returning();
 
-      // Record status change history [记录状态变更历史]
+      // Record status change history (记录状态变更历史)
       await tx.insert(applicationHistory).values({
         applicationId: dto.applicationId,
         previousStatus,
-        newStatus: dto.status,
+        newStatus: targetStatus,
         changedBy: changedBy,
-        changeReason: dto.changeReason || "Mentor assigned",
-        changeMetadata: dto.changeMetadata,
+        changeReason: "Mentor assigned",
+        changeMetadata: null,
       });
 
       return app;
@@ -119,18 +99,15 @@ export class AssignReferralMentorCommand extends CommandBase {
 
     this.logger.log(`Application status updated: ${dto.applicationId}`);
 
-    // Publish status changed event AFTER transaction (在事务后发布状态变更事件) [在事务成功后发布事件]
-    // Event is published after transaction commits to ensure data consistency [事件在事务提交后发布以确保数据一致性]
+    // Publish status changed event AFTER transaction (在事务后发布状态变更事件)
     const eventPayload = {
       applicationId: updatedApplication.id,
       previousStatus: previousStatus,
-      newStatus: dto.status as ApplicationStatus,
+      newStatus: "mentor_assigned" as ApplicationStatus,
       changedBy: changedBy,
       changedAt: new Date().toISOString(),
-      changeMetadata: dto.changeMetadata,
-      ...(updatedApplication.assignedMentorId && {
-        assignedMentorId: updatedApplication.assignedMentorId,
-      }),
+      // Include mentor assignment (包含导师分配)
+      assignedMentorId: dto.mentorId,
     };
     this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
 

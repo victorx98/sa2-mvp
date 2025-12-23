@@ -58,26 +58,23 @@ export class UpdateJobApplicationStatusCommand extends CommandBase {
     const previousStatus = application.status as ApplicationStatus;
 
     // Validate status transition (验证状态转换)
-    const allowedTransitions =
-      ALLOWED_APPLICATION_STATUS_TRANSITIONS[previousStatus];
-    if (!allowedTransitions || !allowedTransitions.includes(dto.status)) {
+    const targetStatus = dto.status as ApplicationStatus;
+    const allowedTransitions = ALLOWED_APPLICATION_STATUS_TRANSITIONS[previousStatus];
+    if (!allowedTransitions || !allowedTransitions.includes(targetStatus)) {
       throw new BadRequestException(
-        `Invalid status transition: ${previousStatus} -> ${dto.status}`,
+        `Invalid status transition: ${previousStatus} -> ${targetStatus}`,
       );
     }
 
     // Update application status in transaction (在事务中更新申请状态)
     const updatedApplication = await this.db.transaction(async (tx) => {
-      // Build update data - only status field (构建更新数据 - 仅状态字段)
-      const updateData = {
-        status: dto.status as ApplicationStatus,
-        updatedAt: new Date(),
-      };
-
       // Update application status (更新申请状态)
       const [app] = await tx
         .update(jobApplications)
-        .set(updateData)
+        .set({
+          status: targetStatus,
+          updatedAt: new Date(),
+        })
         .where(eq(jobApplications.id, dto.applicationId))
         .returning();
 
@@ -85,7 +82,7 @@ export class UpdateJobApplicationStatusCommand extends CommandBase {
       await tx.insert(applicationHistory).values({
         applicationId: dto.applicationId,
         previousStatus,
-        newStatus: dto.status,
+        newStatus: targetStatus,
         changedBy: changedBy,
         changeReason: null,
         changeMetadata: null,
@@ -101,7 +98,7 @@ export class UpdateJobApplicationStatusCommand extends CommandBase {
     const eventPayload = {
       applicationId: updatedApplication.id,
       previousStatus: previousStatus,
-      newStatus: dto.status as ApplicationStatus,
+      newStatus: targetStatus,
       changedBy: changedBy,
       changedAt: new Date().toISOString(),
       // Include mentor assignment if exists (如果存在导师分配则包含)
@@ -111,7 +108,7 @@ export class UpdateJobApplicationStatusCommand extends CommandBase {
     };
     this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
 
-    if (dto.status === "submitted") {
+    if (targetStatus === "submitted") {
       const [job] = await this.db
         .select({ title: recommendedJobs.title })
         .from(recommendedJobs)

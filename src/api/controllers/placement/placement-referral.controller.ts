@@ -21,7 +21,7 @@ import { PlacementReferralAssignMentorRequestDto } from "@api/dto/request/placem
 import { CreateManualJobApplicationCommand } from "@application/commands/placement/create-manual-job-application.command";
 import { PlacementReferralManualCreateRequestDto } from "@api/dto/request/placement-referral-manual-create.request.dto";
 import { BatchJobApplicationsResponseDto, JobApplicationResponseDto } from "@api/dto/response/placement/placement.response.dto";
-import type { IUpdateApplicationStatusDto } from "@api/dto/request/placement/placement.index";
+import type { IAssignReferralMentorDto } from "@api/dto/request/placement/placement.index";
 
 /**
  * Placement Referral Controller [内推推荐控制器]
@@ -97,17 +97,16 @@ export class PlacementReferralController {
   ): Promise<JobApplicationResponseDto> {
     const counselorId = String((user as unknown as { id: string }).id);
 
-    // Assemble complete DTO with all required fields for status update [组装完整的DTO，包含状态更新所需的所有字段]
-    const updateStatusDto: IUpdateApplicationStatusDto = {
-      applicationId, // From URL parameter [来自URL参数]
-      status: "mentor_assigned", // Controller sets the target status [Controller设置目标状态]
-      mentorId: body.mentorId, // From request body [来自请求体]
-      changeReason: "Assign referral mentor",
+    // Assemble DTO for mentor assignment (组装导师分配DTO)
+    const assignMentorDto: IAssignReferralMentorDto = {
+      applicationId, // From URL parameter (来自URL参数)
+      status: "mentor_assigned", // Target status (目标状态)
+      mentorId: body.mentorId, // From request body (来自请求体)
     };
 
     const result = await this.assignReferralMentorCommand.execute(
-      updateStatusDto,
-      counselorId, // Auditing information passed separately [审计信息单独传递]
+      assignMentorDto,
+      counselorId, // changedBy from JWT (从JWT提取changedBy)
     );
 
     return result.data as unknown as JobApplicationResponseDto;
