@@ -59,6 +59,9 @@ export class RecommLetterResponseDto {
   mentorUserId?: string;
 
   @ApiProperty({ required: false })
+  billedBy?: string;
+
+  @ApiProperty({ required: false })
   billedAt?: Date;
 
   static fromEntity(entity: RecommLetterEntity, letterType?: LetterTypeInfoDto, packageType?: LetterTypeInfoDto): RecommLetterResponseDto {
@@ -76,6 +79,7 @@ export class RecommLetterResponseDto {
       updatedAt: entity.getUpdatedAt(),
       description: entity.getDescription(),
       mentorUserId: entity.getMentorUserId(),
+      billedBy: entity.getBilledBy(),
       billedAt: entity.getBilledAt(),
     };
   }

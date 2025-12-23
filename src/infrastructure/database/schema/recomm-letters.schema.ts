@@ -41,6 +41,7 @@ export const recommLetters = pgTable(
 
     // Billing information
     mentorUserId: uuid('mentor_user_id').references(() => userTable.id), // NULL = not billed
+    billedBy: uuid('billed_by').references(() => userTable.id), // Counselor who billed the letter
     billedAt: timestamp('billed_at', { withTimezone: true }),
 
     // Audit fields

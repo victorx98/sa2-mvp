@@ -45,6 +45,9 @@ export class ResumeResponseDto {
   mentorUserId?: string;
 
   @ApiProperty({ required: false })
+  billedBy?: string;
+
+  @ApiProperty({ required: false })
   billedAt?: Date;
 
   static fromEntity(entity: ResumeEntity): ResumeResponseDto {
@@ -62,6 +65,7 @@ export class ResumeResponseDto {
       description: entity.getDescription(),
       finalSetAt: entity.getFinalSetAt(),
       mentorUserId: entity.getMentorUserId(),
+      billedBy: entity.getBilledBy(),
       billedAt: entity.getBilledAt(),
     };
   }

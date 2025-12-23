@@ -24,6 +24,7 @@ export class ResumeMapper {
       description: record.description ?? undefined,
       finalSetAt: record.finalSetAt ? new Date(record.finalSetAt) : undefined,
       mentorUserId: record.mentorUserId ?? undefined,
+      billedBy: record.billedBy ?? undefined,
       billedAt: record.billedAt ? new Date(record.billedAt) : undefined,
     });
   }
@@ -41,6 +42,7 @@ export class ResumeMapper {
       description: entity.getDescription() ?? null,
       finalSetAt: entity.getFinalSetAt() ?? null,
       mentorUserId: entity.getMentorUserId() ?? null,
+      billedBy: entity.getBilledBy() ?? null,
       billedAt: entity.getBilledAt() ?? null,
     };
   }
@@ -59,6 +61,7 @@ export class ResumeMapper {
       description: entity.getDescription() ?? null,
       finalSetAt: entity.getFinalSetAt() ?? null,
       mentorUserId: entity.getMentorUserId() ?? null,
+      billedBy: entity.getBilledBy() ?? null,
       billedAt: entity.getBilledAt() ?? null,
       updatedAt: entity.getUpdatedAt(),
     };
