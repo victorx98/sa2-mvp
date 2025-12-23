@@ -7,6 +7,7 @@ import { CommSessionsModule } from './comm-sessions/comm-sessions.module';
 import { ResumeModule } from './resume/resume.module';
 import { RecommLetterTypesModule } from './recomm-letter-types/recomm-letter-types.module';
 import { RecommLetterModule } from './recomm-letter/recomm-letter.module';
+import { RecommLettersModule } from './recomm-letters/recomm-letters.module';
 
 /**
  * Services Domain Module
@@ -23,6 +24,7 @@ import { RecommLetterModule } from './recomm-letter/recomm-letter.module';
     ResumeModule,
     RecommLetterTypesModule,
     RecommLetterModule,
+    RecommLettersModule,
   ],
   exports: [
     SessionsModule,
@@ -33,6 +35,7 @@ import { RecommLetterModule } from './recomm-letter/recomm-letter.module';
     ResumeModule,
     RecommLetterTypesModule,
     RecommLetterModule,
+    RecommLettersModule,
   ],
 })
 export class ServicesModule {}
