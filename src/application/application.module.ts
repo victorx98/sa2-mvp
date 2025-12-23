@@ -32,6 +32,7 @@ import { QueryJobsQuery } from "./queries/placement/query-jobs.query";
 import { QueryJobApplicationsQuery } from "./queries/placement/query-job-applications.query";
 import { ListMentorPricesQuery } from "./queries/financial/list-mentor-prices.query";
 import { ListMentorAppealsQuery } from "./queries/financial/list-mentor-appeals.query";
+import { ListJobCategoriesQuery } from "./queries/preference/list-job-categories.query";
 
 // Application Layer - Commands
 import { RegisterCommand } from "./commands/auth/register.command";
@@ -94,6 +95,9 @@ import { RecommendReferralApplicationsBatchCommand } from "./commands/placement/
 import { AssignReferralMentorCommand } from "./commands/placement/assign-referral-mentor.command";
 import { CreateManualJobApplicationCommand } from "./commands/placement/create-manual-job-application.command";
 import { CreateProxyApplicationsBatchCommand } from "./commands/placement/create-proxy-applications-batch.command";
+import { CreateJobCategoryCommand } from "./commands/preference/create-job-category.command";
+import { UpdateJobCategoryCommand } from "./commands/preference/update-job-category.command";
+import { DeleteJobCategoryCommand } from "./commands/preference/delete-job-category.command";
 
 // Application Layer - Commands (兼容层)
 import { AuthCommandService } from "./commands/auth-command/auth-command.service";
@@ -107,6 +111,7 @@ import { TelemetryModule } from "@telemetry/telemetry.module";
 import { ServicesModule } from "@domains/services/services.module";
 import { ContractModule } from "@domains/contract/contract.module";
 import { QueryModule } from "@domains/query/query.module";
+import { PreferenceModule } from "@domains/preference/preference.module";
 
 /**
  * Application Layer - Root Module
@@ -128,6 +133,7 @@ import { QueryModule } from "@domains/query/query.module";
     ContractModule, // Domain层：Contract
     FinancialModule, // Domain层：Financial
     PlacementModule, // Domain层：Placement
+    PreferenceModule, // Domain层：Preference (参考数据)
     QueryModule, // Domain层：Query (跨域查询)
   ],
   providers: [
@@ -154,6 +160,7 @@ import { QueryModule } from "@domains/query/query.module";
     QueryJobApplicationsQuery,
     ListMentorPricesQuery,
     ListMentorAppealsQuery,
+    ListJobCategoriesQuery,
 
     // Commands
     RegisterCommand,
@@ -218,6 +225,9 @@ import { QueryModule } from "@domains/query/query.module";
     AssignReferralMentorCommand,
     CreateManualJobApplicationCommand,
     CreateProxyApplicationsBatchCommand,
+    CreateJobCategoryCommand,
+    UpdateJobCategoryCommand,
+    DeleteJobCategoryCommand,
 
     // Commands (兼容层)
     AuthCommandService,
@@ -234,6 +244,7 @@ import { QueryModule } from "@domains/query/query.module";
     CatalogModule,
     FinancialModule,
     PlacementModule,
+    PreferenceModule,
     QueryModule,
 
     // Queries
@@ -259,6 +270,7 @@ import { QueryModule } from "@domains/query/query.module";
     QueryJobApplicationsQuery,
     ListMentorPricesQuery,
     ListMentorAppealsQuery,
+    ListJobCategoriesQuery,
 
     // Commands
     RegisterCommand,
@@ -323,6 +335,9 @@ import { QueryModule } from "@domains/query/query.module";
     AssignReferralMentorCommand,
     CreateManualJobApplicationCommand,
     CreateProxyApplicationsBatchCommand,
+    CreateJobCategoryCommand,
+    UpdateJobCategoryCommand,
+    DeleteJobCategoryCommand,
 
     // Commands (兼容层 - 保持向后兼容)
     AuthCommandService,
