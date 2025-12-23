@@ -90,6 +90,7 @@ export class RecommendReferralApplicationsBatchCommand extends CommandBase {
         jobTypes: recommendedJobs.jobTypes,
         normalizedJobTitles: recommendedJobs.normalizedJobTitles,
         level: recommendedJobs.level,
+        jobId: recommendedJobs.jobId,
       })
       .from(recommendedJobs)
       .where(and(inArray(recommendedJobs.id, jobIds), eq(recommendedJobs.status, "active")));
@@ -133,14 +134,38 @@ export class RecommendReferralApplicationsBatchCommand extends CommandBase {
             if (!job) {
               throw new Error(`Job ${p.jobId} not found in jobInfoMap`);
             }
+            // Extract location from jobLocations JSONB array [从jobLocations JSONB数组中提取location]
+            let location: string | undefined = undefined;
+            if (job.jobLocations && Array.isArray(job.jobLocations) && job.jobLocations.length > 0) {
+              const firstLocation = job.jobLocations[0];
+              if (typeof firstLocation === 'object' && firstLocation !== null) {
+                const parts: string[] = [];
+                if (firstLocation.city) parts.push(firstLocation.city);
+                if (firstLocation.state) parts.push(firstLocation.state);
+                if (firstLocation.country) parts.push(firstLocation.country);
+                location = parts.length > 0 ? parts.join(', ') : undefined;
+              } else if (typeof firstLocation === 'string') {
+                location = firstLocation;
+              }
+            }
+
             return {
               studentId: p.studentId,
               recommendedJobId: p.jobId, // Use recommendedJobId field (UUID reference to recommended_jobs) [使用recommendedJobId字段（UUID引用recommended_jobs）]
+              jobId: job.jobId || null, // External job ID [外部岗位ID]
               jobLink: job.jobLink || null, // Store job link for quick access [存储岗位链接便于快速访问]
               applicationType: ApplicationType.REFERRAL,
               status: "recommended" as const,
               recommendedBy: dto.recommendedBy, // Set recommended_by field [设置推荐人字段]
               recommendedAt: recommendedAt, // Set recommended_at field [设置推荐时间字段]
+              // Redundant fields from recommended_jobs for query convenience [从recommended_jobs冗余字段，便于查询]
+              jobType: job.jobTypes && job.jobTypes.length > 0 ? job.jobTypes[0] : undefined, // Take first job type [取第一个职位类型]
+              jobTitle: job.title || undefined, // Job title [职位标题]
+              companyName: job.companyName || undefined, // Company name [公司名称]
+              location: location, // Location extracted from jobLocations [从jobLocations提取的工作地点]
+              jobCategories: undefined, // Not available in recommended_jobs [recommended_jobs中不可用]
+              normalJobTitle: job.normalizedJobTitles && job.normalizedJobTitles.length > 0 ? job.normalizedJobTitles[0] : undefined, // Take first normalized job title [取第一个标准化职位标题]
+              level: job.level || undefined, // Job level [职位级别]
             };
           }),
         )

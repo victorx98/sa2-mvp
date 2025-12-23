@@ -204,7 +204,6 @@ export const jobApplications = pgTable(
       .notNull(), // Update time [更新时间]
 
     // Business fields [业务字段]
-    isUrgent: boolean("is_urgent").notNull().default(false), // Urgent flag [紧急标记]
     notes: text("notes"), // Internal notes [内部备注]
     
     // Assigned mentor for referral applications [推荐申请分配的导师ID]
@@ -214,11 +213,24 @@ export const jobApplications = pgTable(
     recommendedBy: varchar("recommended_by", { length: 36 }), // Recommender user ID (counselor/mentor) [推荐人ID（顾问/导师）]
     recommendedAt: timestamp("recommended_at", { withTimezone: true }), // Recommendation time [推荐时间]
     
+    // Algolia object ID for proxy applications [代投流程的Algolia岗位ID]
+    objectId: varchar("object_id", { length: 50 }), // Algolia object ID, only used for proxy application flow [Algolia岗位ID，仅用于代投流程]
+    
     // External job ID (string) for non-recommended jobs [外部岗位ID（字符串）用于非推荐岗位]
     jobId: varchar("job_id", { length: 255 }), // External job ID [外部岗位ID]
     
     // Job link for quick access [岗位链接便于快速访问]
     jobLink: varchar("job_link", { length: 255 }), // Job posting link [岗位链接]
+    
+    // Job information fields for manual referral applications [手工内推申请的岗位信息字段]
+    // These fields are redundant from recommended_jobs table since manual referrals cannot link to recommended_jobs [这些字段从recommended_jobs表冗余，因为手工内推无法关联recommended_jobs]
+    jobType: varchar("job_type", { length: 50 }), // Job type (e.g., full-time, part-time) [职位类型]
+    jobTitle: varchar("job_title", { length: 300 }), // Job title [职位标题]
+    companyName: varchar("company_name", { length: 300 }), // Company name [公司名称]
+    location: varchar("location", { length: 255 }), // Job location [工作地点]
+    jobCategories: text("job_categories").array(), // Job categories array [职位类别数组]
+    normalJobTitle: varchar("normal_job_title", { length: 300 }), // Normalized job title [标准化职位标题]
+    level: varchar("level", { length: 20 }), // Job level (e.g., entry_level, mid_level, senior_level) [职位级别]
   },
   (table) => [
     // Unique constraint on student + recommended_job [学生+推荐岗位唯一约束]
@@ -233,9 +245,16 @@ export const jobApplications = pgTable(
     index("idx_job_applications_assigned_mentor").on(table.assignedMentorId), // Index for mentor queries [导师查询索引]
     index("idx_job_applications_recommended_by").on(table.recommendedBy), // Index for recommender queries [推荐人查询索引]
     index("idx_job_applications_recommended_at").on(table.recommendedAt), // Index for recommendation time queries [推荐时间查询索引]
+    index("idx_job_applications_object_id").on(table.objectId), // Index for Algolia object ID queries [Algolia岗位ID查询索引]
 
     // Index for job_link duplicate checking [job_link重复检查索引]
     index("idx_job_applications_job_link").on(table.jobLink), // Index for job link queries [职位链接查询索引]
+    
+    // Indexes for job information fields [岗位信息字段索引]
+    index("idx_job_applications_job_title").on(table.jobTitle), // Index for job title queries [职位标题查询索引]
+    index("idx_job_applications_company_name").on(table.companyName), // Index for company name queries [公司名称查询索引]
+    index("idx_job_applications_location").on(table.location), // Index for location queries [工作地点查询索引]
+    index("idx_job_applications_level").on(table.level), // Index for level queries [职位级别查询索引]
   ],
 );
 

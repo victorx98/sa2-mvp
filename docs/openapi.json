@@ -5002,7 +5002,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BatchRecommendReferralApplicationsResponseDto"
+                  "$ref": "#/components/schemas/BatchJobApplicationsResponseDto"
                 }
               }
             }
@@ -5109,6 +5109,47 @@
           }
         ],
         "summary": "Create manual referral application",
+        "tags": [
+          "Placement"
+        ]
+      }
+    },
+    "/api/placement/proxy/batch": {
+      "post": {
+        "description": "Counselor creates proxy applications for students (all-or-nothing). [顾问批量为学生代投岗位(全成功事务)]",
+        "operationId": "PlacementProxyController_batchCreateProxyApplications",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlacementProxyBatchRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Proxy applications created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchJobApplicationsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Batch create proxy applications",
         "tags": [
           "Placement"
         ]
@@ -10219,11 +10260,11 @@
           "recommendedBy"
         ]
       },
-      "BatchRecommendReferralApplicationsResponseDto": {
+      "BatchJobApplicationsResponseDto": {
         "type": "object",
         "properties": {
           "items": {
-            "description": "Created referral applications. [创建的内推投递记录]",
+            "description": "Created job applications. [创建的投递记录]",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/JobApplicationResponseDto"
@@ -10334,6 +10375,32 @@
           "jobTitle",
           "jobLink",
           "companyName"
+        ]
+      },
+      "PlacementProxyBatchRequestDto": {
+        "type": "object",
+        "properties": {
+          "studentIds": {
+            "description": "Student IDs (UUID strings). Unique and non-empty. [学生ID(UUID字符串)列表，需去重且非空]",
+            "example": [
+              "123e4567-e89b-12d3-a456-426614174000"
+            ],
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "jobs": {
+            "description": "Jobs array. Each job contains objectId and redundant fields. Required. [岗位数组，每个岗位包含objectId和冗余字段，必填]",
+            "items": {
+              "type": "array"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "studentIds",
+          "jobs"
         ]
       }
     }

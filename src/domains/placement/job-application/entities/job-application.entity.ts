@@ -31,6 +31,8 @@ interface JobApplicationProps {
   jobCategories?: string[];
   normalJobTitle?: string;
   level?: string;
+  // Algolia object ID for proxy applications (代投流程的Algolia岗位ID)
+  objectId?: string;
 }
 
 export class JobApplication {
@@ -65,6 +67,8 @@ export class JobApplication {
       jobCategories?: string[];
       normalJobTitle?: string;
       level?: string;
+      // Algolia object ID for proxy applications
+      objectId?: string;
     },
   ): JobApplication {
     if (!studentId || studentId.trim().length === 0) {
@@ -119,6 +123,7 @@ export class JobApplication {
       jobCategories: options?.jobCategories,
       normalJobTitle: options?.normalJobTitle,
       level: options?.level,
+      objectId: options?.objectId,
     });
   }
 
@@ -337,6 +342,10 @@ export class JobApplication {
 
   getLevel(): string | undefined {
     return this.props.level;
+  }
+
+  getObjectId(): string | undefined {
+    return this.props.objectId;
   }
 
   /**
