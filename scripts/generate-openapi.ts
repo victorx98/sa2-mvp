@@ -6,6 +6,12 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { Test } from "@nestjs/testing";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
+/**
+ * Load environment variables so ConfigModule works as expected.
+ * Missing .env is acceptable; defaults inside ConfigModule will apply.
+ */
+loadEnv({ path: ".env", override: false });
+
 import { AppModule } from "../src/app.module";
 import { ApiModule } from "../src/api/api.module";
 import { DATABASE_CONNECTION } from "../src/infrastructure/database/database.provider";
@@ -13,11 +19,6 @@ import { SupabaseAuthService } from "../src/infrastructure/auth/supabase-auth.se
 // import { NotificationQueueService } from "../src/core/notification/queue/notification-queue.service";
 import type * as schema from "../src/infrastructure/database/schema";
 
-/**
- * Load environment variables so ConfigModule works as expected.
- * Missing .env is acceptable; defaults inside ConfigModule will apply.
- */
-loadEnv({ path: ".env", override: false });
 
 async function generateOpenApiDocument(): Promise<void> {
   const logger = new Logger("OpenAPIGenerator");
