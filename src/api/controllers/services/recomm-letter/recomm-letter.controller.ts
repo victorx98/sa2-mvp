@@ -25,7 +25,6 @@ import { User } from '@domains/identity/user/user-interface';
 import { ApiPrefix } from '@api/api.constants';
 import { RecommLetterDomainService } from '@domains/services/recomm-letter/services/recomm-letter-domain.service';
 import { RecommLetterService as ApplicationRecommLetterService } from '@application/commands/services/recomm-letter.service';
-import { RecommLetterTypesService } from '@domains/services/recomm-letter-types/services/recomm-letter-types.service';
 import {
   UploadRecommLetterRequestDto,
   BillRecommLetterRequestDto,
@@ -41,7 +40,6 @@ export class RecommLetterController {
   constructor(
     private readonly domainRecommLetterService: RecommLetterDomainService,
     private readonly applicationRecommLetterService: ApplicationRecommLetterService,
-    private readonly recommLetterTypesService: RecommLetterTypesService,
   ) {}
 
   /**
@@ -84,32 +82,7 @@ export class RecommLetterController {
   async listRecommLettersByStudent(
     @Param('studentUserId') studentUserId: string,
   ) {
-    const letters = await this.domainRecommLetterService.listByStudent(studentUserId);
-    
-    // Enrich with letter type info
-    const enrichedLetters = await Promise.all(
-      letters.map(async (letter) => {
-        const letterType = await this.recommLetterTypesService.findById(letter.getLetterTypeId());
-        let packageType = null;
-        if (letter.getPackageTypeId()) {
-          packageType = await this.recommLetterTypesService.findById(letter.getPackageTypeId()!);
-        }
-
-        return RecommLetterResponseDto.fromEntity(
-          letter,
-          letterType ? {
-            id: letterType.id,
-            code: letterType.typeCode,
-            name: letterType.typeName,
-          } : undefined,
-          packageType ? {
-            id: packageType.id,
-            code: packageType.typeCode,
-            name: packageType.typeName,
-          } : undefined,
-        );
-      }),
-    );
+    const enrichedLetters = await this.applicationRecommLetterService.listLettersWithDetails(studentUserId);
 
     return {
       code: HttpStatus.OK,

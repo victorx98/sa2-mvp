@@ -59,6 +59,7 @@ export class ResumeController {
       studentUserId: dto.studentUserId,
       jobTitle: dto.jobTitle,
       sessionType: dto.sessionType,
+      serviceType: dto.serviceType || 'Resume', // Default to 'Resume'
       fileName: dto.fileName,
       fileUrl: dto.fileUrl,
       uploadedBy: user.id,
@@ -82,11 +83,11 @@ export class ResumeController {
   async listResumesByStudent(
     @Param('studentUserId') studentUserId: string,
   ) {
-    const grouped = await this.domainResumeService.listByStudent(studentUserId);
+    const enrichedGrouped = await this.applicationResumeService.listResumesWithDetails(studentUserId);
     return {
       code: HttpStatus.OK,
       message: 'Success',
-      data: ResumeResponseDto.groupedFromEntities(grouped),
+      data: enrichedGrouped,
     };
   }
 
