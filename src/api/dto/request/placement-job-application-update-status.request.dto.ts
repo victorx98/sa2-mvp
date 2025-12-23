@@ -5,6 +5,23 @@ import { APPLICATION_STATUSES } from "@domains/placement/types/application-statu
 import type { ApplicationStatus } from "@domains/placement/types";
 
 /**
+ * Minimal request DTO for updating job application status (API用于更新投递状态的精简请求DTO)
+ * Only contains the target status field, other fields are automatically populated from JWT or URL params
+ * (仅包含目标状态字段，其他字段从JWT或URL参数自动填充)
+ */
+export class UpdateJobApplicationStatusRequestDto {
+  @ApiProperty({
+    description: "Target status of the application (目标投递状态)",
+    enum: APPLICATION_STATUSES,
+    example: "interested",
+  })
+  @IsEnum(APPLICATION_STATUSES, {
+    message: "status must be one of the allowed application statuses (status必须是允许的投递状态之一)",
+  })
+  status!: ApplicationStatus;
+}
+
+/**
  * Change metadata for status update [状态变更的元数据]
  */
 class ChangeMetadata {

@@ -36,7 +36,7 @@ export class JobApplicationMapper {
     return JobApplication.reconstruct({
       id: record.id,
       studentId: record.studentId,
-      jobId: record.jobId,
+      jobId: record.jobId ?? '',
       applicationType,
       coverLetter: record.coverLetter ?? undefined,
       status,
@@ -46,7 +46,15 @@ export class JobApplicationMapper {
       submittedAt: record.submittedAt,
       updatedAt: record.updatedAt,
       notes: record.notes ?? undefined,
-      jobLink: record.jobLink ?? undefined, // Job link for quick access [岗位链接便于快速访问]
+      jobLink: record.jobLink ?? undefined,
+      jobType: record.jobType ?? undefined,
+      jobTitle: record.jobTitle ?? undefined,
+      companyName: record.companyName ?? undefined,
+      location: record.location ?? undefined,
+      jobCategories: record.jobCategories ?? undefined,
+      normalJobTitle: record.normalJobTitle ?? undefined,
+      level: record.level ?? undefined,
+      objectId: record.objectId ?? undefined,
     });
   }
 
@@ -61,7 +69,7 @@ export class JobApplicationMapper {
     const record: InsertJobApplicationType = {
       id: application.getId(),
       studentId: application.getStudentId(),
-      jobId: application.getJobId(),
+      jobId: application.getJobId() ?? null,
       applicationType: application.getApplicationType().getValue() as any,
       coverLetter: application.getCoverLetter() ?? null,
       status: application.getStatus().getValue() as any,
@@ -71,7 +79,15 @@ export class JobApplicationMapper {
       submittedAt: application.getSubmittedAt(),
       updatedAt: application.getUpdatedAt(),
       notes: application.getNotes() ?? null,
-      jobLink: application.getJobLink() ?? null, // Job link for quick access [岗位链接便于快速访问]
+      jobLink: application.getJobLink() ?? null,
+      jobType: application.getJobType() ?? null,
+      jobTitle: application.getJobTitle() ?? null,
+      companyName: application.getCompanyName() ?? null,
+      location: application.getLocation() ?? null,
+      jobCategories: application.getJobCategories() ?? null,
+      normalJobTitle: application.getNormalJobTitle() ?? null,
+      level: application.getLevel() ?? null,
+      objectId: application.getObjectId() ?? null,
     };
 
     return record;

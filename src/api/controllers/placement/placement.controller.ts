@@ -27,7 +27,7 @@ import { RollbackJobApplicationStatusCommand } from "@application/commands/place
 import type { ICreateJobPositionDto, IRollbackApplicationStatusDto, IUpdateApplicationStatusDto } from "@api/dto/request/placement/placement.index";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import type { IJwtUser } from "@shared/types/jwt-user.interface";
-import { PlacementJobApplicationUpdateStatusRequestDto } from "@api/dto/request/placement-job-application-update-status.request.dto";
+import { UpdateJobApplicationStatusRequestDto, PlacementJobApplicationUpdateStatusRequestDto } from "@api/dto/request/placement-job-application-update-status.request.dto";
 import { CreateJobPositionRequestDto, RollbackJobApplicationStatusRequestDto } from "@api/dto/request/placement/job-position.request.dto";
 import { JobApplicationResponseDto, JobApplicationServiceResultResponseDto, JobPositionResponseDto } from "@api/dto/response/placement/placement.response.dto";
 
@@ -151,7 +151,7 @@ export class PlacementController {
   @ApiOperation({
     summary: "Update job application status",
     description:
-      "Updates application status. Counselor role is restricted to 'revoked' only. [更新投递状态；顾问角色仅允许revoked]",
+      "Updates application status. Counselor role is restricted to 'revoked' only. Audit info is automatically captured from JWT. (更新投递状态；顾问角色仅允许revoked；审计信息从JWT自动记录)",
   })
   @ApiParam({
     name: "id",
@@ -159,7 +159,7 @@ export class PlacementController {
     description: "Application ID (UUID). [投递ID(UUID)]",
     type: String,
   })
-  @ApiBody({ type: PlacementJobApplicationUpdateStatusRequestDto })
+  @ApiBody({ type: UpdateJobApplicationStatusRequestDto })
   @ApiOkResponse({
     description: "Job application status updated successfully",
     type: JobApplicationServiceResultResponseDto,
@@ -167,36 +167,36 @@ export class PlacementController {
   @ApiResponse({ status: 404, description: "Job application not found" })
   async updateJobApplicationStatus(
     @Param("id") applicationId: string,
-    @Body() body: PlacementJobApplicationUpdateStatusRequestDto,
+    @Body() body: UpdateJobApplicationStatusRequestDto,
     @CurrentUser() user: IJwtUser,
   ): Promise<JobApplicationServiceResultResponseDto> {
-    // Restrict counselor to revoked only [限制顾问只能设置revoked]
+    // Restrict counselor to revoked only (限制顾问只能设置revoked)
     const userRoles: string[] = Array.isArray((user as unknown as { roles?: string[] }).roles)
       ? (user as unknown as { roles: string[] }).roles
       : [];
     const isCounselor = userRoles.includes("counselor");
     if (isCounselor && body.status !== "revoked") {
       throw new BadRequestException(
-        "Counselor can only revoke recommended/interested applications",
+        "Counselor can only set status to 'revoked' (顾问只能将状态设置为'revoked')",
       );
     }
 
-    // Block mentor assignment here to force using counselor-facing endpoint [禁止在旧接口分配导师，强制使用顾问专用接口]
+    // Block mentor assignment here to force using counselor-facing endpoint (禁止在旧接口分配导师，强制使用顾问专用接口)
     if (body.status === "mentor_assigned") {
       throw new BadRequestException(
         "Use PATCH /api/placement/referrals/:applicationId/mentor for mentor assignment",
       );
     }
 
-    // Assemble complete DTO with applicationId from URL parameter [组装完整的DTO，包含来自URL参数的applicationId]
-    const updateStatusDto: PlacementJobApplicationUpdateStatusRequestDto = {
-      ...body, // Keep all fields from request body [保留请求体中的所有字段]
-      applicationId, // Override with URL parameter [用URL参数覆盖]
+    // Assemble internal DTO with data from multiple sources (组装内部DTO，数据来自多个来源)
+    const updateStatusDto: IUpdateApplicationStatusDto = {
+      applicationId,
+      status: body.status,
     };
 
     const serviceResult = await this.updateJobApplicationStatusCommand.execute(
       updateStatusDto,
-      String((user as unknown as { id: string }).id), // Auditing information passed separately [审计信息单独传递]
+      String((user as unknown as { id: string }).id), // changedBy from JWT (从JWT提取changedBy)
     );
     return {
       ...serviceResult,

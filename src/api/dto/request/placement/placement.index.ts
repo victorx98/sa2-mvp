@@ -28,11 +28,18 @@ export { PlacementReferralBatchRecommendRequestDto };
 export { PlacementReferralManualCreateRequestDto };
 
 // Type aliases for backward compatibility
-export type IUpdateApplicationStatusDto = PlacementJobApplicationUpdateStatusRequestDto;
 export type IJobQueryDto = JobQueryDto;
 export type IRecommendReferralApplicationsBatchDto = PlacementReferralBatchRecommendRequestDto;
 export type ICreateManualJobApplicationDto = PlacementReferralManualCreateRequestDto;
 export type IAssignReferralMentorRequestDto = PlacementReferralAssignMentorRequestDto;
+
+// Internal DTO interface for updating application status (内部使用的状态更新DTO接口)
+// Minimal interface containing only required fields (仅包含必要字段的精简接口)
+// applicationId: from URL param, status: from request body
+export interface IUpdateApplicationStatusDto {
+  applicationId: string;
+  status: string;
+}
 
 // Interfaces used by Service layer [服务层使用的接口]
 export interface IJobPositionSearchFilter {

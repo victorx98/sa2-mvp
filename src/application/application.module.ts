@@ -29,6 +29,8 @@ import { GetRecommLetterTypesQuery } from "./queries/services/get-recomm-letter-
 import { GetProductDetailQuery } from "./queries/product/get-product-detail.query";
 import { SearchProductsQuery } from "./queries/product/search-products.query";
 import { QueryJobsQuery } from "./queries/placement/query-jobs.query";
+import { QueryJobApplicationsQuery } from "./queries/placement/query-job-applications.query";
+import { ListMentorPricesQuery } from "./queries/financial/list-mentor-prices.query";
 
 // Application Layer - Commands
 import { RegisterCommand } from "./commands/auth/register.command";
@@ -90,6 +92,7 @@ import { RollbackJobApplicationStatusCommand } from "./commands/placement/rollba
 import { RecommendReferralApplicationsBatchCommand } from "./commands/placement/recommend-referral-applications-batch.command";
 import { AssignReferralMentorCommand } from "./commands/placement/assign-referral-mentor.command";
 import { CreateManualJobApplicationCommand } from "./commands/placement/create-manual-job-application.command";
+import { CreateProxyApplicationsBatchCommand } from "./commands/placement/create-proxy-applications-batch.command";
 
 // Application Layer - Commands (兼容层)
 import { AuthCommandService } from "./commands/auth-command/auth-command.service";
@@ -147,6 +150,8 @@ import { QueryModule } from "@domains/query/query.module";
     GetProductDetailQuery,
     SearchProductsQuery,
     QueryJobsQuery,
+    QueryJobApplicationsQuery,
+    ListMentorPricesQuery,
 
     // Commands
     RegisterCommand,
@@ -210,6 +215,7 @@ import { QueryModule } from "@domains/query/query.module";
     RecommendReferralApplicationsBatchCommand,
     AssignReferralMentorCommand,
     CreateManualJobApplicationCommand,
+    CreateProxyApplicationsBatchCommand,
 
     // Commands (兼容层)
     AuthCommandService,
@@ -248,6 +254,8 @@ import { QueryModule } from "@domains/query/query.module";
     GetProductDetailQuery,
     SearchProductsQuery,
     QueryJobsQuery,
+    QueryJobApplicationsQuery,
+    ListMentorPricesQuery,
 
     // Commands
     RegisterCommand,
@@ -311,6 +319,7 @@ import { QueryModule } from "@domains/query/query.module";
     RecommendReferralApplicationsBatchCommand,
     AssignReferralMentorCommand,
     CreateManualJobApplicationCommand,
+    CreateProxyApplicationsBatchCommand,
 
     // Commands (兼容层 - 保持向后兼容)
     AuthCommandService,

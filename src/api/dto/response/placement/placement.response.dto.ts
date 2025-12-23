@@ -250,9 +250,9 @@ export class JobApplicationServiceResultResponseDto {
   events?: EventEnvelopeResponseDto[];
 }
 
-export class BatchRecommendReferralApplicationsResponseDto {
+export class BatchJobApplicationsResponseDto {
   @ApiProperty({
-    description: "Created referral applications. [创建的内推投递记录]",
+    description: "Created job applications. [创建的投递记录]",
     type: () => JobApplicationResponseDto,
     isArray: true,
   })

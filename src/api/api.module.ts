@@ -19,6 +19,7 @@ import { FinancialController } from "./controllers/financial/financial.controlle
 import { PlacementController } from "./controllers/placement/placement.controller";
 import { PlacementQueryController } from "./controllers/placement/placement-query.controller";
 import { PlacementReferralController } from "./controllers/placement/placement-referral.controller";
+import { PlacementProxyController } from "./controllers/placement/placement-proxy.controller";
 import { SessionController as UnifiedSessionController } from "./controllers/services/sessions/session.controller";
 import { ClassController } from "./controllers/services/class/class.controller";
 import { ClassSessionController } from "./controllers/services/class/class-session.controller";
@@ -90,6 +91,7 @@ import { FileModule } from "@core/file/file.module";
     PlacementController,
     PlacementQueryController,
     PlacementReferralController,
+    PlacementProxyController,
 
     // File Controllers
     FileController,

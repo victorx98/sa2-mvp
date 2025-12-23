@@ -20,7 +20,7 @@ import { AssignReferralMentorCommand } from "@application/commands/placement/ass
 import { PlacementReferralAssignMentorRequestDto } from "@api/dto/request/placement-referral-assign-mentor.request.dto";
 import { CreateManualJobApplicationCommand } from "@application/commands/placement/create-manual-job-application.command";
 import { PlacementReferralManualCreateRequestDto } from "@api/dto/request/placement-referral-manual-create.request.dto";
-import { BatchRecommendReferralApplicationsResponseDto, JobApplicationResponseDto } from "@api/dto/response/placement/placement.response.dto";
+import { BatchJobApplicationsResponseDto, JobApplicationResponseDto } from "@api/dto/response/placement/placement.response.dto";
 import type { IUpdateApplicationStatusDto } from "@api/dto/request/placement/placement.index";
 
 /**
@@ -48,13 +48,13 @@ export class PlacementReferralController {
   @ApiBody({ type: PlacementReferralBatchRecommendRequestDto })
   @ApiCreatedResponse({
     description: "Referral applications recommended",
-    type: BatchRecommendReferralApplicationsResponseDto,
+    type: BatchJobApplicationsResponseDto,
   })
   @ApiResponse({ status: 400, description: "Bad request" })
   async batchRecommendReferralApplications(
     @Body() body: PlacementReferralBatchRecommendRequestDto,
     @CurrentUser() user: IJwtUser,
-  ): Promise<BatchRecommendReferralApplicationsResponseDto> {
+  ): Promise<BatchJobApplicationsResponseDto> {
     const recommendedBy = String((user as unknown as { id: string }).id);
     const result = await this.recommendReferralApplicationsBatchCommand.execute({
       dto: {
