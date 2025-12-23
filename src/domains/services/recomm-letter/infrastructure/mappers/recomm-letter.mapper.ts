@@ -24,6 +24,7 @@ export class RecommLetterMapper {
       updatedAt: new Date(record.updatedAt),
       description: record.description ?? undefined,
       mentorUserId: record.mentorUserId ?? undefined,
+      billedBy: record.billedBy ?? undefined,
       billedAt: record.billedAt ? new Date(record.billedAt) : undefined,
     });
   }
@@ -41,6 +42,7 @@ export class RecommLetterMapper {
       uploadedBy: entity.getUploadedBy(),
       description: entity.getDescription() ?? null,
       mentorUserId: entity.getMentorUserId() ?? null,
+      billedBy: entity.getBilledBy() ?? null,
       billedAt: entity.getBilledAt() ?? null,
     };
   }
@@ -59,6 +61,7 @@ export class RecommLetterMapper {
       uploadedBy: entity.getUploadedBy(),
       description: entity.getDescription() ?? null,
       mentorUserId: entity.getMentorUserId() ?? null,
+      billedBy: entity.getBilledBy() ?? null,
       billedAt: entity.getBilledAt() ?? null,
       updatedAt: entity.getUpdatedAt(),
     };

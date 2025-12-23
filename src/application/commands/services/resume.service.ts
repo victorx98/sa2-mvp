@@ -33,30 +33,50 @@ export class ResumeService {
   async listResumesWithDetails(studentUserId: string) {
     const grouped = await this.domainResumeService.listByStudent(studentUserId);
     
-    // Step 1: Collect all unique mentor IDs
+    // Step 1: Collect all unique user IDs (mentors, uploaded by, billed by)
     const allResumes = Object.values(grouped).flat();
-    const mentorIds = [...new Set(
-      allResumes.map(r => r.getMentorUserId()).filter(Boolean)
-    )] as string[];
+    const userIds = [...new Set([
+      ...allResumes.map(r => r.getMentorUserId()).filter(Boolean),
+      ...allResumes.map(r => r.getUploadedBy()).filter(Boolean),
+      ...allResumes.map(r => r.getBilledBy()).filter(Boolean),
+    ])] as string[];
     
-    // Step 2: Batch query all mentors (1 query instead of N queries)
-    const mentors = mentorIds.length > 0 
-      ? await this.userQueryService.getUsersByIds(mentorIds)
+    // Step 2: Batch query all users (1 query instead of N queries)
+    const users = userIds.length > 0 
+      ? await this.userQueryService.getUsersByIds(userIds)
       : [];
-    const mentorMap = new Map(mentors.map(m => [m.id, m]));
+    const userMap = new Map(users.map(u => [u.id, u]));
     
-    // Step 3: Enrich resumes with mentor info
+    // Step 3: Enrich resumes with user info
     const enrichedGrouped: Record<string, any[]> = {};
     
     for (const [jobTitle, resumes] of Object.entries(grouped)) {
       enrichedGrouped[jobTitle] = resumes.map(resume => {
         const mentor = resume.getMentorUserId() 
-          ? mentorMap.get(resume.getMentorUserId()) 
+          ? userMap.get(resume.getMentorUserId()) 
           : null;
         
         const mentorName = mentor ? {
           en: mentor.nameEn || mentor.email,
           zh: mentor.nameZh || mentor.nameEn || mentor.email,
+        } : null;
+
+        const uploadedByUser = resume.getUploadedBy()
+          ? userMap.get(resume.getUploadedBy())
+          : null;
+
+        const uploadedName = uploadedByUser ? {
+          en: uploadedByUser.nameEn || uploadedByUser.email,
+          zh: uploadedByUser.nameZh || uploadedByUser.nameEn || uploadedByUser.email,
+        } : null;
+
+        const billedByUser = resume.getBilledBy()
+          ? userMap.get(resume.getBilledBy())
+          : null;
+
+        const billedName = billedByUser ? {
+          en: billedByUser.nameEn || billedByUser.email,
+          zh: billedByUser.nameZh || billedByUser.nameEn || billedByUser.email,
         } : null;
 
         return {
@@ -68,12 +88,15 @@ export class ResumeService {
           fileUrl: resume.getFileUrl(),
           status: resume.getStatus(),
           uploadedBy: resume.getUploadedBy(),
+          uploadedName,
           createdAt: resume.getCreatedAt(),
           updatedAt: resume.getUpdatedAt(),
           description: resume.getDescription(),
           finalSetAt: resume.getFinalSetAt(),
           mentorUserId: resume.getMentorUserId(),
           mentorName,
+          billedBy: resume.getBilledBy(),
+          billedName,
           billedAt: resume.getBilledAt(),
         };
       });

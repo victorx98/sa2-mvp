@@ -42,25 +42,27 @@ export class RecommLetterService {
     const packageTypeIds = [...new Set(
       letters.map(l => l.getPackageTypeId()).filter(Boolean)
     )] as string[];
-    const mentorIds = [...new Set(
-      letters.map(l => l.getMentorUserId()).filter(Boolean)
-    )] as string[];
+    const userIds = [...new Set([
+      ...letters.map(l => l.getMentorUserId()).filter(Boolean),
+      ...letters.map(l => l.getUploadedBy()).filter(Boolean),
+      ...letters.map(l => l.getBilledBy()).filter(Boolean),
+    ])] as string[];
 
     // Step 2: Batch query all data (3 queries instead of N queries)
-    const [letterTypes, packageTypes, mentors] = await Promise.all([
+    const [letterTypes, packageTypes, users] = await Promise.all([
       this.recommLetterTypesService.findByIds(letterTypeIds),
       packageTypeIds.length > 0 
         ? this.recommLetterTypesService.findByIds(packageTypeIds) 
         : Promise.resolve([]),
-      mentorIds.length > 0 
-        ? this.userQueryService.getUsersByIds(mentorIds) 
+      userIds.length > 0 
+        ? this.userQueryService.getUsersByIds(userIds) 
         : Promise.resolve([]),
     ]);
 
     // Step 3: Build lookup maps
     const letterTypeMap = new Map(letterTypes.map(t => [t.id, t]));
     const packageTypeMap = new Map(packageTypes.map(t => [t.id, t]));
-    const mentorMap = new Map(mentors.map(m => [m.id, m]));
+    const userMap = new Map(users.map(u => [u.id, u]));
 
     // Step 4: Enrich letters with all details
     return letters.map(letter => {
@@ -69,7 +71,13 @@ export class RecommLetterService {
         ? packageTypeMap.get(letter.getPackageTypeId()!) 
         : null;
       const mentor = letter.getMentorUserId() 
-        ? mentorMap.get(letter.getMentorUserId()!) 
+        ? userMap.get(letter.getMentorUserId()!) 
+        : null;
+      const uploadedByUser = letter.getUploadedBy()
+        ? userMap.get(letter.getUploadedBy())
+        : null;
+      const billedByUser = letter.getBilledBy()
+        ? userMap.get(letter.getBilledBy()!)
         : null;
 
       return {
@@ -90,6 +98,10 @@ export class RecommLetterService {
         fileUrl: letter.getFileUrl(),
         status: letter.getStatus(),
         uploadedBy: letter.getUploadedBy(),
+        uploadedName: uploadedByUser ? {
+          en: uploadedByUser.nameEn || uploadedByUser.email,
+          zh: uploadedByUser.nameZh || uploadedByUser.nameEn || uploadedByUser.email,
+        } : undefined,
         createdAt: letter.getCreatedAt(),
         updatedAt: letter.getUpdatedAt(),
         description: letter.getDescription(),
@@ -97,6 +109,11 @@ export class RecommLetterService {
         mentorName: mentor ? {
           en: mentor.nameEn || mentor.email,
           zh: mentor.nameZh || mentor.nameEn || mentor.email,
+        } : undefined,
+        billedBy: letter.getBilledBy(),
+        billedName: billedByUser ? {
+          en: billedByUser.nameEn || billedByUser.email,
+          zh: billedByUser.nameZh || billedByUser.nameEn || billedByUser.email,
         } : undefined,
         billedAt: letter.getBilledAt(),
       };

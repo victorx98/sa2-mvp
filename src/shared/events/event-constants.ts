@@ -47,6 +47,12 @@ export const CLASS_SESSION_CREATED_EVENT = "class_session.session.created";
 export const CLASS_SESSION_UPDATED_EVENT = "class_session.session.updated";
 export const CLASS_SESSION_CANCELLED_EVENT = "class_session.session.cancelled";
 
+// Mock Interview Events (no meeting operations - WebRTC based)
+export const MOCK_INTERVIEW_CREATED_EVENT = "mock_interview.session.created";
+export const MOCK_INTERVIEW_UPDATED_EVENT = "mock_interview.session.updated";
+export const MOCK_INTERVIEW_CANCELLED_EVENT = "mock_interview.session.cancelled";
+export const MOCK_INTERVIEW_COMPLETED_EVENT = "mock_interview.session.completed";
+
 // Result event (1 unified event with operation + status fields)
 // Meeting operation result event for create/update/cancel operations, result: success/failed
 export const CLASS_SESSION_MEETING_OPERATION_RESULT_EVENT = "class_session.session.meeting.operation.result";

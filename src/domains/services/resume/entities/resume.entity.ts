@@ -21,6 +21,7 @@ export class ResumeEntity {
     private description?: string,
     private finalSetAt?: Date,
     private mentorUserId?: string,
+    private billedBy?: string,
     private billedAt?: Date,
   ) {}
 
@@ -39,6 +40,7 @@ export class ResumeEntity {
     description?: string;
     finalSetAt?: Date;
     mentorUserId?: string;
+    billedBy?: string;
     billedAt?: Date;
   }): ResumeEntity {
     return new ResumeEntity(
@@ -55,6 +57,7 @@ export class ResumeEntity {
       params.description,
       params.finalSetAt,
       params.mentorUserId,
+      params.billedBy,
       params.billedAt,
     );
   }
@@ -112,6 +115,10 @@ export class ResumeEntity {
     return this.mentorUserId;
   }
 
+  getBilledBy(): string | undefined {
+    return this.billedBy;
+  }
+
   getBilledAt(): Date | undefined {
     return this.billedAt;
   }
@@ -144,20 +151,15 @@ export class ResumeEntity {
 
   // Business logic - Validate billing eligibility
   validateBilling(): void {
-    if (this.status !== ResumeStatus.FINAL) {
-      throw new InvalidResumeStatusException(
-        `Only final resumes can be billed. Current status: ${this.status}`
-      );
-    }
-
     if (this.billedAt) {
       throw new ResumeAlreadyBilledException(this.id);
     }
   }
 
   // Business logic - Mark as billed
-  markAsBilled(): void {
+  markAsBilled(billedBy: string): void {
     this.validateBilling();
+    this.billedBy = billedBy;
     this.billedAt = new Date();
     this.updatedAt = new Date();
   }
@@ -168,6 +170,7 @@ export class ResumeEntity {
       throw new InvalidResumeStatusException('Resume has not been billed yet');
     }
 
+    this.billedBy = undefined;
     this.billedAt = undefined;
     this.updatedAt = new Date();
   }

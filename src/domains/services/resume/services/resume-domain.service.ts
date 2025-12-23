@@ -205,13 +205,14 @@ export class ResumeDomainService {
     }
 
     // Mark as billed
-    resume.markAsBilled();
+    resume.markAsBilled(userId);
 
     // Update in DB
     const [updated] = await executor
       .update(resumes)
       .set({
         mentorUserId: params.mentorId,
+        billedBy: resume.getBilledBy(),
         billedAt: resume.getBilledAt(),
         description: params.description ?? null,
         updatedAt: resume.getUpdatedAt(),
@@ -280,6 +281,7 @@ export class ResumeDomainService {
       .update(resumes)
       .set({
         mentorUserId: null,
+        billedBy: null,
         billedAt: null,
         description: params.description ?? null,
         updatedAt: resume.getUpdatedAt(),
