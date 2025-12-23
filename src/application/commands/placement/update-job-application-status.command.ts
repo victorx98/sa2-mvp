@@ -5,7 +5,7 @@ import type { DrizzleDatabase } from "@shared/types/database.types";
 import { IUpdateApplicationStatusDto } from "@api/dto/request/placement/placement.index";
 import { jobApplications, applicationHistory, recommendedJobs } from "@infrastructure/database/schema";
 import { eq } from "drizzle-orm";
-import { ApplicationStatus, ApplicationType, ALLOWED_APPLICATION_STATUS_TRANSITIONS } from "@domains/placement/types";
+import { ApplicationStatus, ALLOWED_APPLICATION_STATUS_TRANSITIONS } from "@domains/placement/types";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { JOB_APPLICATION_STATUS_CHANGED_EVENT, PLACEMENT_APPLICATION_SUBMITTED_EVENT } from "@shared/events/event-constants";
 // Removed - module not found: @shared/events/placement-application-submitted.event
@@ -57,45 +57,7 @@ export class UpdateJobApplicationStatusCommand extends CommandBase {
 
     const previousStatus = application.status as ApplicationStatus;
 
-    // ✅ Validate mentor assignment scenario [新增：分配导师场景验证]
-    if (dto.status === 'mentor_assigned') {
-      const mentorId = dto.mentorId as string | undefined;
-      if (!mentorId) {
-        throw new BadRequestException(
-          'mentorId is required when assigning mentor',
-        );
-      }
-
-      // Business rule: mentor assignment is only valid for referral applications [业务规则：仅内推申请允许分配导师]
-      if (application.applicationType !== "referral") {
-        throw new BadRequestException(
-          "mentor_assigned is only allowed for referral applications",
-        );
-      }
-    }
-
-    // Mentor handoff -> submission validation [导师交接 -> 已提交校验]
-    // - The API may choose not to send mentorId/screeningResult for status-only updates [API 可能仅做状态更新，不传 mentorId/评估结果]
-    // - When mentorId is omitted, we infer it from assignedMentorId [未传 mentorId 时从 assignedMentorId 推导]
-    if (previousStatus === "mentor_assigned" && dto.status === "submitted") {
-      const effectiveMentorId =
-        (dto.mentorId as string | undefined) ?? application.assignedMentorId;
-
-      if (!effectiveMentorId) {
-        throw new BadRequestException(
-          "assignedMentorId is required when submitting after mentor assignment",
-        );
-      }
-
-      // Security check: verify mentor is assigned when mentorId is explicitly provided [当显式传 mentorId 时校验其必须为已分配导师]
-      if (dto.mentorId && application.assignedMentorId !== dto.mentorId) {
-        throw new BadRequestException(
-          `Only the assigned mentor (${application.assignedMentorId}) can submit screening results. Provided: ${dto.mentorId}`,
-        );
-      }
-    }
-
-    // Validate status transition [验证状态转换]
+    // Validate status transition (验证状态转换)
     const allowedTransitions =
       ALLOWED_APPLICATION_STATUS_TRANSITIONS[previousStatus];
     if (!allowedTransitions || !allowedTransitions.includes(dto.status)) {
@@ -104,43 +66,29 @@ export class UpdateJobApplicationStatusCommand extends CommandBase {
       );
     }
 
-    // Update application status in transaction [在事务中更新申请状态]
+    // Update application status in transaction (在事务中更新申请状态)
     const updatedApplication = await this.db.transaction(async (tx) => {
-      // Build update data [构建更新数据]
-      const updateData: {
-        status: ApplicationStatus;
-        assignedMentorId?: string | null;
-        updatedAt: Date;
-      } = {
-        status: dto.status,
+      // Build update data - only status field (构建更新数据 - 仅状态字段)
+      const updateData = {
+        status: dto.status as ApplicationStatus,
         updatedAt: new Date(),
       };
 
-      // Only update assignedMentorId when explicitly provided [仅在显式提供时更新assignedMentorId]
-      if (dto.status === "mentor_assigned") {
-        // mentor_assigned status requires mentorId [mentor_assigned状态需要mentorId]
-        updateData.assignedMentorId = dto.mentorId as string;
-      } else if (dto.mentorId !== undefined) {
-        // Other statuses: only update if mentorId is explicitly provided [其他状态：仅在显式提供mentorId时更新]
-        updateData.assignedMentorId = dto.mentorId || null;
-      }
-      // If mentorId is undefined, keep the existing value [如果mentorId未定义，保持原值]
-
-      // Update application status [更新申请状态]
+      // Update application status (更新申请状态)
       const [app] = await tx
         .update(jobApplications)
         .set(updateData)
         .where(eq(jobApplications.id, dto.applicationId))
         .returning();
 
-      // Record status change history [记录状态变更历史]
+      // Record status change history (记录状态变更历史)
       await tx.insert(applicationHistory).values({
         applicationId: dto.applicationId,
         previousStatus,
         newStatus: dto.status,
         changedBy: changedBy,
-        changeReason: dto.changeReason,
-        changeMetadata: dto.changeMetadata,
+        changeReason: null,
+        changeMetadata: null,
       });
 
       return app;
@@ -148,16 +96,15 @@ export class UpdateJobApplicationStatusCommand extends CommandBase {
 
     this.logger.log(`Application status updated: ${dto.applicationId}`);
 
-    // Publish status changed event AFTER transaction (在事务后发布状态变更事件) [在事务成功后发布事件]
-    // Event is published after transaction commits to ensure data consistency [事件在事务提交后发布以确保数据一致性]
+    // Publish status changed event AFTER transaction (在事务后发布状态变更事件)
+    // Event is published after transaction commits to ensure data consistency (事件在事务提交后发布以确保数据一致性)
     const eventPayload = {
       applicationId: updatedApplication.id,
       previousStatus: previousStatus,
       newStatus: dto.status as ApplicationStatus,
       changedBy: changedBy,
       changedAt: new Date().toISOString(),
-      changeMetadata: dto.changeMetadata,
-      // [新增] Include mentor assignment in event payload [在事件payload中包含导师分配]
+      // Include mentor assignment if exists (如果存在导师分配则包含)
       ...(updatedApplication.assignedMentorId && {
         assignedMentorId: updatedApplication.assignedMentorId,
       }),
@@ -170,8 +117,8 @@ export class UpdateJobApplicationStatusCommand extends CommandBase {
         .from(recommendedJobs)
         .where(eq(recommendedJobs.id, application.jobId));
 
+      // Determine provider: use assigned mentor, recommended by, or changed by (确定服务提供者：使用已分配导师、推荐人或操作人)
       const providerCandidate =
-        dto.mentorId ??
         updatedApplication.assignedMentorId ??
         application.recommendedBy ??
         changedBy ??
