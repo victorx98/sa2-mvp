@@ -21,6 +21,7 @@ export class RecommLetterEntity {
     private updatedAt: Date,
     private description?: string,
     private mentorUserId?: string,
+    private billedBy?: string,
     private billedAt?: Date,
   ) {}
 
@@ -39,6 +40,7 @@ export class RecommLetterEntity {
     updatedAt: Date;
     description?: string;
     mentorUserId?: string;
+    billedBy?: string;
     billedAt?: Date;
   }): RecommLetterEntity {
     return new RecommLetterEntity(
@@ -55,6 +57,7 @@ export class RecommLetterEntity {
       params.updatedAt,
       params.description,
       params.mentorUserId,
+      params.billedBy,
       params.billedAt,
     );
   }
@@ -112,6 +115,10 @@ export class RecommLetterEntity {
     return this.mentorUserId;
   }
 
+  getBilledBy(): string | undefined {
+    return this.billedBy;
+  }
+
   getBilledAt(): Date | undefined {
     return this.billedAt;
   }
@@ -148,9 +155,10 @@ export class RecommLetterEntity {
   }
 
   // Business logic - Mark as billed
-  markAsBilled(mentorUserId: string, description?: string): void {
+  markAsBilled(mentorUserId: string, billedBy: string, description?: string): void {
     this.validateBilling();
     this.mentorUserId = mentorUserId;
+    this.billedBy = billedBy;
     this.billedAt = new Date();
     this.description = description;
     this.updatedAt = new Date();
@@ -164,6 +172,7 @@ export class RecommLetterEntity {
 
     this.billedAt = undefined;
     this.mentorUserId = undefined;
+    this.billedBy = undefined;
     this.description = description;
     this.updatedAt = new Date();
   }
