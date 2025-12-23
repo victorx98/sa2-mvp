@@ -116,18 +116,24 @@ export class RecommLetterDomainService {
     letter.validateBilling();
 
     // Mark as billed
-    letter.markAsBilled(params.mentorId, params.description);
+    letter.markAsBilled(params.mentorId, userId, params.description);
 
     // Update in DB
     await executor
       .update(recommLetters)
       .set({
         mentorUserId: params.mentorId,
+        billedBy: letter.getBilledBy(),
         billedAt: letter.getBilledAt(),
         description: params.description ?? null,
         updatedAt: letter.getUpdatedAt(),
       })
       .where(eq(recommLetters.id, letterId));
+
+    // Delete existing service reference if any (for re-billing scenario)
+    await executor
+      .delete(serviceReferences)
+      .where(eq(serviceReferences.id, letterId));
 
     // Register service reference
     const title = params.packageTypeCode 
@@ -184,6 +190,7 @@ export class RecommLetterDomainService {
       .update(recommLetters)
       .set({
         mentorUserId: null,
+        billedBy: null,
         billedAt: null,
         description: params.description ?? null,
         updatedAt: letter.getUpdatedAt(),
