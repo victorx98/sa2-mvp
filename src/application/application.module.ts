@@ -31,6 +31,7 @@ import { SearchProductsQuery } from "./queries/product/search-products.query";
 import { QueryJobsQuery } from "./queries/placement/query-jobs.query";
 import { QueryJobApplicationsQuery } from "./queries/placement/query-job-applications.query";
 import { ListMentorPricesQuery } from "./queries/financial/list-mentor-prices.query";
+import { ListMentorAppealsQuery } from "./queries/financial/list-mentor-appeals.query";
 
 // Application Layer - Commands
 import { RegisterCommand } from "./commands/auth/register.command";
@@ -152,6 +153,7 @@ import { QueryModule } from "@domains/query/query.module";
     QueryJobsQuery,
     QueryJobApplicationsQuery,
     ListMentorPricesQuery,
+    ListMentorAppealsQuery,
 
     // Commands
     RegisterCommand,
@@ -256,6 +258,7 @@ import { QueryModule } from "@domains/query/query.module";
     QueryJobsQuery,
     QueryJobApplicationsQuery,
     ListMentorPricesQuery,
+    ListMentorAppealsQuery,
 
     // Commands
     RegisterCommand,

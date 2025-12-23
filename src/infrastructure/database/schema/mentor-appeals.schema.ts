@@ -59,6 +59,13 @@ export const mentorAppeals = pgTable("mentor_appeals", {
    */
   counselorId: uuid("counselor_id").notNull(),
 
+  /**
+   * Student ID (学生ID)
+   * References: user.id
+   * (引用用户表的ID)
+   */
+  studentId: uuid("student_id").notNull(),
+
   // ========== Related Financial Records ==========
   /**
    * Mentor Payable Ledger ID (关联应付账款ID)
@@ -106,6 +113,14 @@ export const mentorAppeals = pgTable("mentor_appeals", {
    * (申诉的详细理由和描述)
    */
   reason: text("reason").notNull(),
+
+  /**
+   * Title (服务标题)
+   * Redundant field from service_references.title
+   * Stored for query performance optimization
+   * (服务标题 - 从service_references.title冗余，用于查询性能优化)
+   */
+  title: varchar("title", { length: 255 }),
 
   /**
    * Status (申诉状态)
