@@ -22,6 +22,8 @@
     "db:studio": "NODE_OPTIONS='--dns-result-order=ipv4first' drizzle-kit studio",
     "openapi:generate": "NODE_OPTIONS='--dns-result-order=ipv4first' ts-node -r tsconfig-paths/register scripts/generate-openapi.ts",
     "db:introspect": "NODE_OPTIONS='--dns-result-order=ipv4first' drizzle-kit introspect"
+    ,
+    "events:catalog": "NODE_OPTIONS='--dns-result-order=ipv4first' ts-node -r tsconfig-paths/register scripts/generate-event-catalog.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.952.0",
@@ -61,7 +63,8 @@
     "pg": "~8.16.3",
     "reflect-metadata": "~0.2.2",
     "rxjs": "~7.8.2",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "zod": "^4.2.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

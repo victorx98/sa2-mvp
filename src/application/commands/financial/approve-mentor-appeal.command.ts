@@ -5,8 +5,7 @@ import type { DrizzleDatabase } from "@shared/types/database.types";
 import { IMentorAppeal } from "@domains/financial/interfaces/mentor-appeal.interface";
 import { eq } from "drizzle-orm";
 import * as schema from "@infrastructure/database/schema";
-import { EventEmitter2 } from "@nestjs/event-emitter";
-import { MENTOR_APPEAL_APPROVED_EVENT } from "@shared/events/event-constants";
+import { IntegrationEventPublisher, MentorAppealApprovedEvent } from "@application/events";
 
 /**
  * Approve Mentor Appeal Command
@@ -18,7 +17,7 @@ import { MENTOR_APPEAL_APPROVED_EVENT } from "@shared/events/event-constants";
 export class ApproveMentorAppealCommand extends CommandBase {
   constructor(
     @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
   ) {
     super(db);
   }
@@ -113,15 +112,18 @@ export class ApproveMentorAppealCommand extends CommandBase {
         .returning();
 
       // Publish the approved event
-      this.eventEmitter.emit(MENTOR_APPEAL_APPROVED_EVENT, {
-        appealId: updatedAppeal.id,
-        mentorId: updatedAppeal.mentorId,
-        counselorId: updatedAppeal.counselorId,
-        appealAmount: updatedAppeal.appealAmount,
-        approvedBy: input.approvedBy,
-        approvedAt: now,
-        currency: updatedAppeal.currency,
-      });
+      await this.eventPublisher.publish(
+        new MentorAppealApprovedEvent({
+          appealId: updatedAppeal.id,
+          mentorId: updatedAppeal.mentorId,
+          counselorId: updatedAppeal.counselorId,
+          appealAmount: updatedAppeal.appealAmount,
+          approvedBy: input.approvedBy,
+          approvedAt: now,
+          currency: updatedAppeal.currency,
+        }),
+        ApproveMentorAppealCommand.name,
+      );
 
       this.logger.log(`Appeal approved successfully: ${input.id}`);
 

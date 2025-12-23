@@ -1,5 +1,4 @@
 import { Injectable, BadRequestException, NotFoundException, Inject } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { eq } from 'drizzle-orm';
 import { IResumeRepository, RESUME_REPOSITORY } from '../repositories/resume.repository.interface';
 import { ResumeEntity } from '../entities/resume.entity';
@@ -9,7 +8,11 @@ import { ServiceRegistryService } from '@domains/services/service-registry/servi
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase, DrizzleTransaction } from '@shared/types/database.types';
 import { resumes, serviceReferences } from '@infrastructure/database/schema';
-import { RESUME_BILLED_EVENT, RESUME_BILL_CANCELLED_EVENT } from '@shared/events/event-constants';
+import {
+  IntegrationEventPublisher,
+  ResumeBillCancelledEvent,
+  ResumeBilledEvent,
+} from '@application/events';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -25,7 +28,7 @@ export class ResumeDomainService {
     @Inject(RESUME_REPOSITORY)
     private readonly resumeRepository: IResumeRepository,
     private readonly serviceRegistryService: ServiceRegistryService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
   ) {}
 
   /**
@@ -234,14 +237,17 @@ export class ResumeDomainService {
 
     // Publish event if not in transaction
     if (!tx) {
-      this.eventEmitter.emit(RESUME_BILLED_EVENT, {
-        resumeId: resume.getId(),
-        studentId: resume.getStudentUserId(),
-        mentorId: params.mentorId,
-        jobTitle: resume.getJobTitle(),
-        description: params.description,
-        billedAt: resume.getBilledAt(),
-      });
+      await this.eventPublisher.publish(
+        new ResumeBilledEvent({
+          resumeId: resume.getId(),
+          studentId: resume.getStudentUserId(),
+          mentorId: params.mentorId,
+          jobTitle: resume.getJobTitle(),
+          description: params.description,
+          billedAt: resume.getBilledAt(),
+        }),
+        ResumeDomainService.name,
+      );
     }
 
     return this.resumeRepository.findById(resumeId, tx) as Promise<ResumeEntity>;
@@ -295,17 +301,19 @@ export class ResumeDomainService {
 
     // Publish event if not in transaction
     if (!tx) {
-      this.eventEmitter.emit(RESUME_BILL_CANCELLED_EVENT, {
-        resumeId: resume.getId(),
-        studentId: resume.getStudentUserId(),
-        mentorId: previousMentorId,
-        jobTitle: resume.getJobTitle(),
-        description: params.description,
-        cancelledAt: new Date(),
-      });
+      await this.eventPublisher.publish(
+        new ResumeBillCancelledEvent({
+          resumeId: resume.getId(),
+          studentId: resume.getStudentUserId(),
+          mentorId: previousMentorId,
+          jobTitle: resume.getJobTitle(),
+          description: params.description,
+          cancelledAt: new Date(),
+        }),
+        ResumeDomainService.name,
+      );
     }
 
     return this.resumeRepository.findById(resumeId, tx) as Promise<ResumeEntity>;
   }
 }
-

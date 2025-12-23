@@ -5,7 +5,6 @@ import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider"
 import { JobPositionService } from "./job-position.service";
 import { ICreateJobPositionDto } from "@api/dto/request/placement/placement.index";
 import { randomUUID } from "crypto";
-import { EventEmitter2 } from "@nestjs/event-emitter";
 
 /**
  * DTO for marking a job position as expired [标记岗位为过期的DTO]
@@ -146,12 +145,6 @@ describe("JobPositionService Unit Tests [岗位服务单元测试]", () => {
         {
           provide: DATABASE_CONNECTION,
           useValue: mockDb,
-        },
-        {
-          provide: EventEmitter2,
-          useValue: {
-            emit: jest.fn(),
-          },
         },
         JobPositionService,
       ],

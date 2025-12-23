@@ -1,10 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { ResumeBillCancelledListener } from "./resume-bill-cancelled-listener";
+import { ResumeBillCancelledListener } from "@application/events/handlers/contract/resume-bill-cancelled-listener";
 import { ServiceLedgerService } from "@domains/contract/services/service-ledger.service";
-import {
-  IResumeBillCancelledEvent,
-  RESUME_BILL_CANCELLED_EVENT,
-} from "@shared/events/resume-bill-cancelled.event";
+import { ResumeBillCancelledEvent } from "@application/events";
 
 // Mock dependencies
 const mockServiceLedgerService = {
@@ -41,19 +38,14 @@ describe("ResumeBillCancelledListener", () => {
       const studentId = "student-123";
       const mentorId = "mentor-123";
       const jobTitle = "Software Engineer";
-      const event: IResumeBillCancelledEvent = {
-        id: "event-123",
-        type: RESUME_BILL_CANCELLED_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          resumeId,
-          studentId,
-          mentorId,
-          jobTitle,
-          description: "Cancelled due to student request",
-          cancelledAt: new Date(),
-        },
-      };
+      const event = new ResumeBillCancelledEvent({
+        resumeId,
+        studentId,
+        mentorId,
+        jobTitle,
+        description: "Cancelled due to student request",
+        cancelledAt: new Date(),
+      });
 
       // Act
       await listener.handleResumeBillCancelledEvent(event);
@@ -71,18 +63,13 @@ describe("ResumeBillCancelledListener", () => {
 
     it("should handle missing required fields gracefully", async () => {
       // Arrange
-      const event: IResumeBillCancelledEvent = {
-        id: "event-123",
-        type: RESUME_BILL_CANCELLED_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          resumeId: "resume-123",
-          studentId: "", // Missing studentId
-          mentorId: "mentor-123",
-          jobTitle: "Software Engineer",
-          cancelledAt: new Date(),
-        },
-      };
+      const event = new ResumeBillCancelledEvent({
+        resumeId: "resume-123",
+        studentId: "", // Missing studentId
+        mentorId: "mentor-123",
+        jobTitle: "Software Engineer",
+        cancelledAt: new Date(),
+      });
 
       // Act
       await listener.handleResumeBillCancelledEvent(event);
@@ -97,18 +84,13 @@ describe("ResumeBillCancelledListener", () => {
       const studentId = "student-123";
       const mentorId = "mentor-123";
       const jobTitle = "Software Engineer";
-      const event: IResumeBillCancelledEvent = {
-        id: "event-123",
-        type: RESUME_BILL_CANCELLED_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          resumeId,
-          studentId,
-          mentorId,
-          jobTitle,
-          cancelledAt: new Date(),
-        },
-      };
+      const event = new ResumeBillCancelledEvent({
+        resumeId,
+        studentId,
+        mentorId,
+        jobTitle,
+        cancelledAt: new Date(),
+      });
 
       // Mock exception
       const mockError = new Error("Test error");
@@ -127,19 +109,14 @@ describe("ResumeBillCancelledListener", () => {
       const studentId = "student-123";
       const mentorId = "mentor-123";
       const jobTitle = "Software Engineer";
-      const event: IResumeBillCancelledEvent = {
-        id: "event-123",
-        type: RESUME_BILL_CANCELLED_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          resumeId,
-          studentId,
-          mentorId,
-          jobTitle,
-          description: "Student decided to postpone job search",
-          cancelledAt: new Date(),
-        },
-      };
+      const event = new ResumeBillCancelledEvent({
+        resumeId,
+        studentId,
+        mentorId,
+        jobTitle,
+        description: "Student decided to postpone job search",
+        cancelledAt: new Date(),
+      });
 
       // Act
       await listener.handleResumeBillCancelledEvent(event);

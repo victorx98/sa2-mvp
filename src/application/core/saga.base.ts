@@ -1,5 +1,6 @@
 import { Inject } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { IntegrationEventPublisher } from '@application/events';
+import { IntegrationEventBase } from '@application/events/registry/types';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type {
   DrizzleDatabase
@@ -23,11 +24,11 @@ import { CommandBase } from './command.base';
 export class BookSessionSaga extends SagaBase {
   constructor(
     @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    eventEmitter: EventEmitter2,
+    eventPublisher: IntegrationEventPublisher,
     private readonly sessionService: SessionService,
     private readonly holdService: ServiceHoldService,
   ) {
-    super(db, eventEmitter);
+    super(db, eventPublisher);
   }
 
   async execute(input: BookSessionInput): Promise<BookSessionOutput> {
@@ -37,7 +38,10 @@ export class BookSessionSaga extends SagaBase {
       const session = await this.sessionService.createSession(input, tx);
       
       // 发布事件
-      this.emitEvent(SESSION_BOOKED_EVENT, { sessionId: session.id, holdId: hold.id });
+      await this.emitEvent(
+        new SessionBookedEvent({ sessionId: session.id, holdId: hold.id }),
+        BookSessionSaga.name,
+      );
       
       return { session, hold };
     });
@@ -48,7 +52,7 @@ export class BookSessionSaga extends SagaBase {
 export abstract class SagaBase extends CommandBase {
   constructor(
     @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    protected readonly eventEmitter: EventEmitter2,
+    protected readonly eventPublisher: IntegrationEventPublisher,
   ) {
     super(db);
   }
@@ -60,9 +64,12 @@ export abstract class SagaBase extends CommandBase {
    * @param eventName 事件名称
    * @param payload 事件 payload
    */
-  protected emitEvent<T>(eventName: string, payload: T): void {
-    this.logger.debug(`Emitting event: ${eventName}`);
-    this.eventEmitter.emit(eventName, payload);
+  protected async emitEvent<T extends IntegrationEventBase>(
+    event: T,
+    producer: string,
+  ): Promise<void> {
+    this.logger.debug(`Emitting event: ${event.eventType}`);
+    await this.eventPublisher.publish(event, producer);
   }
 
   /**

@@ -1,10 +1,6 @@
 import { Test } from "@nestjs/testing";
-import { EventEmitter2 } from "@nestjs/event-emitter";
-import {
-  SERVICE_SESSION_COMPLETED_EVENT,
-  IServiceSessionCompletedEvent,
-} from "@shared/events/service-session-completed.event";
-import { SessionCompletedListener } from "@domains/contract/event-handlers/session-completed-listener";
+import { ServiceSessionCompletedEvent } from "@application/events";
+import { SessionCompletedListener } from "@application/events/handlers/contract/session-completed-listener";
 import { ServiceHoldService } from "@domains/contract/services/service-hold.service";
 import { ServiceLedgerService } from "@domains/contract/services/service-ledger.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
@@ -19,7 +15,6 @@ import { eq, and } from "drizzle-orm";
 import { HoldStatus } from "@shared/types/contract-enums";
 
 describe("Service Session Completed Event Integration Test [服务会话完成事件集成测试]", () => {
-  let eventEmitter: EventEmitter2;
   let sessionCompletedListener: SessionCompletedListener;
   let serviceHoldService: ServiceHoldService;
   let serviceLedgerService: ServiceLedgerService;
@@ -41,7 +36,6 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
 
     const moduleRef = await Test.createTestingModule({
       providers: [
-        EventEmitter2,
         SessionCompletedListener,
         ServiceHoldService,
         ServiceLedgerService,
@@ -52,7 +46,6 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
       ],
     }).compile();
 
-    eventEmitter = moduleRef.get<EventEmitter2>(EventEmitter2);
     sessionCompletedListener = moduleRef.get<SessionCompletedListener>(
       SessionCompletedListener,
     );
@@ -173,20 +166,15 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
 
     // Directly call the listener method to avoid EventEmitter timing issues [直接调用监听器方法以避免EventEmitter时序问题]
     // Use 0.9 hours so consumption quantity is 1 (Math.ceil(0.9) = 1) [使用0.9小时，这样消耗数量为1（Math.ceil(0.9) = 1）]
-    const event: IServiceSessionCompletedEvent = {
-      id: randomUUID(),
-      type: SERVICE_SESSION_COMPLETED_EVENT,
-      timestamp: Date.now(),
-      payload: {
-        sessionId: sessionId,
-        studentId: HARD_CODED_STUDENT_ID,
-        serviceTypeCode: HARD_CODED_SERVICE_TYPE,
-        actualDurationMinutes: 54, // 54分钟 = 0.9小时 = 1单位消耗
-        durationMinutes: 120,
-        allowBilling: true,
-        sessionTypeCode: "regular_mentoring",
-      },
-    };
+    const event = new ServiceSessionCompletedEvent({
+      sessionId: sessionId,
+      studentId: HARD_CODED_STUDENT_ID,
+      serviceTypeCode: HARD_CODED_SERVICE_TYPE,
+      actualDurationMinutes: 54, // 54分钟 = 0.9小时 = 1单位消耗
+      durationMinutes: 120,
+      allowBilling: true,
+      sessionTypeCode: "regular_mentoring",
+    });
 
     await sessionCompletedListener.handleServiceSessionCompletedEvent(event);
 

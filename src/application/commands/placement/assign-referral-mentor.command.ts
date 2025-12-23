@@ -6,9 +6,7 @@ import type { IAssignReferralMentorDto } from "@api/dto/request/placement/placem
 import { jobApplications, applicationHistory, recommendedJobs } from "@infrastructure/database/schema";
 import { eq, and } from "drizzle-orm";
 import { ApplicationStatus, ApplicationType, ALLOWED_APPLICATION_STATUS_TRANSITIONS } from "@domains/placement/types";
-import { EventEmitter2 } from "@nestjs/event-emitter";
-import { JOB_APPLICATION_STATUS_CHANGED_EVENT, PLACEMENT_APPLICATION_SUBMITTED_EVENT } from "@shared/events/event-constants";
-// Removed - module not found: @shared/events/placement-application-submitted.event
+import { IntegrationEventPublisher, JobApplicationStatusChangedEvent } from "@application/events";
 
 /**
  * Assign Referral Mentor Command [内推指定导师命令]
@@ -21,7 +19,7 @@ export class AssignReferralMentorCommand extends CommandBase {
 
   constructor(
     @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
   ) {
     super(db);
   }
@@ -109,16 +107,18 @@ export class AssignReferralMentorCommand extends CommandBase {
       // Include mentor assignment (包含导师分配)
       assignedMentorId: dto.mentorId,
     };
-    this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
+    await this.eventPublisher.publish(
+      new JobApplicationStatusChangedEvent(eventPayload),
+      AssignReferralMentorCommand.name,
+    );
 
     return {
       data: updatedApplication,
       event: {
-        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
+        type: JobApplicationStatusChangedEvent.eventType,
         payload: eventPayload,
       },
     };
   }
 }
-
 

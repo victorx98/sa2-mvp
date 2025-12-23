@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { ConfigModule } from "@nestjs/config";
+import { EventsModule } from "@application/events";
 import { DatabaseModule } from "./infrastructure/database/database.module";
 import { ApiModule } from "./api/api.module";
 import { SupabaseAuthModule } from "./infrastructure/auth/supabase-auth.module";
@@ -25,6 +26,7 @@ import { TelemetryModule } from "./telemetry/telemetry.module";
       envFilePath: ".env",
     }),
     EventEmitterModule.forRoot(),
+    EventsModule,
 
     // 基础设施层
     DatabaseModule,

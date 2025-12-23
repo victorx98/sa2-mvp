@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { ResumeBilledListener } from "./resume-billed-listener";
+import { ResumeBilledListener } from "@application/events/handlers/contract/resume-billed-listener";
 import { ServiceLedgerService } from "@domains/contract/services/service-ledger.service";
-import { IResumeBilledEvent, RESUME_BILLED_EVENT } from "@shared/events/resume-billed.event";
+import { ResumeBilledEvent } from "@application/events";
 import { SERVICE_TYPES, BOOKING_SOURCES } from "@domains/contract/common/constants/service-types.constants";
 import { createEventListenerTestingModule } from "test/utils/contract-test.helper";
 
@@ -34,19 +34,14 @@ describe("ResumeBilledListener", () => {
       const studentId = "student-123";
       const mentorId = "mentor-123";
       const jobTitle = "Software Engineer";
-      const event: IResumeBilledEvent = {
-        id: "event-123",
-        type: RESUME_BILLED_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          resumeId,
-          studentId,
-          mentorId,
-          jobTitle,
-          description: "Resume review request",
-          billedAt: new Date(),
-        },
-      };
+      const event = new ResumeBilledEvent({
+        resumeId,
+        studentId,
+        mentorId,
+        jobTitle,
+        description: "Resume review request",
+        billedAt: new Date(),
+      });
 
       // Act
       await listener.handleResumeBilledEvent(event);
@@ -64,18 +59,13 @@ describe("ResumeBilledListener", () => {
 
     it("should handle missing required fields gracefully", async () => {
       // Arrange
-      const event: IResumeBilledEvent = {
-        id: "event-123",
-        type: RESUME_BILLED_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          resumeId: "resume-123",
-          studentId: "", // Missing studentId
-          mentorId: "mentor-123",
-          jobTitle: "Software Engineer",
-          billedAt: new Date(),
-        },
-      };
+      const event = new ResumeBilledEvent({
+        resumeId: "resume-123",
+        studentId: "", // Missing studentId
+        mentorId: "mentor-123",
+        jobTitle: "Software Engineer",
+        billedAt: new Date(),
+      });
 
       // Act
       await listener.handleResumeBilledEvent(event);
@@ -90,18 +80,13 @@ describe("ResumeBilledListener", () => {
       const studentId = "student-123";
       const mentorId = "mentor-123";
       const jobTitle = "Software Engineer";
-      const event: IResumeBilledEvent = {
-        id: "event-123",
-        type: RESUME_BILLED_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          resumeId,
-          studentId,
-          mentorId,
-          jobTitle,
-          billedAt: new Date(),
-        },
-      };
+      const event = new ResumeBilledEvent({
+        resumeId,
+        studentId,
+        mentorId,
+        jobTitle,
+        billedAt: new Date(),
+      });
 
       // Mock exception - reset mock first
       mockServiceLedgerService.recordConsumption = jest.fn().mockRejectedValue(new Error("Test error"));
@@ -120,19 +105,14 @@ describe("ResumeBilledListener", () => {
       const studentId = "student-123";
       const mentorId = "mentor-123";
       const jobTitle = "Software Engineer";
-      const event: IResumeBilledEvent = {
-        id: "event-456", // Use different ID
-        type: RESUME_BILLED_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          resumeId,
-          studentId,
-          mentorId,
-          jobTitle,
-          description: "Please review my resume for FAANG companies",
-          billedAt: new Date(),
-        },
-      };
+      const event = new ResumeBilledEvent({
+        resumeId,
+        studentId,
+        mentorId,
+        jobTitle,
+        description: "Please review my resume for FAANG companies",
+        billedAt: new Date(),
+      });
 
       // Act
       await listener.handleResumeBilledEvent(event);

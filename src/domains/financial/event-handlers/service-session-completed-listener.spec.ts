@@ -1,11 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
-import { ServiceSessionCompletedListener } from "./service-session-completed-listener";
+import { ServiceSessionCompletedListener } from "@application/events/handlers/financial/service-session-completed-listener";
 import { MentorPayableService } from "@domains/financial/services/mentor-payable.service";
-import {
-  IServiceSessionCompletedEvent,
-  SERVICE_SESSION_COMPLETED_EVENT,
-} from "@shared/events/service-session-completed.event";
+import { ServiceSessionCompletedEvent } from "@application/events";
 
 describe("ServiceSessionCompletedListener", () => {
   let listener: ServiceSessionCompletedListener;
@@ -34,21 +31,16 @@ describe("ServiceSessionCompletedListener", () => {
   });
 
   describe("handleServiceSessionCompletedEvent", () => {
-    const validEvent: IServiceSessionCompletedEvent = {
-      id: "event-123",
-      type: SERVICE_SESSION_COMPLETED_EVENT,
-      timestamp: Date.now(),
-      payload: {
-        sessionId: "session-123",
-        studentId: "student-123",
-        mentorId: "mentor-123",
-        serviceTypeCode: "consultation",
-        actualDurationMinutes: 120,
-        durationMinutes: 120,
-        allowBilling: true,
-        sessionTypeCode: "regular_mentoring",
-      },
-    };
+    const validEvent = new ServiceSessionCompletedEvent({
+      sessionId: "session-123",
+      studentId: "student-123",
+      mentorId: "mentor-123",
+      serviceTypeCode: "consultation",
+      actualDurationMinutes: 120,
+      durationMinutes: 120,
+      allowBilling: true,
+      sessionTypeCode: "regular_mentoring",
+    });
 
     const mockMentorPrice = {
       id: "price-123",
@@ -84,10 +76,10 @@ describe("ServiceSessionCompletedListener", () => {
     });
 
     it("should skip when billing not allowed", async () => {
-      const event = {
-        ...validEvent,
-        payload: { ...validEvent.payload, allowBilling: false },
-      };
+      const event = new ServiceSessionCompletedEvent({
+        ...validEvent.payload,
+        allowBilling: false,
+      });
       mockMentorPayableService.isDuplicate.mockResolvedValue(false);
 
       await listener.handleServiceSessionCompletedEvent(event);
@@ -107,10 +99,10 @@ describe("ServiceSessionCompletedListener", () => {
     });
 
     it("should throw error when sessionId is missing", async () => {
-      const event = {
-        ...validEvent,
-        payload: { ...validEvent.payload, sessionId: undefined },
-      };
+      const event = new ServiceSessionCompletedEvent({
+        ...validEvent.payload,
+        sessionId: undefined,
+      });
 
       await expect(
         listener.handleServiceSessionCompletedEvent(event),
@@ -120,13 +112,10 @@ describe("ServiceSessionCompletedListener", () => {
     });
 
     it("should use refrenceId if provided", async () => {
-      const event = {
-        ...validEvent,
-        payload: {
-          ...validEvent.payload,
-          refrenceId: "custom-ref-id",
-        },
-      };
+      const event = new ServiceSessionCompletedEvent({
+        ...validEvent.payload,
+        refrenceId: "custom-ref-id",
+      });
       mockMentorPayableService.isDuplicate.mockResolvedValue(false);
       mockMentorPayableService.getMentorPrice.mockResolvedValue(
         mockMentorPrice as any,
@@ -155,5 +144,4 @@ describe("ServiceSessionCompletedListener", () => {
     });
   });
 });
-
 

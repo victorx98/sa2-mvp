@@ -1,15 +1,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { PlacementEventListener } from "./placement-event.listener";
+import { PlacementEventListener } from "@application/events/handlers/contract/placement-event.listener";
 import { ServiceLedgerService } from "@domains/contract/services/service-ledger.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import {
-  IJobApplicationStatusChangedEvent,
-  IJobApplicationStatusRolledBackEvent,
-} from "@shared/events/placement-application.events";
-import {
-  JOB_APPLICATION_STATUS_CHANGED_EVENT,
-  JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
-} from "@shared/events/event-constants";
+  JobApplicationStatusChangedEvent,
+  JobApplicationStatusRolledBackEvent,
+} from "@application/events";
 
 // Mock dependencies
 const mockServiceLedgerService = {
@@ -55,18 +51,13 @@ describe("PlacementEventListener", () => {
       const applicationId = "test-application-id";
       const studentId = "test-student-id";
       const applicationType = "direct";
-      const event: IJobApplicationStatusChangedEvent = {
-        id: "event-123",
-        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          applicationId,
-          previousStatus: "mentor_assigned",
-          newStatus: "submitted",
-          changedBy: "user-123",
-          changedAt: new Date().toISOString(),
-        },
-      };
+      const event = new JobApplicationStatusChangedEvent({
+        applicationId,
+        previousStatus: "mentor_assigned",
+        newStatus: "submitted",
+        changedBy: "user-123",
+        changedAt: new Date().toISOString(),
+      });
 
       // Mock database response
       mockDatabase.query.jobApplications.findFirst.mockResolvedValue({
@@ -95,18 +86,13 @@ describe("PlacementEventListener", () => {
       const applicationId = "test-application-id";
       const studentId = "test-student-id";
       const applicationType = "direct";
-      const event: IJobApplicationStatusChangedEvent = {
-        id: "event-123",
-        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          applicationId,
-          previousStatus: "mentor_assigned",
-          newStatus: "interviewed",
-          changedBy: "user-123",
-          changedAt: new Date().toISOString(),
-        },
-      };
+      const event = new JobApplicationStatusChangedEvent({
+        applicationId,
+        previousStatus: "mentor_assigned",
+        newStatus: "interviewed",
+        changedBy: "user-123",
+        changedAt: new Date().toISOString(),
+      });
 
       // Mock database response
       mockDatabase.query.jobApplications.findFirst.mockResolvedValue({
@@ -125,18 +111,14 @@ describe("PlacementEventListener", () => {
     it("should return early if job application not found", async () => {
       // Arrange
       const applicationId = "test-application-id";
-      const event: IJobApplicationStatusChangedEvent = {
-        id: "event-123",
-        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          applicationId,
-          previousStatus: "mentor_assigned",
-          newStatus: "submitted",
-          changedBy: "user-123",
-          changedAt: new Date().toISOString(),
-        },
+      const eventPayload = {
+        applicationId,
+        previousStatus: "mentor_assigned",
+        newStatus: "submitted",
+        changedBy: "user-123",
+        changedAt: new Date().toISOString(),
       };
+      const event = new JobApplicationStatusChangedEvent(eventPayload);
 
       // Mock database response
       mockDatabase.query.jobApplications.findFirst.mockResolvedValue(null);
@@ -154,18 +136,13 @@ describe("PlacementEventListener", () => {
       const applicationId = "test-application-id";
       const studentId = "test-student-id";
       const applicationType = "direct";
-      const event: IJobApplicationStatusChangedEvent = {
-        id: "event-123",
-        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          applicationId,
-          previousStatus: "mentor_assigned",
-          newStatus: "submitted",
-          changedBy: undefined,
-          changedAt: new Date().toISOString(),
-        },
+      const eventPayload = {
+        applicationId,
+        previousStatus: "mentor_assigned",
+        newStatus: "submitted",
+        changedAt: new Date().toISOString(),
       };
+      const event = new JobApplicationStatusChangedEvent(eventPayload);
 
       // Mock database response
       mockDatabase.query.jobApplications.findFirst.mockResolvedValue({
@@ -198,18 +175,14 @@ describe("PlacementEventListener", () => {
         // Clear mocks for each iteration
         jest.clearAllMocks();
 
-        const event: IJobApplicationStatusChangedEvent = {
-          id: `event-123-${applicationType}`,
-          type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
-          timestamp: Date.now(),
-          payload: {
-            applicationId,
-            previousStatus: "mentor_assigned",
-            newStatus: "submitted",
-            changedBy: "user-123",
-            changedAt: new Date().toISOString(),
-          },
+        const eventPayload = {
+          applicationId,
+          previousStatus: "mentor_assigned",
+          newStatus: "submitted",
+          changedBy: "user-123",
+          changedAt: new Date().toISOString(),
         };
+        const event = new JobApplicationStatusChangedEvent(eventPayload);
 
         // Mock database response
         mockDatabase.query.jobApplications.findFirst.mockResolvedValue({
@@ -240,18 +213,14 @@ describe("PlacementEventListener", () => {
       const applicationId = "test-application-id";
       const studentId = "test-student-id";
       const applicationType = "direct";
-      const event: IJobApplicationStatusChangedEvent = {
-        id: "event-123",
-        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          applicationId,
-          previousStatus: "mentor_assigned",
-          newStatus: "submitted",
-          changedBy: "user-123",
-          changedAt: new Date().toISOString(),
-        },
+      const eventPayload = {
+        applicationId,
+        previousStatus: "mentor_assigned",
+        newStatus: "submitted",
+        changedBy: "user-123",
+        changedAt: new Date().toISOString(),
       };
+      const event = new JobApplicationStatusChangedEvent(eventPayload);
 
       // Mock database response
       mockDatabase.query.jobApplications.findFirst.mockResolvedValue({
@@ -278,19 +247,15 @@ describe("PlacementEventListener", () => {
       const applicationId = "test-application-id";
       const studentId = "test-student-id";
       const rollbackReason = "Test rollback reason";
-      const event: IJobApplicationStatusRolledBackEvent = {
-        id: "event-456",
-        type: JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          applicationId,
-          previousStatus: "submitted",
-          newStatus: "mentor_assigned",
-          changedBy: "user-123",
-          changedAt: new Date().toISOString(),
-          rollbackReason,
-        },
+      const eventPayload = {
+        applicationId,
+        previousStatus: "submitted",
+        newStatus: "mentor_assigned",
+        changedBy: "user-123",
+        changedAt: new Date().toISOString(),
+        rollbackReason,
       };
+      const event = new JobApplicationStatusRolledBackEvent(eventPayload);
 
       // Mock database response
       mockDatabase.query.jobApplications.findFirst.mockResolvedValue({
@@ -317,19 +282,15 @@ describe("PlacementEventListener", () => {
       const applicationId = "test-application-id";
       const studentId = "test-student-id";
       const rollbackReason = "Test rollback reason";
-      const event: IJobApplicationStatusRolledBackEvent = {
-        id: "event-456",
-        type: JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          applicationId,
-          previousStatus: "interviewed",
-          newStatus: "submitted",
-          changedBy: "user-123",
-          changedAt: new Date().toISOString(),
-          rollbackReason,
-        },
+      const eventPayload = {
+        applicationId,
+        previousStatus: "interviewed",
+        newStatus: "mentor_assigned",
+        changedBy: "user-123",
+        changedAt: new Date().toISOString(),
+        rollbackReason,
       };
+      const event = new JobApplicationStatusRolledBackEvent(eventPayload);
 
       // Mock database response
       mockDatabase.query.jobApplications.findFirst.mockResolvedValue({
@@ -348,19 +309,15 @@ describe("PlacementEventListener", () => {
       // Arrange
       const applicationId = "test-application-id";
       const rollbackReason = "Test rollback reason";
-      const event: IJobApplicationStatusRolledBackEvent = {
-        id: "event-456",
-        type: JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          applicationId,
-          previousStatus: "submitted",
-          newStatus: "mentor_assigned",
-          changedBy: "user-123",
-          changedAt: new Date().toISOString(),
-          rollbackReason,
-        },
+      const eventPayload = {
+        applicationId,
+        previousStatus: "submitted",
+        newStatus: "mentor_assigned",
+        changedBy: "user-123",
+        changedAt: new Date().toISOString(),
+        rollbackReason,
       };
+      const event = new JobApplicationStatusRolledBackEvent(eventPayload);
 
       // Mock database response
       mockDatabase.query.jobApplications.findFirst.mockResolvedValue(null);
@@ -378,19 +335,14 @@ describe("PlacementEventListener", () => {
       const applicationId = "test-application-id";
       const studentId = "test-student-id";
       const rollbackReason = "Test rollback reason";
-      const event: IJobApplicationStatusRolledBackEvent = {
-        id: "event-456",
-        type: JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          applicationId,
-          previousStatus: "submitted",
-          newStatus: "mentor_assigned",
-          changedBy: undefined,
-          changedAt: new Date().toISOString(),
-          rollbackReason,
-        },
+      const eventPayload = {
+        applicationId,
+        previousStatus: "submitted",
+        newStatus: "mentor_assigned",
+        changedAt: new Date().toISOString(),
+        rollbackReason,
       };
+      const event = new JobApplicationStatusRolledBackEvent(eventPayload);
 
       // Mock database response
       mockDatabase.query.jobApplications.findFirst.mockResolvedValue({
@@ -417,19 +369,15 @@ describe("PlacementEventListener", () => {
       const applicationId = "test-application-id";
       const studentId = "test-student-id";
       const rollbackReason = "Test rollback reason";
-      const event: IJobApplicationStatusRolledBackEvent = {
-        id: "event-456",
-        type: JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          applicationId,
-          previousStatus: "submitted",
-          newStatus: "mentor_assigned",
-          changedBy: "user-123",
-          changedAt: new Date().toISOString(),
-          rollbackReason,
-        },
+      const eventPayload = {
+        applicationId,
+        previousStatus: "submitted",
+        newStatus: "mentor_assigned",
+        changedBy: "user-123",
+        changedAt: new Date().toISOString(),
+        rollbackReason,
       };
+      const event = new JobApplicationStatusRolledBackEvent(eventPayload);
 
       // Mock database response
       mockDatabase.query.jobApplications.findFirst.mockResolvedValue({
@@ -467,19 +415,15 @@ describe("PlacementEventListener", () => {
         mockServiceLedgerService.recordAdjustment = jest.fn();
         mockDatabase.query.jobApplications.findFirst = jest.fn();
 
-        const event: IJobApplicationStatusRolledBackEvent = {
-          id: `event-456-${rollbackReason.slice(0, 10)}`,
-          type: JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
-          timestamp: Date.now(),
-          payload: {
-            applicationId,
-            previousStatus: "submitted",
-            newStatus: "mentor_assigned",
-            changedBy: "user-123",
-            changedAt: new Date().toISOString(),
-            rollbackReason,
-          },
+        const eventPayload = {
+          applicationId,
+          previousStatus: "submitted",
+          newStatus: "mentor_assigned",
+          changedBy: "user-123",
+          changedAt: new Date().toISOString(),
+          rollbackReason,
         };
+        const event = new JobApplicationStatusRolledBackEvent(eventPayload);
 
         // Mock database response
         mockDatabase.query.jobApplications.findFirst.mockResolvedValue({

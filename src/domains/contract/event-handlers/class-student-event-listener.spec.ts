@@ -1,16 +1,12 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { ClassStudentEventListener } from "./class-student-event-listener";
+import { ClassStudentEventListener } from "@application/events/handlers/contract/class-student-event-listener";
 import { ServiceLedgerService } from "@domains/contract/services/service-ledger.service";
 import {
-  CLASS_STUDENT_ADDED_EVENT,
-  IClassStudentAddedEvent,
-  IClassStudentAddedPayload,
-} from "@shared/events/class-student-added.event";
-import {
-  CLASS_STUDENT_REMOVED_EVENT,
-  IClassStudentRemovedEvent,
-  IClassStudentRemovedPayload,
-} from "@shared/events/class-student-removed.event";
+  ClassStudentAddedEvent,
+  type ClassStudentAddedPayload,
+  ClassStudentRemovedEvent,
+  type ClassStudentRemovedPayload,
+} from "@application/events";
 
 // Mock dependencies
 const mockServiceLedgerService = {
@@ -43,7 +39,7 @@ describe("ClassStudentEventListener", () => {
       // Arrange
       const classId = "class-123";
       const studentId = "student-123";
-      const eventPayload: IClassStudentAddedPayload = {
+      const eventPayload: ClassStudentAddedPayload = {
         classId,
         name: "Test Class",
         type: "regular",
@@ -55,12 +51,7 @@ describe("ClassStudentEventListener", () => {
         deductionQuantity: 1,
       };
 
-      const event: IClassStudentAddedEvent = {
-        id: "event-123",
-        type: CLASS_STUDENT_ADDED_EVENT,
-        timestamp: Date.now(),
-        payload: eventPayload,
-      };
+      const event = new ClassStudentAddedEvent(eventPayload);
 
       // Act
       await listener.handleClassStudentAddedEvent(event);
@@ -82,7 +73,7 @@ describe("ClassStudentEventListener", () => {
       const studentId = "student-123";
       const customDeductionQuantity = 2;
 
-      const eventPayload: IClassStudentAddedPayload = {
+      const eventPayload: ClassStudentAddedPayload = {
         classId,
         name: "Test Class",
         type: "regular",
@@ -94,12 +85,7 @@ describe("ClassStudentEventListener", () => {
         deductionQuantity: customDeductionQuantity,
       };
 
-      const event: IClassStudentAddedEvent = {
-        id: "event-123",
-        type: CLASS_STUDENT_ADDED_EVENT,
-        timestamp: Date.now(),
-        payload: eventPayload,
-      };
+      const event = new ClassStudentAddedEvent(eventPayload);
 
       // Act
       await listener.handleClassStudentAddedEvent(event);
@@ -120,7 +106,7 @@ describe("ClassStudentEventListener", () => {
       const classId = "class-123";
       const studentId = "student-123";
 
-      const eventPayload: IClassStudentAddedPayload = {
+      const eventPayload: ClassStudentAddedPayload = {
         classId,
         name: "Test Class",
         type: "regular",
@@ -132,12 +118,7 @@ describe("ClassStudentEventListener", () => {
         // deductionQuantity not provided, should default to 1
       };
 
-      const event: IClassStudentAddedEvent = {
-        id: "event-123",
-        type: CLASS_STUDENT_ADDED_EVENT,
-        timestamp: Date.now(),
-        payload: eventPayload,
-      };
+      const event = new ClassStudentAddedEvent(eventPayload);
 
       // Act
       await listener.handleClassStudentAddedEvent(event);
@@ -155,17 +136,12 @@ describe("ClassStudentEventListener", () => {
 
     it("should handle missing required fields gracefully", async () => {
       // Arrange
-      const eventPayload: Partial<IClassStudentAddedPayload> = {
+      const eventPayload: Partial<ClassStudentAddedPayload> = {
         classId: "class-123",
         studentId: "", // Missing studentId
       };
 
-      const event: IClassStudentAddedEvent = {
-        id: "event-123",
-        type: CLASS_STUDENT_ADDED_EVENT,
-        timestamp: Date.now(),
-        payload: eventPayload as IClassStudentAddedPayload,
-      };
+      const event = new ClassStudentAddedEvent(eventPayload as ClassStudentAddedPayload);
 
       // Act
       await listener.handleClassStudentAddedEvent(event);
@@ -179,7 +155,7 @@ describe("ClassStudentEventListener", () => {
       const classId = "class-123";
       const studentId = "student-123";
 
-      const eventPayload: IClassStudentAddedPayload = {
+      const eventPayload: ClassStudentAddedPayload = {
         classId,
         name: "Test Class",
         type: "regular",
@@ -191,12 +167,7 @@ describe("ClassStudentEventListener", () => {
         deductionQuantity: 0, // Invalid: should be positive
       };
 
-      const event: IClassStudentAddedEvent = {
-        id: "event-123",
-        type: CLASS_STUDENT_ADDED_EVENT,
-        timestamp: Date.now(),
-        payload: eventPayload,
-      };
+      const event = new ClassStudentAddedEvent(eventPayload as ClassStudentAddedPayload);
 
       // Act
       await listener.handleClassStudentAddedEvent(event);
@@ -210,7 +181,7 @@ describe("ClassStudentEventListener", () => {
       const classId = "class-123";
       const studentId = "student-123";
 
-      const eventPayload: IClassStudentAddedPayload = {
+      const eventPayload: ClassStudentAddedPayload = {
         classId,
         name: "Test Class",
         type: "regular",
@@ -222,12 +193,7 @@ describe("ClassStudentEventListener", () => {
         deductionQuantity: -1, // Invalid: should be positive
       };
 
-      const event: IClassStudentAddedEvent = {
-        id: "event-123",
-        type: CLASS_STUDENT_ADDED_EVENT,
-        timestamp: Date.now(),
-        payload: eventPayload,
-      };
+      const event = new ClassStudentAddedEvent(eventPayload as ClassStudentAddedPayload);
 
       // Act
       await listener.handleClassStudentAddedEvent(event);
@@ -241,7 +207,7 @@ describe("ClassStudentEventListener", () => {
       const classId = "class-123";
       const studentId = "student-123";
 
-      const eventPayload: IClassStudentAddedPayload = {
+      const eventPayload: ClassStudentAddedPayload = {
         classId,
         name: "Test Class",
         type: "regular",
@@ -254,12 +220,7 @@ describe("ClassStudentEventListener", () => {
         deductionQuantity: 1,
       };
 
-      const event: IClassStudentAddedEvent = {
-        id: "event-123",
-        type: CLASS_STUDENT_ADDED_EVENT,
-        timestamp: Date.now(),
-        payload: eventPayload,
-      };
+      const event = new ClassStudentAddedEvent(eventPayload as ClassStudentAddedPayload);
 
       // Act
       await listener.handleClassStudentAddedEvent(event);
@@ -280,7 +241,7 @@ describe("ClassStudentEventListener", () => {
       const classId = "class-123";
       const studentId = "student-123";
 
-      const eventPayload: IClassStudentAddedPayload = {
+      const eventPayload: ClassStudentAddedPayload = {
         classId,
         name: "Test Class",
         type: "regular",
@@ -292,12 +253,7 @@ describe("ClassStudentEventListener", () => {
         deductionQuantity: 1,
       };
 
-      const event: IClassStudentAddedEvent = {
-        id: "event-123",
-        type: CLASS_STUDENT_ADDED_EVENT,
-        timestamp: Date.now(),
-        payload: eventPayload,
-      };
+      const event = new ClassStudentAddedEvent(eventPayload as ClassStudentAddedPayload);
 
       // Mock exception
       const mockError = new Error("Test error");
@@ -317,7 +273,7 @@ describe("ClassStudentEventListener", () => {
       const classId = "class-123";
       const studentId = "student-123";
 
-      const eventPayload: IClassStudentRemovedPayload = {
+      const eventPayload: ClassStudentRemovedPayload = {
         classId,
         name: "Test Class",
         type: "regular",
@@ -329,12 +285,7 @@ describe("ClassStudentEventListener", () => {
         refundQuantity: 1,
       };
 
-      const event: IClassStudentRemovedEvent = {
-        id: "event-456",
-        type: CLASS_STUDENT_REMOVED_EVENT,
-        timestamp: Date.now(),
-        payload: eventPayload,
-      };
+      const event = new ClassStudentRemovedEvent(eventPayload as ClassStudentRemovedPayload);
 
       // Act
       await listener.handleClassStudentRemovedEvent(event);
@@ -356,7 +307,7 @@ describe("ClassStudentEventListener", () => {
       const studentId = "student-123";
       const customRefundQuantity = 2;
 
-      const eventPayload: IClassStudentRemovedPayload = {
+      const eventPayload: ClassStudentRemovedPayload = {
         classId,
         name: "Test Class",
         type: "regular",
@@ -368,12 +319,7 @@ describe("ClassStudentEventListener", () => {
         refundQuantity: customRefundQuantity,
       };
 
-      const event: IClassStudentRemovedEvent = {
-        id: "event-456",
-        type: CLASS_STUDENT_REMOVED_EVENT,
-        timestamp: Date.now(),
-        payload: eventPayload,
-      };
+      const event = new ClassStudentRemovedEvent(eventPayload as ClassStudentRemovedPayload);
 
       // Act
       await listener.handleClassStudentRemovedEvent(event);
@@ -394,7 +340,7 @@ describe("ClassStudentEventListener", () => {
       const classId = "class-123";
       const studentId = "student-123";
 
-      const eventPayload: IClassStudentRemovedPayload = {
+      const eventPayload: ClassStudentRemovedPayload = {
         classId,
         name: "Test Class",
         type: "regular",
@@ -406,12 +352,7 @@ describe("ClassStudentEventListener", () => {
         // refundQuantity not provided, should default to 1
       };
 
-      const event: IClassStudentRemovedEvent = {
-        id: "event-456",
-        type: CLASS_STUDENT_REMOVED_EVENT,
-        timestamp: Date.now(),
-        payload: eventPayload,
-      };
+      const event = new ClassStudentRemovedEvent(eventPayload as ClassStudentRemovedPayload);
 
       // Act
       await listener.handleClassStudentRemovedEvent(event);
@@ -429,17 +370,12 @@ describe("ClassStudentEventListener", () => {
 
     it("should handle missing required fields gracefully", async () => {
       // Arrange
-      const eventPayload: Partial<IClassStudentRemovedPayload> = {
+      const eventPayload: Partial<ClassStudentRemovedPayload> = {
         classId: "class-123",
         studentId: "", // Missing studentId
       };
 
-      const event: IClassStudentRemovedEvent = {
-        id: "event-456",
-        type: CLASS_STUDENT_REMOVED_EVENT,
-        timestamp: Date.now(),
-        payload: eventPayload as IClassStudentRemovedPayload,
-      };
+      const event = new ClassStudentRemovedEvent(eventPayload as ClassStudentRemovedPayload);
 
       // Act
       await listener.handleClassStudentRemovedEvent(event);
@@ -453,7 +389,7 @@ describe("ClassStudentEventListener", () => {
       const classId = "class-123";
       const studentId = "student-123";
 
-      const eventPayload: IClassStudentRemovedPayload = {
+      const eventPayload: ClassStudentRemovedPayload = {
         classId,
         name: "Test Class",
         type: "regular",
@@ -465,12 +401,7 @@ describe("ClassStudentEventListener", () => {
         refundQuantity: 0, // Invalid: should be positive
       };
 
-      const event: IClassStudentRemovedEvent = {
-        id: "event-456",
-        type: CLASS_STUDENT_REMOVED_EVENT,
-        timestamp: Date.now(),
-        payload: eventPayload,
-      };
+      const event = new ClassStudentRemovedEvent(eventPayload as ClassStudentRemovedPayload);
 
       // Act
       await listener.handleClassStudentRemovedEvent(event);
@@ -484,7 +415,7 @@ describe("ClassStudentEventListener", () => {
       const classId = "class-123";
       const studentId = "student-123";
 
-      const eventPayload: IClassStudentRemovedPayload = {
+      const eventPayload: ClassStudentRemovedPayload = {
         classId,
         name: "Test Class",
         type: "regular",
@@ -496,12 +427,7 @@ describe("ClassStudentEventListener", () => {
         refundQuantity: -1, // Invalid: should be positive
       };
 
-      const event: IClassStudentRemovedEvent = {
-        id: "event-456",
-        type: CLASS_STUDENT_REMOVED_EVENT,
-        timestamp: Date.now(),
-        payload: eventPayload,
-      };
+      const event = new ClassStudentRemovedEvent(eventPayload as ClassStudentRemovedPayload);
 
       // Act
       await listener.handleClassStudentRemovedEvent(event);
@@ -515,7 +441,7 @@ describe("ClassStudentEventListener", () => {
       const classId = "class-123";
       const studentId = "student-123";
 
-      const eventPayload: IClassStudentRemovedPayload = {
+      const eventPayload: ClassStudentRemovedPayload = {
         classId,
         name: "Test Class",
         type: "regular",
@@ -528,12 +454,7 @@ describe("ClassStudentEventListener", () => {
         refundQuantity: 1,
       };
 
-      const event: IClassStudentRemovedEvent = {
-        id: "event-456",
-        type: CLASS_STUDENT_REMOVED_EVENT,
-        timestamp: Date.now(),
-        payload: eventPayload,
-      };
+      const event = new ClassStudentRemovedEvent(eventPayload as ClassStudentRemovedPayload);
 
       // Act
       await listener.handleClassStudentRemovedEvent(event);
@@ -554,7 +475,7 @@ describe("ClassStudentEventListener", () => {
       const classId = "class-123";
       const studentId = "student-123";
 
-      const eventPayload: IClassStudentRemovedPayload = {
+      const eventPayload: ClassStudentRemovedPayload = {
         classId,
         name: "Test Class",
         type: "regular",
@@ -566,12 +487,7 @@ describe("ClassStudentEventListener", () => {
         refundQuantity: 1,
       };
 
-      const event: IClassStudentRemovedEvent = {
-        id: "event-456",
-        type: CLASS_STUDENT_REMOVED_EVENT,
-        timestamp: Date.now(),
-        payload: eventPayload,
-      };
+      const event = new ClassStudentRemovedEvent(eventPayload as ClassStudentRemovedPayload);
 
       // Mock exception
       const mockError = new Error("Test error");
