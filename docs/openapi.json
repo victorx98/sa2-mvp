@@ -786,6 +786,47 @@
         ]
       }
     },
+    "/api/services/recomm-letter-types/{studentId}/available": {
+      "get": {
+        "description": "Retrieve recommendation letter types that student can still upload based on contract balance",
+        "operationId": "RecommLetterTypesController_getAvailableTypes",
+        "parameters": [
+          {
+            "name": "studentId",
+            "required": true,
+            "in": "path",
+            "description": "Student user ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Available types retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecommLetterTypeResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get available recommendation letter types for student",
+        "tags": [
+          "Recommendation Letter Types"
+        ]
+      }
+    },
     "/api/services/recomm-letter-types/{id}": {
       "delete": {
         "description": "Delete a recommendation letter type (cascade delete children, counselor/admin only)",
@@ -4667,7 +4708,7 @@
     },
     "/api/placement/job-applications/{id}/status": {
       "patch": {
-        "description": "Updates application status. Counselor role is restricted to 'revoked' only. [更新投递状态；顾问角色仅允许revoked]",
+        "description": "Updates application status based on state machine rules. Cannot set mentor_assigned status (use dedicated endpoint). Audit info is automatically captured from JWT. (基于状态机规则更新投递状态；不能设置mentor_assigned状态需使用专用接口；审计信息从JWT自动记录)",
         "operationId": "PlacementController_updateJobApplicationStatus",
         "parameters": [
           {
@@ -4685,7 +4726,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PlacementJobApplicationUpdateStatusRequestDto"
+                "$ref": "#/components/schemas/UpdateJobApplicationStatusRequestDto"
               }
             }
           }
@@ -6529,6 +6570,12 @@
           "sessionType": {
             "type": "string",
             "description": "Session type",
+            "maxLength": 50
+          },
+          "serviceType": {
+            "type": "string",
+            "description": "Service type",
+            "default": "Resume",
             "maxLength": 50
           },
           "fileName": {
@@ -10130,35 +10177,12 @@
           "updatedAt"
         ]
       },
-      "ChangeMetadata": {
+      "UpdateJobApplicationStatusRequestDto": {
         "type": "object",
         "properties": {
-          "context": {
-            "type": "object",
-            "description": "Additional context [额外上下文]"
-          },
-          "previousStatus": {
-            "type": "string",
-            "description": "Previous status [之前的投递状态]"
-          },
-          "timestamp": {
-            "type": "string",
-            "description": "Operation timestamp [操作时间戳]"
-          }
-        }
-      },
-      "PlacementJobApplicationUpdateStatusRequestDto": {
-        "type": "object",
-        "properties": {
-          "applicationId": {
-            "type": "string",
-            "description": "Application ID (UUID) [投递ID(UUID)]",
-            "format": "uuid",
-            "example": "123e4567-e89b-12d3-a456-426614174000"
-          },
           "status": {
             "type": "string",
-            "description": "Target status of the application [目标投递状态]",
+            "description": "Target status of the application (目标投递状态)",
             "enum": [
               "recommended",
               "interested",
@@ -10171,35 +10195,9 @@
               "rejected"
             ],
             "example": "interested"
-          },
-          "mentorId": {
-            "type": "string",
-            "description": "Assigned mentor ID (UUID) [分配的导师ID(UUID)]",
-            "format": "uuid",
-            "example": "123e4567-e89b-12d3-a456-426614174001"
-          },
-          "changedBy": {
-            "type": "string",
-            "description": "Changed by user ID (UUID) [变更人用户ID(UUID)]",
-            "format": "uuid",
-            "example": "123e4567-e89b-12d3-a456-426614174002"
-          },
-          "changeReason": {
-            "type": "string",
-            "description": "Reason for status change [状态变更原因]",
-            "example": "Assign referral mentor"
-          },
-          "changeMetadata": {
-            "description": "Metadata about the change operation [变更操作的元数据]",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ChangeMetadata"
-              }
-            ]
           }
         },
         "required": [
-          "applicationId",
           "status"
         ]
       },
