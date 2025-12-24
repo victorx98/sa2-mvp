@@ -17,6 +17,7 @@ export * from "./social-networks.schema";
 
 // Preference domain
 export * from "./job-category.schema";
+export * from "./job-title.schema";
 
 // Catalog domain
 export * from "./service-types.schema";
