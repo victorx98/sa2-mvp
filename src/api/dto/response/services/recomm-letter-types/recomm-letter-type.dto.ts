@@ -60,3 +60,54 @@ export class RecommLetterTypeResponseDto {
   updatedAt: Date;
 }
 
+/**
+ * Letter Type Statistics DTO
+ */
+export class LetterTypeStatisticsDto {
+  @ApiProperty({
+    description: 'Total count',
+    example: 5,
+  })
+  total: number;
+
+  @ApiProperty({
+    description: 'Available count',
+    example: 2,
+  })
+  available: number;
+}
+
+/**
+ * Available Types Summary DTO
+ */
+export class AvailableTypesSummaryDto {
+  @ApiProperty({
+    description: 'Online letter statistics',
+    type: LetterTypeStatisticsDto,
+  })
+  online: LetterTypeStatisticsDto;
+
+  @ApiProperty({
+    description: 'Paper letter statistics',
+    type: LetterTypeStatisticsDto,
+  })
+  paper: LetterTypeStatisticsDto;
+}
+
+/**
+ * Available Types Response DTO with Summary
+ */
+export class AvailableTypesResponseDto {
+  @ApiProperty({
+    description: 'Available letter types',
+    type: [RecommLetterTypeResponseDto],
+  })
+  data: RecommLetterTypeResponseDto[];
+
+  @ApiProperty({
+    description: 'Statistics summary',
+    type: AvailableTypesSummaryDto,
+  })
+  summary: AvailableTypesSummaryDto;
+}
+
