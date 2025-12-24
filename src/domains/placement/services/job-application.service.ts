@@ -355,15 +355,31 @@ export class JobApplicationService implements IJobApplicationService {
       );
     }
 
+    // Check if mentor assignment is allowed for this application type (检查该申请类型是否允许分配导师)
+    const dtoWithMentor = dto as any;
+    if (dtoWithMentor.mentorId && application.applicationType !== ApplicationType.REFERRAL) {
+      throw new BadRequestException(
+        `Cannot assign mentor to non-referral application`,
+      );
+    }
+
     // Wrap all operations in a transaction to ensure atomicity (将所有操作包裹在事务中以确保原子性)
     const updatedApplication = await this.db.transaction(async (tx) => {
+      // Prepare update data (准备更新数据)
+      const updateData: any = {
+        status: targetStatus,
+        updatedAt: new Date(),
+      };
+
+      // Update assignedMentorId if mentorId is provided (如果提供了mentorId则更新assignedMentorId)
+      if (dtoWithMentor.mentorId !== undefined) {
+        updateData.assignedMentorId = dtoWithMentor.mentorId;
+      }
+
       // Update application status (更新申请状态)
       const [app] = await tx
         .update(jobApplications)
-        .set({
-          status: targetStatus,
-          updatedAt: new Date(),
-        })
+        .set(updateData)
         .where(eq(jobApplications.id, dto.applicationId))
         .returning();
 
@@ -410,7 +426,7 @@ export class JobApplicationService implements IJobApplicationService {
         jobTitle = job?.title;
       }
 
-      const providerCandidate =
+      const providerCandidate = 
         updatedApplication.assignedMentorId ??
         updatedApplication.recommendedBy ??
         updatedApplication.studentId;

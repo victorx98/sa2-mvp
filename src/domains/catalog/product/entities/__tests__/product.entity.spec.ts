@@ -242,12 +242,16 @@ describe('Product Entity', () => {
         'user-123'
       );
 
-      const item = ProductItem.create('product-123', 'service-type-1', 10, 'user-123');
-      product.addItem(item);
+      // 添加两个items，确保移除一个后还有至少一个item (Add two items to ensure at least one remains after removal)
+      const item1 = ProductItem.create('product-123', 'service-type-1', 10, 'user-123');
+      const item2 = ProductItem.create('product-123', 'service-type-2', 20, 'user-123');
+      product.addItem(item1);
+      product.addItem(item2);
 
-      product.removeItem(item.getId());
+      product.removeItem(item1.getId());
 
-      expect(product.getItems()).toHaveLength(0);
+      expect(product.getItems()).toHaveLength(1);
+      expect(product.getItems()[0].getId()).toBe(item2.getId());
     });
 
     it('should throw ProductMinItemsException when removing last item from draft', () => {

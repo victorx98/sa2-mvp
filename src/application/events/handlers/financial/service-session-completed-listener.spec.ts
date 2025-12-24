@@ -111,10 +111,10 @@ describe("ServiceSessionCompletedListener", () => {
       expect(mockMentorPayableService.createPerSessionBilling).not.toHaveBeenCalled();
     });
 
-    it("should use refrenceId if provided", async () => {
+    it("should use referenceId if provided", async () => {
       const event = new ServiceSessionCompletedEvent({
         ...validEvent.payload,
-        refrenceId: "custom-ref-id",
+        referenceId: "custom-ref-id",
       });
       mockMentorPayableService.isDuplicate.mockResolvedValue(false);
       mockMentorPayableService.getMentorPrice.mockResolvedValue(

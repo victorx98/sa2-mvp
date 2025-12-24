@@ -9,7 +9,7 @@ module.exports = {
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },
-  transformIgnorePatterns: ['node_modules/(?!(uuid)/)'],
+  transformIgnorePatterns: ['node_modules/(?!(uuid|@kubiks/otel-drizzle)/)'],
   testEnvironment: 'node',
   moduleNameMapper: {
     '^@domains/(.*)$': '<rootDir>/src/domains/$1',

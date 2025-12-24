@@ -129,13 +129,13 @@ describe("MentorPayableService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("should use refrenceId if provided", async () => {
+    it("should use referenceId if provided", async () => {
       mockMentorPriceService.getMentorPrice.mockResolvedValue(mockMentorPrice);
       mockDb.insert.mockReturnValue({
         values: jest.fn().mockResolvedValue(undefined),
       });
 
-      const payload = { ...validPayload, refrenceId: "custom-ref-id" };
+      const payload = { ...validPayload, referenceId: "custom-ref-id" };
       await service.createPerSessionBilling(payload);
 
       expect(mockDb.insert).toHaveBeenCalled();

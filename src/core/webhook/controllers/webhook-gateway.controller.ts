@@ -74,9 +74,9 @@ export class WebhookGatewayController {
     }
 
     // Verify event webhook using appropriate mode
-    // In this case, verify using the token in the request body
-    // Use Verification Token mode - verify the token in the request body
-    this.verificationService.verifyFeishuWebhookByToken(body as Record<string, unknown>);
+    // Use the generic verifyFeishuWebhook method that handles all verification modes
+    const bodyString = JSON.stringify(body);
+    this.verificationService.verifyFeishuWebhook(headers, bodyString);
 
     // Forward to handler (no routing logic here)
     await this.feishuHandler.handle(body);
