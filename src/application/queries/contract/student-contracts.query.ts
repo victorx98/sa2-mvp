@@ -152,6 +152,7 @@ export class StudentContractsQuery {
     studentId?: string;
     mentorId?: string;
     status?: string;
+    serviceType?: string;
   }, pagination?: {
     page?: number;
     pageSize?: number;
@@ -165,6 +166,7 @@ export class StudentContractsQuery {
       studentId,
       mentorId,
       status,
+      serviceType,
     } = filters || {};
 
     const {
@@ -190,6 +192,10 @@ export class StudentContractsQuery {
 
     if (status) {
       whereConditions.push(sql`status = ${status}`);
+    }
+
+    if (serviceType) {
+      whereConditions.push(sql`service_type = ${serviceType}`);
     }
 
     // 计算分页偏移量
