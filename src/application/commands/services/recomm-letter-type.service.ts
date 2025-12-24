@@ -48,10 +48,16 @@ export class RecommLetterTypeService {
   }
 
   /**
-   * Get available recommendation letter types for student
+   * Get available recommendation letter types for student with statistics
    * Filters types based on contract balance and uploaded count
    */
-  async getAvailableTypes(studentId: string): Promise<RecommLetterTypeTreeNode[]> {
+  async getAvailableTypes(studentId: string): Promise<{
+    data: RecommLetterTypeTreeNode[];
+    summary: {
+      online: { total: number; available: number };
+      paper: { total: number; available: number };
+    };
+  }> {
     // Step 1: Get student service balance
     const balances = await this.serviceBalanceQuery.getServiceBalance(studentId);
     
@@ -63,7 +69,20 @@ export class RecommLetterTypeService {
     // Step 3: Get uploaded count grouped by service type
     const uploadedCounts = await this.recommLettersRepository.countByStudentGroupByType(studentId);
     
-    // Step 4: Calculate available service types
+    // Step 4: Calculate statistics for each type
+    const onlineBalance = letterBalances.find(b => b.serviceType === 'OnlineLetter');
+    const paperBalance = letterBalances.find(b => b.serviceType === 'PaperLetter');
+    
+    const onlineUploaded = uploadedCounts['OnlineLetter'] || 0;
+    const paperUploaded = uploadedCounts['PaperLetter'] || 0;
+    
+    const onlineTotal = onlineBalance?.totalQuantity || 0;
+    const paperTotal = paperBalance?.totalQuantity || 0;
+    
+    const onlineAvailable = Math.max(0, onlineTotal - onlineUploaded);
+    const paperAvailable = Math.max(0, paperTotal - paperUploaded);
+    
+    // Step 5: Calculate available service types (for filtering tree)
     const availableServiceTypes = letterBalances
       .filter(balance => {
         const uploaded = uploadedCounts[balance.serviceType] || 0;
@@ -71,11 +90,26 @@ export class RecommLetterTypeService {
       })
       .map(b => b.serviceType);
     
-    // Step 5: Get all types tree
+    // Step 6: Get all types tree
     const allTypes = await this.recommLetterTypesService.getTypesTree();
     
-    // Step 6: Filter tree by available service types
-    return this.filterTreeByServiceTypes(allTypes, availableServiceTypes);
+    // Step 7: Filter tree by available service types
+    const filteredTypes = this.filterTreeByServiceTypes(allTypes, availableServiceTypes);
+    
+    // Step 8: Return data with summary
+    return {
+      data: filteredTypes,
+      summary: {
+        online: {
+          total: onlineTotal,
+          available: onlineAvailable,
+        },
+        paper: {
+          total: paperTotal,
+          available: paperAvailable,
+        },
+      },
+    };
   }
 
   /**

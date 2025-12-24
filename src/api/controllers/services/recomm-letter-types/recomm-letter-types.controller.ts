@@ -26,7 +26,7 @@ import { ApiPrefix } from '@api/api.constants';
 import { GetRecommLetterTypesQuery } from '@application/queries/services/get-recomm-letter-types.query';
 import { RecommLetterTypeService } from '@application/commands/services/recomm-letter-type.service';
 import { CreateRecommLetterTypeDto } from '@api/dto/request/services/recomm-letter-types';
-import { RecommLetterTypeResponseDto } from '@api/dto/response/services/recomm-letter-types';
+import { RecommLetterTypeResponseDto, AvailableTypesResponseDto } from '@api/dto/response/services/recomm-letter-types';
 
 /**
  * Recommendation Letter Types Controller
@@ -92,13 +92,13 @@ export class RecommLetterTypesController {
   }
 
   /**
-   * Get available recommendation letter types for student
+   * Get available recommendation letter types for student with statistics
    * GET /api/services/recomm-letter-types/:studentId/available
    */
   @Get(':studentId/available')
   @ApiOperation({
     summary: 'Get available recommendation letter types for student',
-    description: 'Retrieve recommendation letter types that student can still upload based on contract balance',
+    description: 'Retrieve recommendation letter types that student can still upload based on contract balance with statistics summary',
   })
   @ApiParam({
     name: 'studentId',
@@ -106,13 +106,12 @@ export class RecommLetterTypesController {
     type: String,
   })
   @ApiOkResponse({
-    description: 'Available types retrieved successfully',
-    type: RecommLetterTypeResponseDto,
-    isArray: true,
+    description: 'Available types retrieved successfully with statistics',
+    type: AvailableTypesResponseDto,
   })
   async getAvailableTypes(
     @Param('studentId') studentId: string,
-  ): Promise<RecommLetterTypeResponseDto[]> {
+  ): Promise<AvailableTypesResponseDto> {
     return this.recommLetterTypeService.getAvailableTypes(studentId);
   }
 
