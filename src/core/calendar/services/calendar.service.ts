@@ -764,4 +764,44 @@ export class CalendarService {
       .set(updateData)
       .where(eq(schema.calendarSlots.sessionId, sessionId));
   }
+
+  /**
+   * Get calendar events for a user within a date range
+   * Returns all calendar slots (booked/completed/cancelled) for calendar view
+   *
+   * @param userId - User ID
+   * @param userType - User type (mentor/student/counselor)
+   * @param dateFrom - Start date (default: now)
+   * @param dateTo - End date (default: 90 days from now)
+   * @returns Array of ICalendarSlotEntity sorted by scheduled_start_time
+   */
+  async getCalendarEventsByUser(
+    userId: string,
+    userType: UserType,
+    dateFrom?: Date,
+    dateTo?: Date,
+  ): Promise<ICalendarSlotEntity[]> {
+    const startDate = dateFrom || new Date();
+    const endDate = dateTo || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+
+    // Validate date range
+    const daysDiff = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysDiff > 90) {
+      throw new CalendarException("Date range cannot exceed 90 days");
+    }
+
+    const dateTstzrangeValue = `tstzrange('${startDate.toISOString()}'::timestamptz, '${endDate.toISOString()}'::timestamptz, '[)')`;
+    
+    // Query all slots (including booked/completed/cancelled) for calendar view
+    const result = await this.db.execute(sql`
+      SELECT *
+      FROM calendar
+      WHERE user_id = ${userId}
+        AND user_type = ${userType}
+        AND time_range && ${sql.raw(dateTstzrangeValue)}
+      ORDER BY scheduled_start_time ASC
+    `);
+
+    return result.rows.map((row) => this.mapToEntity(row));
+  }
 }
