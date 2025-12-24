@@ -34,6 +34,7 @@ import { QueryJobApplicationsQuery } from "./queries/placement/query-job-applica
 import { ListMentorPricesQuery } from "./queries/financial/list-mentor-prices.query";
 import { ListMentorAppealsQuery } from "./queries/financial/list-mentor-appeals.query";
 import { ListJobCategoriesQuery } from "./queries/preference/list-job-categories.query";
+import { ListJobTitlesQuery } from "./queries/preference/list-job-titles.query";
 import { CalendarQueryService } from "./queries/calendar/calendar-query.service";
 
 // Application Layer - Commands
@@ -96,6 +97,9 @@ import { CreateProxyApplicationsBatchCommand } from "./commands/placement/create
 import { CreateJobCategoryCommand } from "./commands/preference/create-job-category.command";
 import { UpdateJobCategoryCommand } from "./commands/preference/update-job-category.command";
 import { DeleteJobCategoryCommand } from "./commands/preference/delete-job-category.command";
+import { CreateJobTitleCommand } from "./commands/preference/create-job-title.command";
+import { UpdateJobTitleCommand } from "./commands/preference/update-job-title.command";
+import { DeleteJobTitleCommand } from "./commands/preference/delete-job-title.command";
 
 // Application Layer - Commands (兼容层)
 import { AuthCommandService } from "./commands/auth-command/auth-command.service";
@@ -177,6 +181,7 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     ListMentorPricesQuery,
     ListMentorAppealsQuery,
     ListJobCategoriesQuery,
+    ListJobTitlesQuery,
     CalendarQueryService,
 
     // Commands
@@ -258,6 +263,9 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     CreateJobCategoryCommand,
     UpdateJobCategoryCommand,
     DeleteJobCategoryCommand,
+    CreateJobTitleCommand,
+    UpdateJobTitleCommand,
+    DeleteJobTitleCommand,
 
     // Commands (兼容层)
     AuthCommandService,
@@ -302,6 +310,7 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     ListMentorPricesQuery,
     ListMentorAppealsQuery,
     ListJobCategoriesQuery,
+    ListJobTitlesQuery,
     CalendarQueryService,
 
     // Commands
@@ -383,6 +392,9 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     CreateJobCategoryCommand,
     UpdateJobCategoryCommand,
     DeleteJobCategoryCommand,
+    CreateJobTitleCommand,
+    UpdateJobTitleCommand,
+    DeleteJobTitleCommand,
 
     // Commands (兼容层 - 保持向后兼容)
     AuthCommandService,

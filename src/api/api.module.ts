@@ -31,6 +31,8 @@ import { RecommLetterController } from "./controllers/services/recomm-letter/rec
 import { FileController } from "./controllers/file.controller";
 import { FileModule } from "@core/file/file.module";
 import { CalendarController } from "./controllers/calendar/calendar.controller";
+import { JobCategoriesController } from "./controllers/preference/job-categories.controller";
+import { JobTitlesController } from "./controllers/preference/job-titles.controller";
 
 /**
  * API Layer - Root Module
@@ -58,6 +60,10 @@ import { CalendarController } from "./controllers/calendar/calendar.controller";
     // Reference Data Controllers
     SchoolsController,
     MajorsController,
+
+    // Preference Controllers
+    JobCategoriesController,
+    JobTitlesController,
 
     // Counselor Controllers
     CounselorStudentContractController,
