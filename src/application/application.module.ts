@@ -34,6 +34,7 @@ import { QueryJobApplicationsQuery } from "./queries/placement/query-job-applica
 import { ListMentorPricesQuery } from "./queries/financial/list-mentor-prices.query";
 import { ListMentorAppealsQuery } from "./queries/financial/list-mentor-appeals.query";
 import { ListJobCategoriesQuery } from "./queries/preference/list-job-categories.query";
+import { CalendarQueryService } from "./queries/calendar/calendar-query.service";
 
 // Application Layer - Commands
 import { RegisterCommand } from "./commands/auth/register.command";
@@ -176,6 +177,7 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     ListMentorPricesQuery,
     ListMentorAppealsQuery,
     ListJobCategoriesQuery,
+    CalendarQueryService,
 
     // Commands
     RegisterCommand,
@@ -300,6 +302,7 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     ListMentorPricesQuery,
     ListMentorAppealsQuery,
     ListJobCategoriesQuery,
+    CalendarQueryService,
 
     // Commands
     RegisterCommand,
