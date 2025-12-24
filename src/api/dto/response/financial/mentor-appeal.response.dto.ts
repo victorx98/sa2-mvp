@@ -84,6 +84,13 @@ export class MentorAppealResponseDto {
   currency!: string;
 
   @ApiProperty({
+    description: "Payment month (YYYY-MM). [付款月份(YYYY-MM格式)]",
+    type: String,
+    example: "2024-12",
+  })
+  paymentMonth!: string;
+
+  @ApiProperty({
     description: "Appeal reason. [申诉理由]",
     type: String,
   })
@@ -195,6 +202,13 @@ export class MentorAppealWithRelationsResponseDto {
     example: "USD",
   })
   currency!: string;
+
+  @ApiProperty({
+    description: "Payment month (YYYY-MM). [付款月份(YYYY-MM格式)]",
+    type: String,
+    example: "2024-12",
+  })
+  paymentMonth!: string;
 
   @ApiProperty({
     description: "Status (PENDING/APPROVED/REJECTED). [状态：待处理/已批准/已驳回]",

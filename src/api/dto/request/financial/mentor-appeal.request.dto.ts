@@ -98,6 +98,22 @@ export class CreateMentorAppealRequestDto {
 
   @ApiProperty({
     description:
+      "Payment month (YYYY-MM). The month this appeal amount should be recorded in. [付款月份(YYYY-MM格式)，该申诉金额本应记入的月份]",
+    type: String,
+    required: true,
+    example: "2024-12",
+  })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, {
+    message:
+      "paymentMonth must be in YYYY-MM format [paymentMonth必须为YYYY-MM格式]",
+  })
+  @MaxLength(7)
+  paymentMonth!: string;
+
+  @ApiProperty({
+    description:
       "Appeal reason. Provide detailed context and evidence references. [申诉理由，需提供充分上下文与证据线索]",
     type: String,
     required: true,

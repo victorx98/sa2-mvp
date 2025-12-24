@@ -11,6 +11,7 @@ export const MentorAppealCreatedPayloadSchema = z
     appealAmount: z.string().optional().nullable(),
     appealType: z.string(),
     currency: z.string().optional().nullable(),
+    paymentMonth: z.string(),
     createdAt: DateTimeSchema,
   })
   .passthrough();

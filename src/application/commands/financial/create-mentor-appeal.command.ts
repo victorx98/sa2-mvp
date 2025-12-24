@@ -39,6 +39,7 @@ export class CreateMentorAppealCommand extends CommandBase {
     appealType: string;
     appealAmount?: string;
     currency?: string;
+    paymentMonth: string;
     reason: string;
     createdBy: string;
   }) {
@@ -70,6 +71,7 @@ export class CreateMentorAppealCommand extends CommandBase {
           appealType: dto.appealType,
           appealAmount: dto.appealAmount,
           currency: dto.currency,
+          paymentMonth: dto.paymentMonth,
           reason: dto.reason,
           status: "PENDING",
           createdBy: createdByUserId,
@@ -85,6 +87,7 @@ export class CreateMentorAppealCommand extends CommandBase {
           appealAmount: appeal.appealAmount,
           appealType: appeal.appealType,
           currency: appeal.currency,
+          paymentMonth: appeal.paymentMonth,
           createdAt: appeal.createdAt,
         }),
         CreateMentorAppealCommand.name,

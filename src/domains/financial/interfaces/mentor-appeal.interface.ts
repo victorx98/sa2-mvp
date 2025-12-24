@@ -80,6 +80,14 @@ export interface IMentorAppeal {
   currency: string;
 
   /**
+   * Payment Month (付款月份)
+   * Format: YYYY-MM
+   * The month this appeal amount should be recorded in
+   * (付款月份 - 该申诉金额本应记入的月份，格式为YYYY-MM)
+   */
+  paymentMonth: string;
+
+  /**
    * Appeal Reason (申诉理由)
    * Detailed description of why the mentor is appealing
    * (申诉的详细理由和描述)
@@ -219,6 +227,14 @@ export interface ICreateAppealDTO {
    * (货币类型)
    */
   currency: string;
+
+  /**
+   * Payment Month (付款月份)
+   * Format: YYYY-MM
+   * The month this appeal amount should be recorded in
+   * (付款月份 - 该申诉金额本应记入的月份，格式为YYYY-MM)
+   */
+  paymentMonth: string;
 
   /**
    * Reason (申诉理由)
