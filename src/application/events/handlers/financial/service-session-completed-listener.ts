@@ -47,7 +47,6 @@ export class ServiceSessionCompletedListener {
         sessionId,
         studentId,
         mentorId,
-        refrenceId, // Note: typo in the original type definition
         serviceTypeCode,
         sessionTypeCode,
         actualDurationMinutes,
@@ -69,8 +68,8 @@ export class ServiceSessionCompletedListener {
         `Processing session: ${sessionId}, student: ${studentId}, mentor: ${mentorId}, type: ${sessionTypeCode}, duration: ${actualDurationMinutes}m`,
       );
 
-      // Enrich payload with referenceId (use sessionId if refrenceId not provided)
-      const billingReferenceId = refrenceId || sessionId;
+      // Use sessionId as billing reference ID
+      const billingReferenceId = sessionId;
 
       // 1. Check for duplicate events (idempotency)
       // Idempotency: Each referenceId can only have one original billing record

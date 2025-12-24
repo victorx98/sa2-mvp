@@ -59,7 +59,9 @@ export class CommSessionCreatedEventHandler {
       const meeting = await this.meetingManagerService.createMeeting({
         topic: payload.topic,
         provider: payload.meetingProvider as any,
-        startTime: payload.scheduledStartTime,
+        startTime: typeof payload.scheduledStartTime === 'string'
+          ? payload.scheduledStartTime
+          : payload.scheduledStartTime.toISOString(),
         duration: payload.duration,
         hostUserId: this.getHostUserId(payload.meetingProvider),
         autoRecord: false, // Communication sessions typically not recorded
@@ -198,7 +200,9 @@ export class CommSessionCreatedEventHandler {
               payload.meetingId,
               {
                 topic: payload.newTitle,
-                startTime: payload.newScheduledAt,
+                startTime: typeof payload.newScheduledAt === 'string'
+                  ? payload.newScheduledAt
+                  : payload.newScheduledAt.toISOString(),
                 duration: payload.newDuration,
               },
             );

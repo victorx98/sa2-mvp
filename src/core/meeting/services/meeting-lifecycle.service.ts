@@ -313,7 +313,7 @@ export class MeetingLifecycleService {
       meetingId: meeting.id,
       meetingNo: meeting.meetingNo,
       provider: meeting.meetingProvider,
-      status: "ended",
+      status: "ended" as const,
       scheduleStartTime: meeting.scheduleStartTime,
       scheduleDuration: meeting.scheduleDuration,
       actualDuration: meeting.actualDuration || 0,

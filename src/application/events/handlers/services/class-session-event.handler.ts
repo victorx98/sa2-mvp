@@ -56,7 +56,9 @@ export class ClassSessionCreatedEventHandler {
       const meeting = await this.meetingManagerService.createMeeting({
         topic: payload.topic,
         provider: payload.meetingProvider as any,
-        startTime: payload.scheduledStartTime,
+        startTime: typeof payload.scheduledStartTime === 'string'
+          ? payload.scheduledStartTime
+          : payload.scheduledStartTime.toISOString(),
         duration: payload.duration,
         hostUserId: this.getHostUserId(payload.meetingProvider),
         autoRecord: true, // Class sessions typically recorded for student review
@@ -172,7 +174,9 @@ export class ClassSessionCreatedEventHandler {
               payload.meetingId,
               {
                 topic: payload.topic,
-                startTime: payload.newScheduledStartTime,
+                startTime: typeof payload.newScheduledStartTime === 'string'
+                  ? payload.newScheduledStartTime
+                  : payload.newScheduledStartTime.toISOString(),
                 duration: payload.newDuration,
               },
             );

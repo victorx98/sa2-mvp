@@ -15,6 +15,9 @@ export * from "./schools.schema";
 export * from "./majors.schema";
 export * from "./social-networks.schema";
 
+// Preference domain
+export * from "./job-category.schema";
+
 // Catalog domain
 export * from "./service-types.schema";
 // Note: services.schema and service-packages.schema are removed as they're not needed in the project

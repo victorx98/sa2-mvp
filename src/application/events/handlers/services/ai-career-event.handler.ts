@@ -71,7 +71,9 @@ export class AiCareerCreatedEventHandler {
           return await this.meetingManagerService.createMeeting({
             topic: payload.topic,
             provider: payload.meetingProvider as any,
-            startTime: payload.scheduledStartTime,
+            startTime: typeof payload.scheduledStartTime === 'string' 
+              ? payload.scheduledStartTime 
+              : payload.scheduledStartTime.toISOString(),
             duration: payload.duration,
             hostUserId: this.getHostUserId(payload.meetingProvider),
             autoRecord: true,
@@ -205,7 +207,9 @@ export class AiCareerCreatedEventHandler {
               payload.meetingId,
               {
                 topic: payload.newTitle,
-                startTime: payload.newScheduledAt,
+                startTime: typeof payload.newScheduledAt === 'string'
+                  ? payload.newScheduledAt
+                  : payload.newScheduledAt.toISOString(),
                 duration: payload.newDuration,
               },
             );
@@ -472,7 +476,9 @@ export class AiCareerCreatedEventHandler {
             provider_user_id: session.getMentorUserId(),
             consumed_units: actualDurationHours,
             unit_type: 'hour', // Session units are measured in hours
-            completed_time: payload.endedAt,
+            completed_time: typeof payload.endedAt === 'string'
+              ? new Date(payload.endedAt)
+              : payload.endedAt,
           },
           tx,
         );
