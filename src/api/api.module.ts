@@ -30,6 +30,7 @@ import { ResumeController } from "./controllers/services/resume/resume.controlle
 import { RecommLetterController } from "./controllers/services/recomm-letter/recomm-letter.controller";
 import { FileController } from "./controllers/file.controller";
 import { FileModule } from "@core/file/file.module";
+import { CalendarController } from "./controllers/calendar/calendar.controller";
 
 /**
  * API Layer - Root Module
@@ -52,6 +53,7 @@ import { FileModule } from "@core/file/file.module";
     // Common Controllers
     AuthController,
     UserController,
+    CalendarController,
     
     // Reference Data Controllers
     SchoolsController,
