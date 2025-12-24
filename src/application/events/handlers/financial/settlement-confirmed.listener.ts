@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import { HandlesEvent, SettlementConfirmedEvent } from "@application/events";
-import { MentorPaymentParamService } from "../services/mentor-payment-param.service";
+import { MentorPaymentParamService } from "@domains/financial/services/mentor-payment-param.service";
 import { Inject } from "@nestjs/common";
 
 /**
