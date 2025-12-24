@@ -1,0 +1,147 @@
+import { Test, TestingModule } from "@nestjs/testing";
+import { BadRequestException } from "@nestjs/common";
+import { ServiceSessionCompletedListener } from "@application/events/handlers/financial/service-session-completed-listener";
+import { MentorPayableService } from "@domains/financial/services/mentor-payable.service";
+import { ServiceSessionCompletedEvent } from "@application/events";
+
+describe("ServiceSessionCompletedListener", () => {
+  let listener: ServiceSessionCompletedListener;
+  let mockMentorPayableService: jest.Mocked<MentorPayableService>;
+
+  beforeEach(async () => {
+    mockMentorPayableService = {
+      isDuplicate: jest.fn(),
+      getMentorPrice: jest.fn(),
+      createPerSessionBilling: jest.fn(),
+    } as any;
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ServiceSessionCompletedListener,
+        {
+          provide: "IMentorPayableService",
+          useValue: mockMentorPayableService,
+        },
+      ],
+    }).compile();
+
+    listener = module.get<ServiceSessionCompletedListener>(
+      ServiceSessionCompletedListener,
+    );
+  });
+
+  describe("handleServiceSessionCompletedEvent", () => {
+    const validEvent = new ServiceSessionCompletedEvent({
+      sessionId: "session-123",
+      studentId: "student-123",
+      mentorId: "mentor-123",
+      serviceTypeCode: "consultation",
+      actualDurationMinutes: 120,
+      durationMinutes: 120,
+      allowBilling: true,
+      sessionTypeCode: "regular_mentoring",
+    });
+
+    const mockMentorPrice = {
+      id: "price-123",
+      mentorId: "mentor-123",
+      sessionTypeCode: "consultation",
+      price: "100",
+      currency: "USD",
+      status: "active",
+    };
+
+    it("should process valid event successfully", async () => {
+      mockMentorPayableService.isDuplicate.mockResolvedValue(false);
+      mockMentorPayableService.getMentorPrice.mockResolvedValue(
+        mockMentorPrice as any,
+      );
+      mockMentorPayableService.createPerSessionBilling.mockResolvedValue();
+
+      await listener.handleServiceSessionCompletedEvent(validEvent);
+
+      expect(mockMentorPayableService.isDuplicate).toHaveBeenCalledWith(
+        "session-123",
+      );
+      expect(mockMentorPayableService.getMentorPrice).toHaveBeenCalled();
+      expect(mockMentorPayableService.createPerSessionBilling).toHaveBeenCalled();
+    });
+
+    it("should skip when duplicate detected", async () => {
+      mockMentorPayableService.isDuplicate.mockResolvedValue(true);
+
+      await listener.handleServiceSessionCompletedEvent(validEvent);
+
+      expect(mockMentorPayableService.createPerSessionBilling).not.toHaveBeenCalled();
+    });
+
+    it("should skip when billing not allowed", async () => {
+      const event = new ServiceSessionCompletedEvent({
+        ...validEvent.payload,
+        allowBilling: false,
+      });
+      mockMentorPayableService.isDuplicate.mockResolvedValue(false);
+
+      await listener.handleServiceSessionCompletedEvent(event);
+
+      expect(mockMentorPayableService.createPerSessionBilling).not.toHaveBeenCalled();
+    });
+
+    it("should throw error when mentor price not found", async () => {
+      mockMentorPayableService.isDuplicate.mockResolvedValue(false);
+      mockMentorPayableService.getMentorPrice.mockResolvedValue(null);
+
+      await expect(
+        listener.handleServiceSessionCompletedEvent(validEvent),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockMentorPayableService.createPerSessionBilling).not.toHaveBeenCalled();
+    });
+
+    it("should throw error when sessionId is missing", async () => {
+      const event = new ServiceSessionCompletedEvent({
+        ...validEvent.payload,
+        sessionId: undefined,
+      });
+
+      await expect(
+        listener.handleServiceSessionCompletedEvent(event),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockMentorPayableService.createPerSessionBilling).not.toHaveBeenCalled();
+    });
+
+    it("should use refrenceId if provided", async () => {
+      const event = new ServiceSessionCompletedEvent({
+        ...validEvent.payload,
+        refrenceId: "custom-ref-id",
+      });
+      mockMentorPayableService.isDuplicate.mockResolvedValue(false);
+      mockMentorPayableService.getMentorPrice.mockResolvedValue(
+        mockMentorPrice as any,
+      );
+      mockMentorPayableService.createPerSessionBilling.mockResolvedValue();
+
+      await listener.handleServiceSessionCompletedEvent(event);
+
+      expect(mockMentorPayableService.isDuplicate).toHaveBeenCalledWith(
+        "custom-ref-id",
+      );
+    });
+
+    it("should throw error when createPerSessionBilling fails", async () => {
+      mockMentorPayableService.isDuplicate.mockResolvedValue(false);
+      mockMentorPayableService.getMentorPrice.mockResolvedValue(
+        mockMentorPrice as any,
+      );
+      mockMentorPayableService.createPerSessionBilling.mockRejectedValue(
+        new Error("Database error"),
+      );
+
+      await expect(
+        listener.handleServiceSessionCompletedEvent(validEvent),
+      ).rejects.toThrow("Database error");
+    });
+  });
+});
+

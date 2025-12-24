@@ -4,15 +4,13 @@ import {
   Logger,
   BadRequestException,
 } from "@nestjs/common";
-import { EventEmitter2 } from "@nestjs/event-emitter";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import * as schema from "@infrastructure/database/schema";
 import type { DrizzleDatabase } from "@shared/types/database.types";
 import { SettlementStatus } from "@shared/types/financial-enums";
 import type { CreateSettlementRequestDto } from "@api/dto/request/financial/settlement.request.dto";
-import { SETTLEMENT_CONFIRMED_EVENT } from "@shared/events/event-constants";
-import type { ISettlementConfirmedPayload } from "@shared/events/settlement-confirmed.event";
+import { IntegrationEventPublisher, SettlementConfirmedEvent, type SettlementConfirmedPayload } from "@application/events";
 import {
   parseDateToUTC,
   isValidISODateString,
@@ -106,8 +104,7 @@ export class SettlementService implements ISettlementService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-    @Inject(EventEmitter2)
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
   ) {}
 
   /**
@@ -309,7 +306,7 @@ export class SettlementService implements ISettlementService {
       // Note: Event should be published after settlement record and details are created
       // to ensure data integrity and enable parameter updates for subsequent batches
       // (注意：应在创建结算记录和明细后发布事件，以确保数据完整性并启用后续批次的参数更新)
-      const payload: ISettlementConfirmedPayload = {
+      const payload: SettlementConfirmedPayload = {
         settlementId: settlement.id,
         mentorId: settlement.mentorId,
         settlementMonth: settlement.settlementMonth,
@@ -326,15 +323,10 @@ export class SettlementService implements ISettlementService {
         payableLedgerIds: payableLedgers.map((ledger) => ledger.id),
       };
 
-      this.eventEmitter.emit(SETTLEMENT_CONFIRMED_EVENT, {
-        type: SETTLEMENT_CONFIRMED_EVENT,
-        payload,
-        timestamp: Date.now(),
-        source: {
-          domain: "financial",
-          service: "SettlementService",
-        },
-      });
+      await this.eventPublisher.publish(
+        new SettlementConfirmedEvent(payload),
+        SettlementService.name,
+      );
 
       this.logger.log(
         `Successfully created settlement: ${settlement.id} with ${detailRecords.length} detail records`,

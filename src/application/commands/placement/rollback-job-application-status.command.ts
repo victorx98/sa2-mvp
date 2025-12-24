@@ -6,8 +6,7 @@ import { IRollbackApplicationStatusDto } from "@api/dto/request/placement/placem
 import { jobApplications, applicationHistory } from "@infrastructure/database/schema";
 import { eq, desc } from "drizzle-orm";
 import { ApplicationStatus, ALLOWED_APPLICATION_STATUS_TRANSITIONS } from "@domains/placement/types";
-import { EventEmitter2 } from "@nestjs/event-emitter";
-import { JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT } from "@shared/events/event-constants";
+import { IntegrationEventPublisher, JobApplicationStatusRolledBackEvent } from "@application/events";
 
 /**
  * Rollback Job Application Status Command
@@ -21,7 +20,7 @@ export class RollbackJobApplicationStatusCommand extends CommandBase {
 
   constructor(
     @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
   ) {
     super(db);
   }
@@ -142,18 +141,17 @@ export class RollbackJobApplicationStatusCommand extends CommandBase {
       // [新增] Include mentor assignment in event payload [在事件payload中包含导师分配]
       ...(dto.mentorId && { assignedMentorId: dto.mentorId }),
     };
-    this.eventEmitter.emit(
-      JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
-      eventPayload,
+    await this.eventPublisher.publish(
+      new JobApplicationStatusRolledBackEvent(eventPayload),
+      RollbackJobApplicationStatusCommand.name,
     );
 
     return {
       data: updatedApplication,
       event: {
-        type: JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
+        type: JobApplicationStatusRolledBackEvent.eventType,
         payload: eventPayload,
       },
     };
   }
 }
-

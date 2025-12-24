@@ -5,8 +5,7 @@ import type { DrizzleDatabase } from "@shared/types/database.types";
 import { jobApplications, applicationHistory, recommendedJobs } from "@infrastructure/database/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { ApplicationType, ApplicationStatus } from "@domains/placement/types";
-import { EventEmitter2 } from "@nestjs/event-emitter";
-import { JOB_APPLICATION_STATUS_CHANGED_EVENT } from "@shared/events/event-constants";
+import { IntegrationEventPublisher, JobApplicationStatusChangedEvent } from "@application/events";
 
 /**
  * Interface for recommending referral applications in batch [批量内推推荐的接口]
@@ -31,7 +30,7 @@ export class RecommendReferralApplicationsBatchCommand extends CommandBase {
 
   constructor(
     @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
   ) {
     super(db);
   }
@@ -195,7 +194,7 @@ export class RecommendReferralApplicationsBatchCommand extends CommandBase {
 
     // Publish events after transaction (在事务后发布事件) [在事务成功后发布事件]
     // Events are published after transaction commits to ensure data consistency [事件在事务提交后发布以确保数据一致性]
-    const events = createdApplications.map((application) => {
+    const events = await Promise.all(createdApplications.map(async (application) => {
       const payload = {
         applicationId: application.id,
         previousStatus: null,
@@ -203,9 +202,12 @@ export class RecommendReferralApplicationsBatchCommand extends CommandBase {
         changedBy: dto.recommendedBy,
         changedAt: application.submittedAt.toISOString(),
       };
-      this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, payload);
-      return { type: JOB_APPLICATION_STATUS_CHANGED_EVENT, payload };
-    });
+      await this.eventPublisher.publish(
+        new JobApplicationStatusChangedEvent(payload),
+        RecommendReferralApplicationsBatchCommand.name,
+      );
+      return { type: JobApplicationStatusChangedEvent.eventType, payload };
+    }));
 
     return {
       data: { items: createdApplications },
@@ -213,5 +215,4 @@ export class RecommendReferralApplicationsBatchCommand extends CommandBase {
     };
   }
 }
-
 

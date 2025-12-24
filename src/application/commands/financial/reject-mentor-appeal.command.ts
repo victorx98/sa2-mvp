@@ -5,8 +5,7 @@ import type { DrizzleDatabase } from "@shared/types/database.types";
 import { IMentorAppeal } from "@domains/financial/interfaces/mentor-appeal.interface";
 import { eq } from "drizzle-orm";
 import * as schema from "@infrastructure/database/schema";
-import { EventEmitter2 } from "@nestjs/event-emitter";
-import { MENTOR_APPEAL_REJECTED_EVENT } from "@shared/events/event-constants";
+import { IntegrationEventPublisher, MentorAppealRejectedEvent } from "@application/events";
 
 /**
  * Reject Mentor Appeal Command
@@ -18,7 +17,7 @@ import { MENTOR_APPEAL_REJECTED_EVENT } from "@shared/events/event-constants";
 export class RejectMentorAppealCommand extends CommandBase {
   constructor(
     @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
   ) {
     super(db);
   }
@@ -77,14 +76,17 @@ export class RejectMentorAppealCommand extends CommandBase {
         .returning();
 
       // Publish the rejected event
-      this.eventEmitter.emit(MENTOR_APPEAL_REJECTED_EVENT, {
-        appealId: updatedAppeal.id,
-        mentorId: updatedAppeal.mentorId,
-        counselorId: updatedAppeal.counselorId,
-        rejectionReason: input.rejectReason,
-        rejectedBy: input.rejectedBy,
-        rejectedAt: now,
-      });
+      await this.eventPublisher.publish(
+        new MentorAppealRejectedEvent({
+          appealId: updatedAppeal.id,
+          mentorId: updatedAppeal.mentorId,
+          counselorId: updatedAppeal.counselorId,
+          rejectionReason: input.rejectReason,
+          rejectedBy: input.rejectedBy,
+          rejectedAt: now,
+        }),
+        RejectMentorAppealCommand.name,
+      );
 
       this.logger.log(`Appeal rejected successfully: ${input.id}`);
 

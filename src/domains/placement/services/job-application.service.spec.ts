@@ -11,12 +11,12 @@ import {
 } from "@api/dto/request/placement/placement.index";
 import { ApplicationType } from "../types/application-type.enum";
 import { randomUUID } from "crypto";
-import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
-  JOB_APPLICATION_STATUS_CHANGED_EVENT,
-  JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
-  PLACEMENT_APPLICATION_SUBMITTED_EVENT,
-} from "@shared/events/event-constants";
+  IntegrationEventPublisher,
+  JobApplicationStatusChangedEvent,
+  JobApplicationStatusRolledBackEvent,
+  PlacementApplicationSubmittedEvent,
+} from "@application/events";
 
 /**
  * Unit Tests for JobApplicationService
@@ -33,7 +33,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
   let moduleRef: TestingModule;
   let jobApplicationService: JobApplicationService;
   let mockDb: any;
-  let mockEventEmitter: { emit: jest.Mock };
+  let mockEventPublisher: { publish: jest.Mock };
   const testApplicationId = randomUUID();
   const testStudentId = "bc9c587e-8206-4b93-9e2c-fdc92d13f40b";
   const testJobId = randomUUID(); // Changed to UUID string to match new schema [改为UUID字符串以匹配新schema]
@@ -84,8 +84,8 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       }),
     };
 
-    mockEventEmitter = {
-      emit: jest.fn(),
+    mockEventPublisher = {
+      publish: jest.fn().mockResolvedValue(undefined),
     };
 
     moduleRef = await Test.createTestingModule({
@@ -101,8 +101,8 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
           useValue: mockDb,
         },
         {
-          provide: EventEmitter2,
-          useValue: mockEventEmitter,
+          provide: IntegrationEventPublisher,
+          useValue: mockEventPublisher,
         },
         JobApplicationService,
       ],
@@ -179,24 +179,28 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Assert [断言]
       expect(result.data).toEqual(createdApplication);
       expect(result.event).toBeDefined();
-      expect(result.event?.type).toBe("placement.application.status_changed");
+      expect(result.event?.type).toBe(JobApplicationStatusChangedEvent.eventType);
       expect(mockDb.insert).toHaveBeenCalled();
 
-      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
-        JOB_APPLICATION_STATUS_CHANGED_EVENT,
-        expect.any(Object),
-      );
-      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
-        PLACEMENT_APPLICATION_SUBMITTED_EVENT,
+      expect(mockEventPublisher.publish).toHaveBeenCalledWith(
         expect.objectContaining({
-          id: testApplicationId,
-          service_type: "job_application",
-          student_user_id: testStudentId,
-          provider_user_id: testStudentId,
-          consumed_units: 1,
-          unit_type: "count",
-          title: "Test Job",
+          payload: expect.any(Object),
         }),
+        JobApplicationService.name,
+      );
+      expect(mockEventPublisher.publish).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            id: testApplicationId,
+            service_type: "job_application",
+            student_user_id: testStudentId,
+            provider_user_id: testStudentId,
+            consumed_units: 1,
+            unit_type: "count",
+            title: "Test Job",
+          }),
+        }),
+        JobApplicationService.name,
       );
     });
 
@@ -573,11 +577,13 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
 
       // Assert [断言]
       expect(mockDb.update).toHaveBeenCalled();
-      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
-        JOB_APPLICATION_STATUS_CHANGED_EVENT,
+      expect(mockEventPublisher.publish).toHaveBeenCalledWith(
         expect.objectContaining({
-          assignedMentorId: newMentorId,
+          payload: expect.objectContaining({
+            assignedMentorId: newMentorId,
+          }),
         }),
+        JobApplicationService.name,
       );
     });
 
@@ -640,14 +646,16 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Assert [断言]
       expect(result.data).toEqual(updatedApplication);
       expect(mockDb.update).toHaveBeenCalled();
-      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
-        PLACEMENT_APPLICATION_SUBMITTED_EVENT,
+      expect(mockEventPublisher.publish).toHaveBeenCalledWith(
         expect.objectContaining({
-          id: testApplicationId,
-          student_user_id: testStudentId,
-          provider_user_id: testMentorId,
-          title: "Referral Job",
+          payload: expect.objectContaining({
+            id: testApplicationId,
+            student_user_id: testStudentId,
+            provider_user_id: testMentorId,
+            title: "Referral Job",
+          }),
         }),
+        JobApplicationService.name,
       );
     });
 
@@ -1263,7 +1271,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Assert [断言]
       expect(result.data).toEqual(updatedApplication);
       expect(result.event).toBeDefined();
-      expect(result.event?.type).toBe(JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT);
+      expect(result.event?.type).toBe(JobApplicationStatusRolledBackEvent.eventType);
       expect(mockDb.update).toHaveBeenCalled();
       expect(mockDb.insert).toHaveBeenCalled();
     });
@@ -1543,19 +1551,21 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       // Assert [断言]
       expect(result.data).toEqual(createdApplication);
       expect(result.event).toBeDefined();
-      expect(result.event?.type).toBe(JOB_APPLICATION_STATUS_CHANGED_EVENT);
+      expect(result.event?.type).toBe(JobApplicationStatusChangedEvent.eventType);
       expect(mockDb.insert).toHaveBeenCalledTimes(2); // Insert application and history
       
       // Verify event payload
-      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
-        JOB_APPLICATION_STATUS_CHANGED_EVENT,
+      expect(mockEventPublisher.publish).toHaveBeenCalledWith(
         expect.objectContaining({
-          applicationId: createdApplication.id,
-          previousStatus: null,
-          newStatus: "mentor_assigned",
-          changedBy: "test-user", // Mock value for changedBy
-          assignedMentorId: dto.mentorId,
+          payload: expect.objectContaining({
+            applicationId: createdApplication.id,
+            previousStatus: null,
+            newStatus: "mentor_assigned",
+            changedBy: "test-user", // Mock value for changedBy
+            assignedMentorId: dto.mentorId,
+          }),
         }),
+        JobApplicationService.name,
       );
     });
 

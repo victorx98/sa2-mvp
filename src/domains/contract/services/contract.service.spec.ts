@@ -1,5 +1,4 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { EventEmitter2, EventEmitterModule } from "@nestjs/event-emitter";
 import { ConfigModule } from "@nestjs/config";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { ContractService } from "./contract.service";
@@ -36,14 +35,13 @@ import * as schema from "@infrastructure/database/schema";
  * Test Strategy:
  * - This is a UNIT test for the domain service layer
  * - Test level: Service methods in isolation with mocked dependencies
- * - Mock external dependencies: EventEmitter2, database
+ * - Mock external dependencies: database
  * - Focus: Business logic validation and data transformation
  * - Does NOT test: Database integration, trigger behaviors, cross-service orchestration
  */
 describe("ContractService Unit Tests [合约服务单元测试]", () => {
   let moduleRef: TestingModule;
   let contractService: ContractService;
-  let _eventEmitter: EventEmitter2;
   let mockDb: any;
   const testStudentId = randomUUID();
   const testProductId = randomUUID();
@@ -142,11 +140,6 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
           isGlobal: true,
           envFilePath: ".env",
         }),
-        EventEmitterModule.forRoot({
-          wildcard: true,
-          delimiter: ".",
-          verboseMemoryLeak: false,
-        }),
       ],
       providers: [
         {
@@ -158,7 +151,6 @@ describe("ContractService Unit Tests [合约服务单元测试]", () => {
     }).compile();
 
     contractService = moduleRef.get<ContractService>(ContractService);
-    _eventEmitter = moduleRef.get<EventEmitter2>(EventEmitter2);
   });
 
   afterEach(() => {
