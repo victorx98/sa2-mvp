@@ -412,6 +412,7 @@ export class ContractsController {
           studentId: queryDto.studentId,
           mentorId: queryDto.mentorId,
           status: queryDto.status,
+          serviceType: queryDto.serviceType,
         },
         {
           page: queryDto.page,

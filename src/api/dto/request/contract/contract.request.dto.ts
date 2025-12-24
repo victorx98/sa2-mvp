@@ -569,6 +569,16 @@ export class ServiceTypeConsumptionQueryDto {
   status?: string;
 
   @ApiPropertyOptional({
+    description: "Service type code for filtering. [用于筛选的服务类型编码]",
+    type: String,
+    required: false,
+    example: "Resume",
+  })
+  @IsOptional()
+  @IsString()
+  serviceType?: string;
+
+  @ApiPropertyOptional({
     description: "Page number. Default: 1. [页码，默认值：1]",
     type: Number,
     required: false,
