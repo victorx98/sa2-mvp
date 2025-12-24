@@ -20,8 +20,8 @@ import {
 } from '@nestjs/swagger';
 import { QueryJobsQuery } from '@application/queries/placement/query-jobs.query';
 import { QueryJobApplicationsQuery } from '@application/queries/placement/query-job-applications.query';
-import { JobQueryDto } from '@api/dto/request/placement-query.request.dto';
-import { JobApplicationQueryDto } from '@api/dto/request/job-application-query.request.dto';
+import { JobQueryDto } from '@api/dto/request/placement/placement-query.request.dto';
+import { JobApplicationQueryDto } from '@api/dto/request/placement/job-application-query.request.dto';
 import { IJobQueryFilter } from '@domains/query/placement/dto/placement-query.dto';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { JobQueryResponseDto, JobPositionResponseDto } from '@api/dto/response/placement/placement.response.dto';
