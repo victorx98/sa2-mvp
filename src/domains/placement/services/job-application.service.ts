@@ -15,11 +15,11 @@ import {
   applicationHistory,
 } from "@infrastructure/database/schema";
 import {
-  JOB_APPLICATION_STATUS_CHANGED_EVENT,
-  JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
-  PLACEMENT_APPLICATION_SUBMITTED_EVENT,
-} from "@shared/events/event-constants";
-// Removed - module not found: @shared/events/placement-application-submitted.event
+  IntegrationEventPublisher,
+  JobApplicationStatusChangedEvent,
+  JobApplicationStatusRolledBackEvent,
+  PlacementApplicationSubmittedEvent,
+} from "@application/events";
 import {
   ISubmitApplicationDto,
   IRecommendReferralApplicationsBatchDto,
@@ -35,7 +35,6 @@ import {
   ALLOWED_APPLICATION_STATUS_TRANSITIONS,
   ApplicationType,
 } from "../types";
-import { EventEmitter2 } from "@nestjs/event-emitter";
 
 /**
  * Job Application Service [投递服务]
@@ -48,7 +47,7 @@ export class JobApplicationService implements IJobApplicationService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
   ) {}
 
   private isUuid(value: string | undefined): value is string {
@@ -138,7 +137,10 @@ export class JobApplicationService implements IJobApplicationService {
       changedBy: application.studentId,
       changedAt: application.submittedAt.toISOString(),
     };
-    this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
+    await this.eventPublisher.publish(
+      new JobApplicationStatusChangedEvent(eventPayload),
+      JobApplicationService.name,
+    );
 
     if (application.status === "submitted") {
       const providerCandidate = dto.studentId;
@@ -154,16 +156,16 @@ export class JobApplicationService implements IJobApplicationService {
         completed_time: application.submittedAt,
         title: job.title ?? undefined,
       };
-      this.eventEmitter.emit(
-        PLACEMENT_APPLICATION_SUBMITTED_EVENT,
-        submittedPayload,
+      await this.eventPublisher.publish(
+        new PlacementApplicationSubmittedEvent(submittedPayload),
+        JobApplicationService.name,
       );
     }
 
     return {
       data: application,
       event: {
-        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
+        type: JobApplicationStatusChangedEvent.eventType,
         payload: eventPayload,
       },
     };
@@ -294,7 +296,7 @@ export class JobApplicationService implements IJobApplicationService {
       return inserted;
     });
 
-    const events = createdApplications.map((application) => {
+    const events = await Promise.all(createdApplications.map(async (application) => {
       const payload = {
         applicationId: application.id,
         previousStatus: null,
@@ -302,9 +304,12 @@ export class JobApplicationService implements IJobApplicationService {
         changedBy: dto.recommendedBy,
         changedAt: application.submittedAt.toISOString(),
       };
-      this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, payload);
-      return { type: JOB_APPLICATION_STATUS_CHANGED_EVENT, payload };
-    });
+      await this.eventPublisher.publish(
+        new JobApplicationStatusChangedEvent(payload),
+        JobApplicationService.name,
+      );
+      return { type: JobApplicationStatusChangedEvent.eventType, payload };
+    }));
 
     return {
       data: { items: createdApplications },
@@ -389,7 +394,10 @@ export class JobApplicationService implements IJobApplicationService {
         assignedMentorId: updatedApplication.assignedMentorId,
       }),
     };
-    this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
+    await this.eventPublisher.publish(
+      new JobApplicationStatusChangedEvent(eventPayload),
+      JobApplicationService.name,
+    );
 
     if (targetStatus === "submitted") {
       // Query job title if recommendedJobId exists (如果存在recommendedJobId则查询职位标题)
@@ -419,16 +427,16 @@ export class JobApplicationService implements IJobApplicationService {
         completed_time: updatedApplication.updatedAt,
         title: jobTitle,
       };
-      this.eventEmitter.emit(
-        PLACEMENT_APPLICATION_SUBMITTED_EVENT,
-        submittedPayload,
+      await this.eventPublisher.publish(
+        new PlacementApplicationSubmittedEvent(submittedPayload),
+        JobApplicationService.name,
       );
     }
 
     return {
       data: updatedApplication,
       event: {
-        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
+        type: JobApplicationStatusChangedEvent.eventType,
         payload: eventPayload,
       },
     };
@@ -788,15 +796,15 @@ export class JobApplicationService implements IJobApplicationService {
       // [新增] Include mentor assignment in event payload [在事件payload中包含导师分配]
       ...(dto.mentorId && { assignedMentorId: dto.mentorId }),
     };
-    this.eventEmitter.emit(
-      JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
-      eventPayload,
+    await this.eventPublisher.publish(
+      new JobApplicationStatusRolledBackEvent(eventPayload),
+      JobApplicationService.name,
     );
 
     return {
       data: updatedApplication,
       event: {
-        type: JOB_APPLICATION_STATUS_ROLLED_BACK_EVENT,
+        type: JobApplicationStatusRolledBackEvent.eventType,
         payload: eventPayload,
       },
     };
@@ -877,12 +885,15 @@ export class JobApplicationService implements IJobApplicationService {
       changedAt: application.submittedAt.toISOString(),
       assignedMentorId: application.assignedMentorId,
     };
-    this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
+    await this.eventPublisher.publish(
+      new JobApplicationStatusChangedEvent(eventPayload),
+      JobApplicationService.name,
+    );
 
     return {
       data: application,
       event: {
-        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
+        type: JobApplicationStatusChangedEvent.eventType,
         payload: eventPayload,
       },
     };

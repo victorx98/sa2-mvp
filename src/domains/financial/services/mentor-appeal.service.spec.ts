@@ -1,13 +1,13 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { EventEmitter2 } from "@nestjs/event-emitter";
 import { MentorAppealService } from "./mentor-appeal.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { mentorAppeals } from "@infrastructure/database/schema";
 import {
-  MENTOR_APPEAL_CREATED_EVENT,
-  MENTOR_APPEAL_APPROVED_EVENT,
-  MENTOR_APPEAL_REJECTED_EVENT,
-} from "@shared/events/event-constants";
+  IntegrationEventPublisher,
+  MentorAppealApprovedEvent,
+  MentorAppealCreatedEvent,
+  MentorAppealRejectedEvent,
+} from "@application/events";
 import {
   IAppealSearchDTO,
   ICreateAppealDTO,
@@ -54,7 +54,7 @@ jest.mock("@infrastructure/database/schema", () => ({
 describe("MentorAppealService", () => {
   let service: MentorAppealService;
   let _mockDb: any;
-  let _mockEventEmitter: any;
+  let _mockEventPublisher: { publish: jest.Mock };
 
   beforeEach(async () => {
     // Create mock database
@@ -74,9 +74,9 @@ describe("MentorAppealService", () => {
       where: jest.fn().mockReturnThis(),
     };
 
-    // Create mock event emitter
-    _mockEventEmitter = {
-      emit: jest.fn(),
+    // Create mock event publisher
+    _mockEventPublisher = {
+      publish: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -87,8 +87,8 @@ describe("MentorAppealService", () => {
           useValue: _mockDb,
         },
         {
-          provide: EventEmitter2,
-          useValue: _mockEventEmitter,
+          provide: IntegrationEventPublisher,
+          useValue: _mockEventPublisher,
         },
       ],
     }).compile();
@@ -144,14 +144,16 @@ describe("MentorAppealService", () => {
         createdBy: userId,
       });
       expect(mockInsert.returning).toHaveBeenCalled();
-      expect(_mockEventEmitter.emit).toHaveBeenCalledWith(
-        MENTOR_APPEAL_CREATED_EVENT,
+      expect(_mockEventPublisher.publish).toHaveBeenCalledWith(
         expect.objectContaining({
-          appealId: expectedAppealId,
-          mentorId: createAppealDto.mentorId,
-          appealType: createAppealDto.appealType,
-          appealAmount: createAppealDto.appealAmount,
+          payload: expect.objectContaining({
+            appealId: expectedAppealId,
+            mentorId: createAppealDto.mentorId,
+            appealType: createAppealDto.appealType,
+            appealAmount: createAppealDto.appealAmount,
+          }),
         }),
+        MentorAppealService.name,
       );
       expect(result).toEqual({
         id: expectedAppealId,
@@ -181,7 +183,7 @@ describe("MentorAppealService", () => {
         service.createAppeal(createAppealDto, userId),
       ).rejects.toThrow("Mentor ID must match the creator's user ID");
       expect(_mockDb.insert).not.toHaveBeenCalled();
-      expect(_mockEventEmitter.emit).not.toHaveBeenCalled();
+      expect(_mockEventPublisher.publish).not.toHaveBeenCalled();
     });
 
     it("should throw an error when database operation fails", async () => {
@@ -217,7 +219,7 @@ describe("MentorAppealService", () => {
         createdBy: userId,
       });
       expect(mockInsert.returning).toHaveBeenCalled();
-      expect(_mockEventEmitter.emit).not.toHaveBeenCalled();
+      expect(_mockEventPublisher.publish).not.toHaveBeenCalled();
     });
   });
 
@@ -573,15 +575,17 @@ describe("MentorAppealService", () => {
       });
       expect(mockUpdate.where).toHaveBeenCalled();
       expect(mockUpdate.returning).toHaveBeenCalled();
-      expect(_mockEventEmitter.emit).toHaveBeenCalledWith(
-        MENTOR_APPEAL_APPROVED_EVENT,
+      expect(_mockEventPublisher.publish).toHaveBeenCalledWith(
         expect.objectContaining({
-          appealId,
-          mentorId: expectedAppeal.mentorId,
-          counselorId: expectedAppeal.counselorId,
-          appealAmount: expectedAppeal.appealAmount,
-          approvedBy: approvedByUserId,
+          payload: expect.objectContaining({
+            appealId,
+            mentorId: expectedAppeal.mentorId,
+            counselorId: expectedAppeal.counselorId,
+            appealAmount: expectedAppeal.appealAmount,
+            approvedBy: approvedByUserId,
+          }),
         }),
+        MentorAppealService.name,
       );
       expect(result).toEqual(updatedAppeal);
     });
@@ -604,7 +608,7 @@ describe("MentorAppealService", () => {
         service.approveAppeal(appealId, approvedByUserId),
       ).rejects.toThrow("Appeal not found");
       expect(_mockDb.update).not.toHaveBeenCalled();
-      expect(_mockEventEmitter.emit).not.toHaveBeenCalled();
+      expect(_mockEventPublisher.publish).not.toHaveBeenCalled();
     });
 
     it("should throw an error when appeal is not in PENDING status", async () => {
@@ -639,7 +643,7 @@ describe("MentorAppealService", () => {
         "Cannot approve appeal with status: APPROVED. Only PENDING appeals can be approved.",
       );
       expect(_mockDb.update).not.toHaveBeenCalled();
-      expect(_mockEventEmitter.emit).not.toHaveBeenCalled();
+      expect(_mockEventPublisher.publish).not.toHaveBeenCalled();
     });
 
     it("should approve an appeal with invalid original amount by providing new appealAmount and currency", async () => {
@@ -718,16 +722,18 @@ describe("MentorAppealService", () => {
       });
       expect(mockUpdate.where).toHaveBeenCalled();
       expect(mockUpdate.returning).toHaveBeenCalled();
-      expect(_mockEventEmitter.emit).toHaveBeenCalledWith(
-        MENTOR_APPEAL_APPROVED_EVENT,
+      expect(_mockEventPublisher.publish).toHaveBeenCalledWith(
         expect.objectContaining({
-          appealId,
-          mentorId: expectedAppeal.mentorId,
-          counselorId: expectedAppeal.counselorId,
-          appealAmount: newAppealAmount.toString(),
-          approvedBy: approvedByUserId,
-          currency: newCurrency,
+          payload: expect.objectContaining({
+            appealId,
+            mentorId: expectedAppeal.mentorId,
+            counselorId: expectedAppeal.counselorId,
+            appealAmount: newAppealAmount.toString(),
+            approvedBy: approvedByUserId,
+            currency: newCurrency,
+          }),
         }),
+        MentorAppealService.name,
       );
       expect(result).toEqual(updatedAppeal);
     });
@@ -765,7 +771,7 @@ describe("MentorAppealService", () => {
         "appealAmount is required when original appeal amount is invalid",
       );
       expect(_mockDb.update).not.toHaveBeenCalled();
-      expect(_mockEventEmitter.emit).not.toHaveBeenCalled();
+      expect(_mockEventPublisher.publish).not.toHaveBeenCalled();
     });
 
     it("should throw an error when original amount is invalid and currency is missing", async () => {
@@ -803,7 +809,7 @@ describe("MentorAppealService", () => {
         "currency is required when original appeal amount is invalid",
       );
       expect(_mockDb.update).not.toHaveBeenCalled();
-      expect(_mockEventEmitter.emit).not.toHaveBeenCalled();
+      expect(_mockEventPublisher.publish).not.toHaveBeenCalled();
     });
 
     it("should throw an error when original amount is invalid and currency format is invalid", async () => {
@@ -842,7 +848,7 @@ describe("MentorAppealService", () => {
         "currency must be a valid ISO 4217 3-letter code",
       );
       expect(_mockDb.update).not.toHaveBeenCalled();
-      expect(_mockEventEmitter.emit).not.toHaveBeenCalled();
+      expect(_mockEventPublisher.publish).not.toHaveBeenCalled();
     });
   });
 
@@ -913,14 +919,16 @@ describe("MentorAppealService", () => {
       });
       expect(mockUpdate.where).toHaveBeenCalled();
       expect(mockUpdate.returning).toHaveBeenCalled();
-      expect(_mockEventEmitter.emit).toHaveBeenCalledWith(
-        MENTOR_APPEAL_REJECTED_EVENT,
+      expect(_mockEventPublisher.publish).toHaveBeenCalledWith(
         expect.objectContaining({
-          appealId,
-          mentorId: expectedAppeal.mentorId,
-          counselorId: expectedAppeal.counselorId,
-          rejectedBy: rejectedByUserId,
+          payload: expect.objectContaining({
+            appealId,
+            mentorId: expectedAppeal.mentorId,
+            counselorId: expectedAppeal.counselorId,
+            rejectedBy: rejectedByUserId,
+          }),
         }),
+        MentorAppealService.name,
       );
       expect(result).toEqual(updatedAppeal);
     });
@@ -946,7 +954,7 @@ describe("MentorAppealService", () => {
         service.rejectAppeal(appealId, rejectDto, rejectedByUserId),
       ).rejects.toThrow("Appeal not found");
       expect(_mockDb.update).not.toHaveBeenCalled();
-      expect(_mockEventEmitter.emit).not.toHaveBeenCalled();
+      expect(_mockEventPublisher.publish).not.toHaveBeenCalled();
     });
 
     it("should throw an error when appeal is not in PENDING status", async () => {
@@ -984,7 +992,7 @@ describe("MentorAppealService", () => {
         "Cannot reject appeal with status: REJECTED. Only PENDING appeals can be rejected.",
       );
       expect(_mockDb.update).not.toHaveBeenCalled();
-      expect(_mockEventEmitter.emit).not.toHaveBeenCalled();
+      expect(_mockEventPublisher.publish).not.toHaveBeenCalled();
     });
   });
 });

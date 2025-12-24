@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { EventEmitter2 } from "@nestjs/event-emitter";
+import { EventEmitter2, EventEmitterModule } from "@nestjs/event-emitter";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { DatabaseModule } from "@infrastructure/database/database.module";
 import * as schema from "@infrastructure/database/schema";
@@ -10,11 +10,11 @@ import { ConfigModule } from "@nestjs/config";
 // Domain modules
 import { ContractModule } from "@domains/contract/contract.module";
 import { ServiceLedgerService } from "@domains/contract/services/service-ledger.service";
+import { ResumeBillCancelledListener } from "@application/events/handlers/contract/resume-bill-cancelled-listener";
+import { ResumeBilledListener } from "@application/events/handlers/contract/resume-billed-listener";
 
 // Event types
-import { RESUME_BILLED_EVENT } from "@shared/events/event-constants";
-import { IResumeBilledEvent } from "@shared/events/resume-billed.event";
-import { IResumeBillCancelledEvent } from "@shared/events/resume-bill-cancelled.event";
+import { ResumeBillCancelledEvent, ResumeBilledEvent } from "@application/events";
 
 /**
  * Integration Test: Resume Billing Flow
@@ -44,9 +44,11 @@ describe("Resume Billing Integration Test [简历计费集成测试]", () => {
           isGlobal: true,
           envFilePath: ".env",
         }),
+        EventEmitterModule.forRoot(),
         DatabaseModule,
         ContractModule,
       ],
+      providers: [ResumeBilledListener, ResumeBillCancelledListener],
     }).compile();
 
     eventEmitter = module.get<EventEmitter2>(EventEmitter2);
@@ -103,21 +105,16 @@ describe("Resume Billing Integration Test [简历计费集成测试]", () => {
 
       // Step 2: Emit resume billed event
       console.log("\n📨 Step 2: Emit RESUME_BILLED_EVENT");
-      const billedEvent: IResumeBilledEvent = {
-        id: "event-billed-123",
-        type: RESUME_BILLED_EVENT,
-        timestamp: Date.now(),
-        payload: {
-          resumeId: testResumeId,
-          studentId: testStudentId,
-          mentorId: testMentorId,
-          jobTitle: "Senior Software Engineer",
-          description: "Resume review for FAANG application",
-          billedAt: new Date(),
-        },
-      };
+      const billedEvent = new ResumeBilledEvent({
+        resumeId: testResumeId,
+        studentId: testStudentId,
+        mentorId: testMentorId,
+        jobTitle: "Senior Software Engineer",
+        description: "Resume review for FAANG application",
+        billedAt: new Date(),
+      });
 
-      eventEmitter.emit(RESUME_BILLED_EVENT, billedEvent);
+      eventEmitter.emit(ResumeBilledEvent.eventType, billedEvent);
 
       // Wait for async event processing
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -163,21 +160,16 @@ describe("Resume Billing Integration Test [简历计费集成测试]", () => {
 
       // Step 5: Emit resume bill cancelled event
       console.log("\n📨 Step 5: Emit resume bill cancelled event");
-      const cancelledEvent: IResumeBillCancelledEvent = {
-        id: "event-cancelled-456",
-        type: "resume.bill.cancelled",
-        timestamp: Date.now(),
-        payload: {
-          resumeId: testResumeId,
-          studentId: testStudentId,
-          mentorId: testMentorId,
-          jobTitle: "Senior Software Engineer",
-          description: "Cancelled due to student request",
-          cancelledAt: new Date(),
-        },
-      };
+      const cancelledEvent = new ResumeBillCancelledEvent({
+        resumeId: testResumeId,
+        studentId: testStudentId,
+        mentorId: testMentorId,
+        jobTitle: "Senior Software Engineer",
+        description: "Cancelled due to student request",
+        cancelledAt: new Date(),
+      });
 
-      eventEmitter.emit("resume.bill.cancelled", cancelledEvent);
+      eventEmitter.emit(ResumeBillCancelledEvent.eventType, cancelledEvent);
 
       // Wait for async event processing
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -247,20 +239,15 @@ describe("Resume Billing Integration Test [简历计费集成测试]", () => {
       // Submit 3 resumes
       const resumeIds = ["resume-1", "resume-2", "resume-3"];
       for (let i = 0; i < 3; i++) {
-        const event: IResumeBilledEvent = {
-          id: `event-billed-${i}`,
-          type: RESUME_BILLED_EVENT,
-          timestamp: Date.now(),
-          payload: {
-            resumeId: resumeIds[i],
-            studentId: testStudentId,
-            mentorId: testMentorId,
-            jobTitle: `Job ${i + 1}`,
-            billedAt: new Date(),
-          },
-        };
+        const event = new ResumeBilledEvent({
+          resumeId: resumeIds[i],
+          studentId: testStudentId,
+          mentorId: testMentorId,
+          jobTitle: `Job ${i + 1}`,
+          billedAt: new Date(),
+        });
 
-        eventEmitter.emit(RESUME_BILLED_EVENT, event);
+        eventEmitter.emit(ResumeBilledEvent.eventType, event);
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
 

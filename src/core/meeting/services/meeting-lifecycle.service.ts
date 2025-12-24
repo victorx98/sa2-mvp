@@ -1,17 +1,15 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { EventEmitter2 } from "@nestjs/event-emitter";
 import { MeetingRepository } from "../repositories/meeting.repository";
 import { DurationCalculatorService } from "./duration-calculator.service";
 import { DelayedTaskService } from "./delayed-task.service";
 import { MeetingStatus } from "../entities/meeting.entity";
 import {
-  MeetingLifecycleCompletedPayload,
-  MeetingRecordingReadyPayload,
-  MEETING_LIFECYCLE_COMPLETED_EVENT,
-  MEETING_RECORDING_READY_EVENT,
-  MeetingTimeSegment,
-} from "@shared/events";
-import { MeetingStatusChangedEvent } from "../events/meeting-lifecycle.events";
+  IntegrationEventPublisher,
+  MeetingLifecycleCompletedEvent,
+  MeetingRecordingReadyEvent,
+  MeetingStatusChangedEvent,
+  type MeetingTimeSegment,
+} from "@application/events";
 import type { Meeting } from "@infrastructure/database/schema/meetings.schema";
 import type { MeetingTimeSegment as TimeSegment } from "../adapters/event-adapter.interface";
 
@@ -33,7 +31,7 @@ export class MeetingLifecycleService {
     private readonly meetingRepo: MeetingRepository,
     private readonly durationCalculator: DurationCalculatorService,
     private readonly delayedTaskService: DelayedTaskService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
   ) {}
 
   /**
@@ -90,15 +88,15 @@ export class MeetingLifecycleService {
       );
 
       // Emit status changed event
-      this.eventEmitter.emit(
-        "meeting.status.changed",
-        new MeetingStatusChangedEvent(
-          meeting.id,
-          meeting.meetingNo,
-          previousStatus,
-          MeetingStatus.ACTIVE,
-          occurredAt,
-        ),
+      await this.eventPublisher.publish(
+        new MeetingStatusChangedEvent({
+          meetingId: meeting.id,
+          meetingNo: meeting.meetingNo,
+          oldStatus: previousStatus,
+          newStatus: MeetingStatus.ACTIVE,
+          changedAt: occurredAt,
+        }),
+        MeetingLifecycleService.name,
       );
     } catch (error) {
       this.logger.error(
@@ -311,7 +309,7 @@ export class MeetingLifecycleService {
     );
 
     // Publish lifecycle completed event for downstream domains 
-    const completedPayload: MeetingLifecycleCompletedPayload = {
+    const completedPayload = {
       meetingId: meeting.id,
       meetingNo: meeting.meetingNo,
       provider: meeting.meetingProvider,
@@ -324,9 +322,9 @@ export class MeetingLifecycleService {
       recordingUrl: meeting.recordingUrl,
     };
 
-    this.eventEmitter.emit(
-      MEETING_LIFECYCLE_COMPLETED_EVENT,
-      completedPayload,
+    await this.eventPublisher.publish(
+      new MeetingLifecycleCompletedEvent(completedPayload),
+      MeetingLifecycleService.name,
     );
 
     this.logger.log(
@@ -372,16 +370,16 @@ export class MeetingLifecycleService {
       this.logger.log(`Recording URL updated for meeting ${meeting.meetingNo}`);
 
       // Emit recording ready event 
-      const recordingPayload: MeetingRecordingReadyPayload = {
+      const recordingPayload = {
         meetingId: meeting.id,
         meetingNo: meeting.meetingNo,
         recordingUrl,
         readyAt: new Date(),
       };
 
-      this.eventEmitter.emit(
-        MEETING_RECORDING_READY_EVENT,
-        recordingPayload,
+      await this.eventPublisher.publish(
+        new MeetingRecordingReadyEvent(recordingPayload),
+        MeetingLifecycleService.name,
       );
     } catch (error) {
       this.logger.error(
@@ -391,4 +389,3 @@ export class MeetingLifecycleService {
     }
   }
 }
-

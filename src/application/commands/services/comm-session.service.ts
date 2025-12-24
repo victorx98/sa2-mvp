@@ -1,5 +1,4 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CalendarService } from '@core/calendar';
 import {
   UserType,
@@ -13,11 +12,12 @@ import type {
 } from '@shared/types/database.types';
 import { Trace, addSpanAttributes, addSpanEvent } from '@shared/decorators/trace.decorator';
 import { MetricsService } from '@telemetry/metrics.service';
-import { 
-  COMM_SESSION_CREATED_EVENT,
-  COMM_SESSION_UPDATED_EVENT,
-  COMM_SESSION_CANCELLED_EVENT,
-} from '@shared/events/event-constants';
+import {
+  CommSessionCancelledEvent,
+  CommSessionCreatedEvent,
+  CommSessionUpdatedEvent,
+  IntegrationEventPublisher,
+} from '@application/events';
 import { CommSessionDomainService } from '@domains/services/comm-sessions/services/comm-session-domain.service';
 import { CommSessionQueryService as DomainCommSessionQueryService } from '@domains/query/services/comm-session-query.service';
 import { StudentCounselorService } from '@domains/identity/student/student-counselor.service';
@@ -60,7 +60,7 @@ export class CommSessionService {
     private readonly domainCommSessionService: CommSessionDomainService,
     private readonly domainCommSessionQueryService: DomainCommSessionQueryService,
     private readonly calendarService: CalendarService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
     private readonly metricsService: MetricsService,
     private readonly studentCounselorService: StudentCounselorService,
   ) {}
@@ -178,18 +178,21 @@ export class CommSessionService {
       addSpanEvent('session.creation.success');
 
       // Publish event to trigger async meeting creation
-      this.eventEmitter.emit(COMM_SESSION_CREATED_EVENT, {
-        sessionId: sessionResult.sessionId,
-        studentId: dto.studentId,
-        mentorId: dto.mentorId,
-        counselorId: dto.counselorId,
-        scheduledStartTime: scheduledAtIso,
-        duration: dto.duration || 60,
-        meetingProvider: dto.meetingProvider || 'feishu',
-        topic: dto.title,
-        studentCalendarSlotId: sessionResult.studentCalendarSlotId,
-        mentorCalendarSlotId: sessionResult.mentorCalendarSlotId,
-      });
+      await this.eventPublisher.publish(
+        new CommSessionCreatedEvent({
+          sessionId: sessionResult.sessionId,
+          studentId: dto.studentId,
+          mentorId: dto.mentorId,
+          counselorId: dto.counselorId,
+          scheduledStartTime: scheduledAtIso,
+          duration: dto.duration || 60,
+          meetingProvider: dto.meetingProvider || 'feishu',
+          topic: dto.title,
+          studentCalendarSlotId: sessionResult.studentCalendarSlotId,
+          mentorCalendarSlotId: sessionResult.mentorCalendarSlotId,
+        }),
+        CommSessionService.name,
+      );
 
       this.logger.log(`Published COMM_SESSION_CREATED_EVENT for session ${sessionResult.sessionId}`);
 
@@ -346,19 +349,22 @@ export class CommSessionService {
 
       // Step 6: Emit event to trigger async meeting update (only when time or duration changes)
       if (timeChanged || durationChanged) {
-        this.eventEmitter.emit(COMM_SESSION_UPDATED_EVENT, {
-          sessionId: sessionId,
-          meetingId: oldSession.meetingId,
-          oldScheduledAt: meetingScheduleStartTime,
-          newScheduledAt: scheduledAtIso,
-          oldDuration: meetingScheduleDuration,
-          newDuration: newDuration,
-          newTitle: dto.title || oldSession.title,
-          studentId: oldSession.studentUserId,
-          mentorId: oldSession.mentorUserId,
-          counselorId: oldSession.counselorUserId || oldSession.createdByCounselorId,
-          meetingProvider: meetingProvider,
-        } as any);
+        await this.eventPublisher.publish(
+          new CommSessionUpdatedEvent({
+            sessionId: sessionId,
+            meetingId: oldSession.meetingId,
+            oldScheduledAt: meetingScheduleStartTime,
+            newScheduledAt: scheduledAtIso,
+            oldDuration: meetingScheduleDuration,
+            newDuration: newDuration,
+            newTitle: dto.title || oldSession.title,
+            studentId: oldSession.studentUserId,
+            mentorId: oldSession.mentorUserId,
+            counselorId: oldSession.counselorUserId || oldSession.createdByCounselorId,
+            meetingProvider: meetingProvider,
+          }),
+          CommSessionService.name,
+        );
         this.logger.log(`Published COMM_SESSION_UPDATED_EVENT for session ${sessionId}`);
       }
 
@@ -438,17 +444,20 @@ export class CommSessionService {
       const meetingProvider = sessionData.meetingProvider || 'feishu';
 
       // Step 6: Publish cancellation event for async meeting cancellation
-      this.eventEmitter.emit(COMM_SESSION_CANCELLED_EVENT, {
-        sessionId: sessionId,
-        meetingId: session.meetingId,
-        studentId: session.studentUserId,
-        mentorId: session.mentorUserId,
-        counselorId: session.createdByCounselorId,
-        scheduledAt: session.scheduledAt,
-        cancelReason: reason,
-        cancelledAt: (cancelledSession as any).cancelledAt,
-        meetingProvider: meetingProvider,
-      });
+      await this.eventPublisher.publish(
+        new CommSessionCancelledEvent({
+          sessionId: sessionId,
+          meetingId: session.meetingId,
+          studentId: session.studentUserId,
+          mentorId: session.mentorUserId,
+          counselorId: session.createdByCounselorId,
+          scheduledAt: session.scheduledAt,
+          cancelReason: reason,
+          cancelledAt: (cancelledSession as any).cancelledAt,
+          meetingProvider: meetingProvider,
+        }),
+        CommSessionService.name,
+      );
 
       this.logger.log(`Published COMM_SESSION_CANCELLED_EVENT for session ${sessionId}`);
       addSpanEvent('session.cancel.success');
@@ -589,4 +598,3 @@ export class CommSessionService {
     return this.domainCommSessionQueryService.getSessionById(sessionId);
   }
 }
-

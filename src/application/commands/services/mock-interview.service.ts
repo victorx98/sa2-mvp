@@ -1,5 +1,4 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CalendarService } from '@core/calendar';
 import {
   UserType,
@@ -13,12 +12,12 @@ import type {
 } from '@shared/types/database.types';
 import { Trace, addSpanAttributes, addSpanEvent } from '@shared/decorators/trace.decorator';
 import { MetricsService } from '@telemetry/metrics.service';
-import { 
-  MOCK_INTERVIEW_CREATED_EVENT,
-  MOCK_INTERVIEW_UPDATED_EVENT,
-  MOCK_INTERVIEW_CANCELLED_EVENT,
-  MOCK_INTERVIEW_COMPLETED_EVENT,
-} from '@shared/events/event-constants';
+import {
+  IntegrationEventPublisher,
+  MockInterviewCancelledEvent,
+  MockInterviewCreatedEvent,
+  MockInterviewUpdatedEvent,
+} from '@application/events';
 import { MockInterviewDomainService } from '@domains/services/mock-interviews/services/mock-interview-domain.service';
 import { MockInterviewQueryService } from '@domains/query/services/mock-interview-query.service';
 
@@ -73,7 +72,7 @@ export class MockInterviewService {
     private readonly domainService: MockInterviewDomainService,
     private readonly queryService: MockInterviewQueryService,
     private readonly calendarService: CalendarService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
     private readonly metricsService: MetricsService,
   ) {}
 
@@ -171,16 +170,19 @@ export class MockInterviewService {
       addSpanEvent('interview.creation.success');
 
       // Publish event for notifications
-      this.eventEmitter.emit(MOCK_INTERVIEW_CREATED_EVENT, {
-        sessionId: interviewResult.interviewId,
-        studentId: dto.studentId,
-        createdByCounselorId: dto.createdByCounselorId,
-        scheduledAt: scheduledAtIso,
-        scheduleDuration: dto.duration || 60,
-        title: dto.title,
-        interviewType: dto.interviewType,
-        studentCalendarSlotId: interviewResult.studentCalendarSlotId,
-      });
+      await this.eventPublisher.publish(
+        new MockInterviewCreatedEvent({
+          sessionId: interviewResult.interviewId,
+          studentId: dto.studentId,
+          createdByCounselorId: dto.createdByCounselorId,
+          scheduledAt: scheduledAtIso,
+          scheduleDuration: dto.duration || 60,
+          title: dto.title,
+          interviewType: dto.interviewType,
+          studentCalendarSlotId: interviewResult.studentCalendarSlotId,
+        }),
+        MockInterviewService.name,
+      );
 
       this.logger.log(`Published MOCK_INTERVIEW_CREATED_EVENT for interview ${interviewResult.interviewId}`);
 
@@ -302,16 +304,19 @@ export class MockInterviewService {
 
       // Emit event to trigger notifications (only when time or duration changes)
       if (timeChanged || durationChanged) {
-        this.eventEmitter.emit(MOCK_INTERVIEW_UPDATED_EVENT, {
-          sessionId: interviewId,
-          oldScheduledAt: oldInterview.scheduledAt,
-          newScheduledAt: scheduledAtIso,
-          oldDuration: oldInterview.scheduleDuration,
-          newDuration: newDuration,
-          newTitle: dto.title || oldInterview.title,
-          studentId: oldInterview.studentUserId,
-          createdByCounselorId: oldInterview.createdByCounselorId,
-        });
+        await this.eventPublisher.publish(
+          new MockInterviewUpdatedEvent({
+            sessionId: interviewId,
+            oldScheduledAt: oldInterview.scheduledAt,
+            newScheduledAt: scheduledAtIso,
+            oldDuration: oldInterview.scheduleDuration,
+            newDuration: newDuration,
+            newTitle: dto.title || oldInterview.title,
+            studentId: oldInterview.studentUserId,
+            createdByCounselorId: oldInterview.createdByCounselorId,
+          }),
+          MockInterviewService.name,
+        );
         this.logger.log(`Published MOCK_INTERVIEW_UPDATED_EVENT for interview ${interviewId}`);
       }
 
@@ -375,14 +380,17 @@ export class MockInterviewService {
       addSpanEvent('interview.cancel.transaction.success');
 
       // Step 5: Publish cancellation event for notifications
-      this.eventEmitter.emit(MOCK_INTERVIEW_CANCELLED_EVENT, {
-        sessionId: interviewId,
-        studentId: interview.studentUserId,
-        createdByCounselorId: interview.createdByCounselorId,
-        scheduledAt: interview.scheduledAt,
-        cancelReason: reason,
-        cancelledAt: cancelledInterview.cancelledAt,
-      });
+      await this.eventPublisher.publish(
+        new MockInterviewCancelledEvent({
+          sessionId: interviewId,
+          studentId: interview.studentUserId,
+          createdByCounselorId: interview.createdByCounselorId,
+          scheduledAt: interview.scheduledAt,
+          cancelReason: reason,
+          cancelledAt: cancelledInterview.cancelledAt,
+        }),
+        MockInterviewService.name,
+      );
 
       this.logger.log(`Published MOCK_INTERVIEW_CANCELLED_EVENT for interview ${interviewId}`);
       addSpanEvent('interview.cancel.success');
@@ -439,4 +447,3 @@ export class MockInterviewService {
     return this.queryService.getStudentInterviews(studentId, filters, limit, offset);
   }
 }
-

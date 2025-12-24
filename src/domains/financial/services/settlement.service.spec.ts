@@ -1,8 +1,8 @@
 import { Test } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
-import { EventEmitter2 } from "@nestjs/event-emitter";
 import { SettlementService } from "./settlement.service";
 import type { CreateSettlementRequestDto } from "@api/dto/request/financial/settlement.request.dto";
+import { IntegrationEventPublisher } from "@application/events";
 
 /**
  * SettlementService Unit Tests (结算服务单元测试)
@@ -13,7 +13,7 @@ import type { CreateSettlementRequestDto } from "@api/dto/request/financial/sett
 describe("SettlementService", () => {
   let settlementService: SettlementService;
   let mockDb: any;
-  let mockEventEmitter: any;
+  let mockEventPublisher: { publish: jest.Mock };
 
   // [修复] 使用真实数据库中的 UUID（从查询结果中获取）
   // 真实的 mentor ID (from mentor table)
@@ -71,9 +71,9 @@ describe("SettlementService", () => {
       }),
     };
 
-    // Mock event emitter
-    mockEventEmitter = {
-      emit: jest.fn(),
+    // Mock event publisher
+    mockEventPublisher = {
+      publish: jest.fn().mockResolvedValue(undefined),
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -84,8 +84,8 @@ describe("SettlementService", () => {
           useValue: mockDb,
         },
         {
-          provide: EventEmitter2,
-          useValue: mockEventEmitter,
+          provide: IntegrationEventPublisher,
+          useValue: mockEventPublisher,
         },
       ],
     }).compile();
@@ -186,17 +186,11 @@ describe("SettlementService", () => {
       });
       expect(mockDb.execute).toHaveBeenCalled();
       expect(mockDb.insert).toHaveBeenCalled();
-      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
-        "financial.settlement.confirmed",
+      expect(mockEventPublisher.publish).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: "financial.settlement.confirmed",
           payload: expect.any(Object),
-          timestamp: expect.any(Number),
-          source: expect.objectContaining({
-            domain: "financial",
-            service: "SettlementService",
-          }),
         }),
+        SettlementService.name,
       );
 
       expect(result).toMatchObject({
@@ -309,10 +303,8 @@ describe("SettlementService", () => {
     it("should publish settlement confirmed event with correct payload", async () => {
       await settlementService.generateSettlement(mockRequest, testMentorId);
 
-      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
-        "financial.settlement.confirmed",
+      expect(mockEventPublisher.publish).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: "financial.settlement.confirmed",
           payload: expect.objectContaining({
             settlementId: mockSettlement.id,
             mentorId: testMentorId,
@@ -325,6 +317,7 @@ describe("SettlementService", () => {
             payableLedgerIds: ["ledger-1", "ledger-2"],
           }),
         }),
+        SettlementService.name,
       );
     });
   });

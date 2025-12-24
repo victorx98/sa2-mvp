@@ -5,8 +5,7 @@ import type { DrizzleDatabase } from "@shared/types/database.types";
 import { jobApplications, applicationHistory } from "@infrastructure/database/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { ApplicationType, ApplicationStatus } from "@domains/placement/types";
-import { EventEmitter2 } from "@nestjs/event-emitter";
-import { JOB_APPLICATION_STATUS_CHANGED_EVENT } from "@shared/events/event-constants";
+import { IntegrationEventPublisher, JobApplicationStatusChangedEvent } from "@application/events";
 
 interface IProxyJob {
   objectId: string;
@@ -31,7 +30,7 @@ interface ICreateProxyApplicationsBatchDto {
 export class CreateProxyApplicationsBatchCommand extends CommandBase {
   constructor(
     @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
   ) {
     super(db);
   }
@@ -185,7 +184,7 @@ export class CreateProxyApplicationsBatchCommand extends CommandBase {
       `Batch proxy application creation completed: ${createdApplications.length} applications created`,
     );
 
-    const events = createdApplications.map((application) => {
+    const events = await Promise.all(createdApplications.map(async (application) => {
       const payload = {
         applicationId: application.id,
         previousStatus: null,
@@ -193,9 +192,12 @@ export class CreateProxyApplicationsBatchCommand extends CommandBase {
         changedBy: dto.createdBy,
         changedAt: application.submittedAt.toISOString(),
       };
-      this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, payload);
-      return { type: JOB_APPLICATION_STATUS_CHANGED_EVENT, payload };
-    });
+      await this.eventPublisher.publish(
+        new JobApplicationStatusChangedEvent(payload),
+        CreateProxyApplicationsBatchCommand.name,
+      );
+      return { type: JobApplicationStatusChangedEvent.eventType, payload };
+    }));
 
     return {
       data: { items: createdApplications },
@@ -203,4 +205,3 @@ export class CreateProxyApplicationsBatchCommand extends CommandBase {
     };
   }
 }
-

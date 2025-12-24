@@ -3,8 +3,7 @@ import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider"
 import type { DrizzleDatabase } from "@shared/types/database.types";
 import { CommandBase } from "@application/core/command.base";
 import * as schema from "@infrastructure/database/schema";
-import { EventEmitter2 } from "@nestjs/event-emitter";
-import { MENTOR_APPEAL_CREATED_EVENT } from "@shared/events/event-constants";
+import { IntegrationEventPublisher, MentorAppealCreatedEvent } from "@application/events";
 
 /**
  * Create Mentor Appeal Command (Application Layer)
@@ -19,7 +18,7 @@ import { MENTOR_APPEAL_CREATED_EVENT } from "@shared/events/event-constants";
 export class CreateMentorAppealCommand extends CommandBase {
   constructor(
     @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
   ) {
     super(db);
   }
@@ -78,15 +77,18 @@ export class CreateMentorAppealCommand extends CommandBase {
         .returning();
 
       // Publish the created event
-      this.eventEmitter.emit(MENTOR_APPEAL_CREATED_EVENT, {
-        appealId: appeal.id,
-        mentorId: appeal.mentorId,
-        counselorId: appeal.counselorId,
-        appealAmount: appeal.appealAmount,
-        appealType: appeal.appealType,
-        currency: appeal.currency,
-        createdAt: appeal.createdAt,
-      });
+      await this.eventPublisher.publish(
+        new MentorAppealCreatedEvent({
+          appealId: appeal.id,
+          mentorId: appeal.mentorId,
+          counselorId: appeal.counselorId,
+          appealAmount: appeal.appealAmount,
+          appealType: appeal.appealType,
+          currency: appeal.currency,
+          createdAt: appeal.createdAt,
+        }),
+        CreateMentorAppealCommand.name,
+      );
 
       this.logger.log(`Appeal created successfully: ${appeal.id}`);
       this.logger.debug(`Mentor appeal created successfully: ${appeal.id}`);

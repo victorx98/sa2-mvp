@@ -5,8 +5,7 @@ import type { DrizzleDatabase } from "@shared/types/database.types";
 import { jobApplications, applicationHistory } from "@infrastructure/database/schema";
 import { eq, and } from "drizzle-orm";
 import { ApplicationType, ApplicationStatus } from "@domains/placement/types";
-import { EventEmitter2 } from "@nestjs/event-emitter";
-import { JOB_APPLICATION_STATUS_CHANGED_EVENT } from "@shared/events/event-constants";
+import { IntegrationEventPublisher, JobApplicationStatusChangedEvent } from "@application/events";
 
 /**
  * Interface for creating manual job application [手工创建内推的接口]
@@ -60,7 +59,7 @@ export class CreateManualJobApplicationCommand extends CommandBase {
 
   constructor(
     @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
   ) {
     super(db);
   }
@@ -148,12 +147,15 @@ export class CreateManualJobApplicationCommand extends CommandBase {
       changedAt: application.submittedAt.toISOString(),
       assignedMentorId: application.assignedMentorId,
     };
-    this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
+    await this.eventPublisher.publish(
+      new JobApplicationStatusChangedEvent(eventPayload),
+      CreateManualJobApplicationCommand.name,
+    );
 
     return {
       data: application,
       event: {
-        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
+        type: JobApplicationStatusChangedEvent.eventType,
         payload: eventPayload,
       },
     };

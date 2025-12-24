@@ -1,5 +1,4 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CalendarService } from '@core/calendar';
 import {
   UserType,
@@ -13,7 +12,12 @@ import type {
 } from '@shared/types/database.types';
 import { Trace, addSpanAttributes, addSpanEvent } from '@shared/decorators/trace.decorator';
 import { MetricsService } from '@telemetry/metrics.service';
-import { CLASS_SESSION_CREATED_EVENT, CLASS_SESSION_UPDATED_EVENT, CLASS_SESSION_CANCELLED_EVENT } from '@shared/events/event-constants';
+import {
+  ClassSessionCancelledEvent,
+  ClassSessionCreatedEvent,
+  ClassSessionUpdatedEvent,
+  IntegrationEventPublisher,
+} from '@application/events';
 import { ClassSessionDomainService } from '@domains/services/class/class-sessions/services/class-session-domain.service';
 import { ClassSessionStatus, SessionType as ClassSessionType } from '@domains/services/class/class-sessions/entities/class-session.entity';
 import { ClassDomainService } from '@domains/services/class/classes/services/class-domain.service';
@@ -60,7 +64,7 @@ export class ClassSessionService {
     private readonly domainClassService: ClassDomainService,
     private readonly domainClassSessionQueryService: DomainClassSessionQueryService,
     private readonly calendarService: CalendarService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
     private readonly metricsService: MetricsService,
   ) {}
 
@@ -155,16 +159,19 @@ export class ClassSessionService {
       addSpanEvent('session.creation.success');
 
       // Publish event to trigger async meeting creation
-      this.eventEmitter.emit(CLASS_SESSION_CREATED_EVENT, {
-        sessionId: sessionResult.sessionId,
-        classId: dto.classId,
-        mentorId: dto.mentorId,
-        scheduledStartTime: scheduledAtIso,
-        duration: dto.duration || 60,
-        meetingProvider: dto.meetingProvider || 'feishu',
-        topic: dto.title,
-        mentorCalendarSlotId: sessionResult.mentorCalendarSlotId,
-      });
+      await this.eventPublisher.publish(
+        new ClassSessionCreatedEvent({
+          sessionId: sessionResult.sessionId,
+          classId: dto.classId,
+          mentorId: dto.mentorId,
+          scheduledStartTime: scheduledAtIso,
+          duration: dto.duration || 60,
+          meetingProvider: dto.meetingProvider || 'feishu',
+          topic: dto.title,
+          mentorCalendarSlotId: sessionResult.mentorCalendarSlotId,
+        }),
+        ClassSessionService.name,
+      );
 
       this.logger.log(`Published CLASS_SESSION_CREATED_EVENT for session ${sessionResult.sessionId}`);
 
@@ -279,16 +286,19 @@ export class ClassSessionService {
 
       // Step 5: Emit update event if time/duration changed
       if (timeChanged || durationChanged) {
-        this.eventEmitter.emit(CLASS_SESSION_UPDATED_EVENT, {
-          sessionId: sessionId,
-          classId: oldSession.classId,
-          meetingId: oldSession.meetingId,
-          oldScheduledStartTime: meetingScheduleStartTime,
-          newScheduledStartTime: scheduledAtIso || meetingScheduleStartTime,
-          oldDuration: meetingScheduleDuration,
-          newDuration: newDuration,
-          topic: dto.title || oldSession.title,
-        });
+        await this.eventPublisher.publish(
+          new ClassSessionUpdatedEvent({
+            sessionId: sessionId,
+            classId: oldSession.classId,
+            meetingId: oldSession.meetingId,
+            oldScheduledStartTime: meetingScheduleStartTime,
+            newScheduledStartTime: scheduledAtIso || meetingScheduleStartTime,
+            oldDuration: meetingScheduleDuration,
+            newDuration: newDuration,
+            topic: dto.title || oldSession.title,
+          }),
+          ClassSessionService.name,
+        );
         this.logger.log(`Published CLASS_SESSION_UPDATED_EVENT for session ${sessionId}`);
       }
 
@@ -343,14 +353,17 @@ export class ClassSessionService {
       });
 
       // Step 3: Emit cancellation event for async meeting cancellation
-      this.eventEmitter.emit(CLASS_SESSION_CANCELLED_EVENT, {
-        sessionId: sessionId,
-        classId: (session as any).classId,
-        meetingId: (session as any).meetingId,
-        mentorId: (session as any).mentorUserId,
-        cancelledAt: new Date().toISOString(),
-        cancelReason: reason || 'Cancelled by administrator',
-      });
+      await this.eventPublisher.publish(
+        new ClassSessionCancelledEvent({
+          sessionId: sessionId,
+          classId: (session as any).classId,
+          meetingId: (session as any).meetingId,
+          mentorId: (session as any).mentorUserId,
+          cancelledAt: new Date().toISOString(),
+          cancelReason: reason || 'Cancelled by administrator',
+        }),
+        ClassSessionService.name,
+      );
 
       this.logger.log(`Published CLASS_SESSION_CANCELLED_EVENT for session ${sessionId}`);
       this.logger.log(`Class session cancelled: sessionId=${sessionId}`);
@@ -402,4 +415,3 @@ export class ClassSessionService {
     return this.domainClassSessionQueryService.getSessionById(sessionId);
   }
 }
-

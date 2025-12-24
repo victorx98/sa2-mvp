@@ -1,6 +1,6 @@
 /**
- * NOTE: MeetingLifecycleCompletedEvent has been moved to @shared/events
- * Import from there: import { MeetingLifecycleCompletedPayload } from '@shared/events';
+ * NOTE: MeetingLifecycleCompletedEvent has been moved to @application/events
+ * Import from there: import { MeetingLifecycleCompletedEvent } from '@application/events';
  * 
  * This file now only contains internal events for the Meeting module
  */
@@ -23,8 +23,8 @@ export class MeetingStatusChangedEvent {
 }
 
 /**
- * NOTE: MeetingRecordingReadyEvent has been moved to @shared/events
- * Import from there: import { MeetingRecordingReadyPayload } from '@shared/events';
+ * NOTE: MeetingRecordingReadyEvent has been moved to @application/events
+ * Import from there: import { MeetingRecordingReadyEvent } from '@application/events';
  */
 
 /**
@@ -32,4 +32,3 @@ export class MeetingStatusChangedEvent {
  * Reason: Meeting cancellation is handled synchronously in Application layer
  * No event is published for cancellations - updates happen directly in transaction
  */
-
