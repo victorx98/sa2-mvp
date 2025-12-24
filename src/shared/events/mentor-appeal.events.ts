@@ -50,6 +50,14 @@ export interface IMentorAppealCreatedPayload {
   currency: string;
 
   /**
+   * Payment Month (付款月份)
+   * Format: YYYY-MM
+   * The month this appeal amount should be recorded in
+   * (付款月份 - 该申诉金额本应记入的月份，格式为YYYY-MM)
+   */
+  paymentMonth: string;
+
+  /**
    * Timestamp when the appeal was created
    * 申诉创建时间戳
    */

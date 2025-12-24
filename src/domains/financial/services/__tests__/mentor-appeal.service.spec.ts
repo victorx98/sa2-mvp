@@ -35,6 +35,7 @@ jest.mock("@infrastructure/database/schema", () => ({
     appealType: "appealType",
     appealAmount: "appealAmount",
     currency: "currency",
+    paymentMonth: "paymentMonth",
     reason: "reason",
     status: "status",
     approvedBy: "approvedBy",
@@ -110,6 +111,7 @@ describe("MentorAppealService", () => {
         appealType: "billing_error",
         appealAmount: "100.00",
         currency: "USD",
+        paymentMonth: "2024-12",
         reason: "Billing calculation error",
         mentorPayableId: "550e8400-e29b-41d4-a716-446655440003",
         settlementId: "550e8400-e29b-41d4-a716-446655440004",
@@ -173,6 +175,7 @@ describe("MentorAppealService", () => {
         appealType: "billing_error",
         appealAmount: "100.00",
         currency: "USD",
+        paymentMonth: "2024-12",
         reason: "Billing calculation error",
       };
 
@@ -195,6 +198,7 @@ describe("MentorAppealService", () => {
         appealType: "billing_error",
         appealAmount: "100.00",
         currency: "USD",
+        paymentMonth: "2024-12",
         reason: "Billing calculation error",
       };
 
