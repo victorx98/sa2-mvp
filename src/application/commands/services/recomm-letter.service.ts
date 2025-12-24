@@ -1,5 +1,4 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RecommLetterDomainService } from '@domains/services/recomm-letter/services/recomm-letter-domain.service';
 import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
 import { RecommLetterTypesService } from '@domains/services/recomm-letter-types/services/recomm-letter-types.service';
@@ -8,7 +7,11 @@ import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider'
 import type { DrizzleDatabase, DrizzleTransaction } from '@shared/types/database.types';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { RecommLetterEntity } from '@domains/services/recomm-letter/entities/recomm-letter.entity';
-import { RECOMM_LETTER_BILLED_EVENT, RECOMM_LETTER_BILL_CANCELLED_EVENT } from '@shared/events/event-constants';
+import {
+  IntegrationEventPublisher,
+  RecommLetterBillCancelledEvent,
+  RecommLetterBilledEvent,
+} from '@application/events';
 
 /**
  * Application Layer - Recommendation Letter Service
@@ -27,7 +30,7 @@ export class RecommLetterService {
     private readonly serviceHoldService: ServiceHoldService,
     private readonly recommLetterTypesService: RecommLetterTypesService,
     private readonly userQueryService: UserQueryService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
   ) {}
 
   /**
@@ -205,7 +208,10 @@ export class RecommLetterService {
         description: params.description,
         billedAt: result.getBilledAt(),
       };
-      this.eventEmitter.emit(RECOMM_LETTER_BILLED_EVENT, eventPayload);
+      await this.eventPublisher.publish(
+        new RecommLetterBilledEvent(eventPayload),
+        RecommLetterService.name,
+      );
       this.logger.log(`🎉 [RECOMM_LETTER_BILLED_EVENT] Published: ${JSON.stringify(eventPayload, null, 2)}`);
 
       return result;
@@ -312,7 +318,10 @@ export class RecommLetterService {
         description: params.description,
         cancelledAt: new Date(),
       };
-      this.eventEmitter.emit(RECOMM_LETTER_BILL_CANCELLED_EVENT, eventPayload);
+      await this.eventPublisher.publish(
+        new RecommLetterBillCancelledEvent(eventPayload),
+        RecommLetterService.name,
+      );
       this.logger.log(`🔄 [RECOMM_LETTER_BILL_CANCELLED_EVENT] Published: ${JSON.stringify(eventPayload, null, 2)}`);
 
       return result;
@@ -325,4 +334,3 @@ export class RecommLetterService {
     }
   }
 }
-

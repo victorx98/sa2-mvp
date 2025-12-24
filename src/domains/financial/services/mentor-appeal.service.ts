@@ -10,7 +10,12 @@ import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider"
 import type { DrizzleDatabase } from "@shared/types/database.types";
 import { eq, and, gte, lte } from "drizzle-orm";
 import * as schema from "@infrastructure/database/schema";
-import { EventEmitter2 } from "@nestjs/event-emitter";
+import {
+  IntegrationEventPublisher,
+  MentorAppealApprovedEvent,
+  MentorAppealCreatedEvent,
+  MentorAppealRejectedEvent,
+} from "@application/events";
 
 import {
   IMentorAppealService,
@@ -21,11 +26,6 @@ import {
 // Import pagination types
 import { IPaginationQuery, ISortQuery } from "@shared/types/pagination.types";
 import { IPaginatedResult } from "@shared/types/paginated-result";
-import {
-  MENTOR_APPEAL_CREATED_EVENT,
-  MENTOR_APPEAL_APPROVED_EVENT,
-  MENTOR_APPEAL_REJECTED_EVENT,
-} from "@shared/events/event-constants";
 
 /**
  * Mentor Appeal Service (导师申诉服务)
@@ -53,7 +53,7 @@ export class MentorAppealService implements IMentorAppealService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
   ) {}
 
   /**
@@ -101,15 +101,18 @@ export class MentorAppealService implements IMentorAppealService {
         .returning();
 
       // Publish the created event
-      this.eventEmitter.emit(MENTOR_APPEAL_CREATED_EVENT, {
-        appealId: appeal.id,
-        mentorId: appeal.mentorId,
-        counselorId: appeal.counselorId,
-        appealAmount: appeal.appealAmount,
-        appealType: appeal.appealType,
-        currency: appeal.currency,
-        createdAt: appeal.createdAt,
-      });
+      await this.eventPublisher.publish(
+        new MentorAppealCreatedEvent({
+          appealId: appeal.id,
+          mentorId: appeal.mentorId,
+          counselorId: appeal.counselorId,
+          appealAmount: appeal.appealAmount,
+          appealType: appeal.appealType,
+          currency: appeal.currency,
+          createdAt: appeal.createdAt,
+        }),
+        MentorAppealService.name,
+      );
 
       this.logger.log(`Appeal created successfully: ${appeal.id}`);
 
@@ -341,15 +344,18 @@ export class MentorAppealService implements IMentorAppealService {
         .returning();
 
       // Publish the approved event
-      this.eventEmitter.emit(MENTOR_APPEAL_APPROVED_EVENT, {
-        appealId: updatedAppeal.id,
-        mentorId: updatedAppeal.mentorId,
-        counselorId: updatedAppeal.counselorId,
-        appealAmount: updatedAppeal.appealAmount,
-        approvedBy: approvedByUserId,
-        approvedAt: now,
-        currency: updatedAppeal.currency,
-      });
+      await this.eventPublisher.publish(
+        new MentorAppealApprovedEvent({
+          appealId: updatedAppeal.id,
+          mentorId: updatedAppeal.mentorId,
+          counselorId: updatedAppeal.counselorId,
+          appealAmount: updatedAppeal.appealAmount,
+          approvedBy: approvedByUserId,
+          approvedAt: now,
+          currency: updatedAppeal.currency,
+        }),
+        MentorAppealService.name,
+      );
 
       this.logger.log(`Appeal approved successfully: ${id}`);
 
@@ -421,14 +427,17 @@ export class MentorAppealService implements IMentorAppealService {
         .returning();
 
       // Publish the rejected event
-      this.eventEmitter.emit(MENTOR_APPEAL_REJECTED_EVENT, {
-        appealId: updatedAppeal.id,
-        mentorId: updatedAppeal.mentorId,
-        counselorId: updatedAppeal.counselorId,
-        rejectionReason: dto.rejectionReason,
-        rejectedBy: rejectedByUserId,
-        rejectedAt: now,
-      });
+      await this.eventPublisher.publish(
+        new MentorAppealRejectedEvent({
+          appealId: updatedAppeal.id,
+          mentorId: updatedAppeal.mentorId,
+          counselorId: updatedAppeal.counselorId,
+          rejectionReason: dto.rejectionReason,
+          rejectedBy: rejectedByUserId,
+          rejectedAt: now,
+        }),
+        MentorAppealService.name,
+      );
 
       this.logger.log(`Appeal rejected successfully: ${id}`);
 

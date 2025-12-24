@@ -1,5 +1,4 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CalendarService } from '@core/calendar';
 import {
   UserType,
@@ -19,11 +18,12 @@ import type {
 } from '@shared/types/database.types';
 import { Trace, addSpanAttributes, addSpanEvent } from '@shared/decorators/trace.decorator';
 import { MetricsService } from '@telemetry/metrics.service';
-import { 
-  GAP_ANALYSIS_SESSION_CREATED_EVENT,
-  GAP_ANALYSIS_SESSION_UPDATED_EVENT,
-  GAP_ANALYSIS_SESSION_CANCELLED_EVENT,
-} from '@shared/events/event-constants';
+import {
+  GapAnalysisSessionCancelledEvent,
+  GapAnalysisSessionCreatedEvent,
+  GapAnalysisSessionUpdatedEvent,
+  IntegrationEventPublisher,
+} from '@application/events';
 
 // DTOs
 export interface CreateGapAnalysisDto {
@@ -65,7 +65,7 @@ export class GapAnalysisService {
     private readonly domainGapAnalysisService: GapAnalysisDomainService,
     private readonly gapAnalysisQueryService: GapAnalysisQueryService,
     private readonly calendarService: CalendarService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
     private readonly serviceHoldService: ServiceHoldService,
     private readonly metricsService: MetricsService,
     private readonly studentCounselorService: StudentCounselorService,
@@ -202,18 +202,21 @@ export class GapAnalysisService {
       addSpanEvent('session.creation.success');
 
       // Publish event to trigger async meeting creation (outside transaction)
-      this.eventEmitter.emit(GAP_ANALYSIS_SESSION_CREATED_EVENT, {
-        sessionId: sessionResult.sessionId,
-        studentId: dto.studentId,
-        mentorId: dto.mentorId,
-        counselorId: dto.counselorId,
-        scheduledStartTime: scheduledAtIso,
-        duration: dto.duration || 60,
-        meetingProvider: dto.meetingProvider || 'feishu',
-        topic: dto.title,
-        mentorCalendarSlotId: sessionResult.mentorCalendarSlotId,
-        studentCalendarSlotId: sessionResult.studentCalendarSlotId,
-      });
+      await this.eventPublisher.publish(
+        new GapAnalysisSessionCreatedEvent({
+          sessionId: sessionResult.sessionId,
+          studentId: dto.studentId,
+          mentorId: dto.mentorId,
+          counselorId: dto.counselorId,
+          scheduledStartTime: scheduledAtIso,
+          duration: dto.duration || 60,
+          meetingProvider: dto.meetingProvider || 'feishu',
+          topic: dto.title,
+          mentorCalendarSlotId: sessionResult.mentorCalendarSlotId,
+          studentCalendarSlotId: sessionResult.studentCalendarSlotId,
+        }),
+        GapAnalysisService.name,
+      );
 
       this.logger.log(`Published GAP_ANALYSIS_SESSION_CREATED_EVENT for session ${sessionResult.sessionId}`);
 
@@ -394,19 +397,22 @@ export class GapAnalysisService {
 
       // Step 5: Emit event to trigger async meeting update (only when time or duration changes)
       if (timeChanged || durationChanged) {
-        this.eventEmitter.emit(GAP_ANALYSIS_SESSION_UPDATED_EVENT, {
-          sessionId: sessionId,
-          meetingId: oldSession.meetingId,
-          oldScheduledAt: meetingScheduleStartTime,
-          newScheduledAt: scheduledAtIso,
-          oldDuration: meetingScheduleDuration,
-          newDuration: newDuration,
-          newTitle: dto.title || oldSession.title,
-          mentorId: oldSession.mentorUserId,
-          studentId: oldSession.studentUserId,
-          counselorId: oldSession.createdByCounselorId,
-          meetingProvider: meetingProvider,
-        } as any);
+        await this.eventPublisher.publish(
+          new GapAnalysisSessionUpdatedEvent({
+            sessionId: sessionId,
+            meetingId: oldSession.meetingId,
+            oldScheduledAt: meetingScheduleStartTime,
+            newScheduledAt: scheduledAtIso,
+            oldDuration: meetingScheduleDuration,
+            newDuration: newDuration,
+            newTitle: dto.title || oldSession.title,
+            mentorId: oldSession.mentorUserId,
+            studentId: oldSession.studentUserId,
+            counselorId: oldSession.createdByCounselorId,
+            meetingProvider: meetingProvider,
+          }),
+          GapAnalysisService.name,
+        );
         this.logger.log(`Published GAP_ANALYSIS_SESSION_UPDATED_EVENT for session ${sessionId}`);
       }
 
@@ -493,17 +499,20 @@ export class GapAnalysisService {
       const meetingProvider = sessionData.meetingProvider || 'feishu';
 
       // Step 6: Publish cancellation event for async meeting cancellation
-      this.eventEmitter.emit(GAP_ANALYSIS_SESSION_CANCELLED_EVENT, {
-        sessionId: sessionId,
-        meetingId: session.meetingId,
-        studentId: session.studentUserId,
-        mentorId: session.mentorUserId,
-        counselorId: session.createdByCounselorId,
-        scheduledAt: session.scheduledAt,
-        cancelReason: reason,
-        cancelledAt: (cancelledSession as any).cancelledAt,
-        meetingProvider: meetingProvider,
-      });
+      await this.eventPublisher.publish(
+        new GapAnalysisSessionCancelledEvent({
+          sessionId: sessionId,
+          meetingId: session.meetingId,
+          studentId: session.studentUserId,
+          mentorId: session.mentorUserId,
+          counselorId: session.createdByCounselorId,
+          scheduledAt: session.scheduledAt,
+          cancelReason: reason,
+          cancelledAt: (cancelledSession as any).cancelledAt,
+          meetingProvider: meetingProvider,
+        }),
+        GapAnalysisService.name,
+      );
 
       this.logger.log(`Published GAP_ANALYSIS_SESSION_CANCELLED_EVENT for session ${sessionId}`);
       addSpanEvent('session.cancel.success');
@@ -679,4 +688,3 @@ export class GapAnalysisService {
     return this.gapAnalysisQueryService.getStudentSessions(studentId, filters);
   }
 }
-

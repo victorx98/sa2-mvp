@@ -42,17 +42,12 @@ import { UpdateStudentProfileCommand } from "./commands/profile/update-student-p
 import { UpdateMentorProfileCommand } from "./commands/profile/update-mentor-profile.command";
 import { UpdateCounselorProfileCommand } from "./commands/profile/update-counselor-profile.command";
 import { RegularMentoringService } from "./commands/services/regular-mentoring.service";
-import { RegularMentoringCreatedEventHandler } from "./commands/services/regular-mentoring-event.handler";
 import { GapAnalysisService } from "./commands/services/gap-analysis.service";
-import { GapAnalysisCreatedEventHandler } from "./commands/services/gap-analysis-event.handler";
 import { AiCareerService } from "./commands/services/ai-career.service";
-import { AiCareerCreatedEventHandler } from "./commands/services/ai-career-event.handler";
 import { CommSessionService } from "./commands/services/comm-session.service";
-import { CommSessionCreatedEventHandler } from "./commands/services/comm-session-event.handler";
 import { MockInterviewService } from "./commands/services/mock-interview.service";
 import { ClassService } from "./commands/services/class.service";
 import { ClassSessionService } from "./commands/services/class-session.service";
-import { ClassSessionCreatedEventHandler } from "./commands/services/class-session-event.handler";
 import { SessionOrchestratorService } from "./commands/services/session-orchestrator.service";
 import { ResumeService } from "./commands/services/resume.service";
 import { RecommLetterTypeService } from "./commands/services/recomm-letter-type.service";
@@ -113,6 +108,23 @@ import { TelemetryModule } from "@telemetry/telemetry.module";
 import { ServicesModule } from "@domains/services/services.module";
 import { ContractModule } from "@domains/contract/contract.module";
 import { QueryModule } from "@domains/query/query.module";
+import { AiCareerCreatedEventHandler } from "@application/events/handlers/services/ai-career-event.handler";
+import { GapAnalysisCreatedEventHandler } from "@application/events/handlers/services/gap-analysis-event.handler";
+import { RegularMentoringCreatedEventHandler } from "@application/events/handlers/services/regular-mentoring-event.handler";
+import { CommSessionCreatedEventHandler } from "@application/events/handlers/services/comm-session-event.handler";
+import { ClassSessionCreatedEventHandler } from "@application/events/handlers/services/class-session-event.handler";
+import { ClassSessionMeetingCompletedHandler } from "@application/events/handlers/services/class-session-meeting-completed.handler";
+import { MeetingCompletedListener } from "@application/events/handlers/calendar/meeting-completed.handler";
+import { SessionCompletedListener } from "@application/events/handlers/contract/session-completed-listener";
+import { ClassStudentEventListener } from "@application/events/handlers/contract/class-student-event-listener";
+import { PlacementEventListener } from "@application/events/handlers/contract/placement-event.listener";
+import { ResumeBilledListener } from "@application/events/handlers/contract/resume-billed-listener";
+import { ResumeBillCancelledListener } from "@application/events/handlers/contract/resume-bill-cancelled-listener";
+import { ServiceSessionCompletedListener } from "@application/events/handlers/financial/service-session-completed-listener";
+import { SettlementConfirmedListener } from "@application/events/handlers/financial/settlement-confirmed.listener";
+import { PlacementApplicationStatusChangedListener } from "@application/events/handlers/financial/placement-application-status-changed.listener";
+import { PlacementApplicationStatusRolledBackListener } from "@application/events/handlers/financial/placement-application-status-rolled-back.listener";
+import { AppealApprovedListener } from "@application/events/handlers/financial/appeal-approved.listener";
 import { PreferenceModule } from "@domains/preference/preference.module";
 
 /**
@@ -189,6 +201,18 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     AiCareerCreatedEventHandler,
     CommSessionCreatedEventHandler,
     ClassSessionCreatedEventHandler,
+    ClassSessionMeetingCompletedHandler,
+    MeetingCompletedListener,
+    SessionCompletedListener,
+    ClassStudentEventListener,
+    PlacementEventListener,
+    ResumeBilledListener,
+    ResumeBillCancelledListener,
+    ServiceSessionCompletedListener,
+    SettlementConfirmedListener,
+    PlacementApplicationStatusChangedListener,
+    PlacementApplicationStatusRolledBackListener,
+    AppealApprovedListener,
     CreateProductCommand,
     UpdateProductCommand,
     UpdateProductStatusCommand,
@@ -301,6 +325,18 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     AiCareerCreatedEventHandler,
     CommSessionCreatedEventHandler,
     ClassSessionCreatedEventHandler,
+    ClassSessionMeetingCompletedHandler,
+    MeetingCompletedListener,
+    SessionCompletedListener,
+    ClassStudentEventListener,
+    PlacementEventListener,
+    ResumeBilledListener,
+    ResumeBillCancelledListener,
+    ServiceSessionCompletedListener,
+    SettlementConfirmedListener,
+    PlacementApplicationStatusChangedListener,
+    PlacementApplicationStatusRolledBackListener,
+    AppealApprovedListener,
     CreateProductCommand,
     UpdateProductCommand,
     UpdateProductStatusCommand,

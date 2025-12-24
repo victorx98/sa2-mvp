@@ -7,9 +7,7 @@ import type { ISettlementDetailResponse } from "@api/dto/response/financial/sett
 import { SettlementStatus } from "@api/dto/request/financial/settlement.request.dto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import * as schema from "@infrastructure/database/schema";
-import { EventEmitter2 } from "@nestjs/event-emitter";
-import { SETTLEMENT_CONFIRMED_EVENT } from "@shared/events/event-constants";
-import type { ISettlementConfirmedPayload } from "@shared/events/settlement-confirmed.event";
+import { IntegrationEventPublisher, SettlementConfirmedEvent, type SettlementConfirmedPayload } from "@application/events";
 
 /**
  * Generate Settlement Command (Application Layer)
@@ -22,7 +20,7 @@ import type { ISettlementConfirmedPayload } from "@shared/events/settlement-conf
 export class GenerateSettlementCommand extends CommandBase {
   constructor(
     @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
   ) {
     super(db);
   }
@@ -211,7 +209,7 @@ export class GenerateSettlementCommand extends CommandBase {
       // 9. Publish settlement confirmed event
       // Note: Event should be published after settlement record and details are created
       // to ensure data integrity and enable parameter updates for subsequent batches
-      const payload: ISettlementConfirmedPayload = {
+      const payload: SettlementConfirmedPayload = {
         settlementId: settlement.id,
         mentorId: settlement.mentorId,
         settlementMonth: settlement.settlementMonth,
@@ -228,15 +226,10 @@ export class GenerateSettlementCommand extends CommandBase {
         payableLedgerIds: payableLedgers.map((ledger) => ledger.id),
       };
 
-      this.eventEmitter.emit(SETTLEMENT_CONFIRMED_EVENT, {
-        type: SETTLEMENT_CONFIRMED_EVENT,
-        payload,
-        timestamp: Date.now(),
-        source: {
-          domain: "financial",
-          service: "GenerateSettlementCommand",
-        },
-      });
+      await this.eventPublisher.publish(
+        new SettlementConfirmedEvent(payload),
+        GenerateSettlementCommand.name,
+      );
 
       this.logger.log(
         `Successfully created settlement: ${settlement.id} with ${detailRecords.length} detail records`,
@@ -262,4 +255,3 @@ export class GenerateSettlementCommand extends CommandBase {
     });
   }
 }
-

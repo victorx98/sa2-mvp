@@ -1,0 +1,52 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { ClassSessionDomainService } from '@domains/services/class/class-sessions/services/class-session-domain.service';
+import { HandlesEvent, MeetingLifecycleCompletedEvent } from '@application/events';
+
+/**
+ * Class Session Event Listener
+ *
+ * Listen to Core Meeting lifecycle events and update class session status
+ */
+@Injectable()
+export class ClassSessionMeetingCompletedHandler {
+  private readonly logger = new Logger(ClassSessionMeetingCompletedHandler.name);
+
+  constructor(private readonly classSessionService: ClassSessionDomainService) {}
+
+  /**
+   * Handle meeting lifecycle completion event
+   *
+   * @param payload - Meeting lifecycle completion event payload from Core layer
+   */
+  @OnEvent(MeetingLifecycleCompletedEvent.eventType)
+  @HandlesEvent(MeetingLifecycleCompletedEvent.eventType, ClassSessionMeetingCompletedHandler.name)
+  async handleMeetingCompletion(event: MeetingLifecycleCompletedEvent): Promise<void> {
+    const payload = event.payload;
+    this.logger.log(`Received meeting.lifecycle.completed event for meeting ${payload.meetingId}`);
+
+    try {
+      // 1. Find Class Session domain record by meetingId
+      const session = await this.classSessionService.findByMeetingId(payload.meetingId);
+
+      if (session) {
+        // 2. Found it - this meeting belongs to Class Session
+        this.logger.log(`Found class session ${session.getId()} for meeting ${payload.meetingId}`);
+
+        // 3. Complete the session
+        await this.classSessionService.completeSession(session.getId());
+
+        this.logger.log(`Successfully completed class session ${session.getId()}`);
+      } else {
+        // 4. Not found - this meeting may belong to other domain, skip
+        this.logger.debug(`No class session found for meeting ${payload.meetingId}, skipping`);
+      }
+    } catch (error) {
+      // Log error but do not throw - avoid breaking other listeners
+      this.logger.error(
+        `Error handling meeting completion for meeting ${payload.meetingId}: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+}

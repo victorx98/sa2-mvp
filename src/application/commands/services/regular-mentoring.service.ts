@@ -1,5 +1,4 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CalendarService } from '@core/calendar';
 import {
   UserType,
@@ -19,11 +18,12 @@ import type {
 } from '@shared/types/database.types';
 import { Trace, addSpanAttributes, addSpanEvent } from '@shared/decorators/trace.decorator';
 import { MetricsService } from '@telemetry/metrics.service';
-import { 
-  REGULAR_MENTORING_SESSION_CREATED_EVENT,
-  REGULAR_MENTORING_SESSION_UPDATED_EVENT,
-  REGULAR_MENTORING_SESSION_CANCELLED_EVENT,
-} from '@shared/events/event-constants';
+import {
+  IntegrationEventPublisher,
+  RegularMentoringSessionCancelledEvent,
+  RegularMentoringSessionCreatedEvent,
+  RegularMentoringSessionUpdatedEvent,
+} from '@application/events';
 
 // DTOs
 export interface CreateRegularMentoringDto {
@@ -71,7 +71,7 @@ export class RegularMentoringService {
     private readonly domainRegularMentoringService: RegularMentoringDomainService,
     private readonly regularMentoringQueryService: RegularMentoringQueryService,
     private readonly calendarService: CalendarService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
     private readonly serviceHoldService: ServiceHoldService,
     private readonly metricsService: MetricsService,
     private readonly studentCounselorService: StudentCounselorService,
@@ -210,18 +210,21 @@ export class RegularMentoringService {
       addSpanEvent('session.creation.success');
 
       // Publish event to trigger async meeting creation (outside transaction)
-      this.eventEmitter.emit(REGULAR_MENTORING_SESSION_CREATED_EVENT, {
-        sessionId: sessionResult.sessionId,
-        studentId: dto.studentId,
-        mentorId: dto.mentorId,
-        counselorId: dto.counselorId,
-        scheduledStartTime: scheduledAtIso,
-        duration: dto.duration || 60,
-        meetingProvider: dto.meetingProvider || 'feishu',
-        topic: dto.title,
-        mentorCalendarSlotId: sessionResult.mentorCalendarSlotId,
-        studentCalendarSlotId: sessionResult.studentCalendarSlotId,
-      });
+      await this.eventPublisher.publish(
+        new RegularMentoringSessionCreatedEvent({
+          sessionId: sessionResult.sessionId,
+          studentId: dto.studentId,
+          mentorId: dto.mentorId,
+          counselorId: dto.counselorId,
+          scheduledStartTime: scheduledAtIso,
+          duration: dto.duration || 60,
+          meetingProvider: dto.meetingProvider || 'feishu',
+          topic: dto.title,
+          mentorCalendarSlotId: sessionResult.mentorCalendarSlotId,
+          studentCalendarSlotId: sessionResult.studentCalendarSlotId,
+        }),
+        RegularMentoringService.name,
+      );
 
       this.logger.log(`Published REGULAR_MENTORING_SESSION_CREATED_EVENT for session ${sessionResult.sessionId}`);
 
@@ -401,19 +404,22 @@ export class RegularMentoringService {
 
       // Step 7: Emit event to trigger async meeting update (only when time or duration changes)
       if (timeChanged || durationChanged) {
-        this.eventEmitter.emit(REGULAR_MENTORING_SESSION_UPDATED_EVENT, {
-          sessionId: sessionId,
-          meetingId: oldSession.meetingId,
-          oldScheduledAt: meetingScheduleStartTime,
-          newScheduledAt: scheduledAtIso,
-          oldDuration: meetingScheduleDuration,
-          newDuration: newDuration,
-          newTitle: dto.title || oldSession.title,
-          mentorId: oldSession.mentorUserId,
-          studentId: oldSession.studentUserId,
-          counselorId: oldSession.createdByCounselorId,
-          meetingProvider: meetingProvider,
-        } as any);
+        await this.eventPublisher.publish(
+          new RegularMentoringSessionUpdatedEvent({
+            sessionId: sessionId,
+            meetingId: oldSession.meetingId,
+            oldScheduledAt: meetingScheduleStartTime,
+            newScheduledAt: scheduledAtIso,
+            oldDuration: meetingScheduleDuration,
+            newDuration: newDuration,
+            newTitle: dto.title || oldSession.title,
+            mentorId: oldSession.mentorUserId,
+            studentId: oldSession.studentUserId,
+            counselorId: oldSession.createdByCounselorId,
+            meetingProvider: meetingProvider,
+          }),
+          RegularMentoringService.name,
+        );
         this.logger.log(`Published REGULAR_MENTORING_SESSION_UPDATED_EVENT for session ${sessionId}`);
       }
 
@@ -500,17 +506,20 @@ export class RegularMentoringService {
       const meetingProvider = sessionData.meetingProvider || 'feishu';
 
       // Step 6: Publish cancellation event for async meeting cancellation
-      this.eventEmitter.emit(REGULAR_MENTORING_SESSION_CANCELLED_EVENT, {
-        sessionId: sessionId,
-        meetingId: session.meetingId,
-        studentId: session.studentUserId,
-        mentorId: session.mentorUserId,
-        counselorId: session.createdByCounselorId,
-        scheduledAt: session.scheduledAt,
-        cancelReason: reason,
-        cancelledAt: (cancelledSession as any).cancelledAt,
-        meetingProvider: meetingProvider,
-      });
+      await this.eventPublisher.publish(
+        new RegularMentoringSessionCancelledEvent({
+          sessionId: sessionId,
+          meetingId: session.meetingId,
+          studentId: session.studentUserId,
+          mentorId: session.mentorUserId,
+          counselorId: session.createdByCounselorId,
+          scheduledAt: session.scheduledAt,
+          cancelReason: reason,
+          cancelledAt: (cancelledSession as any).cancelledAt,
+          meetingProvider: meetingProvider,
+        }),
+        RegularMentoringService.name,
+      );
 
       this.logger.log(`Published REGULAR_MENTORING_SESSION_CANCELLED_EVENT for session ${sessionId}`);
       addSpanEvent('session.cancel.success');
@@ -706,4 +715,3 @@ export class RegularMentoringService {
     return this.regularMentoringQueryService.getSessionsByStudentIds(studentIds, filters || {});
   }
 }
-

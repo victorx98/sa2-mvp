@@ -3,7 +3,6 @@ import { DatabaseModule } from "@infrastructure/database/database.module";
 import { ContractService } from "./services/contract.service";
 import { ServiceLedgerService } from "./services/service-ledger.service";
 import { ServiceHoldService } from "./services/service-hold.service";
-import { SessionCompletedListener } from "./event-handlers/session-completed-listener";
 
 /**
  * Contract Domain Module(合约领域模块)
@@ -35,8 +34,6 @@ import { SessionCompletedListener } from "./event-handlers/session-completed-lis
     ContractService,
     ServiceLedgerService,
     ServiceHoldService,
-    // Event listeners
-    SessionCompletedListener,
   ],
   exports: [ContractService, ServiceLedgerService, ServiceHoldService],
 })

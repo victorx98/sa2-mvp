@@ -6,9 +6,11 @@ import { IUpdateApplicationStatusDto } from "@api/dto/request/placement/placemen
 import { jobApplications, applicationHistory, recommendedJobs } from "@infrastructure/database/schema";
 import { eq } from "drizzle-orm";
 import { ApplicationStatus, ALLOWED_APPLICATION_STATUS_TRANSITIONS } from "@domains/placement/types";
-import { EventEmitter2 } from "@nestjs/event-emitter";
-import { JOB_APPLICATION_STATUS_CHANGED_EVENT, PLACEMENT_APPLICATION_SUBMITTED_EVENT } from "@shared/events/event-constants";
-// Removed - module not found: @shared/events/placement-application-submitted.event
+import {
+  IntegrationEventPublisher,
+  JobApplicationStatusChangedEvent,
+  PlacementApplicationSubmittedEvent,
+} from "@application/events";
 
 /**
  * Update Job Application Status Command
@@ -22,7 +24,7 @@ export class UpdateJobApplicationStatusCommand extends CommandBase {
 
   constructor(
     @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventPublisher: IntegrationEventPublisher,
   ) {
     super(db);
   }
@@ -106,7 +108,10 @@ export class UpdateJobApplicationStatusCommand extends CommandBase {
         assignedMentorId: updatedApplication.assignedMentorId,
       }),
     };
-    this.eventEmitter.emit(JOB_APPLICATION_STATUS_CHANGED_EVENT, eventPayload);
+    await this.eventPublisher.publish(
+      new JobApplicationStatusChangedEvent(eventPayload),
+      UpdateJobApplicationStatusCommand.name,
+    );
 
     if (targetStatus === "submitted") {
       const [job] = await this.db
@@ -133,16 +138,16 @@ export class UpdateJobApplicationStatusCommand extends CommandBase {
         completed_time: updatedApplication.updatedAt,
         title: job?.title ?? undefined,
       };
-      this.eventEmitter.emit(
-        PLACEMENT_APPLICATION_SUBMITTED_EVENT,
-        submittedPayload,
+      await this.eventPublisher.publish(
+        new PlacementApplicationSubmittedEvent(submittedPayload),
+        UpdateJobApplicationStatusCommand.name,
       );
     }
 
     return {
       data: updatedApplication,
       event: {
-        type: JOB_APPLICATION_STATUS_CHANGED_EVENT,
+        type: JobApplicationStatusChangedEvent.eventType,
         payload: eventPayload,
       },
     };
