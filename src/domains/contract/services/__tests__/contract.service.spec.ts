@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigModule } from "@nestjs/config";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
-import { ContractService } from "./contract.service";
+import { ContractService } from "../contract.service";
 import { CreateContractRequestDto, ConsumeServiceRequestDto, AddAmendmentLedgerRequestDto } from "@api/dto/request/contract/contract.request.dto";
 import type { CreateContractDto, ConsumeServiceDto, AddAmendmentLedgerDto } from "@api/dto/request/contract/contract.request.dto";
 
@@ -18,13 +18,13 @@ interface FindOneContractDto {
 import {
   ContractException,
   ContractNotFoundException,
-} from "../common/exceptions/contract.exception";
+} from "../../common/exceptions/contract.exception";
 import { Currency } from "@shared/types/catalog-enums";
 import {
   ContractStatus,
   AmendmentLedgerType,
 } from "@shared/types/contract-enums";
-import { IProductSnapshot } from "../common/types/snapshot.types";
+import { IProductSnapshot } from "../../common/types/snapshot.types";
 import { randomUUID } from "crypto";
 import type { ServiceType } from "@infrastructure/database/schema";
 import * as schema from "@infrastructure/database/schema";

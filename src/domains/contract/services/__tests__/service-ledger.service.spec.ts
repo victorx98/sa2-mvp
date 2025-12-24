@@ -1,15 +1,15 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigModule } from "@nestjs/config";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
-import { ServiceLedgerService } from "./service-ledger.service";
+import { ServiceLedgerService } from "../service-ledger.service";
 import {
   ContractException,
   ContractNotFoundException,
-} from "../common/exceptions/contract.exception";
+} from "../../common/exceptions/contract.exception";
 import {
   IRecordConsumptionDto,
   IRecordAdjustmentDto,
-} from "../interfaces/service-ledger.interface";
+} from "../../interfaces/service-ledger.interface";
 import { randomUUID } from "crypto";
 
 /**

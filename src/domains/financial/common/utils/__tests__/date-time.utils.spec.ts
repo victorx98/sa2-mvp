@@ -7,7 +7,7 @@ import {
   isValidISODateString,
   toUTC,
   calculateDateRangeUTC,
-} from "./date-time.utils";
+} from "../date-time.utils";
 
 describe("Date-Time Utils", () => {
   describe("parseDateToUTC", () => {

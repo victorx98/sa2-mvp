@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { MentorPaymentInfoService } from "./mentor-payment-info.service";
+import { MentorPaymentInfoService } from "../mentor-payment-info.service";
 import type { ICreateOrUpdateMentorPaymentInfoRequest } from "@api/dto/request/financial/mentor-payment-info.request.dto";
 import { SettlementMethod } from "@shared/types/financial-enums";
 

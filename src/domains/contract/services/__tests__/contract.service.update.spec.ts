@@ -2,11 +2,11 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { ConfigModule } from "@nestjs/config";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
-import { ContractService } from "./contract.service";
+import { ContractService } from "../contract.service";
 import {
   ContractException,
   ContractNotFoundException,
-} from "../common/exceptions/contract.exception";
+} from "../../common/exceptions/contract.exception";
 import { ContractStatus } from "@shared/types/contract-enums";
 import { Currency } from "@shared/types/catalog-enums";
 import { randomUUID } from "crypto";

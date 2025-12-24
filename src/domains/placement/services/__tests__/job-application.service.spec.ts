@@ -2,14 +2,14 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigModule } from "@nestjs/config";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
-import { JobApplicationService } from "./job-application.service";
+import { JobApplicationService } from "../job-application.service";
 import {
   IRecommendReferralApplicationsBatchDto,
   ISubmitApplicationDto,
   IUpdateApplicationStatusDto,
   ICreateManualJobApplicationDto,
 } from "@api/dto/request/placement/placement.index";
-import { ApplicationType } from "../types/application-type.enum";
+import { ApplicationType } from "../../types/application-type.enum";
 import { randomUUID } from "crypto";
 import {
   IntegrationEventPublisher,

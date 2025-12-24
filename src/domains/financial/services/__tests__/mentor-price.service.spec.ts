@@ -1,11 +1,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { MentorPriceService } from "./mentor-price.service";
+import { MentorPriceService } from "../mentor-price.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { CreateMentorPriceRequestDto } from "@api/dto/request/financial/mentor-price.request.dto";
 import { UpdateMentorPriceRequestDto } from "@api/dto/request/financial/mentor-price.request.dto";
 import {
   FinancialException
-} from "../common/exceptions/financial.exception";
+} from "../../common/exceptions/financial.exception";
 
 /**
  * Mentor Price Service Unit Tests(导师价格服务单元测试)

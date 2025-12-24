@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
-import { MentorPaymentParamService } from "./mentor-payment-param.service";
+import { MentorPaymentParamService } from "../mentor-payment-param.service";
 import type { PaymentParamUpdateRequestDto } from "@api/dto/request/financial/settlement.request.dto";
 
 /**
