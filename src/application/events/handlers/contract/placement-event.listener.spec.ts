@@ -339,6 +339,7 @@ describe("PlacementEventListener", () => {
         applicationId,
         previousStatus: "submitted",
         newStatus: "mentor_assigned",
+        changedBy: "test-user-id",
         changedAt: new Date().toISOString(),
         rollbackReason,
       };
