@@ -60,10 +60,12 @@ describe('CalendarService', () => {
 
   describe('createSlotDirect', () => {
     it('should create a slot successfully', async () => {
+      // Use future date (2 months from now) to avoid past date errors
+      const futureDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
       const dto: CreateSlotDto = {
         userId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
         userType: UserType.MENTOR,
-        startTime: '2025-12-01T10:00:00Z',
+        startTime: futureDate,
         durationMinutes: 60,
         sessionId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
         sessionType: SessionType.REGULAR_MENTORING,
@@ -82,10 +84,12 @@ describe('CalendarService', () => {
     });
 
     it('should return null when EXCLUDE constraint violation occurs (23P01)', async () => {
+      // Use future date (2 months from now) to avoid past date errors
+      const futureDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
       const dto: CreateSlotDto = {
         userId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
         userType: UserType.MENTOR,
-        startTime: '2025-12-01T10:00:00Z',
+        startTime: futureDate,
         durationMinutes: 60,
         sessionId: 'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
         sessionType: SessionType.REGULAR_MENTORING,
@@ -175,11 +179,13 @@ describe('CalendarService', () => {
   describe('isSlotAvailable', () => {
     it('should return true when slot is available', async () => {
       mockDb.execute.mockResolvedValue({ rows: [{ count: '0' }] });
+      // Use future date (2 months from now) to avoid past date errors
+      const futureDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
 
       const result = await service.isSlotAvailable(
         'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
         UserType.MENTOR,
-        new Date('2025-12-01T10:00:00Z'),
+        futureDate,
         60,
       );
 
@@ -188,11 +194,13 @@ describe('CalendarService', () => {
 
     it('should return false when slot is not available', async () => {
       mockDb.execute.mockResolvedValue({ rows: [{ count: '1' }] });
+      // Use future date (2 months from now) to avoid past date errors
+      const futureDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
 
       const result = await service.isSlotAvailable(
         'a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6',
         UserType.MENTOR,
-        new Date('2025-12-01T10:00:00Z'),
+        futureDate,
         60,
       );
 

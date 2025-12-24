@@ -8,6 +8,7 @@ export const ServiceSessionCompletedPayloadSchema = z
     sessionId: UuidSchema,
     studentId: UuidSchema,
     mentorId: UuidSchema.optional().nullable(),
+    referenceId: z.string().optional().nullable(),
     serviceTypeCode: z.string(),
     actualDurationMinutes: z.number().int().nonnegative(),
     durationMinutes: z.number().int().nonnegative(),

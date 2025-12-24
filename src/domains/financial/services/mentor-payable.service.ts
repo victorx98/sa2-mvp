@@ -41,7 +41,7 @@ export class MentorPayableService {
     actualDurationMinutes: number;
     durationMinutes: number;
     allowBilling: boolean;
-    refrenceId?: string; // Note: typo in the original type definition (注意：原始类型定义中的拼写错误)
+    referenceId?: string;
     sessionTypeCode?: string;
   }): Promise<void> {
     try {
@@ -52,7 +52,7 @@ export class MentorPayableService {
         serviceTypeCode,
         sessionTypeCode,
         actualDurationMinutes,
-        refrenceId,
+        referenceId,
       } = payload;
 
       this.logger.log(`Creating per-session billing for session: ${sessionId}`);
@@ -92,10 +92,6 @@ export class MentorPayableService {
       this.logger.log(
         `Calculated billing: session=${sessionId}, duration=${actualDurationMinutes}m (${actualDurationHours}h), price=${unitPrice}, amount=${totalAmount}`,
       );
-
-      // Insert ledger record
-      // Use sessionId as referenceId (or refrenceId if provided)
-      const referenceId = refrenceId || sessionId;
 
       await this.db.insert(schema.mentorPayableLedgers).values({
         referenceId: referenceId,

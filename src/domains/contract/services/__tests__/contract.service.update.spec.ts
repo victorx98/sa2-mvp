@@ -33,7 +33,6 @@ describe("ContractService - Update [ContractService - 更新]", () => {
             limit: jest.fn().mockResolvedValue([]),
           })),
         })),
-        limit: jest.fn().mockResolvedValue([]),
       })),
       update: jest.fn(() => ({
         set: jest.fn(() => ({
@@ -51,11 +50,6 @@ describe("ContractService - Update [ContractService - 更新]", () => {
         };
         return await callback(mockTx);
       }),
-      query: {
-        contracts: {
-          findFirst: jest.fn(),
-        },
-      },
     };
 
     (mockDb.execute as jest.Mock).mockResolvedValue({
@@ -99,9 +93,15 @@ describe("ContractService - Update [ContractService - 更新]", () => {
         title: "Original Title",
       };
 
-      mockDb.query.contracts.findFirst = jest
+      mockDb.select = jest
         .fn()
-        .mockResolvedValue(mockContract);
+        .mockReturnValue({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockContract]),
+            }),
+          }),
+        });
 
       const updatedContract = {
         ...mockContract,
@@ -119,6 +119,15 @@ describe("ContractService - Update [ContractService - 更新]", () => {
               }),
             }),
           }),
+          select: jest
+            .fn()
+            .mockReturnValue({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue({
+                  limit: jest.fn().mockResolvedValue([mockContract]),
+                }),
+              }),
+            }),
         };
         const result = await callback(mockTx);
         return result;
@@ -143,9 +152,15 @@ describe("ContractService - Update [ContractService - 更新]", () => {
         totalAmount: 1000,
       };
 
-      mockDb.query.contracts.findFirst = jest
+      mockDb.select = jest
         .fn()
-        .mockResolvedValue(mockContract);
+        .mockReturnValue({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockContract]),
+            }),
+          }),
+        });
 
       const updatedContract = {
         ...mockContract,
@@ -163,6 +178,15 @@ describe("ContractService - Update [ContractService - 更新]", () => {
               }),
             }),
           }),
+          select: jest
+            .fn()
+            .mockReturnValue({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue({
+                  limit: jest.fn().mockResolvedValue([mockContract]),
+                }),
+              }),
+            }),
         };
         return await callback(mockTx);
       });
@@ -185,19 +209,33 @@ describe("ContractService - Update [ContractService - 更新]", () => {
         status: ContractStatus.ACTIVE, // Not DRAFT
       };
 
-      mockDb.query.contracts.findFirst = jest
+      mockDb.select = jest
         .fn()
-        .mockResolvedValue(mockContract);
+        .mockReturnValue({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockContract]),
+            }),
+          }),
+        });
 
       // Act & Assert
-      await expect(
-        contractService.update(testContractId, { title: "New Title" }),
-      ).rejects.toThrow(ContractException);
+      await expect(contractService.update(testContractId, { title: "New Title" })).rejects.toThrow(
+        ContractException
+      );
     });
 
     it("should throw error if contract not found [如果合约未找到应该抛出错误]", async () => {
       // Arrange
-      mockDb.query.contracts.findFirst = jest.fn().mockResolvedValue(null);
+      mockDb.select = jest
+        .fn()
+        .mockReturnValue({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([]),
+            }),
+          }),
+        });
 
       // Act & Assert
       await expect(
@@ -212,9 +250,15 @@ describe("ContractService - Update [ContractService - 更新]", () => {
         status: ContractStatus.DRAFT,
       };
 
-      mockDb.query.contracts.findFirst = jest
+      mockDb.select = jest
         .fn()
-        .mockResolvedValue(mockContract);
+        .mockReturnValue({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockContract]),
+            }),
+          }),
+        });
 
       // Act & Assert
       await expect(contractService.update(testContractId, {})).rejects.toThrow(
@@ -230,9 +274,15 @@ describe("ContractService - Update [ContractService - 更新]", () => {
         title: "Original Title",
       };
 
-      mockDb.query.contracts.findFirst = jest
+      mockDb.select = jest
         .fn()
-        .mockResolvedValue(mockContract);
+        .mockReturnValue({
+          from: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue([mockContract]),
+            }),
+          }),
+        });
 
       const updatedContract = {
         ...mockContract,
@@ -249,6 +299,15 @@ describe("ContractService - Update [ContractService - 更新]", () => {
               }),
             }),
           }),
+          select: jest
+            .fn()
+            .mockReturnValue({
+              from: jest.fn().mockReturnValue({
+                where: jest.fn().mockReturnValue({
+                  limit: jest.fn().mockResolvedValue([mockContract]),
+                }),
+              }),
+            }),
         };
         return await callback(mockTx);
       });

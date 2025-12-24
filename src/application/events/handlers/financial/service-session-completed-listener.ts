@@ -47,6 +47,7 @@ export class ServiceSessionCompletedListener {
         sessionId,
         studentId,
         mentorId,
+        referenceId,
         serviceTypeCode,
         sessionTypeCode,
         actualDurationMinutes,
@@ -68,14 +69,11 @@ export class ServiceSessionCompletedListener {
         `Processing session: ${sessionId}, student: ${studentId}, mentor: ${mentorId}, type: ${sessionTypeCode}, duration: ${actualDurationMinutes}m`,
       );
 
-      // Use sessionId as billing reference ID
-      const billingReferenceId = sessionId;
-
       // 1. Check for duplicate events (idempotency)
       // Idempotency: Each referenceId can only have one original billing record
-      if (await this.mentorPayableService.isDuplicate(billingReferenceId)) {
+      if (await this.mentorPayableService.isDuplicate(referenceId)) {
         this.logger.warn(
-          `Duplicate billing detected for referenceId: ${billingReferenceId}, skipping`,
+          `Duplicate billing detected for referenceId: ${referenceId}, skipping`,
         );
         return;
       }

@@ -21,18 +21,58 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
   let db: DrizzleDatabase;
   let testDatabaseHelper: TestDatabaseHelper;
 
-  // Hard-coded test data from database (DO NOT DELETE) [从数据库硬编码的测试数据（不要删除）]
-  // Query results from Supabase MCP:
-  // SELECT student_id, service_type, total_quantity, consumed_quantity, held_quantity FROM contract_service_entitlements WHERE (total_quantity - consumed_quantity - held_quantity) > 2 LIMIT 1;
-  // SELECT "id" FROM "user" LIMIT 1;
-  const HARD_CODED_STUDENT_ID = "f2c3737c-1b37-4736-8633-251731ddcdec";
-  const HARD_CODED_SERVICE_TYPE = "\tInternal"; // Service type code from service_types table (note: includes tab character) [服务类型代码（注意：包含制表符）]
-  const HARD_CODED_USER_ID = "9729ec8c-ce51-43f0-85de-3b1bc410952d"; // Valid user UUID for createdBy field
+  // Test data (dynamically created in beforeAll)
+  let testStudentId: string;
+  let testServiceType: string;
+  let testUserId: string;
 
   beforeAll(async () => {
     // Initialize test database connection
     testDatabaseHelper = await createTestDatabaseHelper();
     db = testDatabaseHelper.getDatabase();
+
+    // Create test data
+    console.log("📋 Creating test data...");
+    
+    // Create test user
+    testUserId = randomUUID();
+    await db.insert(schema.userTable).values({
+      id: testUserId,
+      email: `test-${randomUUID()}@example.com`,
+      nameEn: "Test User",
+      nameZh: "测试用户",
+      status: "active",
+    });
+    
+    // Create service type
+    testServiceType = `test-service-${randomUUID().slice(0, 8)}`;
+    await db.insert(schema.serviceTypes).values({
+      code: testServiceType,
+      name: "Test Service",
+      description: "Test service for integration testing",
+      status: "ACTIVE",
+    });
+    
+    // Create student user
+    testStudentId = randomUUID();
+    await db.insert(schema.userTable).values({
+      id: testStudentId,
+      email: `student-${randomUUID()}@example.com`,
+      nameEn: "Test Student",
+      nameZh: "测试学生",
+      status: "active",
+    });
+    
+    // Create contract service entitlement
+    await db.insert(schema.contractServiceEntitlements).values({
+      studentId: testStudentId,
+      serviceType: testServiceType,
+      totalQuantity: 10,
+      consumedQuantity: 0,
+      heldQuantity: 0,
+      availableQuantity: 10,
+      createdBy: testUserId,
+    });
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -50,21 +90,48 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
       SessionCompletedListener,
     );
     serviceHoldService = moduleRef.get<ServiceHoldService>(ServiceHoldService);
-    serviceLedgerService =
-      moduleRef.get<ServiceLedgerService>(ServiceLedgerService);
+    serviceLedgerService = moduleRef.get<ServiceLedgerService>(ServiceLedgerService);
 
     console.log("✅ Test setup complete [测试设置完成]");
-    console.log("📋 Hard-coded test data:", {
-      studentId: HARD_CODED_STUDENT_ID,
-      serviceType: HARD_CODED_SERVICE_TYPE,
-      userId: HARD_CODED_USER_ID,
+    console.log("📋 Created test data:", {
+      studentId: testStudentId,
+      serviceType: testServiceType,
+      userId: testUserId,
     });
+  }, 30000);
+
+  afterAll(async () => {
+    // Clean up test data
+    console.log("🧹 Cleaning up test data...");
+    
+    // Delete in reverse order of creation to respect foreign key constraints
+    await db.delete(schema.contractServiceEntitlements)
+      .where(and(
+        eq(schema.contractServiceEntitlements.studentId, testStudentId),
+        eq(schema.contractServiceEntitlements.serviceType, testServiceType)
+      ));
+    
+    await db.delete(schema.serviceTypes)
+      .where(eq(schema.serviceTypes.code, testServiceType));
+    
+    await db.delete(schema.userTable)
+      .where(eq(schema.userTable.id, testStudentId));
+    
+    await db.delete(schema.userTable)
+      .where(eq(schema.userTable.id, testUserId));
+    
+    console.log("✅ Test data cleaned up");
+    
+    // Close database connection
+    if (testDatabaseHelper) {
+      await testDatabaseHelper.close();
+    }
   }, 30000);
 
   it("should release hold and record consumption when session completes [当会话完成时应该释放预占并记录消耗]", async () => {
     // Arrange [准备]
     const sessionId = randomUUID();
-    const createdBy = HARD_CODED_USER_ID; // Must be a valid UUID from user table
+    const createdBy = testUserId; // Must be a valid UUID from user table
     const quantity = 1;
 
     console.log(
@@ -79,11 +146,11 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
         and(
           eq(
             schema.contractServiceEntitlements.studentId,
-            HARD_CODED_STUDENT_ID,
+            testStudentId,
           ),
           eq(
             schema.contractServiceEntitlements.serviceType,
-            HARD_CODED_SERVICE_TYPE,
+            testServiceType,
           ),
         ),
       )
@@ -91,7 +158,7 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
 
     if (!initialEntitlement) {
       throw new Error(
-        "Initial entitlement not found. Ensure hard-coded data exists in database.",
+        "Initial entitlement not found. Ensure test data was created correctly.",
       );
     }
 
@@ -115,8 +182,8 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
     const [createdHold] = await db
       .insert(schema.serviceHolds)
       .values({
-        studentId: HARD_CODED_STUDENT_ID,
-        serviceType: HARD_CODED_SERVICE_TYPE,
+        studentId: testStudentId,
+        serviceType: testServiceType,
         quantity: quantity,
         status: HoldStatus.ACTIVE,
         relatedBookingId: sessionId,
@@ -141,11 +208,11 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
         and(
           eq(
             schema.contractServiceEntitlements.studentId,
-            HARD_CODED_STUDENT_ID,
+            testStudentId,
           ),
           eq(
             schema.contractServiceEntitlements.serviceType,
-            HARD_CODED_SERVICE_TYPE,
+            testServiceType,
           ),
         ),
       )
@@ -168,8 +235,8 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
     // Use 0.9 hours so consumption quantity is 1 (Math.ceil(0.9) = 1) [使用0.9小时，这样消耗数量为1（Math.ceil(0.9) = 1）]
     const event = new ServiceSessionCompletedEvent({
       sessionId: sessionId,
-      studentId: HARD_CODED_STUDENT_ID,
-      serviceTypeCode: HARD_CODED_SERVICE_TYPE,
+      studentId: testStudentId,
+      serviceTypeCode: testServiceType,
       actualDurationMinutes: 54, // 54分钟 = 0.9小时 = 1单位消耗
       durationMinutes: 120,
       allowBilling: true,
@@ -212,11 +279,11 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
         and(
           eq(
             schema.contractServiceEntitlements.studentId,
-            HARD_CODED_STUDENT_ID,
+            testStudentId,
           ),
           eq(
             schema.contractServiceEntitlements.serviceType,
-            HARD_CODED_SERVICE_TYPE,
+            testServiceType,
           ),
         ),
       )
@@ -239,8 +306,8 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
       .from(schema.serviceLedgers)
       .where(
         and(
-          eq(schema.serviceLedgers.studentId, HARD_CODED_STUDENT_ID),
-          eq(schema.serviceLedgers.serviceType, HARD_CODED_SERVICE_TYPE),
+          eq(schema.serviceLedgers.studentId, testStudentId),
+          eq(schema.serviceLedgers.serviceType, testServiceType),
           eq(schema.serviceLedgers.relatedBookingId, sessionId),
           eq(schema.serviceLedgers.type, "consumption"),
         ),
@@ -278,11 +345,11 @@ describe("Service Session Completed Event Integration Test [服务会话完成�
         and(
           eq(
             schema.contractServiceEntitlements.studentId,
-            HARD_CODED_STUDENT_ID,
+            testStudentId,
           ),
           eq(
             schema.contractServiceEntitlements.serviceType,
-            HARD_CODED_SERVICE_TYPE,
+            testServiceType,
           ),
         ),
       )

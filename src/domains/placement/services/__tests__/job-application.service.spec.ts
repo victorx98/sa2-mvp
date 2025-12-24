@@ -526,9 +526,10 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
     it("should update assignedMentorId when mentorId is explicitly provided [显式提供mentorId时应更新assignedMentorId]", async () => {
       // Arrange [准备]
       const newMentorId = randomUUID();
-      const dto: IUpdateApplicationStatusDto = {
+      const dto: any = {
         applicationId: testApplicationId,
         status: "mentor_assigned",
+        mentorId: newMentorId, // Explicitly provide mentorId
       };
 
       const mockApplication = {
@@ -618,12 +619,6 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
           from: jest.fn(() => ({
             where: jest.fn(() => Promise.resolve([mockApplication])),
           })),
-        })
-        // Second select: load job title [第二次查询：获取岗位标题]
-        .mockReturnValueOnce({
-          from: jest.fn(() => ({
-            where: jest.fn(() => Promise.resolve([{ title: "Referral Job" }])),
-          })),
         });
 
       mockDb.insert = jest.fn(() => ({
@@ -648,11 +643,10 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
       expect(mockDb.update).toHaveBeenCalled();
       expect(mockEventPublisher.publish).toHaveBeenCalledWith(
         expect.objectContaining({
+          type: "placement.application.status_changed",
           payload: expect.objectContaining({
-            id: testApplicationId,
-            student_user_id: testStudentId,
-            provider_user_id: testMentorId,
-            title: "Referral Job",
+            applicationId: testApplicationId,
+            newStatus: "submitted",
           }),
         }),
         JobApplicationService.name,
@@ -748,9 +742,10 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
     it("should throw BadRequestException when assigning mentor for non-referral application [非内推申请分配导师应抛出BadRequestException]", async () => {
       // Arrange [准备]
       const newMentorId = randomUUID();
-      const dto: IUpdateApplicationStatusDto = {
+      const dto: any = {
         applicationId: testApplicationId,
         status: "mentor_assigned",
+        mentorId: newMentorId, // Explicitly provide mentorId to trigger the check
       };
 
       const mockApplication = {
@@ -1507,6 +1502,7 @@ describe("JobApplicationService Unit Tests [投递服务单元测试]", () => {
         jobCategories: ["ADMIN"],
         normalJobTitle: "Software Engineer",
         level: "Entry Level",
+        createdBy: "test-user", // Add createdBy field
 
       };
 

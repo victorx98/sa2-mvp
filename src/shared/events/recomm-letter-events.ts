@@ -26,7 +26,7 @@ export interface IRecommLetterBilledPayload {
   /**
    * Reference ID (recommendation letter ID)
    */
-  refrenceId?: string;
+  referenceId?: string;
 
   /**
    * Service type code
@@ -76,7 +76,7 @@ export interface IRecommLetterBillCancelledPayload {
   /**
    * Reference ID (recommendation letter ID)
    */
-  refrenceId?: string;
+  referenceId?: string;
 
   /**
    * Service type code

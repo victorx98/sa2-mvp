@@ -21,7 +21,7 @@ export interface IServiceSessionCompletedPayload {
   /**
    * Reference ID for the session [会话的参考ID]
    */
-  refrenceId?: string;
+  referenceId?: string;
 
   /**
    * Service type code (business-level service type) [Service type code (业务级别的服务类型)]
