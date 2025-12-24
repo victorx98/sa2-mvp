@@ -4,7 +4,7 @@ import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
 import { Roles } from "@shared/decorators/roles.decorator";
 import { ApiPrefix } from "@api/api.constants";
-import { GetServiceBalanceDto } from "@api/dto/request/get-service-balance.dto";
+import { GetServiceBalanceDto } from "@api/dto/request/contract/get-service-balance.dto";
 import { ServiceBalanceResponseDto } from "@api/dto/response/service-balance-response.dto";
 import { ServiceBalanceQuery } from "@application/queries/contract/service-balance.query";
 import { plainToInstance } from "class-transformer";

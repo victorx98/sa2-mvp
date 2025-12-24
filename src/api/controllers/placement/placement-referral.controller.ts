@@ -15,11 +15,11 @@ import { Roles } from "@shared/decorators/roles.decorator";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import type { IJwtUser } from "@shared/types/jwt-user.interface";
 import { RecommendReferralApplicationsBatchCommand } from "@application/commands/placement/recommend-referral-applications-batch.command";
-import { PlacementReferralBatchRecommendRequestDto } from "@api/dto/request/placement-referral-batch.request.dto";
+import { PlacementReferralBatchRecommendRequestDto } from "@api/dto/request/placement/placement-referral-batch.request.dto";
 import { AssignReferralMentorCommand } from "@application/commands/placement/assign-referral-mentor.command";
-import { PlacementReferralAssignMentorRequestDto } from "@api/dto/request/placement-referral-assign-mentor.request.dto";
+import { PlacementReferralAssignMentorRequestDto } from "@api/dto/request/placement/placement-referral-assign-mentor.request.dto";
 import { CreateManualJobApplicationCommand } from "@application/commands/placement/create-manual-job-application.command";
-import { PlacementReferralManualCreateRequestDto } from "@api/dto/request/placement-referral-manual-create.request.dto";
+import { PlacementReferralManualCreateRequestDto } from "@api/dto/request/placement/placement-referral-manual-create.request.dto";
 import { BatchJobApplicationsResponseDto, JobApplicationResponseDto } from "@api/dto/response/placement/placement.response.dto";
 import type { IAssignReferralMentorDto } from "@api/dto/request/placement/placement.index";
 
@@ -55,7 +55,9 @@ export class PlacementReferralController {
     @Body() body: PlacementReferralBatchRecommendRequestDto,
     @CurrentUser() user: IJwtUser,
   ): Promise<BatchJobApplicationsResponseDto> {
-    const recommendedBy = String((user as unknown as { id: string }).id);
+    // Use provided recommendedBy if available, otherwise default to JWT user ID
+    // [如果提供了recommendedBy则使用，否则默认使用JWT中的用户ID]
+    const recommendedBy = body.recommendedBy || String((user as unknown as { id: string }).id);
     const result = await this.recommendReferralApplicationsBatchCommand.execute({
       dto: {
         recommendedBy,

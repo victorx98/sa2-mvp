@@ -27,7 +27,7 @@ import { RollbackJobApplicationStatusCommand } from "@application/commands/place
 import type { ICreateJobPositionDto, IRollbackApplicationStatusDto, IUpdateApplicationStatusDto } from "@api/dto/request/placement/placement.index";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import type { IJwtUser } from "@shared/types/jwt-user.interface";
-import { UpdateJobApplicationStatusRequestDto, PlacementJobApplicationUpdateStatusRequestDto } from "@api/dto/request/placement-job-application-update-status.request.dto";
+import { UpdateJobApplicationStatusRequestDto, PlacementJobApplicationUpdateStatusRequestDto } from "@api/dto/request/placement/placement-job-application-update-status.request.dto";
 import { CreateJobPositionRequestDto, RollbackJobApplicationStatusRequestDto } from "@api/dto/request/placement/job-position.request.dto";
 import { JobApplicationResponseDto, JobApplicationServiceResultResponseDto, JobPositionResponseDto } from "@api/dto/response/placement/placement.response.dto";
 

@@ -67,7 +67,7 @@ export class FileController {
   /**
    * Get presigned download URL
    */
-  @Get('download-url')
+  @Get('download')
   @ApiOperation({ summary: 'Get presigned download URL for S3 file' })
   @ApiQuery({
     name: 'fileUrl',
