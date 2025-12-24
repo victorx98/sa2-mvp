@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { MentorAppealService } from "./mentor-appeal.service";
+import { MentorAppealService } from "../mentor-appeal.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 import { mentorAppeals } from "@infrastructure/database/schema";
 import {

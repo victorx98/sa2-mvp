@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigModule } from "@nestjs/config";
 import { NotFoundException } from "@nestjs/common";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
-import { JobPositionService } from "./job-position.service";
+import { JobPositionService } from "../job-position.service";
 import { ICreateJobPositionDto } from "@api/dto/request/placement/placement.index";
 import { randomUUID } from "crypto";
 

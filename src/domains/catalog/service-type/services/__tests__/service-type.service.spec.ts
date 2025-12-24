@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { ServiceTypeService } from "./service-type.service";
-import { ServiceTypeRepository } from "../service-type.repository";
+import { ServiceTypeService } from "../service-type.service";
+import { ServiceTypeRepository } from "../../service-type.repository";
 import { randomUUID } from "crypto";
 
 /**

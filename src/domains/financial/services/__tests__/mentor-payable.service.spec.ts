@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
-import { MentorPayableService } from "./mentor-payable.service";
-import { MentorPriceService } from "./mentor-price.service";
+import { MentorPayableService } from "../mentor-payable.service";
+import { MentorPriceService } from "../mentor-price.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
 
 describe("MentorPayableService", () => {

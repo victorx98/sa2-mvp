@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
-import { SettlementService } from "./settlement.service";
+import { SettlementService } from "../settlement.service";
 import type { CreateSettlementRequestDto } from "@api/dto/request/financial/settlement.request.dto";
 import { IntegrationEventPublisher } from "@application/events";
 

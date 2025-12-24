@@ -1,11 +1,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigModule } from "@nestjs/config";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
-import { ServiceHoldService } from "./service-hold.service";
+import { ServiceHoldService } from "../service-hold.service";
 import {
   ContractException,
   ContractNotFoundException,
-} from "../common/exceptions/contract.exception";
+} from "../../common/exceptions/contract.exception";
 import { HoldStatus } from "@shared/types/contract-enums";
 import { randomUUID } from "crypto";
 

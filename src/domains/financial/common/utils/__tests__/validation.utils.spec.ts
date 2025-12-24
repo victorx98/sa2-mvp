@@ -2,8 +2,8 @@ import {
   validateMentorPrice,
   validateCurrency,
   validateStatus,
-} from "./validation.utils";
-import { FinancialException } from "../exceptions/financial.exception";
+} from "../validation.utils";
+import { FinancialException } from "../../exceptions/financial.exception";
 
 describe("Validation Utils", () => {
   describe("validateMentorPrice", () => {

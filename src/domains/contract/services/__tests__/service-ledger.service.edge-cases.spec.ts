@@ -1,8 +1,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigModule } from "@nestjs/config";
-import { ServiceLedgerService } from "./service-ledger.service";
+import { ServiceLedgerService } from "../service-ledger.service";
 import { DATABASE_CONNECTION } from "@infrastructure/database/database.provider";
-import { ContractNotFoundException } from "../common/exceptions/contract.exception";
+import { ContractNotFoundException } from "../../common/exceptions/contract.exception";
 import { SERVICE_TYPES } from "@domains/contract/common/constants/service-types.constants";
 import {
   createChainableMockDatabase,
