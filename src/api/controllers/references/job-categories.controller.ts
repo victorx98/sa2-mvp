@@ -22,6 +22,7 @@ import {
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { CurrentUser } from '@shared/decorators/current-user.decorator';
 import { ApiPrefix } from '@api/api.constants';
+import type { IJwtUser } from '@shared/types/jwt-user.interface';
 import { plainToInstance } from 'class-transformer';
 import { CreateJobCategoryCommand } from '@application/commands/preference/create-job-category.command';
 import { UpdateJobCategoryCommand } from '@application/commands/preference/update-job-category.command';
@@ -69,9 +70,9 @@ export class JobCategoriesController {
   })
   async create(
     @Body() dto: CreateJobCategoryDto,
-    @CurrentUser('sub') userId: string,
+    @CurrentUser() user: IJwtUser,
   ): Promise<JobCategoryResponseDto> {
-    const result = await this.createJobCategoryCommand.execute(dto, userId);
+    const result = await this.createJobCategoryCommand.execute(dto, user.userId);
     return plainToInstance(JobCategoryResponseDto, result, {
       enableImplicitConversion: false,
     });
@@ -128,9 +129,9 @@ export class JobCategoriesController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateJobCategoryDto,
-    @CurrentUser('sub') userId: string,
+    @CurrentUser() user: IJwtUser,
   ): Promise<JobCategoryResponseDto> {
-    const result = await this.updateJobCategoryCommand.execute(id, dto, userId);
+    const result = await this.updateJobCategoryCommand.execute(id, dto, user.userId);
     return plainToInstance(JobCategoryResponseDto, result, {
       enableImplicitConversion: false,
     });
@@ -150,9 +151,9 @@ export class JobCategoriesController {
   })
   async delete(
     @Param('id') id: string,
-    @CurrentUser('sub') userId: string,
+    @CurrentUser() user: IJwtUser,
   ): Promise<JobCategoryResponseDto> {
-    const result = await this.deleteJobCategoryCommand.execute(id, userId);
+    const result = await this.deleteJobCategoryCommand.execute(id, user.userId);
     return plainToInstance(JobCategoryResponseDto, result, {
       enableImplicitConversion: false,
     });

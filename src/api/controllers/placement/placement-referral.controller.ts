@@ -55,7 +55,9 @@ export class PlacementReferralController {
     @Body() body: PlacementReferralBatchRecommendRequestDto,
     @CurrentUser() user: IJwtUser,
   ): Promise<BatchJobApplicationsResponseDto> {
-    const recommendedBy = String((user as unknown as { id: string }).id);
+    // Use provided recommendedBy if available, otherwise default to JWT user ID
+    // [如果提供了recommendedBy则使用，否则默认使用JWT中的用户ID]
+    const recommendedBy = body.recommendedBy || String((user as unknown as { id: string }).id);
     const result = await this.recommendReferralApplicationsBatchCommand.execute({
       dto: {
         recommendedBy,

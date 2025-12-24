@@ -3,6 +3,7 @@ import {
   ArrayUnique,
   IsArray,
   IsString,
+  IsOptional,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
@@ -40,13 +41,14 @@ export class PlacementReferralBatchRecommendRequestDto {
 
   @ApiProperty({
     description:
-      "Recommended by (UUID). The ID of the counselor who recommends the jobs. [推荐人ID(UUID)，推荐岗位的顾问ID]",
+      "Recommended by (UUID). The ID of the counselor who recommends the jobs. If not provided, defaults to the current user from JWT. [推荐人ID(UUID)，推荐岗位的顾问ID。如果不提供，默认使用JWT中的当前用户]",
     type: String,
-    required: true,
+    required: false,
     example: "123e4567-e89b-12d3-a456-426614174002",
   })
   @IsString()
-  recommendedBy!: string; // Recommended by [推荐人ID]
+  @IsOptional()
+  recommendedBy?: string; // Recommended by [推荐人ID]
 }
 
 

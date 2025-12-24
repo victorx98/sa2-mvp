@@ -1,7 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CommandBase } from '@application/core/command.base';
 import { JobCategoryService } from '@domains/preference/services/job-category.service';
 import type { JobCategoryEntity } from '@domains/preference/entities/job-category.entity';
+import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
+import type { DrizzleDatabase } from '@shared/types/database.types';
 
 /**
  * Delete Job Category Command
@@ -13,9 +15,10 @@ export class DeleteJobCategoryCommand extends CommandBase {
   protected readonly logger = new Logger(DeleteJobCategoryCommand.name);
 
   constructor(
+    @Inject(DATABASE_CONNECTION) db: DrizzleDatabase,
     private readonly jobCategoryService: JobCategoryService,
   ) {
-    super();
+    super(db);
   }
 
   /**
