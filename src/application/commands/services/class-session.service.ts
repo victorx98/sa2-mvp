@@ -290,6 +290,7 @@ export class ClassSessionService {
           new ClassSessionUpdatedEvent({
             sessionId: sessionId,
             classId: oldSession.classId,
+            mentorId: oldSession.mentorUserId,
             meetingId: oldSession.meetingId,
             oldScheduledStartTime: meetingScheduleStartTime,
             newScheduledStartTime: scheduledAtIso || meetingScheduleStartTime,

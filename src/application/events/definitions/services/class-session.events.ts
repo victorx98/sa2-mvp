@@ -39,6 +39,7 @@ export const ClassSessionUpdatedPayloadSchema = z
   .object({
     sessionId: UuidSchema,
     classId: UuidSchema,
+    mentorId: UuidSchema,
     meetingId: UuidSchema.optional().nullable(),
     oldScheduledStartTime: DateTimeSchema.optional(),
     newScheduledStartTime: DateTimeSchema.optional(),
