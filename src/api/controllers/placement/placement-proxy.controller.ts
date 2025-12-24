@@ -13,7 +13,7 @@ import { Roles } from "@shared/decorators/roles.decorator";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import type { IJwtUser } from "@shared/types/jwt-user.interface";
 import { CreateProxyApplicationsBatchCommand } from "@application/commands/placement/create-proxy-applications-batch.command";
-import { PlacementProxyBatchRequestDto } from "@api/dto/request/placement-proxy-batch.request.dto";
+import { PlacementProxyBatchRequestDto } from "@api/dto/request/placement/placement-proxy-batch.request.dto";
 import { BatchJobApplicationsResponseDto, JobApplicationResponseDto } from "@api/dto/response/placement/placement.response.dto";
 
 @Controller("api/placement")

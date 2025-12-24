@@ -15,11 +15,11 @@ export type IRollbackApplicationStatusDto = RollbackJobApplicationStatusRequestD
 export { CreateJobPositionRequestDto, RollbackJobApplicationStatusRequestDto };
 
 // Import and re-export DTO classes from parent directory
-import { PlacementJobApplicationUpdateStatusRequestDto } from "../placement-job-application-update-status.request.dto";
-import { JobQueryDto } from "../placement-query.request.dto";
-import { PlacementReferralAssignMentorRequestDto } from "../placement-referral-assign-mentor.request.dto";
-import { PlacementReferralBatchRecommendRequestDto } from "../placement-referral-batch.request.dto";
-import { PlacementReferralManualCreateRequestDto } from "../placement-referral-manual-create.request.dto";
+import { PlacementJobApplicationUpdateStatusRequestDto } from "./placement-job-application-update-status.request.dto";
+import { JobQueryDto } from "./placement-query.request.dto";
+import { PlacementReferralAssignMentorRequestDto } from "./placement-referral-assign-mentor.request.dto";
+import { PlacementReferralBatchRecommendRequestDto } from "./placement-referral-batch.request.dto";
+import { PlacementReferralManualCreateRequestDto } from "./placement-referral-manual-create.request.dto";
 
 export { PlacementJobApplicationUpdateStatusRequestDto };
 export { JobQueryDto };
