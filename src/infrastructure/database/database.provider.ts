@@ -36,6 +36,7 @@ export const databaseProviders = [
         connectionTimeoutMillis: 120000,
         allowExitOnIdle: false,
         query_timeout: 30000,
+        statement_timeout: 30000,
       };
 
       const pool = new Pool(poolConfig);

@@ -24,6 +24,7 @@ export class ClassSessionEntity {
   private completedAt?: Date;
   private cancelledAt?: Date;
   private deletedAt?: Date;
+  private feishuCalendarEventId?: string;
   private aiSummaries: any[];
   private createdAt: Date;
   private updatedAt: Date;
@@ -43,6 +44,7 @@ export class ClassSessionEntity {
     completedAt?: Date;
     cancelledAt?: Date;
     deletedAt?: Date;
+    feishuCalendarEventId?: string;
     aiSummaries?: any[];
     createdAt: Date;
     updatedAt: Date;
@@ -61,6 +63,7 @@ export class ClassSessionEntity {
     this.completedAt = data.completedAt;
     this.cancelledAt = data.cancelledAt;
     this.deletedAt = data.deletedAt;
+    this.feishuCalendarEventId = data.feishuCalendarEventId;
     this.aiSummaries = data.aiSummaries || [];
     this.createdAt = data.createdAt;
     this.updatedAt = data.updatedAt;
@@ -198,6 +201,15 @@ export class ClassSessionEntity {
    */
   addAiSummary(summary: any): void {
     this.aiSummaries.push(summary);
+    this.updatedAt = new Date();
+  }
+
+  getFeishuCalendarEventId(): string | undefined {
+    return this.feishuCalendarEventId;
+  }
+
+  setFeishuCalendarEventId(eventId: string): void {
+    this.feishuCalendarEventId = eventId;
     this.updatedAt = new Date();
   }
 }

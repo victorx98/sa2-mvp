@@ -20,12 +20,14 @@ import { GapAnalysisMapper } from './infrastructure/mappers/gap-analysis.mapper'
       provide: GAP_ANALYSIS_REPOSITORY,
       useClass: DrizzleGapAnalysisRepository,
     },
+    DrizzleGapAnalysisRepository, // Add as provider for direct injection
     
     // Domain Service
     GapAnalysisDomainService,
   ],
   exports: [
     GAP_ANALYSIS_REPOSITORY,
+    DrizzleGapAnalysisRepository, // Export for use in other modules
     GapAnalysisDomainService,
   ],
 })

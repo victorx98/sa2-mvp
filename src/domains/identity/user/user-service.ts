@@ -68,7 +68,8 @@ export class UserService implements IUserService {
           schema.userRolesTable,
           eq(schema.userRolesTable.userId, schema.userTable.id),
         )
-        .where(eq(schema.userTable.id, id));
+        .where(eq(schema.userTable.id, id))
+        .execute(); // Force execute without prepared statement cache
 
       if (rows.length === 0) {
         return null;

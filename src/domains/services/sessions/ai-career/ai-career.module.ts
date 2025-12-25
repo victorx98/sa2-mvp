@@ -20,12 +20,14 @@ import { AiCareerMapper } from './infrastructure/mappers/ai-career.mapper';
       provide: AI_CAREER_REPOSITORY,
       useClass: DrizzleAiCareerRepository,
     },
+    DrizzleAiCareerRepository, // Add as provider for direct injection
     
     // Domain Service
     AiCareerDomainService,
   ],
   exports: [
     AI_CAREER_REPOSITORY,
+    DrizzleAiCareerRepository, // Export for use in other modules
     AiCareerDomainService,
   ],
 })

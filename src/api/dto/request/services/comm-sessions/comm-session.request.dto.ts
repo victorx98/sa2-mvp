@@ -24,6 +24,15 @@ export class CreateCommSessionRequestDto {
   mentorId?: string;
 
   @ApiProperty({
+    description: 'Counselor ID (Optional, defaults to current user)',
+    example: 'f2c3737c-1b37-4736-8633-251731ddcdec',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  counselorId?: string;
+
+  @ApiProperty({
     description: 'Session Title',
     example: 'Discussion about career',
   })

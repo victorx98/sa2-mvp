@@ -25,6 +25,7 @@ import { StudentCounselorService } from '@domains/identity/student/student-couns
 // DTOs
 export interface CreateCommSessionDto {
   counselorId: string;
+  createdByCounselorId?: string; // Who created this session (defaults to counselorId)
   studentId: string;
   mentorId?: string;
   title: string;
@@ -184,6 +185,7 @@ export class CommSessionService {
           studentId: dto.studentId,
           mentorId: dto.mentorId,
           counselorId: dto.counselorId,
+          createdByCounselorId: dto.createdByCounselorId || dto.counselorId,
           scheduledStartTime: scheduledAtIso,
           duration: dto.duration || 60,
           meetingProvider: dto.meetingProvider || 'feishu',

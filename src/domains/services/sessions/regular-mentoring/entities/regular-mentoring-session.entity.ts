@@ -14,6 +14,7 @@ export class RegularMentoringSession {
   private constructor(
     private readonly id: string,
     private meetingId: string | null,
+    private feishuCalendarEventId: string | null, // Feishu calendar event ID
     private readonly sessionType: string,
     private readonly sessionTypeId: string,
     private readonly serviceType: string | null,
@@ -58,6 +59,7 @@ export class RegularMentoringSession {
     return new RegularMentoringSession(
       props.id,
       null, // meetingId filled asynchronously
+      null, // feishuCalendarEventId filled asynchronously
       props.sessionType,
       props.sessionTypeId,
       props.serviceType || null,
@@ -84,6 +86,7 @@ export class RegularMentoringSession {
   static reconstitute(props: {
     id: string;
     meetingId: string | null;
+    feishuCalendarEventId?: string | null;
     sessionType: string;
     sessionTypeId: string;
     serviceType: string | null;
@@ -105,6 +108,7 @@ export class RegularMentoringSession {
     return new RegularMentoringSession(
       props.id,
       props.meetingId,
+      props.feishuCalendarEventId || null,
       props.sessionType,
       props.sessionTypeId,
       props.serviceType,
@@ -143,6 +147,14 @@ export class RegularMentoringSession {
     
     this.meetingId = meetingId;
     this.status = SessionStatus.SCHEDULED;
+    this.updatedAt = new Date();
+  }
+
+  /**
+   * Set Feishu calendar event ID
+   */
+  setFeishuCalendarEventId(eventId: string): void {
+    this.feishuCalendarEventId = eventId;
     this.updatedAt = new Date();
   }
 
@@ -240,6 +252,10 @@ export class RegularMentoringSession {
 
   getMeetingId(): string | null {
     return this.meetingId;
+  }
+
+  getFeishuCalendarEventId(): string | null {
+    return this.feishuCalendarEventId;
   }
 
   getSessionType(): string {

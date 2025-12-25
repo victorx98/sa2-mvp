@@ -26,12 +26,14 @@ import { CommSessionMapper } from './infrastructure/mappers/comm-session.mapper'
       provide: COMM_SESSION_REPOSITORY,
       useClass: DrizzleCommSessionRepository,
     },
+    DrizzleCommSessionRepository, // Add as provider for direct injection
     
     // Domain Service
     CommSessionDomainService,
   ],
   exports: [
     COMM_SESSION_REPOSITORY,
+    DrizzleCommSessionRepository, // Export for use in other modules
     CommSessionDomainService,
   ],
 })
