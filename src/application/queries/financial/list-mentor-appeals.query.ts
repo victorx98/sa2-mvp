@@ -16,6 +16,7 @@ export interface MentorAppealWithRelations {
   appealAmount: string;
   currency: string;
   status: string;
+  paymentMonth: string;
   createdAt: Date;
   approvedAt: Date | null;
   rejectedAt: Date | null;
@@ -130,6 +131,7 @@ export class ListMentorAppealsQuery {
         appealAmount: schema.mentorAppeals.appealAmount,
         currency: schema.mentorAppeals.currency,
         status: schema.mentorAppeals.status,
+        paymentMonth: sql<string>`to_char(${schema.mentorAppeals.createdAt}, 'YYYY-MM')`,
         createdAt: schema.mentorAppeals.createdAt,
         approvedAt: schema.mentorAppeals.approvedAt,
         rejectedAt: schema.mentorAppeals.rejectedAt,
@@ -190,6 +192,7 @@ export class ListMentorAppealsQuery {
         appealAmount: String(row.appealAmount ?? ""),
         currency: row.currency,
         status: row.status,
+        paymentMonth: row.paymentMonth,
         createdAt: row.createdAt as Date,
         approvedAt: row.approvedAt as Date | null,
         rejectedAt: row.rejectedAt as Date | null,
