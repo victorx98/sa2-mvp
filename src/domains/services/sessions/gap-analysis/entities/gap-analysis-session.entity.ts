@@ -28,6 +28,7 @@ export class GapAnalysisSession {
     private completedAt: Date | null,
     private cancelledAt: Date | null,
     private deletedAt: Date | null,
+    private feishuCalendarEventId: string | null,
     private readonly aiSummaries: any[],
     private readonly createdAt: Date,
     private updatedAt: Date,
@@ -72,6 +73,7 @@ export class GapAnalysisSession {
       null, // completedAt
       null, // cancelledAt
       null, // deletedAt
+      null, // feishuCalendarEventId
       [], // aiSummaries
       now, // createdAt
       now, // updatedAt
@@ -98,6 +100,7 @@ export class GapAnalysisSession {
     completedAt: Date | null;
     cancelledAt: Date | null;
     deletedAt: Date | null;
+    feishuCalendarEventId: string | null;
     aiSummaries: any[];
     createdAt: Date;
     updatedAt: Date;
@@ -119,6 +122,7 @@ export class GapAnalysisSession {
       props.completedAt,
       props.cancelledAt,
       props.deletedAt,
+      props.feishuCalendarEventId,
       props.aiSummaries,
       props.createdAt,
       props.updatedAt,
@@ -308,5 +312,14 @@ export class GapAnalysisSession {
 
   getUpdatedAt(): Date {
     return this.updatedAt;
+  }
+
+  getFeishuCalendarEventId(): string | null {
+    return this.feishuCalendarEventId;
+  }
+
+  setFeishuCalendarEventId(eventId: string): void {
+    this.feishuCalendarEventId = eventId;
+    this.updatedAt = new Date();
   }
 }

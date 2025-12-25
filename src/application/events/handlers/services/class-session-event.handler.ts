@@ -50,6 +50,19 @@ export class ClassSessionCreatedEventHandler {
     this.logger.log(`Handling CLASS_SESSION_CREATED_EVENT: sessionId=${payload.sessionId}`);
 
     try {
+      // Step 0: Get class students and counselors for calendar invites
+      const classStudents = await this.db.query.classStudents.findMany({
+        where: (classStudents, { eq }) => eq(classStudents.classId, payload.classId),
+      });
+      const studentIds = classStudents.map(cs => cs.studentUserId);
+      
+      const classCounselors = await this.db.query.classCounselors.findMany({
+        where: (classCounselors, { eq }) => eq(classCounselors.classId, payload.classId),
+      });
+      const counselorIds = classCounselors.map(cc => cc.counselorUserId);
+      
+      this.logger.debug(`Found ${studentIds.length} students and ${counselorIds.length} counselors for class ${payload.classId}`);
+
       // Step 1: Create meeting on third-party platform
       this.logger.debug(`Creating meeting for session ${payload.sessionId}`);
 
@@ -94,7 +107,7 @@ export class ClassSessionCreatedEventHandler {
         this.logger.debug(`Calendar slot updated for session ${payload.sessionId}`);
       });
 
-      // Step 3: Publish result event (success - notify counselor and mentor)
+      // Step 3: Publish result event (success - notify counselors and mentor)
       await this.eventPublisher.publish(
         new ClassSessionMeetingOperationResultEvent({
           operation: 'create',
@@ -102,6 +115,8 @@ export class ClassSessionCreatedEventHandler {
           sessionId: payload.sessionId,
           classId: payload.classId,
           mentorId: payload.mentorId,
+          counselorIds, // Include counselor IDs for calendar invites
+          studentIds, // Include student IDs for calendar invites
           scheduledAt: payload.scheduledStartTime,
           duration: payload.duration,
           meetingUrl: meeting.meetingUrl,
@@ -212,7 +227,18 @@ export class ClassSessionCreatedEventHandler {
       );
     }
 
-    // Step 4: Publish result event based on result
+    // Step 4: Get class students and counselors for calendar updates
+    const classStudents = await this.db.query.classStudents.findMany({
+      where: (classStudents, { eq }) => eq(classStudents.classId, payload.classId),
+    });
+    const studentIds = classStudents.map(cs => cs.studentUserId);
+    
+    const classCounselors = await this.db.query.classCounselors.findMany({
+      where: (classCounselors, { eq }) => eq(classCounselors.classId, payload.classId),
+    });
+    const counselorIds = classCounselors.map(cc => cc.counselorUserId);
+
+    // Step 5: Publish result event based on result
     await this.eventPublisher.publish(
       new ClassSessionMeetingOperationResultEvent({
         operation: 'update',
@@ -221,6 +247,8 @@ export class ClassSessionCreatedEventHandler {
         meetingId: payload.meetingId,
         classId: payload.classId,
         mentorId: payload.mentorId,
+        counselorIds,
+        studentIds,
         newScheduledAt: payload.newScheduledStartTime,
         newDuration: payload.newDuration,
         errorMessage: updateSuccess ? undefined : errorMessage,
@@ -300,7 +328,18 @@ export class ClassSessionCreatedEventHandler {
       );
     }
 
-    // Step 4: Publish result event based on result
+    // Step 4: Get class students and counselors for calendar cancellation
+    const classStudents = await this.db.query.classStudents.findMany({
+      where: (classStudents, { eq }) => eq(classStudents.classId, payload.classId),
+    });
+    const studentIds = classStudents.map(cs => cs.studentUserId);
+    
+    const classCounselors = await this.db.query.classCounselors.findMany({
+      where: (classCounselors, { eq }) => eq(classCounselors.classId, payload.classId),
+    });
+    const counselorIds = classCounselors.map(cc => cc.counselorUserId);
+
+    // Step 5: Publish result event based on result
     await this.eventPublisher.publish(
       new ClassSessionMeetingOperationResultEvent({
         operation: 'cancel',
@@ -309,6 +348,8 @@ export class ClassSessionCreatedEventHandler {
         meetingId: payload.meetingId,
         classId: payload.classId,
         mentorId: payload.mentorId,
+        counselorIds,
+        studentIds,
         cancelledAt: payload.cancelledAt,
         cancelReason: payload.cancelReason,
         errorMessage: cancelSuccess ? undefined : errorMessage,

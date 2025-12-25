@@ -13,6 +13,7 @@ export const CommSessionCreatedPayloadSchema = z
     studentId: UuidSchema,
     mentorId: UuidSchema.optional().nullable(),
     counselorId: UuidSchema.optional().nullable(),
+    createdByCounselorId: UuidSchema,
     scheduledStartTime: DateTimeSchema,
     duration: z.number().int().positive(),
     meetingProvider: z.string(),

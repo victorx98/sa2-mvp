@@ -142,6 +142,7 @@ export class ClassSessionRepository implements IClassSessionRepository {
     if (updates.getCancelledAt) updateData.cancelledAt = updates.getCancelledAt();
     if (updates.getDeletedAt) updateData.deletedAt = updates.getDeletedAt();
     if (updates.getMeetingId) updateData.meetingId = updates.getMeetingId();
+    if (updates.getFeishuCalendarEventId) updateData.feishuCalendarEventId = updates.getFeishuCalendarEventId();
 
     const [result] = await db
       .update(classSessions)

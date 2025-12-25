@@ -1,86 +1,44 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import * as nodemailer from "nodemailer";
-import { Transporter } from "nodemailer";
 import { ISendEmailParams } from "../interfaces/email.interface";
+import { IEmailProvider } from "../interfaces/email-provider.interface";
+import { EmailFactory } from "./email.factory";
 
 /**
  * Email Service
  *
- * Provides email sending functionality using nodemailer
+ * Facade service that delegates email sending to configured provider
  * Supports templates and attachments
  */
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private transporter: Transporter;
+  private provider: IEmailProvider;
 
-  constructor(private readonly configService: ConfigService) {
-    this.initializeTransporter();
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly emailFactory: EmailFactory,
+  ) {
+    this.provider = this.emailFactory.getProvider();
   }
 
   /**
-   * Initialize email transporter
-   */
-  private initializeTransporter(): void {
-    const host = this.configService.get<string>("EMAIL_HOST", "smtp.gmail.com");
-    const port = this.configService.get<number>("EMAIL_PORT", 587);
-    const user = this.configService.get<string>("EMAIL_USER");
-    const pass = this.configService.get<string>("EMAIL_PASSWORD");
-
-    if (!user || !pass) {
-      this.logger.warn(
-        "Email credentials not configured. Email service will be disabled.",
-      );
-      return;
-    }
-
-    this.transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465, // Use TLS for port 465
-      auth: {
-        user,
-        pass,
-      },
-    });
-
-    this.logger.log(`Email service initialized: ${user}@${host}:${port}`);
-  }
-
-  /**
-   * Send email
+   * Send email via configured provider
    *
    * @param params - Email parameters
    */
   async send(params: ISendEmailParams): Promise<void> {
-    if (!this.transporter) {
-      this.logger.warn(
-        "Email transporter not initialized. Skipping email send.",
-      );
-      return;
-    }
-
     try {
-      const { to, subject, template, data, cc, attachments } = params;
+      const { template, data, html: providedHtml } = params;
 
-      // Render email content from template
-      const html = this.renderTemplate(template, data);
+      // Use provided HTML or render from template
+      const html = providedHtml || (template ? this.renderTemplate(template, data!) : '');
 
-      // Send email
-      const info = await this.transporter.sendMail({
-        from: this.configService.get<string>(
-          "EMAIL_FROM",
-          '"SA2 Platform" <noreply@sa2.com>',
-        ),
-        to,
-        cc,
-        subject,
+      // Delegate to provider
+      await this.provider.send({
+        ...params,
         html,
-        attachments,
       });
-
-      this.logger.log(`Email sent successfully: ${info.messageId} to ${to}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to send email to ${params.to}: ${message}`);

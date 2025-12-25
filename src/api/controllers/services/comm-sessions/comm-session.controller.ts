@@ -97,7 +97,8 @@ export class CommSessionController {
     @Body() dto: CreateCommSessionRequestDto,
   ): Promise<CreateCommSessionResponseDto> {
     const result = await this.commSessionService.createSession({
-      counselorId: user.id,
+      counselorId: dto.counselorId || user.id, // Target counselor (who will attend)
+      createdByCounselorId: user.id, // Current logged-in counselor (who created)
       studentId: dto.studentId,
       mentorId: dto.mentorId,
       title: dto.title,

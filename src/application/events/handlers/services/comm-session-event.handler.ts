@@ -127,6 +127,7 @@ export class CommSessionCreatedEventHandler {
           studentId: payload.studentId,
           mentorId: payload.mentorId,
           counselorId: payload.counselorId,
+          createdByCounselorId: payload.createdByCounselorId,
           scheduledAt: payload.scheduledStartTime,
           duration: payload.duration,
           meetingUrl: meeting.meetingUrl,

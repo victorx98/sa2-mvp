@@ -3,6 +3,8 @@ export * from "./calendar.module";
 
 // Services
 export * from "./services/calendar.service";
+export * from "./services/feishu-calendar.service";
+export * from "./services/google-calendar.service";
 
 // DTOs
 export * from "./dto/create-slot.dto";

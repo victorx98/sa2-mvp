@@ -13,3 +13,17 @@ export const FEISHU_DEFAULT_HOST_USER_ID = 'ou_977d022952b2f47efe0740d2d1b2a713'
  */
 export const MEETING_COMPLETION_CHECK_DELAY_MINUTES = 30; // Delayed completion check window (minutes)
 
+/**
+ * Notification Scheduler Configuration
+ */
+export const NOTIFICATION_SCHEDULER_INTERVAL_MINUTES = 10; // Notification processing interval (minutes)
+
+/**
+ * Email Provider Configuration
+ */
+export enum EmailProvider {
+  FEISHU = 'FEISHU',
+  AWS_SES = 'AWS_SES',
+}
+export const EMAIL_PROVIDER: EmailProvider = EmailProvider.FEISHU; // Default email provider
+
