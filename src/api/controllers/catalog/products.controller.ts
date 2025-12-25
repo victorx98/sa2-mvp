@@ -27,8 +27,8 @@ import { CreateProductCommand } from "@application/commands/product/create-produ
 import { UpdateProductCommand } from "@application/commands/product/update-product.command";
 import { UpdateProductStatusCommand } from "@application/commands/product/update-product-status.command";
 import { CreateProductSnapshotCommand } from "@application/commands/product/create-snapshot.command";
-import { GetProductDetailQuery } from "@application/queries/product/get-product-detail.query";
-import { SearchProductsQuery } from "@application/queries/product/search-products.query";
+import { GetProductDetailUseCase } from "@application/queries/product/use-cases/get-product-detail.use-case";
+import { SearchProductsUseCase } from "@application/queries/product/use-cases/search-products.use-case";
 import { CreateProductRequestDto, UpdateProductRequestDto, UpdateProductStatusRequestDto } from "@api/dto/request/catalog/product.request.dto";
 import { ProductDetailResponseDto, ProductItemResponseDto, ProductResponseDto, ProductSnapshotResponseDto } from "@api/dto/response/catalog/product.response.dto";
 import { ProductListQueryDto } from "@api/dto/request/catalog/product-list.request.dto";
@@ -55,8 +55,8 @@ export class ProductsController {
     private readonly updateProductCommand: UpdateProductCommand,
     private readonly updateProductStatusCommand: UpdateProductStatusCommand,
     private readonly createProductSnapshotCommand: CreateProductSnapshotCommand,
-    private readonly getProductDetailQuery: GetProductDetailQuery,
-    private readonly searchProductsQuery: SearchProductsQuery,
+    private readonly getProductDetailUseCase: GetProductDetailUseCase,
+    private readonly searchProductsUseCase: SearchProductsUseCase,
   ) {}
 
   @Post()
@@ -153,7 +153,7 @@ export class ProductsController {
   @ApiResponse({ status: 404, description: "Product not found" })
   @Roles("student", "mentor", "counselor", "admin", "manager")
   async getProductDetail(@Param("id") id: string): Promise<ProductDetailResponseDto> {
-    const detail = await this.getProductDetailQuery.execute(id);
+    const detail = await this.getProductDetailUseCase.execute({ id });
     return {
       ...detail,
       targetUserPersonas: detail.targetUserPersonas as string[],
@@ -183,8 +183,8 @@ export class ProductsController {
   async getProducts(
     @Query() queryDto: ProductListQueryDto,
   ): Promise<ProductListResponseDto> {
-    const result = await this.searchProductsQuery.execute(
-      {
+    const result = await this.searchProductsUseCase.execute({
+      filter: {
         includeDeleted: false,
         status: queryDto.status,
         name: queryDto.keyword,

@@ -18,11 +18,11 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { QueryJobsQuery } from '@application/queries/placement/query-jobs.query';
-import { QueryJobApplicationsQuery } from '@application/queries/placement/query-job-applications.query';
+import { QueryJobsUseCase } from '@application/queries/placement/use-cases/query-jobs.use-case';
+import { QueryJobApplicationsUseCase } from '@application/queries/placement/use-cases/query-job-applications.use-case';
 import { JobQueryDto } from '@api/dto/request/placement/placement-query.request.dto';
 import { JobApplicationQueryDto } from '@api/dto/request/placement/job-application-query.request.dto';
-import { IJobQueryFilter } from '@domains/query/placement/dto/placement-query.dto';
+import { JobQueryFilter } from '@application/queries/placement/dto/query-jobs.dto';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { JobQueryResponseDto, JobPositionResponseDto } from '@api/dto/response/placement/placement.response.dto';
 import { JobApplicationQueryResponseDto } from '@api/dto/response/placement/job-application-query.response.dto';
@@ -34,8 +34,8 @@ export class PlacementQueryController {
   private readonly logger = new Logger(PlacementQueryController.name);
 
   constructor(
-    private readonly queryJobsQuery: QueryJobsQuery,
-    private readonly queryJobApplicationsQuery: QueryJobApplicationsQuery,
+    private readonly queryJobsUseCase: QueryJobsUseCase,
+    private readonly queryJobApplicationsUseCase: QueryJobApplicationsUseCase,
   ) {}
 
   /**
@@ -69,7 +69,7 @@ export class PlacementQueryController {
 
     try {
       // Build filter from query DTO [从查询DTO构建筛选条件]
-      const filter: IJobQueryFilter = this.buildFilterFromDto(queryDto);
+      const filter: JobQueryFilter = this.buildFilterFromDto(queryDto);
 
       // Build pagination and sorting parameters [构建分页和排序参数]
       const pagination = {
@@ -83,36 +83,29 @@ export class PlacementQueryController {
       };
 
       // Execute query [执行查询]
-      const results = await this.queryJobsQuery.execute({
+      const results = await this.queryJobsUseCase.execute({
         filter,
         pagination,
         sort,
       });
 
-      this.logger.log(`Job query completed successfully, returned ${results.items.length} items out of ${results.total}`);
+      this.logger.log(`Job query completed successfully, returned ${results.data.length} items out of ${results.total}`);
 
-      // Map DB column application_deadline to API field application_deadline
-      // [将数据库列application_deadline映射到接口字段application_deadline]
-      const mappedItems = (results.items as Array<Record<string, unknown>>).map(
-        (item) => {
-          const { applicationDeadline, ...rest } = item as {
-            applicationDeadline?: Date | string | null;
-            [key: string]: unknown;
-          };
-
-          const deadline =
-            applicationDeadline instanceof Date
-              ? applicationDeadline.toISOString()
-              : typeof applicationDeadline === "string"
-                ? applicationDeadline
-                : null;
-
-          return {
-            ...rest,
-            application_deadline: deadline,
-          };
-        },
-      );
+      // Map Read Model to API Response DTO
+      // Convert Date objects to ISO strings
+      const mappedItems = results.data.map((item) => {
+        return {
+          ...item,
+          applicationDeadline: item.applicationDeadline instanceof Date
+            ? item.applicationDeadline.toISOString()
+            : item.applicationDeadline
+              ? new Date(item.applicationDeadline).toISOString()
+              : null,
+          postDate: item.postDate instanceof Date ? item.postDate.toISOString() : item.postDate,
+          createdAt: item.createdAt instanceof Date ? item.createdAt.toISOString() : item.createdAt,
+          updatedAt: item.updatedAt instanceof Date ? item.updatedAt.toISOString() : item.updatedAt,
+        };
+      });
 
       return {
         data: mappedItems as unknown as JobPositionResponseDto[],
@@ -133,9 +126,9 @@ export class PlacementQueryController {
    * @param queryDto - Job query DTO [岗位查询DTO]
    * @returns Job query filter [岗位查询筛选条件]
    */
-  private buildFilterFromDto(queryDto: JobQueryDto): IJobQueryFilter {
+  private buildFilterFromDto(queryDto: JobQueryDto): JobQueryFilter {
     // Required: job application type filter [必填：岗位投递类型筛选]
-    const filter: IJobQueryFilter = {
+    const filter: JobQueryFilter = {
       jobApplicationType: queryDto.jobApplicationType,
     };
 
@@ -239,16 +232,16 @@ export class PlacementQueryController {
       };
 
       // Execute query [执行查询]
-      const results = await this.queryJobApplicationsQuery.execute({
+      const results = await this.queryJobApplicationsUseCase.execute({
         filter,
         pagination,
         sort,
       });
 
-      this.logger.log(`Job application query completed successfully, returned ${results.items.length} items out of ${results.total}`);
+      this.logger.log(`Job application query completed successfully, returned ${results.data.length} items out of ${results.total}`);
 
       return {
-        data: results.items,
+        data: results.data,
         total: results.total,
         page: results.page,
         pageSize: results.pageSize,
