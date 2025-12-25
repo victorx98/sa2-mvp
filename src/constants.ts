@@ -18,3 +18,12 @@ export const MEETING_COMPLETION_CHECK_DELAY_MINUTES = 30; // Delayed completion 
  */
 export const NOTIFICATION_SCHEDULER_INTERVAL_MINUTES = 10; // Notification processing interval (minutes)
 
+/**
+ * Email Provider Configuration
+ */
+export enum EmailProvider {
+  FEISHU = 'FEISHU',
+  AWS_SES = 'AWS_SES',
+}
+export const EMAIL_PROVIDER: EmailProvider = EmailProvider.FEISHU; // Default email provider
+
