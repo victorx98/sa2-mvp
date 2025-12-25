@@ -27,6 +27,7 @@ export const commSessions = pgTable(
     completedAt: timestamp('completed_at'),
     cancelledAt: timestamp('cancelled_at'),
     deletedAt: timestamp('deleted_at'),
+    feishuCalendarEventId: varchar('feishu_calendar_event_id', { length: 255 }),
     aiSummaries: jsonb('ai_summaries').default('[]'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),

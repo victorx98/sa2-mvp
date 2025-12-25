@@ -20,12 +20,14 @@ import { RegularMentoringMapper } from './infrastructure/mappers/regular-mentori
       provide: REGULAR_MENTORING_REPOSITORY,
       useClass: DrizzleRegularMentoringRepository,
     },
+    DrizzleRegularMentoringRepository, // Add as provider for direct injection
     
     // Domain Service
     RegularMentoringDomainService,
   ],
   exports: [
     REGULAR_MENTORING_REPOSITORY,
+    DrizzleRegularMentoringRepository, // Export for use in other modules
     RegularMentoringDomainService,
   ],
 })

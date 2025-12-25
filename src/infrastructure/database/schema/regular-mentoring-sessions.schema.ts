@@ -17,6 +17,7 @@ export const regularMentoringSessions = pgTable(
     meetingId: uuid('meeting_id')
       .unique()
       .references(() => meetings.id, { onDelete: 'cascade' }),
+    feishuCalendarEventId: varchar('feishu_calendar_event_id', { length: 255 }), // Feishu calendar event ID for updates/cancellations
     sessionType: varchar('session_type', { length: 50 })
       .notNull()
       .default('regular_mentoring'),

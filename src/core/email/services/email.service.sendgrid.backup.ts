@@ -1,57 +1,54 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import * as nodemailer from "nodemailer";
-import { Transporter } from "nodemailer";
+import * as sgMail from "@sendgrid/mail";
+import { HttpsProxyAgent } from "https-proxy-agent";
 import { ISendEmailParams } from "../interfaces/email.interface";
 
 /**
  * Email Service
  *
- * Provides email sending functionality using Feishu (飞书) SMTP
+ * Provides email sending functionality using SendGrid API
  * Supports templates and attachments
  */
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private transporter: Transporter;
+  private apiKey: string;
+  private fromAddress: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.initializeTransporter();
+    this.initializeClient();
   }
 
   /**
-   * Initialize email transporter with Feishu SMTP
+   * Initialize SendGrid client
    */
-  private initializeTransporter(): void {
-    const host = this.configService.get<string>("FEISHU_SMTP_HOST", "smtp.feishu.cn");
-    const port = this.configService.get<number>("FEISHU_SMTP_PORT", 465);
-    const user = this.configService.get<string>("FEISHU_SMTP_USER");
-    const pass = this.configService.get<string>("FEISHU_SMTP_PASSWORD");
+  private initializeClient(): void {
+    this.apiKey = this.configService.get<string>("SENDGRID_API_KEY");
+    this.fromAddress = this.configService.get<string>(
+      "FROM_EMAIL_ADDRESS",
+      "noreply@sa2.com",
+    );
 
-    if (!user || !pass) {
+    if (!this.apiKey) {
       this.logger.warn(
-        "Feishu SMTP credentials not configured. Email service will be disabled.",
+        "SendGrid API key not configured. Email service will be disabled.",
       );
       return;
     }
 
-    this.transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: true, // Port 465 requires secure: true
-      auth: {
-        user,
-        pass,
-      },
-      greetingTimeout: 10000, // 10 seconds greeting timeout
-      connectionTimeout: 10000, // 10 seconds connection timeout
-      socketTimeout: 10000, // 10 seconds socket timeout
-      tls: {
-        rejectUnauthorized: false, // Allow self-signed certs if needed
-      },
-    });
-
-    this.logger.log(`Email service initialized with Feishu SMTP: ${user}@${host}:${port}`);
+    // Configure SendGrid client
+    sgMail.setApiKey(this.apiKey);
+    
+    // Disable proxy for SendGrid to avoid HTTP/HTTPS port mismatch
+    // SendGrid client uses axios internally, set proxy to false
+    const client = (sgMail as any).client;
+    if (client && client.setDefaultRequest) {
+      client.setDefaultRequest('proxy', false);
+      this.logger.log(`SendGrid client initialized with from: ${this.fromAddress} (proxy disabled)`);
+    } else {
+      this.logger.log(`SendGrid client initialized with from: ${this.fromAddress}`);
+    }
   }
 
   /**
@@ -60,9 +57,9 @@ export class EmailService {
    * @param params - Email parameters
    */
   async send(params: ISendEmailParams): Promise<void> {
-    if (!this.transporter) {
+    if (!this.apiKey) {
       this.logger.warn(
-        "Email transporter not initialized. Skipping email send.",
+        "SendGrid API key not configured. Skipping email send.",
       );
       return;
     }
@@ -73,37 +70,29 @@ export class EmailService {
       // Use provided HTML or render from template
       const html = providedHtml || this.renderTemplate(template!, data!);
 
-      // Get from address from config
-      const fromAddress = this.configService.get<string>(
-        "FROM_EMAIL_ADDRESS",
-        "noreply@sa2.com",
-      );
-
-      // Prepare email options
-      const mailOptions: any = {
-        from: fromAddress,
+      // Prepare email message (remove undefined fields for SendGrid)
+      const msg: any = {
         to,
+        from: this.fromAddress,
         subject,
         html,
       };
 
       // Add optional fields only if they exist
-      if (cc) mailOptions.cc = cc;
-      if (attachments) mailOptions.attachments = attachments;
+      if (cc) msg.cc = cc;
+      if (attachments) msg.attachments = this.formatAttachments(attachments);
 
-      // Send email
-      const info = await this.transporter.sendMail(mailOptions);
-
-      this.logger.log(`Email sent successfully: ${info.messageId} to ${to}`);
+      // Send email via SendGrid
+      const response = await sgMail.send(msg);
+      this.logger.log(`Email sent successfully to ${to}: ${response[0].statusCode}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      // Log detailed error for debugging
       this.logger.error(`Failed to send email to ${params.to}: ${message}`);
-      
-      // Log detailed error info for debugging
-      if (error && typeof error === 'object') {
-        this.logger.error(`Error details: ${JSON.stringify(error)}`);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const sgError = error as any;
+        this.logger.error(`SendGrid error details: ${JSON.stringify(sgError.response?.body)}`);
       }
-      
       throw error;
     }
   }
@@ -115,6 +104,20 @@ export class EmailService {
    */
   async sendWithAttachments(params: ISendEmailParams): Promise<void> {
     return this.send(params);
+  }
+
+  /**
+   * Format attachments for SendGrid API
+   */
+  private formatAttachments(
+    attachments: any[],
+  ): { content: string; filename: string; type: string; disposition: string }[] {
+    return attachments.map((att) => ({
+      content: att.content,
+      filename: att.filename,
+      type: att.contentType || "application/octet-stream",
+      disposition: "attachment",
+    }));
   }
 
   /**

@@ -17,6 +17,7 @@ export class RegularMentoringMapper {
     return RegularMentoringSession.reconstitute({
       id: record.id,
       meetingId: record.meetingId,
+      feishuCalendarEventId: record.feishuCalendarEventId,
       sessionType: record.sessionType,
       sessionTypeId: record.sessionTypeId,
       serviceType: record.serviceType,
@@ -44,6 +45,7 @@ export class RegularMentoringMapper {
     return {
       id: entity.getId(),
       meetingId: entity.getMeetingId(),
+      feishuCalendarEventId: entity.getFeishuCalendarEventId(),
       sessionType: entity.getSessionType(),
       sessionTypeId: entity.getSessionTypeId(),
       serviceType: entity.getServiceType(),

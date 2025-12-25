@@ -26,9 +26,20 @@ export const notificationStatusEnum = pgEnum("notification_status", [
 ]);
 
 /**
- * Notification Queue Table
+ * Reminder Type Enum
+ * Defines when to send reminders before the scheduled session
+ */
+export const reminderTypeEnum = pgEnum("reminder_type", [
+  "three_days",
+  "one_day",
+  "three_hours",
+]);
+
+/**
+ * Notification Queue Table (Optimized for Regular Mentoring)
  *
  * Stores scheduled notifications with persistent queue management
+ * Supports multi-recipient email notifications with reminder types
  */
 export const notificationQueue = pgTable("notification_queue", {
   // Primary Key
@@ -39,12 +50,13 @@ export const notificationQueue = pgTable("notification_queue", {
 
   // Notification Details
   type: notificationTypeEnum("type").notNull(), // email | feishu_bot
-  recipient: varchar("recipient", { length: 255 }).notNull(), // Email or Feishu user_id
-  template: varchar("template", { length: 100 }).notNull(), // Template name
-  data: jsonb("data").notNull(), // Template data
+  recipients: jsonb("recipients").notNull(), // Multiple recipients: {counselor: "c@x.com", mentor: "m@x.com", student: "s@x.com"}
+  subject: varchar("subject", { length: 255 }).notNull(), // Email subject
+  content: jsonb("content").notNull(), // Email content: {html: "...", text: "..."}
+  reminderType: reminderTypeEnum("reminder_type"), // three_days | one_day | three_hours
 
   // Scheduling
-  scheduledTime: timestamp("scheduled_time", { withTimezone: true }).notNull(), // When to send
+  scheduledSendTime: timestamp("scheduled_send_time", { withTimezone: true }).notNull(), // When to send
 
   // Status Tracking
   status: notificationStatusEnum("status").notNull().default("pending"),

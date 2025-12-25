@@ -103,6 +103,7 @@ import { AuthCommandService } from "./commands/auth-command/auth-command.service
 // Core Services
 import { CalendarModule } from "@core/calendar";
 import { MeetingModule } from "@core/meeting";
+import { NotificationModule } from "@core/notification";
 import { TelemetryModule } from "@telemetry/telemetry.module";
 
 // Domain Services
@@ -110,9 +111,14 @@ import { ServicesModule } from "@domains/services/services.module";
 import { ContractModule } from "@domains/contract/contract.module";
 import { QueryModule } from "@domains/query/query.module";
 import { AiCareerCreatedEventHandler } from "@application/events/handlers/services/ai-career-event.handler";
+import { AiCareerNotificationHandler } from "@application/events/handlers/services/ai-career-notification.handler";
 import { GapAnalysisCreatedEventHandler } from "@application/events/handlers/services/gap-analysis-event.handler";
+import { GapAnalysisNotificationHandler } from "@application/events/handlers/services/gap-analysis-notification.handler";
 import { RegularMentoringCreatedEventHandler } from "@application/events/handlers/services/regular-mentoring-event.handler";
+import { RegularMentoringNotificationHandler } from "@application/events/handlers/services/regular-mentoring-notification.handler";
 import { CommSessionCreatedEventHandler } from "@application/events/handlers/services/comm-session-event.handler";
+import { CommSessionNotificationHandler } from "@application/events/handlers/services/comm-session-notification.handler";
+import { ClassSessionNotificationHandler } from "@application/events/handlers/services/class-session-notification.handler";
 import { ClassSessionCreatedEventHandler } from "@application/events/handlers/services/class-session-event.handler";
 import { ClassSessionMeetingCompletedHandler } from "@application/events/handlers/services/class-session-meeting-completed.handler";
 import { MeetingCompletedListener } from "@application/events/handlers/calendar/meeting-completed.handler";
@@ -141,6 +147,7 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     DatabaseModule, // 导入数据库模块，提供事务支持
     CalendarModule, // 导入日历模块（包含事件监听器）
     MeetingModule, // 导入会议提供者模块
+    NotificationModule, // 导入通知模块（包含通知队列和定时任务）
     TelemetryModule, // Domain Services
     UserModule, // Domain层：User (Identity)
     CatalogModule, // Domain层：Catalog
@@ -199,10 +206,15 @@ import { PreferenceModule } from "@domains/preference/preference.module";
 
     // Event Handlers
     RegularMentoringCreatedEventHandler,
+    RegularMentoringNotificationHandler,
     GapAnalysisCreatedEventHandler,
+    GapAnalysisNotificationHandler,
     AiCareerCreatedEventHandler,
+    AiCareerNotificationHandler,
     CommSessionCreatedEventHandler,
+    CommSessionNotificationHandler,
     ClassSessionCreatedEventHandler,
+    ClassSessionNotificationHandler,
     ClassSessionMeetingCompletedHandler,
     MeetingCompletedListener,
     SessionCompletedListener,
@@ -324,10 +336,15 @@ import { PreferenceModule } from "@domains/preference/preference.module";
 
     // Event Handlers
     RegularMentoringCreatedEventHandler,
+    RegularMentoringNotificationHandler,
     GapAnalysisCreatedEventHandler,
+    GapAnalysisNotificationHandler,
     AiCareerCreatedEventHandler,
+    AiCareerNotificationHandler,
     CommSessionCreatedEventHandler,
+    CommSessionNotificationHandler,
     ClassSessionCreatedEventHandler,
+    ClassSessionNotificationHandler,
     ClassSessionMeetingCompletedHandler,
     MeetingCompletedListener,
     SessionCompletedListener,

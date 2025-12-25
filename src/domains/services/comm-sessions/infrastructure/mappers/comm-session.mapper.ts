@@ -29,6 +29,7 @@ export class CommSessionMapper {
       completedAt: record.completedAt ? new Date(record.completedAt) : null,
       cancelledAt: record.cancelledAt ? new Date(record.cancelledAt) : null,
       deletedAt: record.deletedAt ? new Date(record.deletedAt) : null,
+      feishuCalendarEventId: (record as any).feishuCalendarEventId || null,
       aiSummaries: (record.aiSummaries as any) || [],
       createdAt: new Date(record.createdAt),
       updatedAt: new Date(record.updatedAt),
@@ -54,6 +55,7 @@ export class CommSessionMapper {
       completedAt: entity.getCompletedAt() || null,
       cancelledAt: entity.getCancelledAt() || null,
       deletedAt: entity.getDeletedAt() || null,
+      feishuCalendarEventId: entity.getFeishuCalendarEventId() as any,
       aiSummaries: entity.getAiSummaries(),
       updatedAt: new Date(),
     };

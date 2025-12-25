@@ -39,6 +39,7 @@ export const aiCareerSessions = pgTable(
     completedAt: timestamp('completed_at', { withTimezone: true }),
     cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    feishuCalendarEventId: varchar('feishu_calendar_event_id', { length: 255 }),
     aiSummaries: jsonb('ai_summaries').notNull().default([]),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

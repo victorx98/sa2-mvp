@@ -24,12 +24,14 @@ import { ServiceReferenceRepository } from '../service-registry/service-referenc
       provide: CLASS_REPOSITORY,
       useClass: ClassRepository,
     },
+    ClassRepository,
     // Class Sessions
     ClassSessionDomainService,
     {
       provide: CLASS_SESSION_REPOSITORY,
       useClass: ClassSessionRepository,
     },
+    ClassSessionRepository,
     // Service Registry
     ServiceRegistryService,
     ServiceReferenceRepository,
@@ -38,9 +40,11 @@ import { ServiceReferenceRepository } from '../service-registry/service-referenc
     // Classes
     ClassDomainService,
     CLASS_REPOSITORY,
+    ClassRepository,
     // Class Sessions
     ClassSessionDomainService,
     CLASS_SESSION_REPOSITORY,
+    ClassSessionRepository,
     // Service Registry
     ServiceRegistryService,
     ServiceReferenceRepository,
