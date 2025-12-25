@@ -1,2 +1,2 @@
-export * from './get-product-detail.query';
-export * from './search-products.query';
+export * from './use-cases/get-product-detail.use-case';
+export * from './use-cases/search-products.use-case';

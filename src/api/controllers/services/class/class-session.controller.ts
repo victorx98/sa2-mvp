@@ -28,8 +28,8 @@ import { CurrentUser } from '@shared/decorators/current-user.decorator';
 import { User } from '@domains/identity/user/user-interface';
 import { ApiPrefix } from '@api/api.constants';
 import { ClassSessionService } from '@application/commands/services/class-session.service';
-import { ClassSessionQueryService } from '@application/queries/services/class-session.query.service';
-import { ClassQueryService } from '@application/queries/services/class.query.service';
+import { ClassSessionQueryService } from '@domains/query/services/class-session-query.service';
+import { ClassQueryService } from '@domains/query/services/class-query.service';
 
 // Import DTOs from centralized location
 import {

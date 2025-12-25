@@ -4,7 +4,7 @@ import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { RolesGuard } from "@shared/guards/roles.guard";
 import { Roles } from "@shared/decorators/roles.decorator";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
-import { StudentListQuery } from "@application/queries/student/student-list.query";
+import { StudentListUseCase } from "@application/queries/identity/use-cases/student-list.use-case";
 import { User } from "@domains/identity/user/user-interface";
 import { ApiPrefix } from "@api/api.constants";
 import { StudentSummaryResponseDto, StudentCounselorViewResponseDto, PaginatedStudentCounselorViewResponseDto } from "@api/dto/response/student-response.dto";
@@ -32,7 +32,7 @@ import { plainToInstance } from "class-transformer";
 export class StudentsController {
   constructor(
     // ✅ 直接注入 Application Layer 服务
-    private readonly studentListQuery: StudentListQuery,
+    private readonly studentListQuery: StudentListUseCase,
   ) {}
 
   @Get('find')
@@ -68,8 +68,12 @@ export class StudentsController {
     @Query("mentorId") mentorId?: string,
   ): Promise<StudentSummaryResponseDto[]> {
     // ✅ 调用 Application Layer 服务，根据传入的 counselorId 或 mentorId 参数选择查询策略
-    const items = await this.studentListQuery.find(user, text, counselorId, mentorId);
-    return plainToInstance(StudentSummaryResponseDto, items, {
+    const result = await this.studentListQuery.listStudents({ 
+      keyword: text, 
+      counselorId, 
+      mentorId 
+    });
+    return plainToInstance(StudentSummaryResponseDto, result.data, {
       enableImplicitConversion: false,
     });
   }

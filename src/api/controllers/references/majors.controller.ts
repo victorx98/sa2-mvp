@@ -1,7 +1,7 @@
 import { Controller, Get, Query, UseGuards } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiOkResponse, ApiQuery, ApiBearerAuth } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
-import { MajorListQuery } from "@application/queries/major/major-list.query";
+import { MajorListUseCase } from "@application/queries/identity/use-cases/major-list.use-case";
 import { ApiPrefix } from "@api/api.constants";
 import { MajorResponseDto } from "@api/dto/response/major-response.dto";
 import { plainToInstance } from "class-transformer";
@@ -25,7 +25,7 @@ import { plainToInstance } from "class-transformer";
 @ApiBearerAuth()
 export class MajorsController {
   constructor(
-    private readonly majorListQuery: MajorListQuery,
+    private readonly majorListQuery: MajorListUseCase,
   ) {}
 
   @Get()
@@ -44,8 +44,8 @@ export class MajorsController {
   async getMajors(
     @Query("text") text?: string,
   ): Promise<MajorResponseDto[]> {
-    const items = await this.majorListQuery.search(text);
-    return plainToInstance(MajorResponseDto, items, {
+    const items = await this.majorListQuery.listMajors({ keyword: text });
+    return plainToInstance(MajorResponseDto, items.data, {
       enableImplicitConversion: false,
     });
   }

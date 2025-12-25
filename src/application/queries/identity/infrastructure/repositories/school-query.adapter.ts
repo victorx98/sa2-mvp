@@ -14,7 +14,14 @@ export class SchoolQueryAdapter implements ISchoolQueryRepository {
   ) {}
 
   async listSchools(params: any): Promise<IPaginatedResult<any>> {
-    return this.schoolQueryService.listSchools(params);
+    const schools = await this.schoolQueryService.search(params?.keyword);
+    return {
+      data: schools,
+      total: schools.length,
+      page: params?.page || 1,
+      pageSize: params?.pageSize || schools.length,
+      totalPages: 1
+    };
   }
 }
 

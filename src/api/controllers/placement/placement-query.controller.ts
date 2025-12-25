@@ -26,6 +26,7 @@ import { JobQueryFilter } from '@application/queries/placement/dto/query-jobs.dt
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { JobQueryResponseDto, JobPositionResponseDto } from '@api/dto/response/placement/placement.response.dto';
 import { JobApplicationQueryResponseDto } from '@api/dto/response/placement/job-application-query.response.dto';
+import type { ApplicationStatus } from '@domains/placement/types';
 
 @Controller('api/query/placement')
 @ApiTags('Placement')
@@ -240,8 +241,13 @@ export class PlacementQueryController {
 
       this.logger.log(`Job application query completed successfully, returned ${results.data.length} items out of ${results.total}`);
 
+      const mappedItems = results.data.map((item) => ({
+        ...item,
+        status: item.status as ApplicationStatus,
+      }));
+
       return {
-        data: results.data,
+        data: mappedItems,
         total: results.total,
         page: results.page,
         pageSize: results.pageSize,

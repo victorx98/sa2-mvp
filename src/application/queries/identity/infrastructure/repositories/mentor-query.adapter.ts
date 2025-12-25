@@ -14,11 +14,26 @@ export class MentorQueryAdapter implements IMentorQueryRepository {
   ) {}
 
   async listMentors(params: any): Promise<IPaginatedResult<any>> {
-    return this.mentorQueryService.listMentors(params);
+    const mentors = await this.mentorQueryService.findAll(params?.keyword);
+    return {
+      data: mentors,
+      total: mentors.length,
+      page: params?.page || 1,
+      pageSize: params?.pageSize || mentors.length,
+      totalPages: 1
+    };
+  }
+
+  async getMentorItem(mentorId: string): Promise<any> {
+    // 使用 findAll 并过滤结果
+    const mentors = await this.mentorQueryService.findAll();
+    return mentors.find(mentor => mentor.id === mentorId) || null;
   }
 
   async getMentorProfile(mentorId: string): Promise<any> {
-    return this.mentorQueryService.getMentorItem(mentorId);
+    // 使用 findAll 并过滤结果
+    const mentors = await this.mentorQueryService.findAll();
+    return mentors.find(mentor => mentor.id === mentorId) || null;
   }
 }
 

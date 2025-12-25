@@ -6,8 +6,8 @@
  */
 
 export enum SortDirection {
-  ASC = 'ASC',
-  DESC = 'DESC',
+  ASC = 'asc',
+  DESC = 'desc',
 }
 
 export interface ListMentorPricesDto {

@@ -7,7 +7,8 @@ export interface ProductItemReadModel {
   id: string;
   productId: string;
   serviceTypeId: string;
-  sessionTypeCode: string | null;
+  serviceTypeCode: string | null;
+  serviceTypeName: string | null;
   packageCode: string | null;
   quantity: number;
   note: string | null;
@@ -31,6 +32,7 @@ export interface ProductReadModel {
   availableTo: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  createdBy: string;
   items?: ProductItemReadModel[];
 }
 

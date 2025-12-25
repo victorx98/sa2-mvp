@@ -8,6 +8,7 @@ export interface MentorAppealReadModel {
   appealType: string;
   appealAmount: string;
   currency: string;
+  paymentMonth: string;
   status: string;
   createdAt: Date;
   approvedAt: Date | null;

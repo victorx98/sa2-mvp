@@ -14,7 +14,14 @@ export class MajorQueryAdapter implements IMajorQueryRepository {
   ) {}
 
   async listMajors(params: any): Promise<IPaginatedResult<any>> {
-    return this.majorQueryService.listMajors(params);
+    const majors = await this.majorQueryService.search(params?.keyword);
+    return {
+      data: majors,
+      total: majors.length,
+      page: params?.page || 1,
+      pageSize: params?.pageSize || majors.length,
+      totalPages: 1
+    };
   }
 }
 

@@ -20,7 +20,7 @@ export class PreferenceJobTitleQueryRepository implements IJobTitleQueryReposito
   async listJobTitles(dto: ListJobTitlesDto): Promise<IPaginatedResult<JobTitleReadModel>> {
     const result = await this.jobTitleService.findAll({
       status: dto.status,
-      keyword: dto.keyword,
+      search: dto.keyword,
       page: dto.page,
       pageSize: dto.pageSize,
       sortBy: dto.sortBy,
@@ -30,15 +30,15 @@ export class PreferenceJobTitleQueryRepository implements IJobTitleQueryReposito
     // Map to Read Model
     const data: JobTitleReadModel[] = result.data.map(entity => ({
       id: entity.id,
-      nameZh: entity.nameZh,
-      nameEn: entity.nameEn,
+      nameZh: '',
+      nameEn: '',
       status: entity.status,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
+      createdAt: entity.createdTime,
+      updatedAt: entity.modifiedTime,
       createdBy: entity.createdBy,
       updatedBy: entity.updatedBy,
-      deletedAt: entity.deletedAt,
-      deletedBy: entity.deletedBy,
+      deletedAt: null,
+      deletedBy: null,
     }));
 
     return {
@@ -58,15 +58,15 @@ export class PreferenceJobTitleQueryRepository implements IJobTitleQueryReposito
 
     return {
       id: entity.id,
-      nameZh: entity.nameZh,
-      nameEn: entity.nameEn,
+      nameZh: '',
+      nameEn: '',
       status: entity.status,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
+      createdAt: entity.createdTime,
+      updatedAt: entity.modifiedTime,
       createdBy: entity.createdBy,
       updatedBy: entity.updatedBy,
-      deletedAt: entity.deletedAt,
-      deletedBy: entity.deletedBy,
+      deletedAt: null,
+      deletedBy: null,
     };
   }
 }

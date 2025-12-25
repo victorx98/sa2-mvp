@@ -27,7 +27,7 @@ import { plainToInstance } from 'class-transformer';
 import { CreateJobTitleCommand } from '@application/commands/preference/create-job-title.command';
 import { UpdateJobTitleCommand } from '@application/commands/preference/update-job-title.command';
 import { DeleteJobTitleCommand } from '@application/commands/preference/delete-job-title.command';
-import { ListJobTitlesQuery } from '@application/queries/preference/list-job-titles.query';
+import { ListJobTitlesUseCase } from '@application/queries/preference/use-cases/list-job-titles.use-case';
 import { CreateJobTitleDto } from '@api/dto/request/preference/create-job-title.dto';
 import { UpdateJobTitleDto } from '@api/dto/request/preference/update-job-title.dto';
 import { JobTitleQueryDto } from '@api/dto/request/preference/job-title-query.dto';
@@ -59,7 +59,7 @@ export class JobTitlesController {
     private readonly createJobTitleCommand: CreateJobTitleCommand,
     private readonly updateJobTitleCommand: UpdateJobTitleCommand,
     private readonly deleteJobTitleCommand: DeleteJobTitleCommand,
-    private readonly listJobTitlesQuery: ListJobTitlesQuery,
+    private readonly listJobTitlesQuery: ListJobTitlesUseCase,
   ) {}
 
   @Post()

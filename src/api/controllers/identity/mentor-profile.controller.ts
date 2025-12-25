@@ -9,7 +9,7 @@ import { ApiPrefix } from "@api/api.constants";
 import { UpdateMentorProfileDto } from "@api/dto/request/update-mentor-profile.dto";
 import { UpdateMentorProfileCommand } from "@application/commands/profile/update-mentor-profile.command";
 import { UpdateMentorProfileInput } from "@application/commands/profile/dto/update-mentor-profile.input";
-import { MentorProfileQuery } from "@application/queries/mentor/mentor-profile.query";
+import { MentorProfileUseCase } from "@application/queries/identity/use-cases/mentor-profile.use-case";
 
 /**
  * API Layer - Mentor Profile Controller
@@ -32,7 +32,7 @@ import { MentorProfileQuery } from "@application/queries/mentor/mentor-profile.q
 export class MentorProfileController {
   constructor(
     private readonly updateMentorProfileCommand: UpdateMentorProfileCommand,
-    private readonly mentorProfileQuery: MentorProfileQuery,
+    private readonly mentorProfileQuery: MentorProfileUseCase,
   ) {}
 
   @Get()
@@ -41,7 +41,7 @@ export class MentorProfileController {
     description: "Mentor profile retrieved successfully",
   })
   async getProfile(@CurrentUser() user: User) {
-    return this.mentorProfileQuery.getProfile(user.id);
+    return this.mentorProfileQuery.getMentorProfile(user.id);
   }
 
   @Put()

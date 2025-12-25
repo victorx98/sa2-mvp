@@ -14,7 +14,14 @@ export class StudentQueryAdapter implements IStudentQueryRepository {
   ) {}
 
   async listStudents(params: any): Promise<IPaginatedResult<any>> {
-    return this.studentQueryService.listStudents(params);
+    const students = await this.studentQueryService.findAllStudents(params?.keyword);
+    return {
+      data: students,
+      total: students.length,
+      page: params?.page || 1,
+      pageSize: params?.pageSize || students.length,
+      totalPages: 1
+    };
   }
 
   async listOfCounselorView(
@@ -28,7 +35,9 @@ export class StudentQueryAdapter implements IStudentQueryRepository {
   }
 
   async getStudentProfile(studentId: string): Promise<any> {
-    return this.studentQueryService.getStudentItem(studentId);
+    // 使用listOfCounselorView方法获取单个学生详情
+    const result = await this.studentQueryService.listOfCounselorView(undefined, undefined, 1, 1, studentId);
+    return result.data[0] || null;
   }
 }
 

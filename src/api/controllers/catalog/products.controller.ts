@@ -7,6 +7,7 @@ import {
   Patch,
   UseGuards,
   Query,
+  NotFoundException,
 } from "@nestjs/common";
 import {
   ApiBearerAuth,
@@ -154,20 +155,36 @@ export class ProductsController {
   @Roles("student", "mentor", "counselor", "admin", "manager")
   async getProductDetail(@Param("id") id: string): Promise<ProductDetailResponseDto> {
     const detail = await this.getProductDetailUseCase.execute({ id });
+    if (!detail) {
+      throw new NotFoundException("Product not found");
+    }
+
     return {
-      ...detail,
-      targetUserPersonas: detail.targetUserPersonas as string[],
-      marketingLabels: detail.marketingLabels as string[],
-      publishedAt: detail.publishedAt?.toISOString(),
-      unpublishedAt: detail.unpublishedAt?.toISOString(),
+      id: detail.id,
+      name: detail.name,
+      code: detail.code ?? "",
+      status: detail.status as any,
+      price: String(detail.price),
+      currency: detail.currency as any,
+      targetUserPersonas: detail.userPersona ? [detail.userPersona as any] : [],
+      marketingLabels: detail.marketingLabel ? [detail.marketingLabel as any] : [],
+      publishedAt: detail.availableFrom?.toISOString(),
+      unpublishedAt: detail.availableTo?.toISOString(),
       createdAt: detail.createdAt.toISOString(),
       updatedAt: detail.updatedAt.toISOString(),
-      items: detail.items.map(item => ({
-        ...item,
+      createdBy: detail.createdBy,
+      items: detail.items.map((item) => ({
+        id: item.id,
+        productId: item.productId,
+        serviceTypeId: item.serviceTypeId,
+        serviceTypeCode: item.serviceTypeCode ?? "",
+        serviceTypeName: item.serviceTypeName ?? "",
+        quantity: item.quantity,
+        sortOrder: item.sortOrder,
         createdAt: item.createdAt.toISOString(),
         updatedAt: item.updatedAt.toISOString(),
-      })) as ProductItemResponseDto[],
-    } as ProductDetailResponseDto;
+      })),
+    };
   }
 
   @Get()
@@ -189,15 +206,15 @@ export class ProductsController {
         status: queryDto.status,
         name: queryDto.keyword,
       },
-      {
+      pagination: {
         page: queryDto.page || 1,
         pageSize: queryDto.pageSize || 20,
       },
-      {
+      sort: {
         field: queryDto.field || "createdAt",
         order: queryDto.order || "desc",
       },
-    );
+    });
 
     return {
       data: result.data.map((product) => ({

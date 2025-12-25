@@ -187,7 +187,8 @@ export class DrizzleProductQueryRepository implements IProductQueryRepository {
       }
       return {
         ...this.mapToProductItemReadModel(i),
-        sessionTypeCode: st.code,
+        serviceTypeCode: st.code,
+        serviceTypeName: st.name,
       };
     });
 
@@ -216,12 +217,13 @@ export class DrizzleProductQueryRepository implements IProductQueryRepository {
       currency: record.currency,
       userPersona: record.targetUserPersona?.[0] || null,
       marketingLabel: record.marketingLabels?.[0] || null,
-      isRecommended: record.isRecommended || false,
-      recommendPriority: record.recommendPriority,
+      isRecommended: false,
+      recommendPriority: 0,
       availableFrom: record.publishedAt,
       availableTo: record.unpublishedAt,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
+      createdBy: record.createdBy,
     };
   }
 
@@ -230,7 +232,8 @@ export class DrizzleProductQueryRepository implements IProductQueryRepository {
       id: record.id,
       productId: record.productId,
       serviceTypeId: record.serviceTypeId,
-      sessionTypeCode: null, // Will be enriched if needed
+      serviceTypeCode: null, // Will be enriched if needed
+      serviceTypeName: null, // Will be enriched if needed
       packageCode: null,
       quantity: record.quantity,
       note: null,

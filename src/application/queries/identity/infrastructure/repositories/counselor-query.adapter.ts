@@ -14,7 +14,14 @@ export class CounselorQueryAdapter implements ICounselorQueryRepository {
   ) {}
 
   async listCounselors(params: any): Promise<IPaginatedResult<any>> {
-    return this.counselorQueryService.listCounselors(params);
+    const counselors = await this.counselorQueryService.findAll(params?.keyword);
+    return {
+      data: counselors,
+      total: counselors.length,
+      page: params?.page || 1,
+      pageSize: params?.pageSize || counselors.length,
+      totalPages: 1
+    };
   }
 }
 

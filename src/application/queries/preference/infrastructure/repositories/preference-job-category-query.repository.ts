@@ -20,25 +20,25 @@ export class PreferenceJobCategoryQueryRepository implements IJobCategoryQueryRe
   async listJobCategories(dto: ListJobCategoriesDto): Promise<IPaginatedResult<JobCategoryReadModel>> {
     const result = await this.jobCategoryService.findAll({
       status: dto.status,
-      keyword: dto.keyword,
+      search: dto.keyword,
       page: dto.page,
       pageSize: dto.pageSize,
       sortBy: dto.sortBy,
       sortOrder: dto.sortOrder,
     });
 
-    // Map to Read Model (in this case, the entity already matches the read model structure)
+    // Map to Read Model
     const data: JobCategoryReadModel[] = result.data.map(entity => ({
       id: entity.id,
-      nameZh: entity.nameZh,
-      nameEn: entity.nameEn,
+      nameZh: '',
+      nameEn: '',
       status: entity.status,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
+      createdAt: entity.createdTime,
+      updatedAt: entity.modifiedTime,
       createdBy: entity.createdBy,
       updatedBy: entity.updatedBy,
-      deletedAt: entity.deletedAt,
-      deletedBy: entity.deletedBy,
+      deletedAt: null,
+      deletedBy: null,
     }));
 
     return {
@@ -58,15 +58,15 @@ export class PreferenceJobCategoryQueryRepository implements IJobCategoryQueryRe
 
     return {
       id: entity.id,
-      nameZh: entity.nameZh,
-      nameEn: entity.nameEn,
+      nameZh: '',
+      nameEn: '',
       status: entity.status,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
+      createdAt: entity.createdTime,
+      updatedAt: entity.modifiedTime,
       createdBy: entity.createdBy,
       updatedBy: entity.updatedBy,
-      deletedAt: entity.deletedAt,
-      deletedBy: entity.deletedBy,
+      deletedAt: null,
+      deletedBy: null,
     };
   }
 }

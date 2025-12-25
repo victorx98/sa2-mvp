@@ -262,6 +262,7 @@ export class FinancialController {
       appealType: item.appealType,
       appealAmount: item.appealAmount,
       currency: item.currency,
+      paymentMonth: item.paymentMonth,
       status: item.status,
       counselor: {
         id: item.counselorId,

@@ -39,25 +39,28 @@ export class DrizzleContractQueryRepository implements IContractQueryRepository 
         keyword: filters?.productName,
         ...dateFilters,
       },
-      pagination,
+      {
+        page: pagination?.page || 1,
+        pageSize: pagination?.pageSize || 20,
+      },
       { field: sort?.field || "createdAt", order: sort?.direction || "desc" },
     );
 
     const data: StudentContractReadModel[] = result.data.map((contract) => ({
       id: contract.id,
       studentId: contract.studentId,
-      productSnapshotId: contract.productSnapshotId,
+      productSnapshotId: contract.productSnapshot?.productId || null,
       contractNumber: contract.contractNumber,
-      productName: contract.productSnapshot.productName,
+      productName: contract.productSnapshot?.productName || '',
       productPrice: String(contract.totalAmount),
       productCurrency: contract.currency,
       status: contract.status,
-      signedAt: contract.signedAt,
-      activatedAt: contract.activatedAt,
-      suspendedAt: contract.suspendedAt,
-      resumedAt: contract.resumedAt,
-      completedAt: contract.completedAt,
-      terminatedAt: contract.terminatedAt,
+      signedAt: undefined,
+      activatedAt: undefined,
+      suspendedAt: undefined,
+      resumedAt: undefined,
+      completedAt: undefined,
+      terminatedAt: undefined,
       createdAt: contract.createdAt,
       updatedAt: contract.updatedAt,
     }));
@@ -88,8 +91,8 @@ export class DrizzleContractQueryRepository implements IContractQueryRepository 
     } = pagination || {};
 
     const {
-      sortField = 'startDate',
-      sortOrder = 'desc',
+      field: sortField = 'startDate',
+      direction: sortOrder = 'desc',
     } = sort || {};
 
     // Build filter conditions (using parameterized queries to prevent SQL injection)
