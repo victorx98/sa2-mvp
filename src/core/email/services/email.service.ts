@@ -1,109 +1,47 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import * as nodemailer from "nodemailer";
-import { Transporter } from "nodemailer";
 import { ISendEmailParams } from "../interfaces/email.interface";
+import { IEmailProvider } from "../interfaces/email-provider.interface";
+import { EmailFactory } from "./email.factory";
 
 /**
  * Email Service
  *
- * Provides email sending functionality using Feishu (飞书) SMTP
+ * Facade service that delegates email sending to configured provider
  * Supports templates and attachments
  */
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private transporter: Transporter;
+  private provider: IEmailProvider;
 
-  constructor(private readonly configService: ConfigService) {
-    this.initializeTransporter();
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly emailFactory: EmailFactory,
+  ) {
+    this.provider = this.emailFactory.getProvider();
   }
 
   /**
-   * Initialize email transporter with Feishu SMTP
-   */
-  private initializeTransporter(): void {
-    const host = this.configService.get<string>("FEISHU_SMTP_HOST", "smtp.feishu.cn");
-    const port = this.configService.get<number>("FEISHU_SMTP_PORT", 465);
-    const user = this.configService.get<string>("FEISHU_SMTP_USER");
-    const pass = this.configService.get<string>("FEISHU_SMTP_PASSWORD");
-
-    if (!user || !pass) {
-      this.logger.warn(
-        "Feishu SMTP credentials not configured. Email service will be disabled.",
-      );
-      return;
-    }
-
-    this.transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: true, // Port 465 requires secure: true
-      auth: {
-        user,
-        pass,
-      },
-      greetingTimeout: 10000, // 10 seconds greeting timeout
-      connectionTimeout: 10000, // 10 seconds connection timeout
-      socketTimeout: 10000, // 10 seconds socket timeout
-      tls: {
-        rejectUnauthorized: false, // Allow self-signed certs if needed
-      },
-    });
-
-    this.logger.log(`Email service initialized with Feishu SMTP: ${user}@${host}:${port}`);
-  }
-
-  /**
-   * Send email
+   * Send email via configured provider
    *
    * @param params - Email parameters
    */
   async send(params: ISendEmailParams): Promise<void> {
-    if (!this.transporter) {
-      this.logger.warn(
-        "Email transporter not initialized. Skipping email send.",
-      );
-      return;
-    }
-
     try {
-      const { to, subject, template, data, html: providedHtml, cc, attachments } = params;
+      const { template, data, html: providedHtml } = params;
 
       // Use provided HTML or render from template
-      const html = providedHtml || this.renderTemplate(template!, data!);
+      const html = providedHtml || (template ? this.renderTemplate(template, data!) : '');
 
-      // Get from address from config
-      const fromAddress = this.configService.get<string>(
-        "FROM_EMAIL_ADDRESS",
-        "noreply@sa2.com",
-      );
-
-      // Prepare email options
-      const mailOptions: any = {
-        from: fromAddress,
-        to,
-        subject,
+      // Delegate to provider
+      await this.provider.send({
+        ...params,
         html,
-      };
-
-      // Add optional fields only if they exist
-      if (cc) mailOptions.cc = cc;
-      if (attachments) mailOptions.attachments = attachments;
-
-      // Send email
-      const info = await this.transporter.sendMail(mailOptions);
-
-      this.logger.log(`Email sent successfully: ${info.messageId} to ${to}`);
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to send email to ${params.to}: ${message}`);
-      
-      // Log detailed error info for debugging
-      if (error && typeof error === 'object') {
-        this.logger.error(`Error details: ${JSON.stringify(error)}`);
-      }
-      
       throw error;
     }
   }
