@@ -45,7 +45,7 @@ export class SessionCompletedListener {
     event: ServiceSessionCompletedEvent,
   ): Promise<void> {
     try {
-      const { sessionId, studentId, serviceTypeCode, actualDurationMinutes, sessionTypeCode } =
+      const { sessionId, studentId, serviceTypeCode, actualDurationMinutes, durationMinutes, sessionTypeCode } =
         event.payload || {};
 
       this.logger.log(
@@ -68,6 +68,7 @@ export class SessionCompletedListener {
 
       // 1. 查询该会话的活跃预占 (Query active holds for this session)
       // relatedBookingId 存储 sessionId (relatedBookingId stores sessionId)
+      // 使用 FOR UPDATE 加悲观锁，防止并发竞态 (Use FOR UPDATE pessimistic lock to prevent race conditions)
       const activeHolds = await this.db
         .select()
         .from(schema.serviceHolds)
@@ -78,7 +79,9 @@ export class SessionCompletedListener {
             eq(schema.serviceHolds.status, HoldStatus.ACTIVE),
             eq(schema.serviceHolds.relatedBookingId, sessionId),
           ),
-        );
+        )
+        .for('update')
+        .limit(1);
 
       if (activeHolds.length === 0) {
         this.logger.warn(
@@ -92,7 +95,28 @@ export class SessionCompletedListener {
         // 继续处理第一个预占 (Continue processing the first hold)
       }
 
-      // 2. 在事务中释放预占并记录消耗 (Release hold and record consumption in transaction)
+      // 2. 幂等性检查：检查是否已记录消耗 (Idempotency check: Check if consumption already recorded)
+      const existingConsumption = await this.db
+        .select()
+        .from(schema.serviceLedgers)
+        .where(
+          and(
+            eq(schema.serviceLedgers.studentId, studentId),
+            eq(schema.serviceLedgers.serviceType, serviceTypeCode),
+            eq(schema.serviceLedgers.relatedBookingId, sessionId),
+            eq(schema.serviceLedgers.type, 'consumption'),
+          ),
+        )
+        .limit(1);
+
+      if (existingConsumption.length > 0) {
+        this.logger.warn(
+          `Consumption already recorded for session ${sessionId}, skipping duplicate processing`,
+        );
+        return;
+      }
+
+      // 3. 在事务中释放预占并记录消耗 (Release hold and record consumption in transaction)
       await this.db.transaction(async (tx) => {
         // 释放预占 (Release hold if exists)
         if (activeHolds.length > 0) {
@@ -102,9 +126,14 @@ export class SessionCompletedListener {
         }
 
         // 记录消耗 (Record consumption)
-        // 消耗数量 = 实际时长（分钟）转换为小时，向上取整，最少1单位
-        // Consumption quantity = actual duration (minutes) converted to hours, rounded up, minimum 1 unit
-        const consumptionQuantity = Math.ceil((actualDurationMinutes || 60) / 60);
+        // 消耗数量 = 实际时长（分钟）转换为小时，向上取整
+        // Consumption quantity = actual duration (minutes) converted to hours, rounded up
+        // 区分未提供时长（null/undefined）和真实0值 (Distinguish between no duration provided and actual 0 value)
+        const consumptionQuantity = actualDurationMinutes == null
+          ? Math.ceil((durationMinutes || 60) / 60)  // 使用计划时长 (Use scheduled duration)
+          : actualDurationMinutes === 0
+            ? 0  // 0分钟不消耗 (0 minutes = no consumption)
+            : Math.ceil(actualDurationMinutes / 60);  // 向上取整 (Round up)
 
         await this.serviceLedgerService.recordConsumption(
           {

@@ -160,6 +160,7 @@ import { PlacementApplicationStatusChangedListener } from "@application/events/h
 import { PlacementApplicationStatusRolledBackListener } from "@application/events/handlers/financial/placement-application-status-rolled-back.listener";
 import { AppealApprovedListener } from "@application/events/handlers/financial/appeal-approved.listener";
 import { SessionProvisioningSaga } from "./sagas/services/session-provisioning.saga";
+import { SessionEndSaga } from "./sagas/services/session-end.saga";
 
 @Module({
   imports: [
@@ -263,13 +264,14 @@ import { SessionProvisioningSaga } from "./sagas/services/session-provisioning.s
     ClassSessionNotificationHandler,
     ClassSessionMeetingCompletedHandler,
     SessionProvisioningSaga,
+    SessionEndSaga, // Session End Saga - 统一编排Session End流程
     MeetingCompletedListener,
-    SessionCompletedListener,
+    // SessionCompletedListener, // 已被SessionEndSaga替代 (Replaced by SessionEndSaga)
     ClassStudentEventListener,
     PlacementEventListener,
     ResumeBilledListener,
     ResumeBillCancelledListener,
-    ServiceSessionCompletedListener,
+    // ServiceSessionCompletedListener, // 已被SessionEndSaga替代 (Replaced by SessionEndSaga)
     SettlementConfirmedListener,
     PlacementApplicationStatusChangedListener,
     PlacementApplicationStatusRolledBackListener,
@@ -399,12 +401,12 @@ import { SessionProvisioningSaga } from "./sagas/services/session-provisioning.s
     ClassSessionNotificationHandler,
     ClassSessionMeetingCompletedHandler,
     MeetingCompletedListener,
-    SessionCompletedListener,
+    // SessionCompletedListener, // 已被SessionEndSaga替代 (Replaced by SessionEndSaga)
     ClassStudentEventListener,
     PlacementEventListener,
     ResumeBilledListener,
     ResumeBillCancelledListener,
-    ServiceSessionCompletedListener,
+    // ServiceSessionCompletedListener, // 已被SessionEndSaga替代 (Replaced by SessionEndSaga)
     SettlementConfirmedListener,
     PlacementApplicationStatusChangedListener,
     PlacementApplicationStatusRolledBackListener,
