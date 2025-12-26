@@ -133,6 +133,7 @@ export class DrizzleClassSessionQueryRepository implements IClassSessionQueryRep
       classId: session.classId,
       meetingId: session.meetingId,
       mentorUserId: session.mentorUserId,
+      createdByCounselorId: session.createdByCounselorId || null, // Add createdByCounselorId field
       title: session.title,
       description: session.description,
       status: session.status,

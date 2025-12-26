@@ -29,6 +29,7 @@ export interface ClassSessionReadModel {
   classId: string;
   meetingId: string | null;
   mentorUserId: string;
+  createdByCounselorId: string | null; // Counselor who created the session
   title: string;
   description: string | null;
   status: ClassSessionStatus;
