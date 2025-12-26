@@ -1,13 +1,22 @@
 import { Module } from "@nestjs/common";
 
-// Infrastructure
-import { DatabaseModule } from "@infrastructure/database/database.module";
-
 // Domain Layer
 import { UserModule } from "@domains/identity/user/user.module";
-import { CatalogModule } from "@domains/catalog/catalog.module";
+import { ContractModule } from "@domains/contract/contract.module";
 import { FinancialModule } from "@domains/financial/financial.module";
-import { PlacementModule } from "@domains/placement/placement.module";
+import { PreferenceModule } from "@domains/preference/preference.module";
+import { SessionTypesModule } from "@domains/services/session-types/session-types.module";
+import { RecommLetterTypesModule } from "@domains/services/recomm-letter-types/recomm-letter-types.module";
+import { RecommLetterModule } from "@domains/services/recomm-letter/recomm-letter.module";
+import { RecommLettersModule } from "@domains/services/recomm-letters/recomm-letters.module";
+import { RegularMentoringModule } from "@domains/services/sessions/regular-mentoring/regular-mentoring.module";
+import { GapAnalysisModule } from "@domains/services/sessions/gap-analysis/gap-analysis.module";
+import { AiCareerModule } from "@domains/services/sessions/ai-career/ai-career.module";
+import { CommSessionsModule } from "@domains/services/comm-sessions/comm-sessions.module";
+import { MockInterviewsModule } from "@domains/services/mock-interviews/mock-interviews.module";
+import { ClassModule } from "@domains/services/class/class.module";
+import { ResumeModule } from "@domains/services/resume/resume.module";
+import { QueryModule } from "@domains/query/query.module";
 
 // Application Layer - Queries
 import { UserQueryService } from "./queries/user-query.service";
@@ -23,7 +32,6 @@ import { ServiceBalanceQuery } from "./queries/contract/service-balance.query";
 import { GetStudentContractsUseCase } from "./queries/contract/use-cases/get-student-contracts.use-case";
 import { GetServiceConsumptionUseCase } from "./queries/contract/use-cases/get-service-consumption.use-case";
 import { ContractQueryRepositoriesModule } from "./queries/contract/infrastructure/query-repositories.module";
-import { MockInterviewQueryService } from "@domains/query/services/mock-interview-query.service";
 import { GetSessionTypesQuery } from "./queries/services/get-session-types.query";
 import { GetRecommLetterTypesQuery } from "./queries/services/get-recomm-letter-types.query";
 import { ServicesQueryRepositoriesModule } from "./queries/services/infrastructure/query-repositories.module";
@@ -31,7 +39,6 @@ import { GetClassesUseCase } from "./queries/services/use-cases/get-classes.use-
 import { GetClassMentorsUseCase } from "./queries/services/use-cases/get-class-mentors.use-case"; 
 import { GetClassStudentsUseCase } from "./queries/services/use-cases/get-class-students.use-case"; 
 import { GetClassCounselorsUseCase } from "./queries/services/use-cases/get-class-counselors.use-case"; 
-
 
 import { GetProductDetailUseCase } from "./queries/product/use-cases/get-product-detail.use-case";
 import { SearchProductsUseCase } from "./queries/product/use-cases/search-products.use-case";
@@ -46,6 +53,12 @@ import { ListJobCategoriesUseCase } from "./queries/preference/use-cases/list-jo
 import { ListJobTitlesUseCase } from "./queries/preference/use-cases/list-job-titles.use-case";
 import { PreferenceQueryRepositoriesModule } from "./queries/preference/infrastructure/query-repositories.module";
 import { CalendarQueryService } from "./queries/calendar/calendar-query.service";
+// Mock Interviews Queries
+import { MockInterviewsQueryRepositoriesModule } from "./queries/mock-interviews/infrastructure/query-repositories.module";
+import { GetStudentMockInterviewsUseCase } from "./queries/mock-interviews/use-cases/get-student-mock-interviews.use-case";
+import { GetCounselorMockInterviewsUseCase } from "./queries/mock-interviews/use-cases/get-counselor-mock-interviews.use-case";
+import { GetMockInterviewsByStudentIdsUseCase } from "./queries/mock-interviews/use-cases/get-mock-interviews-by-student-ids.use-case";
+import { GetMockInterviewByIdUseCase } from "./queries/mock-interviews/use-cases/get-mock-interview-by-id.use-case";
 
 // Application Layer - Commands
 import { RegisterCommand } from "./commands/auth/register.command";
@@ -120,10 +133,7 @@ import { MeetingModule } from "@core/meeting";
 import { NotificationModule } from "@core/notification";
 import { TelemetryModule } from "@telemetry/telemetry.module";
 
-// Domain Services
-import { ServicesModule } from "@domains/services/services.module";
-import { ContractModule } from "@domains/contract/contract.module";
-import { QueryModule } from "@domains/query/query.module";
+// Event Handlers
 import { AiCareerCreatedEventHandler } from "@application/events/handlers/services/ai-career-event.handler";
 import { AiCareerNotificationHandler } from "@application/events/handlers/services/ai-career-notification.handler";
 import { GapAnalysisCreatedEventHandler } from "@application/events/handlers/services/gap-analysis-event.handler";
@@ -146,7 +156,6 @@ import { SettlementConfirmedListener } from "@application/events/handlers/financ
 import { PlacementApplicationStatusChangedListener } from "@application/events/handlers/financial/placement-application-status-changed.listener";
 import { PlacementApplicationStatusRolledBackListener } from "@application/events/handlers/financial/placement-application-status-rolled-back.listener";
 import { AppealApprovedListener } from "@application/events/handlers/financial/appeal-approved.listener";
-import { PreferenceModule } from "@domains/preference/preference.module";
 
 /**
  * Application Layer - Root Module
@@ -158,19 +167,29 @@ import { PreferenceModule } from "@domains/preference/preference.module";
  */
 @Module({
   imports: [
-    DatabaseModule, // 导入数据库模块，提供事务支持
+    // Domain Layer
+    UserModule, // 用户领域模块（提供 USER_SERVICE）
+    ContractModule, // 合同领域模块（提供 ContractService）
+    FinancialModule, // 财务领域模块（提供 IMentorPayableService 等）
+    PreferenceModule, // 偏好设置领域模块（提供 JobCategoryService、JobTitleService）
+    SessionTypesModule, // 会话类型模块（提供 SessionTypesQueryService）
+    RecommLetterTypesModule, // 推荐信类型模块（提供 RecommLetterTypesService）
+    RecommLetterModule, // 推荐信领域模块（提供 RecommLetterDomainService）
+    RecommLettersModule, // 推荐信模块（提供 RECOMM_LETTERS_REPOSITORY）
+    RegularMentoringModule, // 常规指导模块（提供 RegularMentoringDomainService）
+    GapAnalysisModule, // 差距分析模块（提供 GapAnalysisDomainService）
+    AiCareerModule, // AI职业模块（提供 AiCareerDomainService）
+    CommSessionsModule, // 沟通会话模块（提供 CommSessionDomainService）
+    MockInterviewsModule, // Mock面试模块（提供 MockInterviewDomainService）
+    ClassModule, // 班级模块（提供 ClassDomainService、ClassSessionDomainService）
+    ResumeModule, // 简历模块（提供 ResumeDomainService）
+    QueryModule, // 查询模块（提供 RegularMentoringQueryService、GapAnalysisQueryService、AiCareerQueryService、CommSessionQueryService、MockInterviewQueryService）
+    // Core Services
     CalendarModule, // 导入日历模块（包含事件监听器）
     MeetingModule, // 导入会议提供者模块
     NotificationModule, // 导入通知模块（包含通知队列和定时任务）
-    TelemetryModule, // Domain Services
-    UserModule, // Domain层：User (Identity)
-    CatalogModule, // Domain层：Catalog
-    ServicesModule, // Domain层：Services
-    ContractModule, // Domain层：Contract
-    FinancialModule, // Domain层：Financial
-    PlacementModule, // Domain层：Placement
-    PreferenceModule, // Domain层：Preference (参考数据)
-    QueryModule, // Domain层：Query (跨域查询)
+    TelemetryModule, // 导入遥测模块
+    // Query Repositories
     PlacementQueryRepositoriesModule, // Placement Query Repositories
     FinancialQueryRepositoriesModule, // Financial Query Repositories
     ProductQueryRepositoriesModule, // Product Query Repositories
@@ -178,6 +197,7 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     PreferenceQueryRepositoriesModule, // Preference Query Repositories
     IdentityQueryRepositoriesModule, // Identity Query Repositories
     ServicesQueryRepositoriesModule, // Services Query Repositories
+    MockInterviewsQueryRepositoriesModule, // Mock Interviews Query Repositories
   ],
   providers: [
     // Queries
@@ -192,7 +212,6 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     ServiceBalanceQuery,
     GetStudentContractsUseCase,
     GetServiceConsumptionUseCase,
-    MockInterviewQueryService,
     GetSessionTypesQuery,
     GetRecommLetterTypesQuery,
     GetProductDetailUseCase,
@@ -208,6 +227,11 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     GetClassMentorsUseCase,
     GetClassStudentsUseCase,
     GetClassCounselorsUseCase,
+    // Mock Interviews Queries
+    GetStudentMockInterviewsUseCase,
+    GetCounselorMockInterviewsUseCase,
+    GetMockInterviewsByStudentIdsUseCase,
+    GetMockInterviewByIdUseCase,
 
     // Commands
     RegisterCommand,
@@ -301,19 +325,15 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     AuthCommandService,
   ],
   exports: [
+    // Domain Layer
+    UserModule, // 导出 UserModule 以提供 USER_SERVICE 给 ApiModule
+    QueryModule, // 导出 QueryModule 以提供 ClassSessionQueryService 等查询服务给 ApiModule
+    ResumeModule, // 导出 ResumeModule 以提供 ResumeDomainService 给 ApiModule
+    RecommLetterModule, // 导出 RecommLetterModule 以提供 RecommLetterDomainService 给 ApiModule
+
     // Core Services
     CalendarModule,
     MeetingModule,
-
-    // Domain Services
-    ServicesModule,
-    UserModule,
-    ContractModule,
-    CatalogModule,
-    FinancialModule,
-    PlacementModule,
-    PreferenceModule,
-    QueryModule,
 
     // Queries
     UserQueryService,
@@ -327,7 +347,6 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     ServiceBalanceQuery,
     GetStudentContractsUseCase,
     GetServiceConsumptionUseCase,
-    MockInterviewQueryService,
     GetSessionTypesQuery,
     GetRecommLetterTypesQuery,
     GetProductDetailUseCase,
@@ -343,6 +362,11 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     GetClassMentorsUseCase,
     GetClassStudentsUseCase,
     GetClassCounselorsUseCase,
+    // Mock Interviews Queries
+    GetStudentMockInterviewsUseCase,
+    GetCounselorMockInterviewsUseCase,
+    GetMockInterviewsByStudentIdsUseCase,
+    GetMockInterviewByIdUseCase,
 
     // Commands
     RegisterCommand,
