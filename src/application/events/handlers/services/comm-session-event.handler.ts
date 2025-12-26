@@ -1,10 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { MeetingManagerService } from '@core/meeting';
-import { CalendarService } from '@core/calendar';
 import {
   CommSessionCancelledEvent,
-  CommSessionCreatedEvent,
   CommSessionMeetingOperationResultEvent,
   CommSessionUpdatedEvent,
   HandlesEvent,
@@ -14,23 +12,14 @@ import {
 import { retryWithBackoff } from '@shared/utils/retry.util';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase } from '@shared/types/database.types';
-import { FEISHU_DEFAULT_HOST_USER_ID } from 'src/constants';
 import { CommSessionDomainService } from '@domains/services/comm-sessions/services/comm-session-domain.service';
 import { sql } from 'drizzle-orm';
-import { UserService } from '@domains/identity/user/user-service';
 
 /**
- * Communication Session Created Event Handler
- * 
- * Handles async meeting creation flow for communication sessions
- * Communication sessions are between student and counselor/mentor for internal discussions
- * 
- * Responsibilities:
- * 1. Listen to COMM_SESSION_CREATED_EVENT
- * 2. Create meeting via MeetingManagerService
- * 3. Update session (meeting_id, status=SCHEDULED) in transaction
- * 4. Update calendar slots with meeting info
- * 5. Publish MEETING_OPERATION_RESULT_EVENT (operation: create)
+ * Communication Session Event Handler
+ *
+ * Note: session creation provisioning is handled by SessionProvisioningSaga.
+ * This handler keeps update/cancel/lifecycle logic for comm sessions.
  */
 @Injectable()
 export class CommSessionCreatedEventHandler {
@@ -40,131 +29,9 @@ export class CommSessionCreatedEventHandler {
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
     private readonly meetingManagerService: MeetingManagerService,
-    private readonly calendarService: CalendarService,
     private readonly commSessionService: CommSessionDomainService,
     private readonly eventPublisher: IntegrationEventPublisher,
-    private readonly userService: UserService,
   ) {}
-
-  @OnEvent(CommSessionCreatedEvent.eventType)
-  @HandlesEvent(CommSessionCreatedEvent.eventType, CommSessionCreatedEventHandler.name)
-  async handleSessionCreated(event: CommSessionCreatedEvent): Promise<void> {
-    const payload = event.payload;
-    this.logger.log(`Handling COMM_SESSION_CREATED_EVENT: sessionId=${payload.sessionId}`);
-
-    try {
-      // Step 1: Create meeting on third-party platform
-      this.logger.debug(`Creating meeting for session ${payload.sessionId}`);
-
-      const meeting = await this.meetingManagerService.createMeeting({
-        topic: payload.topic,
-        provider: payload.meetingProvider as any,
-        startTime: typeof payload.scheduledStartTime === 'string'
-          ? payload.scheduledStartTime
-          : payload.scheduledStartTime.toISOString(),
-        duration: payload.duration,
-        hostUserId: this.getHostUserId(payload.meetingProvider),
-        autoRecord: false, // Communication sessions typically not recorded
-        participantJoinEarly: true,
-      });
-
-      this.logger.debug(
-        `Meeting created successfully: meetingId=${meeting.id}, meetingUrl=${meeting.meetingUrl}`,
-      );
-
-      // Step 2: Query user display names for calendar metadata
-      const studentName = await this.userService.getDisplayName(payload.studentId);
-
-      // Step 3: Update session and calendar slots in a transaction
-      await this.db.transaction(async (tx) => {
-        // 3.1: Update comm_sessions table with meeting_id and status
-        await this.commSessionService.scheduleMeeting(
-          payload.sessionId,
-          meeting.id,
-          tx,
-        );
-
-        this.logger.debug(`Comm session meeting setup completed: sessionId=${payload.sessionId}`);
-
-        // 3.2: Update calendar slots based on session type
-        if (payload.mentorId && payload.mentorCalendarSlotId) {
-          // Scenario 1: Student + Mentor (two slots)
-          const mentorName = await this.userService.getDisplayName(payload.mentorId);
-
-          await this.calendarService.updateSlotWithSessionAndMeeting(
-            payload.sessionId,
-            meeting.id,
-            meeting.meetingUrl,
-            payload.mentorCalendarSlotId,
-            payload.studentCalendarSlotId,
-            mentorName,
-            studentName,
-            tx,
-          );
-        } else {
-          // Scenario 2: Student + Counselor (single student slot)
-          const counselorName = await this.userService.getDisplayName(payload.counselorId);
-
-          await this.calendarService.updateSingleSlotWithSessionAndMeeting(
-            payload.sessionId,
-            meeting.id,
-            meeting.meetingUrl,
-            payload.studentCalendarSlotId,
-            counselorName, // Student sees counselor's real name
-            tx,
-          );
-        }
-
-        this.logger.debug(`Calendar slots updated for session ${payload.sessionId}`);
-      });
-
-      // Step 3: Publish result event (success - notify all parties)
-      await this.eventPublisher.publish(
-        new CommSessionMeetingOperationResultEvent({
-          operation: 'create',
-          status: 'success',
-          sessionId: payload.sessionId,
-          studentId: payload.studentId,
-          mentorId: payload.mentorId,
-          counselorId: payload.counselorId,
-          createdByCounselorId: payload.createdByCounselorId,
-          scheduledAt: payload.scheduledStartTime,
-          duration: payload.duration,
-          meetingUrl: meeting.meetingUrl,
-          meetingProvider: payload.meetingProvider,
-          notifyRoles: ['counselor', 'mentor', 'student'],
-        }),
-        CommSessionCreatedEventHandler.name,
-      );
-
-      this.logger.log(
-        `MEETING_OPERATION_RESULT_EVENT published: operation=create, status=success, sessionId=${payload.sessionId}`,
-      );
-    } catch (error) {
-      this.logger.error(`Failed to create meeting for session ${payload.sessionId}: ${error.message}`, error.stack);
-
-      // Publish result event (failed - notify counselor only)
-      await this.eventPublisher.publish(
-        new CommSessionMeetingOperationResultEvent({
-          operation: 'create',
-          status: 'failed',
-          sessionId: payload.sessionId,
-          studentId: payload.studentId,
-          mentorId: payload.mentorId,
-          counselorId: payload.counselorId,
-          scheduledAt: payload.scheduledStartTime,
-          errorMessage: error.message,
-          notifyRoles: ['counselor'],
-          requireManualIntervention: true,
-        }),
-        CommSessionCreatedEventHandler.name,
-      );
-
-      this.logger.warn(
-        `MEETING_OPERATION_RESULT_EVENT published: operation=create, status=failed, sessionId=${payload.sessionId}`,
-      );
-    }
-  }
 
   /**
    * Handle COMM_SESSION_UPDATED_EVENT
@@ -392,13 +259,6 @@ export class CommSessionCreatedEventHandler {
       this.logger.error(`Error checking meeting status: ${error.message}`);
       return false;
     }
-  }
-
-  private getHostUserId(provider: string): string | undefined {
-    if (provider === 'feishu') {
-      return FEISHU_DEFAULT_HOST_USER_ID;
-    }
-    return undefined;
   }
 
   /**

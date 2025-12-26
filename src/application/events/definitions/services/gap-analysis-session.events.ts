@@ -100,7 +100,7 @@ export class GapAnalysisSessionCancelledEvent extends BaseIntegrationEvent<GapAn
 @IntegrationEvent({
   type: "gap_analysis.session.meeting.operation.result",
   version: "1.0",
-  producers: ["GapAnalysisCreatedEventHandler"],
+  producers: ["GapAnalysisCreatedEventHandler", "SessionProvisioningSaga"],
   description: "Emitted after meeting create/update/cancel for gap analysis sessions.",
 })
 export class GapAnalysisSessionMeetingOperationResultEvent extends BaseIntegrationEvent<MeetingOperationResultPayload> {

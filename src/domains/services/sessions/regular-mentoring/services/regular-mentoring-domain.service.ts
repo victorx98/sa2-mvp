@@ -118,6 +118,25 @@ export class RegularMentoringDomainService {
   }
 
   /**
+   * Mark meeting creation as failed
+   * PENDING_MEETING → MEETING_FAILED
+   */
+  async markMeetingFailed(
+    sessionId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<void> {
+    this.logger.log(`Marking meeting failed for session ${sessionId}`);
+
+    const session = await this.repository.findById(sessionId);
+    if (!session) {
+      throw new SessionNotFoundException(sessionId);
+    }
+
+    session.markMeetingFailed();
+    await this.repository.update(session, tx);
+  }
+
+  /**
    * Update session information
    */
   async updateSession(
@@ -161,13 +180,6 @@ export class RegularMentoringDomainService {
   }
 
   /**
-   * Find session by meetingId
-   */
-  async findByMeetingId(meetingId: string): Promise<RegularMentoringSession | null> {
-    return this.repository.findByMeetingId(meetingId);
-  }
-
-  /**
    * Get session by ID
    */
   async getSessionById(id: string): Promise<RegularMentoringSession> {
@@ -177,5 +189,11 @@ export class RegularMentoringDomainService {
     }
     return session;
   }
-}
 
+  /**
+   * Find session by meetingId
+   */
+  async findByMeetingId(meetingId: string): Promise<RegularMentoringSession | null> {
+    return this.repository.findByMeetingId(meetingId);
+  }
+}

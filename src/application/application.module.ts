@@ -159,6 +159,7 @@ import { SettlementConfirmedListener } from "@application/events/handlers/financ
 import { PlacementApplicationStatusChangedListener } from "@application/events/handlers/financial/placement-application-status-changed.listener";
 import { PlacementApplicationStatusRolledBackListener } from "@application/events/handlers/financial/placement-application-status-rolled-back.listener";
 import { AppealApprovedListener } from "@application/events/handlers/financial/appeal-approved.listener";
+import { SessionProvisioningSaga } from "./sagas/services/session-provisioning.saga";
 
 @Module({
   imports: [
@@ -261,6 +262,7 @@ import { AppealApprovedListener } from "@application/events/handlers/financial/a
     ClassSessionCreatedEventHandler,
     ClassSessionNotificationHandler,
     ClassSessionMeetingCompletedHandler,
+    SessionProvisioningSaga,
     MeetingCompletedListener,
     SessionCompletedListener,
     ClassStudentEventListener,
