@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { DatabaseModule } from '@infrastructure/database/database.module';
 import { MockInterviewDomainService } from './services/mock-interview-domain.service';
 import { MockInterviewRepository } from './infrastructure/repositories/mock-interview.repository';
 import { MOCK_INTERVIEW_REPOSITORY } from './repositories/mock-interview.repository.interface';
@@ -8,6 +9,7 @@ import { MOCK_INTERVIEW_REPOSITORY } from './repositories/mock-interview.reposit
  * Encapsulates domain logic for AI-powered mock interviews
  */
 @Module({
+  imports: [DatabaseModule],
   providers: [
     MockInterviewDomainService,
     {

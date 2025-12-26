@@ -66,7 +66,7 @@ export class DrizzleJobQueryRepository implements IJobQueryRepository {
 
     const countResult = await countQuery;
     const total = Number(countResult[0]?.count || 0);
-    const totalPages = Math.ceil(total / pageSize);
+    const totalPages = total === 0 ? 1 : Math.ceil(total / pageSize);
 
     // Map to Read Model
     const data: JobReadModel[] = jobs.map((job) => ({

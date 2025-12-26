@@ -177,7 +177,7 @@ export class DrizzleJobApplicationQueryRepository implements IJobApplicationQuer
     `);
 
     const total = Number((countResult.rows[0] as any)?.count || 0);
-    const totalPages = Math.ceil(total / pageSize);
+    const totalPages = total === 0 ? 1 : Math.ceil(total / pageSize);
 
     // Map results to Read Model
     const data: JobApplicationReadModel[] = results.rows.map((row: any) => {

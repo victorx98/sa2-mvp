@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { RecommLetterDomainService } from '@domains/services/recomm-letter/services/recomm-letter-domain.service';
 import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
 import { RecommLetterTypesService } from '@domains/services/recomm-letter-types/services/recomm-letter-types.service';
-import { UserQueryService } from '@application/queries/user-query.service';
+import { GetUserUseCase } from '@application/queries/identity/use-cases/get-user.use-case';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase, DrizzleTransaction } from '@shared/types/database.types';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
@@ -13,12 +13,6 @@ import {
   RecommLetterBilledEvent,
 } from '@application/events';
 
-/**
- * Application Layer - Recommendation Letter Service
- *
- * Orchestrates recommendation letter billing operations with service hold management
- * Coordinates between Domain Services (RecommLetter, ServiceHold, RecommLetterTypes)
- */
 @Injectable()
 export class RecommLetterService {
   private readonly logger = new Logger(RecommLetterService.name);
@@ -29,18 +23,13 @@ export class RecommLetterService {
     private readonly domainRecommLetterService: RecommLetterDomainService,
     private readonly serviceHoldService: ServiceHoldService,
     private readonly recommLetterTypesService: RecommLetterTypesService,
-    private readonly userQueryService: UserQueryService,
+    private readonly getUserUseCase: GetUserUseCase,
     private readonly eventPublisher: IntegrationEventPublisher,
   ) {}
 
-  /**
-   * List recommendation letters with enriched details
-   * Batch queries for better performance
-   */
   async listLettersWithDetails(studentUserId: string) {
     const letters = await this.domainRecommLetterService.listByStudent(studentUserId);
 
-    // Step 1: Collect all unique IDs
     const letterTypeIds = [...new Set(letters.map(l => l.getLetterTypeId()))];
     const packageTypeIds = [...new Set(
       letters.map(l => l.getPackageTypeId()).filter(Boolean)
@@ -51,23 +40,20 @@ export class RecommLetterService {
       ...letters.map(l => l.getBilledBy()).filter(Boolean),
     ])] as string[];
 
-    // Step 2: Batch query all data (3 queries instead of N queries)
     const [letterTypes, packageTypes, users] = await Promise.all([
       this.recommLetterTypesService.findByIds(letterTypeIds),
       packageTypeIds.length > 0 
         ? this.recommLetterTypesService.findByIds(packageTypeIds) 
         : Promise.resolve([]),
       userIds.length > 0 
-        ? this.userQueryService.getUsersByIds(userIds) 
+        ? this.getUserUseCase.getUsersByIds(userIds) 
         : Promise.resolve([]),
     ]);
 
-    // Step 3: Build lookup maps
     const letterTypeMap = new Map(letterTypes.map(t => [t.id, t]));
     const packageTypeMap = new Map(packageTypes.map(t => [t.id, t]));
     const userMap = new Map(users.map(u => [u.id, u]));
 
-    // Step 4: Enrich letters with all details
     return letters.map(letter => {
       const letterType = letterTypeMap.get(letter.getLetterTypeId());
       const packageType = letter.getPackageTypeId() 
@@ -123,18 +109,6 @@ export class RecommLetterService {
     });
   }
 
-  /**
-   * Bill recommendation letter with service hold validation
-   * 
-   * Flow:
-   * 1. Get letter type info
-   * 2. Create service hold (check balance)
-   * 3. Call domain layer billing logic
-   * 
-   * @param letterId Recommendation letter ID
-   * @param params Billing params (mentorId, description, studentId, serviceType)
-   * @param userId Counselor ID
-   */
   async billRecommLetter(
     letterId: string,
     params: {
@@ -148,13 +122,11 @@ export class RecommLetterService {
     this.logger.log(`Billing recommendation letter: letterId=${letterId}, studentId=${params.studentId}`);
 
     try {
-      // Get letter info to fetch type codes
       const letter = await this.domainRecommLetterService.findById(letterId);
       if (!letter) {
         throw new NotFoundException('RECOMM_LETTER_NOT_FOUND');
       }
 
-      // Get letter type and package type info
       const letterType = await this.recommLetterTypesService.findById(letter.getLetterTypeId());
       if (!letterType) {
         throw new BadRequestException('LETTER_TYPE_NOT_FOUND');
@@ -165,9 +137,7 @@ export class RecommLetterService {
         packageType = await this.recommLetterTypesService.findById(letter.getPackageTypeId()!);
       }
 
-      // Execute in transaction
       const result = await this.db.transaction(async (tx: DrizzleTransaction) => {
-        // Step 1: Create service hold (check and reserve balance)
         const hold = await this.serviceHoldService.createHold(
           {
             studentId: params.studentId,
@@ -180,7 +150,6 @@ export class RecommLetterService {
 
         this.logger.debug(`Service hold created: ${hold.id}`);
 
-        // Step 2: Call domain layer billing logic
         const result = await this.domainRecommLetterService.billRecommLetter(
           letterId,
           {
@@ -196,7 +165,6 @@ export class RecommLetterService {
         return result;
       });
 
-      // Step 3: Publish event after transaction committed
       const eventPayload = {
         sessionId: result.getId(),
         studentId: result.getStudentUserId(),
@@ -221,17 +189,6 @@ export class RecommLetterService {
     }
   }
 
-  /**
-   * Cancel recommendation letter billing with service hold release
-   * 
-   * Flow:
-   * 1. Cancel billing in domain layer
-   * 2. Release service hold
-   * 
-   * @param letterId Recommendation letter ID
-   * @param params Cancel params (description, serviceType)
-   * @param userId Counselor ID
-   */
   async cancelBillRecommLetter(
     letterId: string,
     params: {
@@ -243,7 +200,6 @@ export class RecommLetterService {
     this.logger.log(`Canceling recommendation letter billing: letterId=${letterId}`);
 
     try {
-      // Get letter to find related hold
       const letter = await this.domainRecommLetterService.findById(letterId);
       if (!letter) {
         throw new NotFoundException('RECOMM_LETTER_NOT_FOUND');
@@ -255,7 +211,6 @@ export class RecommLetterService {
 
       const previousMentorId = letter.getMentorUserId();
 
-      // Get letter type info
       const letterType = await this.recommLetterTypesService.findById(letter.getLetterTypeId());
       if (!letterType) {
         throw new BadRequestException('LETTER_TYPE_NOT_FOUND');
@@ -266,9 +221,7 @@ export class RecommLetterService {
         packageType = await this.recommLetterTypesService.findById(letter.getPackageTypeId()!);
       }
 
-      // Execute in transaction
       const result = await this.db.transaction(async (tx: DrizzleTransaction) => {
-        // Step 1: Cancel billing in domain layer
         const result = await this.domainRecommLetterService.cancelBillRecommLetter(
           letterId,
           {
@@ -280,7 +233,6 @@ export class RecommLetterService {
           tx,
         );
 
-        // Step 2: Find and release related hold
         const activeHolds = await this.serviceHoldService.getActiveHolds(
           letter.getStudentUserId(),
           params.serviceType || letter.getServiceType(),
@@ -306,7 +258,6 @@ export class RecommLetterService {
         return result;
       });
 
-      // Step 3: Publish event after transaction committed
       const eventPayload = {
         sessionId: result.getId(),
         studentId: result.getStudentUserId(),

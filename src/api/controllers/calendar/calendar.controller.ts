@@ -15,30 +15,20 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { ApiPrefix } from '@api/api.constants';
-import { CalendarQueryService } from '@application/queries/calendar/calendar-query.service';
+import { GetCalendarEventsUseCase } from '@application/queries/calendar/use-cases/get-calendar-events.use-case';
 import { GetCalendarEventsRequestDto } from '@api/dto/request/calendar/get-calendar-events.dto';
 import { CalendarEventsResponseDto } from '@api/dto/response/calendar/calendar-event.dto';
 import { UserType } from '@core/calendar/interfaces/calendar-slot.interface';
 
-/**
- * Calendar Controller
- * 
- * Purpose: Provides API endpoints for calendar operations
- * Route: /api/calendar
- */
 @ApiTags('Calendar')
 @Controller(`${ApiPrefix}/calendar`)
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class CalendarController {
   constructor(
-    private readonly calendarQueryService: CalendarQueryService,
+    private readonly getCalendarEventsUseCase: GetCalendarEventsUseCase,
   ) {}
 
-  /**
-   * Get calendar events for a user
-   * GET /api/calendar
-   */
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -68,7 +58,7 @@ export class CalendarController {
   async getCalendarEvents(
     @Query() dto: GetCalendarEventsRequestDto,
   ): Promise<CalendarEventsResponseDto> {
-    const events = await this.calendarQueryService.getCalendarEvents({
+    const events = await this.getCalendarEventsUseCase.execute({
       userId: dto.userId,
       userType: dto.userType as UserType,
       startDate: dto.startDate ? new Date(dto.startDate) : undefined,
@@ -78,4 +68,3 @@ export class CalendarController {
     return { events };
   }
 }
-

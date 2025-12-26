@@ -6,7 +6,6 @@ import {
 } from '@core/calendar/interfaces/calendar-slot.interface';
 import { MeetingProviderType } from '@core/meeting';
 import { AiCareerDomainService } from '@domains/services/sessions/ai-career/services/ai-career-domain.service';
-import { AiCareerQueryService } from '@domains/query/services/ai-career-query.service';
 import { SessionType } from '@domains/services/sessions/shared/enums/session-type.enum';
 import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
 import { StudentCounselorService } from '@domains/identity/student/student-counselor.service';
@@ -24,6 +23,10 @@ import {
   AiCareerSessionUpdatedEvent,
   IntegrationEventPublisher,
 } from '@application/events';
+import { GetAiCareerByIdUseCase } from '@application/queries/services/ai-career/use-cases/get-ai-career-by-id.use-case';
+import { GetStudentAiCareerSessionsUseCase } from '@application/queries/services/ai-career/use-cases/get-student-ai-career-sessions.use-case';
+import { GetMentorAiCareerSessionsUseCase } from '@application/queries/services/ai-career/use-cases/get-mentor-ai-career-sessions.use-case';
+import { GetAiCareerSessionsByStudentIdsUseCase } from '@application/queries/services/ai-career/use-cases/get-ai-career-sessions-by-student-ids.use-case';
 
 // DTOs
 export interface CreateAiCareerDto {
@@ -63,7 +66,10 @@ export class AiCareerService {
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
     private readonly domainAiCareerService: AiCareerDomainService,
-    private readonly aiCareerQueryService: AiCareerQueryService,
+    private readonly getAiCareerByIdUseCase: GetAiCareerByIdUseCase,
+    private readonly getStudentAiCareerSessionsUseCase: GetStudentAiCareerSessionsUseCase,
+    private readonly getMentorAiCareerSessionsUseCase: GetMentorAiCareerSessionsUseCase,
+    private readonly getAiCareerSessionsByStudentIdsUseCase: GetAiCareerSessionsByStudentIdsUseCase,
     private readonly calendarService: CalendarService,
     private readonly eventPublisher: IntegrationEventPublisher,
     private readonly serviceHoldService: ServiceHoldService,
@@ -266,7 +272,7 @@ export class AiCareerService {
         : undefined;
 
       // Step 1: Fetch old session with meeting details (LEFT JOIN)
-      const oldSession = await this.aiCareerQueryService.getSessionById(sessionId);
+      const oldSession = await this.getAiCareerByIdUseCase.execute(sessionId);
       if (!oldSession) {
         throw new NotFoundException(`Session ${sessionId} not found`);
       }
@@ -460,7 +466,7 @@ export class AiCareerService {
 
     try {
       // Step 1: Fetch session details before cancellation
-      const session = await this.aiCareerQueryService.getSessionById(sessionId);
+      const session = await this.getAiCareerByIdUseCase.execute(sessionId);
       if (!session) {
         throw new NotFoundException(`Session ${sessionId} not found`);
       }
@@ -489,7 +495,7 @@ export class AiCareerService {
       });
 
       // Step 4: Re-fetch session to get updated data with cancelledAt
-      const cancelledSession = await this.aiCareerQueryService.getSessionById(sessionId);
+      const cancelledSession = await this.getAiCareerByIdUseCase.execute(sessionId);
 
       this.logger.log(`AI career session cancelled in transaction: sessionId=${sessionId}`);
       addSpanEvent('session.cancel.transaction.success');
@@ -551,7 +557,7 @@ export class AiCareerService {
 
     try {
       // Get session details before deletion
-      const session = await this.aiCareerQueryService.getSessionById(sessionId);
+      const session = await this.getAiCareerByIdUseCase.execute(sessionId);
       if (!session) {
         throw new NotFoundException(`Session ${sessionId} not found`);
       }
@@ -582,7 +588,7 @@ export class AiCareerService {
   async getSessionById(sessionId: string) {
     this.logger.debug(`Fetching session details: sessionId=${sessionId}`);
 
-    const session = await this.aiCareerQueryService.getSessionById(sessionId);
+    const session = await this.getAiCareerByIdUseCase.execute(sessionId);
     if (!session) {
       throw new NotFoundException(`Session ${sessionId} not found`);
     }
@@ -609,7 +615,7 @@ export class AiCareerService {
     // Step 1: If specific studentId is provided, query that student's sessions
     if (studentId) {
       this.logger.debug(`Querying by studentId: ${studentId}`);
-      return this.aiCareerQueryService.getStudentSessions(studentId, filters);
+      return this.getStudentAiCareerSessionsUseCase.execute(studentId, filters);
     }
 
     // Step 2: If specific mentorId is provided, query that mentor's sessions
@@ -659,7 +665,7 @@ export class AiCareerService {
     }
 
     // Step 3: Query sessions for all students
-    return this.aiCareerQueryService.getSessionsByStudentIds(studentIds, filters || {});
+    return this.getAiCareerSessionsByStudentIdsUseCase.execute(studentIds, filters || {});
   }
 
   /**
@@ -672,7 +678,7 @@ export class AiCareerService {
   async getSessionsByMentor(mentorId: string, filters?: any) {
     this.logger.debug(`Fetching sessions for mentor: mentorId=${mentorId}`);
 
-    return this.aiCareerQueryService.getMentorSessions(mentorId, filters);
+    return this.getMentorAiCareerSessionsUseCase.execute(mentorId, filters);
   }
 
   /**
@@ -685,6 +691,6 @@ export class AiCareerService {
   async getSessionsByStudent(studentId: string, filters?: any) {
     this.logger.debug(`Fetching sessions for student: studentId=${studentId}`);
 
-    return this.aiCareerQueryService.getStudentSessions(studentId, filters);
+    return this.getStudentAiCareerSessionsUseCase.execute(studentId, filters);
   }
 }

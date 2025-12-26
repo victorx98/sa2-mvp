@@ -240,7 +240,7 @@ export class DrizzleContractQueryRepository implements IContractQueryRepository 
     `);
     const totalRecords = await this.db.execute(countQuery);
     const total = Number(totalRecords.rows[0]?.total || 0);
-    const totalPages = Math.ceil(total / pageSize);
+    const totalPages = total === 0 ? 1 : Math.ceil(total / pageSize);
 
     // Transform results to camelCase
     const transformedRecords = this.transformToCamelCase(consumptionRecords.rows);
