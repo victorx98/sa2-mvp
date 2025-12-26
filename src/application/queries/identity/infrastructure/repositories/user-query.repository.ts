@@ -23,9 +23,12 @@ export class UserQueryRepository implements IUserQueryRepository {
       email: user.email,
       nameEn: user.nameEn,
       nameZh: user.nameZh,
+      status: user.status,
       country: user.country,
       gender: user.gender,
       roles: user.roles,
+      createdTime: user.createdTime,
+      modifiedTime: user.modifiedTime,
     };
   }
 
@@ -40,9 +43,12 @@ export class UserQueryRepository implements IUserQueryRepository {
       email: user.email,
       nameEn: user.nameEn,
       nameZh: user.nameZh,
+      status: user.status,
       country: user.country,
       gender: user.gender,
       roles,
+      createdTime: user.createdTime,
+      modifiedTime: user.modifiedTime,
     };
   }
 
@@ -53,8 +59,11 @@ export class UserQueryRepository implements IUserQueryRepository {
       email: user.email,
       nameEn: user.nameEn,
       nameZh: user.nameZh,
+      status: user.status,
       country: user.country,
       gender: user.gender,
+      createdTime: user.createdTime,
+      modifiedTime: user.modifiedTime,
     }));
   }
 }

@@ -6,7 +6,6 @@ import {
 } from '@core/calendar/interfaces/calendar-slot.interface';
 import { MeetingProviderType } from '@core/meeting';
 import { RegularMentoringDomainService } from '@domains/services/sessions/regular-mentoring/services/regular-mentoring-domain.service';
-import { RegularMentoringQueryService } from '@domains/query/services/regular-mentoring-query.service';
 import { SessionType } from '@domains/services/sessions/shared/enums/session-type.enum';
 import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
 import { StudentCounselorService } from '@domains/identity/student/student-counselor.service';
@@ -24,6 +23,10 @@ import {
   RegularMentoringSessionCreatedEvent,
   RegularMentoringSessionUpdatedEvent,
 } from '@application/events';
+import { GetRegularMentoringByIdUseCase } from '@application/queries/services/regular-mentoring/use-cases/get-regular-mentoring-by-id.use-case';
+import { GetStudentRegularMentoringSessionsUseCase } from '@application/queries/services/regular-mentoring/use-cases/get-student-regular-mentoring-sessions.use-case';
+import { GetMentorRegularMentoringSessionsUseCase } from '@application/queries/services/regular-mentoring/use-cases/get-mentor-regular-mentoring-sessions.use-case';
+import { GetRegularMentoringSessionsByStudentIdsUseCase } from '@application/queries/services/regular-mentoring/use-cases/get-regular-mentoring-sessions-by-student-ids.use-case';
 
 // DTOs
 export interface CreateRegularMentoringDto {
@@ -69,7 +72,10 @@ export class RegularMentoringService {
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
     private readonly domainRegularMentoringService: RegularMentoringDomainService,
-    private readonly regularMentoringQueryService: RegularMentoringQueryService,
+    private readonly getRegularMentoringByIdUseCase: GetRegularMentoringByIdUseCase,
+    private readonly getStudentRegularMentoringSessionsUseCase: GetStudentRegularMentoringSessionsUseCase,
+    private readonly getMentorRegularMentoringSessionsUseCase: GetMentorRegularMentoringSessionsUseCase,
+    private readonly getRegularMentoringSessionsByStudentIdsUseCase: GetRegularMentoringSessionsByStudentIdsUseCase,
     private readonly calendarService: CalendarService,
     private readonly eventPublisher: IntegrationEventPublisher,
     private readonly serviceHoldService: ServiceHoldService,
@@ -267,7 +273,7 @@ export class RegularMentoringService {
 
     try {
       // Step 1: Fetch old session data for comparison
-      const oldSession = await this.regularMentoringQueryService.getSessionById(sessionId);
+      const oldSession = await this.getRegularMentoringByIdUseCase.execute(sessionId);
       if (!oldSession) {
         throw new NotFoundException(`Session ${sessionId} not found`);
       }
@@ -467,7 +473,7 @@ export class RegularMentoringService {
 
     try {
       // Step 1: Fetch session details before cancellation
-      const session = await this.regularMentoringQueryService.getSessionById(sessionId);
+      const session = await this.getRegularMentoringByIdUseCase.execute(sessionId);
       if (!session) {
         throw new NotFoundException(`Session ${sessionId} not found`);
       }
@@ -496,7 +502,7 @@ export class RegularMentoringService {
       });
 
       // Step 4: Re-fetch session to get updated data with cancelledAt
-      const cancelledSession = await this.regularMentoringQueryService.getSessionById(sessionId);
+      const cancelledSession = await this.getRegularMentoringByIdUseCase.execute(sessionId);
 
       this.logger.log(`Regular mentoring session cancelled in transaction: sessionId=${sessionId}`);
       addSpanEvent('session.cancel.transaction.success');
@@ -558,7 +564,7 @@ export class RegularMentoringService {
 
     try {
       // Get session details before deletion
-      const session = await this.regularMentoringQueryService.getSessionById(sessionId);
+      const session = await this.getRegularMentoringByIdUseCase.execute(sessionId);
       if (!session) {
         throw new NotFoundException(`Session ${sessionId} not found`);
       }
@@ -589,7 +595,7 @@ export class RegularMentoringService {
   async getSessionById(sessionId: string) {
     this.logger.debug(`Fetching session details: sessionId=${sessionId}`);
 
-    const session = await this.regularMentoringQueryService.getSessionById(sessionId);
+    const session = await this.getRegularMentoringByIdUseCase.execute(sessionId);
     if (!session) {
       throw new NotFoundException(`Session ${sessionId} not found`);
     }
@@ -607,7 +613,7 @@ export class RegularMentoringService {
   async getSessionsByCreator(counselorId: string, filters?: any) {
     this.logger.debug(`Fetching sessions created by counselor: counselorId=${counselorId}`);
 
-    return this.regularMentoringQueryService.getMentorSessions(counselorId, {
+    return this.getMentorRegularMentoringSessionsUseCase.execute(counselorId, {
       ...filters,
       createdByCounselor: true,
     });
@@ -623,7 +629,7 @@ export class RegularMentoringService {
   async getSessionsByMentor(mentorId: string, filters?: any) {
     this.logger.debug(`Fetching sessions for mentor: mentorId=${mentorId}`);
 
-    return this.regularMentoringQueryService.getMentorSessions(mentorId, filters);
+    return this.getMentorRegularMentoringSessionsUseCase.execute(mentorId, filters);
   }
 
   /**
@@ -636,7 +642,7 @@ export class RegularMentoringService {
   async getSessionsByStudent(studentId: string, filters?: any) {
     this.logger.debug(`Fetching sessions for student: studentId=${studentId}`);
 
-    return this.regularMentoringQueryService.getStudentSessions(studentId, filters);
+    return this.getStudentRegularMentoringSessionsUseCase.execute(studentId, filters);
   }
 
   /**
@@ -662,7 +668,7 @@ export class RegularMentoringService {
     // Step 1: If specific studentId is provided, query that student's sessions
     if (studentId) {
       this.logger.debug(`Querying by studentId: ${studentId}`);
-      return this.regularMentoringQueryService.getStudentSessions(studentId, filters);
+      return this.getStudentRegularMentoringSessionsUseCase.execute(studentId, filters);
     }
 
     // Step 2: If specific mentorId is provided, query that mentor's sessions
@@ -712,6 +718,6 @@ export class RegularMentoringService {
     }
 
     // Step 3: Query sessions for all students
-    return this.regularMentoringQueryService.getSessionsByStudentIds(studentIds, filters || {});
+    return this.getRegularMentoringSessionsByStudentIdsUseCase.execute(studentIds, filters || {});
   }
 }

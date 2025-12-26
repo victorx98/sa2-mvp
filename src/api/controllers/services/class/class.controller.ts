@@ -28,10 +28,10 @@ import { CurrentUser } from '@shared/decorators/current-user.decorator';
 import { User } from '@domains/identity/user/user-interface';
 import { ApiPrefix } from '@api/api.constants';
 import { ClassService } from '@application/commands/services/class.service';
-import { GetClassesUseCase } from '@application/queries/services/use-cases/get-classes.use-case';
-import { GetClassMentorsUseCase } from '@application/queries/services/use-cases/get-class-mentors.use-case';
-import { GetClassStudentsUseCase } from '@application/queries/services/use-cases/get-class-students.use-case';
-import { GetClassCounselorsUseCase } from '@application/queries/services/use-cases/get-class-counselors.use-case';
+import { GetClassesUseCase } from '@application/queries/services/class/use-cases/get-classes.use-case';
+import { GetClassMentorsUseCase } from '@application/queries/services/class/use-cases/get-class-mentors.use-case';
+import { GetClassStudentsUseCase } from '@application/queries/services/class/use-cases/get-class-students.use-case';
+import { GetClassCounselorsUseCase } from '@application/queries/services/class/use-cases/get-class-counselors.use-case';
 
 
 import { ClassType, ClassStatus } from '@domains/services/class/classes/entities/class.entity';

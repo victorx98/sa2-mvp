@@ -2,13 +2,12 @@ import { Module } from '@nestjs/common';
 import { UserQueryRepository } from './repositories/user-query.repository';
 import { USER_QUERY_REPOSITORY, IUserQueryRepository } from '../interfaces/user-query.repository.interface';
 import { UserModule } from '@domains/identity/user/user.module';
-import { QueryModule } from '@domains/query/query.module';
 import { DatabaseModule } from '@infrastructure/database/database.module';
-import { StudentQueryAdapter } from './repositories/student-query.adapter';
-import { MentorQueryAdapter } from './repositories/mentor-query.adapter';
+import { DrizzleStudentQueryRepository } from './repositories/student-query.adapter';
+import { DrizzleMentorQueryRepository } from './repositories/mentor-query.adapter';
 import { DrizzleCounselorQueryRepository } from './repositories/counselor-query.adapter';
-import { SchoolQueryAdapter } from './repositories/school-query.adapter';
-import { MajorQueryAdapter } from './repositories/major-query.adapter';
+import { DrizzleSchoolQueryRepository } from './repositories/school-query.adapter';
+import { DrizzleMajorQueryRepository } from './repositories/major-query.adapter';
 import {
   STUDENT_QUERY_REPOSITORY,
   MENTOR_QUERY_REPOSITORY,
@@ -21,7 +20,6 @@ import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider'
 @Module({
   imports: [
     UserModule,
-    QueryModule,
     DatabaseModule,
   ],
   providers: [
@@ -31,11 +29,11 @@ import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider'
     },
     {
       provide: STUDENT_QUERY_REPOSITORY,
-      useClass: StudentQueryAdapter,
+      useClass: DrizzleStudentQueryRepository,
     },
     {
       provide: MENTOR_QUERY_REPOSITORY,
-      useClass: MentorQueryAdapter,
+      useClass: DrizzleMentorQueryRepository,
     },
     {
       provide: COUNSELOR_QUERY_REPOSITORY,
@@ -43,11 +41,11 @@ import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider'
     },
     {
       provide: SCHOOL_QUERY_REPOSITORY,
-      useClass: SchoolQueryAdapter,
+      useClass: DrizzleSchoolQueryRepository,
     },
     {
       provide: MAJOR_QUERY_REPOSITORY,
-      useClass: MajorQueryAdapter,
+      useClass: DrizzleMajorQueryRepository,
     },
   ],
   exports: [

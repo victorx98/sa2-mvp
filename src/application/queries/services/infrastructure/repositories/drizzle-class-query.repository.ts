@@ -52,7 +52,7 @@ export class DrizzleClassQueryRepository implements IClassQueryRepository {
       total,
       page,
       pageSize,
-      totalPages: Math.ceil(total / pageSize) || 1,
+      totalPages: total === 0 ? 1 : Math.ceil(total / pageSize),
     };
   }
 

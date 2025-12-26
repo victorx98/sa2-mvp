@@ -19,7 +19,10 @@ import {
   IntegrationEventPublisher,
 } from '@application/events';
 import { CommSessionDomainService } from '@domains/services/comm-sessions/services/comm-session-domain.service';
-import { CommSessionQueryService as DomainCommSessionQueryService } from '@domains/query/services/comm-session-query.service';
+import { GetCommSessionByIdUseCase } from '@application/queries/services/comm-session/use-cases/get-comm-session-by-id.use-case';
+import { GetStudentCommSessionsUseCase } from '@application/queries/services/comm-session/use-cases/get-student-comm-sessions.use-case';
+import { GetMentorCommSessionsUseCase } from '@application/queries/services/comm-session/use-cases/get-mentor-comm-sessions.use-case';
+import { GetCommSessionsByStudentIdsUseCase } from '@application/queries/services/comm-session/use-cases/get-comm-sessions-by-student-ids.use-case';
 import { StudentCounselorService } from '@domains/identity/student/student-counselor.service';
 
 // DTOs
@@ -59,7 +62,10 @@ export class CommSessionService {
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
     private readonly domainCommSessionService: CommSessionDomainService,
-    private readonly domainCommSessionQueryService: DomainCommSessionQueryService,
+    private readonly getCommSessionByIdUseCase: GetCommSessionByIdUseCase,
+    private readonly getStudentCommSessionsUseCase: GetStudentCommSessionsUseCase,
+    private readonly getMentorCommSessionsUseCase: GetMentorCommSessionsUseCase,
+    private readonly getCommSessionsByStudentIdsUseCase: GetCommSessionsByStudentIdsUseCase,
     private readonly calendarService: CalendarService,
     private readonly eventPublisher: IntegrationEventPublisher,
     private readonly metricsService: MetricsService,
@@ -229,7 +235,7 @@ export class CommSessionService {
 
     try {
       // Step 1: Fetch old session data for comparison (use query service to get meeting details)
-      const oldSession = await this.domainCommSessionQueryService.getSessionById(sessionId);
+      const oldSession = await this.getCommSessionByIdUseCase.execute(sessionId);
       if (!oldSession) {
         throw new NotFoundException(`Session ${sessionId} not found`);
       }
@@ -410,7 +416,7 @@ export class CommSessionService {
 
     try {
       // Step 1: Fetch session details before cancellation
-      const session = await this.domainCommSessionQueryService.getSessionById(sessionId);
+      const session = await this.getCommSessionByIdUseCase.execute(sessionId);
       if (!session) {
         throw new NotFoundException(`Session ${sessionId} not found`);
       }
@@ -436,7 +442,7 @@ export class CommSessionService {
       });
 
       // Step 4: Re-fetch session to get updated data with cancelledAt
-      const cancelledSession = await this.domainCommSessionQueryService.getSessionById(sessionId);
+      const cancelledSession = await this.getCommSessionByIdUseCase.execute(sessionId);
 
       this.logger.log(`Comm session cancelled in transaction: sessionId=${sessionId}`);
       addSpanEvent('session.cancel.transaction.success');
@@ -523,7 +529,7 @@ export class CommSessionService {
     // Step 1: If specific studentId is provided, query that student's sessions
     if (studentId) {
       this.logger.debug(`Querying by studentId: ${studentId}`);
-      return this.domainCommSessionQueryService.getStudentSessions(studentId, filters);
+      return this.getStudentCommSessionsUseCase.execute(studentId, filters);
     }
 
     // Step 2: If specific mentorId is provided, query that mentor's sessions
@@ -573,7 +579,7 @@ export class CommSessionService {
     }
 
     // Step 3: Query sessions for all students
-    return this.domainCommSessionQueryService.getSessionsByStudentIds(studentIds, filters || {});
+    return this.getCommSessionsByStudentIdsUseCase.execute(studentIds, filters || {});
   }
 
   /**
@@ -581,7 +587,7 @@ export class CommSessionService {
    */
   private async getSessionsByMentor(mentorId: string, filters?: any) {
     this.logger.debug(`Fetching sessions for mentor: mentorId=${mentorId}`);
-    return this.domainCommSessionQueryService.getMentorSessions(mentorId, filters);
+    return this.getMentorCommSessionsUseCase.execute(mentorId, filters);
   }
 
   /**
@@ -589,7 +595,7 @@ export class CommSessionService {
    */
   private async getSessionsByStudent(studentId: string, filters?: any) {
     this.logger.debug(`Fetching sessions for student: studentId=${studentId}`);
-    return this.domainCommSessionQueryService.getStudentSessions(studentId, filters);
+    return this.getStudentCommSessionsUseCase.execute(studentId, filters);
   }
 
   /**
@@ -597,6 +603,6 @@ export class CommSessionService {
    */
   async getSessionById(sessionId: string) {
     this.logger.debug(`Fetching comm session details: sessionId=${sessionId}`);
-    return this.domainCommSessionQueryService.getSessionById(sessionId);
+    return this.getCommSessionByIdUseCase.execute(sessionId);
   }
 }

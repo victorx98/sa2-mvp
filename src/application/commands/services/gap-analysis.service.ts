@@ -6,7 +6,6 @@ import {
 } from '@core/calendar/interfaces/calendar-slot.interface';
 import { MeetingProviderType } from '@core/meeting';
 import { GapAnalysisDomainService } from '@domains/services/sessions/gap-analysis/services/gap-analysis-domain.service';
-import { GapAnalysisQueryService } from '@domains/query/services/gap-analysis-query.service';
 import { SessionType } from '@domains/services/sessions/shared/enums/session-type.enum';
 import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
 import { StudentCounselorService } from '@domains/identity/student/student-counselor.service';
@@ -24,6 +23,10 @@ import {
   GapAnalysisSessionUpdatedEvent,
   IntegrationEventPublisher,
 } from '@application/events';
+import { GetGapAnalysisByIdUseCase } from '@application/queries/services/gap-analysis/use-cases/get-gap-analysis-by-id.use-case';
+import { GetStudentGapAnalysisSessionsUseCase } from '@application/queries/services/gap-analysis/use-cases/get-student-gap-analysis-sessions.use-case';
+import { GetMentorGapAnalysisSessionsUseCase } from '@application/queries/services/gap-analysis/use-cases/get-mentor-gap-analysis-sessions.use-case';
+import { GetGapAnalysisSessionsByStudentIdsUseCase } from '@application/queries/services/gap-analysis/use-cases/get-gap-analysis-sessions-by-student-ids.use-case';
 
 // DTOs
 export interface CreateGapAnalysisDto {
@@ -63,7 +66,10 @@ export class GapAnalysisService {
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
     private readonly domainGapAnalysisService: GapAnalysisDomainService,
-    private readonly gapAnalysisQueryService: GapAnalysisQueryService,
+    private readonly getGapAnalysisByIdUseCase: GetGapAnalysisByIdUseCase,
+    private readonly getStudentGapAnalysisSessionsUseCase: GetStudentGapAnalysisSessionsUseCase,
+    private readonly getMentorGapAnalysisSessionsUseCase: GetMentorGapAnalysisSessionsUseCase,
+    private readonly getGapAnalysisSessionsByStudentIdsUseCase: GetGapAnalysisSessionsByStudentIdsUseCase,
     private readonly calendarService: CalendarService,
     private readonly eventPublisher: IntegrationEventPublisher,
     private readonly serviceHoldService: ServiceHoldService,
@@ -266,7 +272,7 @@ export class GapAnalysisService {
         : undefined;
 
       // Step 1: Fetch old session with meeting details (LEFT JOIN)
-      const oldSession = await this.gapAnalysisQueryService.getSessionById(sessionId);
+      const oldSession = await this.getGapAnalysisByIdUseCase.execute(sessionId);
       if (!oldSession) {
         throw new NotFoundException(`Session ${sessionId} not found`);
       }
@@ -460,7 +466,7 @@ export class GapAnalysisService {
 
     try {
       // Step 1: Fetch session details before cancellation
-      const session = await this.gapAnalysisQueryService.getSessionById(sessionId);
+      const session = await this.getGapAnalysisByIdUseCase.execute(sessionId);
       if (!session) {
         throw new NotFoundException(`Session ${sessionId} not found`);
       }
@@ -489,7 +495,7 @@ export class GapAnalysisService {
       });
 
       // Step 4: Re-fetch session to get updated data with cancelledAt
-      const cancelledSession = await this.gapAnalysisQueryService.getSessionById(sessionId);
+      const cancelledSession = await this.getGapAnalysisByIdUseCase.execute(sessionId);
 
       this.logger.log(`Gap analysis session cancelled in transaction: sessionId=${sessionId}`);
       addSpanEvent('session.cancel.transaction.success');
@@ -551,7 +557,7 @@ export class GapAnalysisService {
 
     try {
       // Get session details before deletion
-      const session = await this.gapAnalysisQueryService.getSessionById(sessionId);
+      const session = await this.getGapAnalysisByIdUseCase.execute(sessionId);
       if (!session) {
         throw new NotFoundException(`Session ${sessionId} not found`);
       }
@@ -582,7 +588,7 @@ export class GapAnalysisService {
   async getSessionById(sessionId: string) {
     this.logger.debug(`Fetching session details: sessionId=${sessionId}`);
 
-    const session = await this.gapAnalysisQueryService.getSessionById(sessionId);
+    const session = await this.getGapAnalysisByIdUseCase.execute(sessionId);
     if (!session) {
       throw new NotFoundException(`Session ${sessionId} not found`);
     }
@@ -609,7 +615,7 @@ export class GapAnalysisService {
     // Step 1: If specific studentId is provided, query that student's sessions
     if (studentId) {
       this.logger.debug(`Querying by studentId: ${studentId}`);
-      return this.gapAnalysisQueryService.getStudentSessions(studentId, filters);
+      return this.getStudentGapAnalysisSessionsUseCase.execute(studentId, filters);
     }
 
     // Step 2: If specific mentorId is provided, query that mentor's sessions
@@ -659,7 +665,7 @@ export class GapAnalysisService {
     }
 
     // Step 3: Query sessions for all students
-    return this.gapAnalysisQueryService.getSessionsByStudentIds(studentIds, filters || {});
+    return this.getGapAnalysisSessionsByStudentIdsUseCase.execute(studentIds, filters || {});
   }
 
   /**
@@ -672,7 +678,7 @@ export class GapAnalysisService {
   async getSessionsByMentor(mentorId: string, filters?: any) {
     this.logger.debug(`Fetching sessions for mentor: mentorId=${mentorId}`);
 
-    return this.gapAnalysisQueryService.getMentorSessions(mentorId, filters);
+    return this.getMentorGapAnalysisSessionsUseCase.execute(mentorId, filters);
   }
 
   /**
@@ -685,6 +691,6 @@ export class GapAnalysisService {
   async getSessionsByStudent(studentId: string, filters?: any) {
     this.logger.debug(`Fetching sessions for student: studentId=${studentId}`);
 
-    return this.gapAnalysisQueryService.getStudentSessions(studentId, filters);
+    return this.getStudentGapAnalysisSessionsUseCase.execute(studentId, filters);
   }
 }

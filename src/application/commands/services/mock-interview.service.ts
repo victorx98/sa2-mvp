@@ -19,7 +19,11 @@ import {
   MockInterviewUpdatedEvent,
 } from '@application/events';
 import { MockInterviewDomainService } from '@domains/services/mock-interviews/services/mock-interview-domain.service';
-import { MockInterviewQueryService } from '@domains/query/services/mock-interview-query.service';
+import { GetMockInterviewByIdUseCase } from '@application/queries/services/mock-interviews/use-cases/get-mock-interview-by-id.use-case';
+import { GetStudentMockInterviewsUseCase } from '@application/queries/services/mock-interviews/use-cases/get-student-mock-interviews.use-case';
+import { GetCounselorMockInterviewsUseCase } from '@application/queries/services/mock-interviews/use-cases/get-counselor-mock-interviews.use-case';
+import { GetMockInterviewsByStudentIdsUseCase } from '@application/queries/services/mock-interviews/use-cases/get-mock-interviews-by-student-ids.use-case';
+
 
 // DTOs
 export interface CreateMockInterviewDto {
@@ -70,7 +74,10 @@ export class MockInterviewService {
     @Inject(DATABASE_CONNECTION)
     private readonly db: DrizzleDatabase,
     private readonly domainService: MockInterviewDomainService,
-    private readonly queryService: MockInterviewQueryService,
+    private readonly getMockInterviewByIdUseCase: GetMockInterviewByIdUseCase,
+    private readonly getStudentMockInterviewsUseCase: GetStudentMockInterviewsUseCase,
+    private readonly getCounselorMockInterviewsUseCase: GetCounselorMockInterviewsUseCase,
+    private readonly getMockInterviewsByStudentIdsUseCase: GetMockInterviewsByStudentIdsUseCase,
     private readonly calendarService: CalendarService,
     private readonly eventPublisher: IntegrationEventPublisher,
     private readonly metricsService: MetricsService,
@@ -217,7 +224,7 @@ export class MockInterviewService {
 
     try {
       // Step 1: Fetch old interview data for comparison
-      const oldInterview = await this.queryService.getInterviewById(interviewId);
+      const oldInterview = await this.getMockInterviewByIdUseCase.execute(interviewId);
       if (!oldInterview) {
         throw new NotFoundException(`Interview ${interviewId} not found`);
       }
@@ -349,7 +356,7 @@ export class MockInterviewService {
 
     try {
       // Step 1: Fetch interview details before cancellation
-      const interview = await this.queryService.getInterviewById(interviewId);
+      const interview = await this.getMockInterviewByIdUseCase.execute(interviewId);
       if (!interview) {
         throw new NotFoundException(`Interview ${interviewId} not found`);
       }
@@ -374,7 +381,7 @@ export class MockInterviewService {
       });
 
       // Step 4: Re-fetch interview to get updated data with cancelledAt
-      const cancelledInterview = await this.queryService.getInterviewById(interviewId);
+      const cancelledInterview = await this.getMockInterviewByIdUseCase.execute(interviewId);
 
       this.logger.log(`Mock interview cancelled in transaction: interviewId=${interviewId}`);
       addSpanEvent('interview.cancel.transaction.success');
@@ -436,7 +443,7 @@ export class MockInterviewService {
    */
   async getInterviewById(interviewId: string) {
     this.logger.debug(`Fetching mock interview details: interviewId=${interviewId}`);
-    return this.queryService.getInterviewById(interviewId);
+    return this.getMockInterviewByIdUseCase.execute(interviewId);
   }
 
   /**
@@ -444,6 +451,6 @@ export class MockInterviewService {
    */
   async getInterviewsByStudent(studentId: string, filters?: any, limit?: number, offset?: number) {
     this.logger.debug(`Fetching mock interviews for student: studentId=${studentId}`);
-    return this.queryService.getStudentInterviews(studentId, filters, limit, offset);
+    return this.getStudentMockInterviewsUseCase.execute(studentId, filters, limit, offset);
   }
 }

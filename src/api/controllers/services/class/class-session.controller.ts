@@ -28,8 +28,10 @@ import { CurrentUser } from '@shared/decorators/current-user.decorator';
 import { User } from '@domains/identity/user/user-interface';
 import { ApiPrefix } from '@api/api.constants';
 import { ClassSessionService } from '@application/commands/services/class-session.service';
-import { ClassSessionQueryService } from '@domains/query/services/class-session-query.service';
-import { GetClassCounselorsUseCase } from '@application/queries/services/use-cases/get-class-counselors.use-case';
+import { GetClassSessionByIdUseCase } from '@application/queries/services/class-session/use-cases/get-class-session-by-id.use-case';
+import { GetClassSessionsByClassUseCase } from '@application/queries/services/class-session/use-cases/get-class-sessions-by-class.use-case';
+import { GetMentorClassSessionsUseCase } from '@application/queries/services/class-session/use-cases/get-mentor-class-sessions.use-case';
+import { GetClassCounselorsUseCase } from '@application/queries/services/class/use-cases/get-class-counselors.use-case';
 
 
 // Import DTOs from centralized location
@@ -67,7 +69,9 @@ import {
 export class ClassSessionController {
   constructor(
     private readonly classSessionService: ClassSessionService,
-    private readonly classSessionQueryService: ClassSessionQueryService,
+    private readonly getClassSessionByIdUseCase: GetClassSessionByIdUseCase,
+    private readonly getClassSessionsByClassUseCase: GetClassSessionsByClassUseCase,
+    private readonly getMentorClassSessionsUseCase: GetMentorClassSessionsUseCase,
     private readonly getClassCounselorsUseCase: GetClassCounselorsUseCase,
   ) {}
 
@@ -186,10 +190,10 @@ export class ClassSessionController {
     @Query() filters?: any,
   ) {
     if (classId) {
-      return this.classSessionQueryService.getSessionsByClass(classId, { status: status as any });
+      return this.getClassSessionsByClassUseCase.execute(classId, { status: status as any });
     }
     if (mentorId) {
-      return this.classSessionQueryService.getMentorSessions(mentorId, { status: status as any });
+      return this.getMentorClassSessionsUseCase.execute(mentorId, { status: status as any });
     }
     // TODO: Implement other filter options
     return [];
@@ -219,7 +223,7 @@ export class ClassSessionController {
   async getSessionDetail(
     @Param('id') sessionId: string,
   ) {
-    return this.classSessionQueryService.getSessionById(sessionId);
+    return this.getClassSessionByIdUseCase.execute(sessionId);
   }
 
   /**
@@ -257,7 +261,7 @@ export class ClassSessionController {
     @Body() dto: UpdateClassSessionRequestDto,
   ) {
     // Get session to find classId
-    const session = await this.classSessionQueryService.getSessionById(sessionId);
+    const session = await this.getClassSessionByIdUseCase.execute(sessionId);
     
     // Check if current user is a counselor of this class (admin bypass)
     await this.checkClassCounselorPermission(session.classId, user);
@@ -317,7 +321,7 @@ export class ClassSessionController {
     @Body() dto: CancelClassSessionRequestDto,
   ): Promise<CancelClassSessionResponseDto> {
     // Get session to find classId
-    const session = await this.classSessionQueryService.getSessionById(sessionId);
+    const session = await this.getClassSessionByIdUseCase.execute(sessionId);
     
     // Check if current user is a counselor of this class (admin bypass)
     await this.checkClassCounselorPermission(session.classId, user);
@@ -358,7 +362,7 @@ export class ClassSessionController {
     @Param('id') sessionId: string,
   ): Promise<DeleteClassSessionResponseDto> {
     // Get session to find classId
-    const session = await this.classSessionQueryService.getSessionById(sessionId);
+    const session = await this.getClassSessionByIdUseCase.execute(sessionId);
     
     // Check if current user is a counselor of this class (admin bypass)
     await this.checkClassCounselorPermission(session.classId, user);

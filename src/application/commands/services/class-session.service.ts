@@ -21,7 +21,7 @@ import {
 import { ClassSessionDomainService } from '@domains/services/class/class-sessions/services/class-session-domain.service';
 import { ClassSessionStatus, SessionType as ClassSessionType } from '@domains/services/class/class-sessions/entities/class-session.entity';
 import { ClassDomainService } from '@domains/services/class/classes/services/class-domain.service';
-import { ClassSessionQueryService as DomainClassSessionQueryService } from '@domains/query/services/class-session-query.service';
+import { GetClassSessionByIdUseCase } from '@application/queries/services/class-session/use-cases/get-class-session-by-id.use-case';
 
 // DTOs
 export interface CreateClassSessionDto {
@@ -62,7 +62,7 @@ export class ClassSessionService {
     private readonly db: DrizzleDatabase,
     private readonly domainClassSessionService: ClassSessionDomainService,
     private readonly domainClassService: ClassDomainService,
-    private readonly domainClassSessionQueryService: DomainClassSessionQueryService,
+    private readonly getClassSessionByIdUseCase: GetClassSessionByIdUseCase,
     private readonly calendarService: CalendarService,
     private readonly eventPublisher: IntegrationEventPublisher,
     private readonly metricsService: MetricsService,
@@ -206,7 +206,7 @@ export class ClassSessionService {
 
     try {
       // Step 1: Fetch old session data with meeting details
-      const oldSession = await this.domainClassSessionQueryService.getSessionById(sessionId);
+      const oldSession = await this.getClassSessionByIdUseCase.execute(sessionId);
       if (!oldSession) {
         throw new NotFoundException(`Session ${sessionId} not found`);
       }
@@ -307,7 +307,7 @@ export class ClassSessionService {
       addSpanEvent('session.update.success');
       
       // Return updated session with meeting details
-      return this.domainClassSessionQueryService.getSessionById(sessionId);
+      return this.getClassSessionByIdUseCase.execute(sessionId);
     } catch (error) {
       this.logger.error(`Failed to update class session: ${error.message}`, error.stack);
       addSpanEvent('session.update.error');
@@ -333,7 +333,7 @@ export class ClassSessionService {
 
     try {
       // Step 1: Get session details for event
-      const session = await this.domainClassSessionQueryService.getSessionById(sessionId);
+      const session = await this.getClassSessionByIdUseCase.execute(sessionId);
       if (!session) {
         throw new NotFoundException(`Session ${sessionId} not found`);
       }
@@ -413,6 +413,6 @@ export class ClassSessionService {
    */
   async getSessionById(sessionId: string) {
     this.logger.debug(`Fetching class session details: sessionId=${sessionId}`);
-    return this.domainClassSessionQueryService.getSessionById(sessionId);
+    return this.getClassSessionByIdUseCase.execute(sessionId);
   }
 }

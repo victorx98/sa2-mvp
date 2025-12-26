@@ -50,9 +50,10 @@ export class DrizzleRecommLetterTypeQueryRepository implements IRecommLetterType
   async getTypesTree(serviceTypeCode?: string): Promise<RecommLetterTypeTreeNode[]> {
     const allTypes = await this.findRecommLetterTypes({ serviceTypeCode });
 
-    const buildTree = (parentId?: string): RecommLetterTypeTreeNode[] => {
+    const buildTree = (parentId?: string | null): RecommLetterTypeTreeNode[] => {
+      const isRoot = parentId == null;
       return allTypes
-        .filter((type) => type.parentId === parentId)
+        .filter((type) => (isRoot ? type.parentId == null : type.parentId === parentId))
         .map((type) => ({
           code: type.code,
           nameZh: type.nameZh,
@@ -61,6 +62,6 @@ export class DrizzleRecommLetterTypeQueryRepository implements IRecommLetterType
         }));
     };
 
-    return buildTree(undefined);
+    return buildTree(null);
   }
 }
