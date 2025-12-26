@@ -26,6 +26,13 @@ import { ContractQueryRepositoriesModule } from "./queries/contract/infrastructu
 import { MockInterviewQueryService } from "@domains/query/services/mock-interview-query.service";
 import { GetSessionTypesQuery } from "./queries/services/get-session-types.query";
 import { GetRecommLetterTypesQuery } from "./queries/services/get-recomm-letter-types.query";
+import { ServicesQueryRepositoriesModule } from "./queries/services/infrastructure/query-repositories.module";
+import { GetClassesUseCase } from "./queries/services/use-cases/get-classes.use-case"; 
+import { GetClassMentorsUseCase } from "./queries/services/use-cases/get-class-mentors.use-case"; 
+import { GetClassStudentsUseCase } from "./queries/services/use-cases/get-class-students.use-case"; 
+import { GetClassCounselorsUseCase } from "./queries/services/use-cases/get-class-counselors.use-case"; 
+
+
 import { GetProductDetailUseCase } from "./queries/product/use-cases/get-product-detail.use-case";
 import { SearchProductsUseCase } from "./queries/product/use-cases/search-products.use-case";
 import { ProductQueryRepositoriesModule } from "./queries/product/infrastructure/query-repositories.module";
@@ -170,6 +177,7 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     ContractQueryRepositoriesModule, // Contract Query Repositories
     PreferenceQueryRepositoriesModule, // Preference Query Repositories
     IdentityQueryRepositoriesModule, // Identity Query Repositories
+    ServicesQueryRepositoriesModule, // Services Query Repositories
   ],
   providers: [
     // Queries
@@ -196,6 +204,10 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     ListJobCategoriesUseCase,
     ListJobTitlesUseCase,
     CalendarQueryService,
+    GetClassesUseCase,
+    GetClassMentorsUseCase,
+    GetClassStudentsUseCase,
+    GetClassCounselorsUseCase,
 
     // Commands
     RegisterCommand,
@@ -327,6 +339,10 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     ListJobCategoriesUseCase,
     ListJobTitlesUseCase,
     CalendarQueryService,
+    GetClassesUseCase,
+    GetClassMentorsUseCase,
+    GetClassStudentsUseCase,
+    GetClassCounselorsUseCase,
 
     // Commands
     RegisterCommand,

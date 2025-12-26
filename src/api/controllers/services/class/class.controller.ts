@@ -28,7 +28,12 @@ import { CurrentUser } from '@shared/decorators/current-user.decorator';
 import { User } from '@domains/identity/user/user-interface';
 import { ApiPrefix } from '@api/api.constants';
 import { ClassService } from '@application/commands/services/class.service';
-import { ClassQueryService } from '@domains/query/services/class-query.service';
+import { GetClassesUseCase } from '@application/queries/services/use-cases/get-classes.use-case';
+import { GetClassMentorsUseCase } from '@application/queries/services/use-cases/get-class-mentors.use-case';
+import { GetClassStudentsUseCase } from '@application/queries/services/use-cases/get-class-students.use-case';
+import { GetClassCounselorsUseCase } from '@application/queries/services/use-cases/get-class-counselors.use-case';
+
+
 import { ClassType, ClassStatus } from '@domains/services/class/classes/entities/class.entity';
 import {
   CreateClassRequestDto,
@@ -390,7 +395,10 @@ export class GetAllClassesResponseDto {
 export class ClassController {
   constructor(
     private readonly classService: ClassService,
-    private readonly classQueryService: ClassQueryService,
+    private readonly getClassesUseCase: GetClassesUseCase,
+    private readonly getClassMentorsUseCase: GetClassMentorsUseCase,
+    private readonly getClassStudentsUseCase: GetClassStudentsUseCase,
+    private readonly getClassCounselorsUseCase: GetClassCounselorsUseCase,
   ) {}
 
   /**
@@ -404,7 +412,7 @@ export class ClassController {
     }
 
     // Check if user is a counselor of this class
-    const counselors = await this.classQueryService.getClassCounselorsWithNames(classId);
+    const counselors = await this.getClassCounselorsUseCase.execute({ classId });
     const isCounselor = counselors.some(c => c.userId === user.id);
 
     if (!isCounselor) {
@@ -521,7 +529,7 @@ export class ClassController {
   async getClassMentors(
     @Param('id') classId: string,
   ) {
-    const mentors = await this.classQueryService.getClassMentorsWithNames(classId);
+    const mentors = await this.getClassMentorsUseCase.execute({ classId });
     return {
       classId,
       mentors,
@@ -552,7 +560,7 @@ export class ClassController {
   async getClassStudents(
     @Param('id') classId: string,
   ) {
-    const students = await this.classQueryService.getClassStudentsWithNames(classId);
+    const students = await this.getClassStudentsUseCase.execute({ classId });
     return {
       classId,
       students,
@@ -583,7 +591,7 @@ export class ClassController {
   async getClassCounselors(
     @Param('id') classId: string,
   ) {
-    const counselors = await this.classQueryService.getClassCounselorsWithNames(classId);
+    const counselors = await this.getClassCounselorsUseCase.execute({ classId });
     return {
       classId,
       counselors,
