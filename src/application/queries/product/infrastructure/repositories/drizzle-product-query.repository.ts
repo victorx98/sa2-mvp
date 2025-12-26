@@ -124,12 +124,18 @@ export class DrizzleProductQueryRepository implements IProductQueryRepository {
       productsWithItems = [];
     }
 
+    const page = pagination?.page || 1;
+    const pageSize = pagination
+      ? pagination.pageSize || this.DEFAULT_PAGE_SIZE
+      : Number(total) || this.DEFAULT_PAGE_SIZE;
+    const totalPages = Number(total) === 0 ? 1 : Math.ceil(Number(total) / pageSize);
+
     return {
       data: productsWithItems,
       total: Number(total),
-      page: pagination?.page || 1,
-      pageSize: pagination?.pageSize || Number(total),
-      totalPages: Math.ceil(Number(total) / (pagination?.pageSize || Number(total))),
+      page,
+      pageSize: pageSize,
+      totalPages,
     };
   }
 

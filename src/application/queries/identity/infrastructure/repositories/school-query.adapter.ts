@@ -1,26 +1,83 @@
 /**
- * School Query Adapter
- * 学校查询适配器
+ * School Query Repository Implementation
+ * 学校查询仓储实现 - 直接数据库查询
  */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { sql } from 'drizzle-orm';
 import { IPaginatedResult } from '@shared/types/paginated-result';
 import { ISchoolQueryRepository } from '../../interfaces/identity-query.repository.interface';
-import { SchoolQueryService } from '@domains/query/services/school-query.service';
+import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
+import type { DrizzleDatabase } from '@shared/types/database.types';
 
 @Injectable()
-export class SchoolQueryAdapter implements ISchoolQueryRepository {
+export class DrizzleSchoolQueryRepository implements ISchoolQueryRepository {
   constructor(
-    private readonly schoolQueryService: SchoolQueryService,
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: DrizzleDatabase,
   ) {}
 
   async listSchools(params: any): Promise<IPaginatedResult<any>> {
-    const schools = await this.schoolQueryService.search(params?.keyword);
+    const page = params?.page || 1;
+    const pageSize = params?.pageSize || 50;
+    const offset = (page - 1) * pageSize;
+    const keyword = params?.keyword;
+
+    let searchFilter = sql``;
+    if (keyword && keyword.trim().length > 0) {
+      const term = `%${keyword.trim()}%`;
+      searchFilter = sql`
+        AND (
+          name_zh ILIKE ${term}
+          OR name_en ILIKE ${term}
+          OR code ILIKE ${term}
+        )
+      `;
+    }
+
+    // Calculate total count
+    const countResult = await this.db.execute(sql`
+      SELECT COUNT(*) as total
+      FROM schools
+      WHERE id IS NOT NULL
+      ${searchFilter}
+    `);
+    const total = parseInt(countResult.rows[0].total.toString()) || 0;
+
+    // Fetch data
+    const result = await this.db.execute(sql`
+      SELECT
+        id,
+        code,
+        name_zh,
+        name_en,
+        country,
+        type,
+        created_time,
+        modified_time
+      FROM schools
+      WHERE id IS NOT NULL
+        ${searchFilter}
+      ORDER BY name_zh ASC
+      LIMIT ${pageSize} OFFSET ${offset}
+    `);
+
+    const schools = result.rows.map((row) => ({
+      id: String(row.id || ''),
+      code: String(row.code || ''),
+      nameZh: String(row.name_zh || ''),
+      nameEn: String(row.name_en || ''),
+      country: String(row.country || ''),
+      type: String(row.type || ''),
+      createdAt: row.created_time as Date,
+      modifiedAt: row.modified_time as Date,
+    }));
+
     return {
       data: schools,
-      total: schools.length,
-      page: params?.page || 1,
-      pageSize: params?.pageSize || schools.length,
-      totalPages: 1
+      total,
+      page,
+      pageSize,
+      totalPages: total === 0 ? 1 : Math.ceil(total / pageSize)
     };
   }
 }

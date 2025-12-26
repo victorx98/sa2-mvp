@@ -49,7 +49,7 @@ export class DrizzleMentorPriceQueryRepository implements IMentorPriceQueryRepos
     // Calculate pagination parameters
     const offset = (page - 1) * pageSize;
     const limit = pageSize;
-    const totalPages = Math.ceil(total / pageSize);
+    const totalPages = total === 0 ? 1 : Math.ceil(total / pageSize);
 
     // Build sorting
     const orderByClause = this.buildOrderBy(sortBy, sortDirection);

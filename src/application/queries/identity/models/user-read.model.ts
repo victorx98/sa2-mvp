@@ -10,9 +10,12 @@ export interface UserReadModel {
   email: string;
   nameEn: string;
   nameZh: string;
+  status?: string;
   country?: string;
   gender?: string;
   roles?: string[];
+  createdTime?: Date;
+  modifiedTime?: Date;
 }
 
 export interface GetUserByIdDto {

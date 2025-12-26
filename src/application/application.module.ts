@@ -16,7 +16,9 @@ import { CommSessionsModule } from "@domains/services/comm-sessions/comm-session
 import { MockInterviewsModule } from "@domains/services/mock-interviews/mock-interviews.module";
 import { ClassModule } from "@domains/services/class/class.module";
 import { ResumeModule } from "@domains/services/resume/resume.module";
-import { QueryModule } from "@domains/query/query.module";
+import { IdentityQueryRepositoriesModule } from "./queries/identity/infrastructure/query-repositories.module";
+import { ServicesQueryRepositoriesModule } from "./queries/services/infrastructure/query-repositories.module";
+import { ServicesQueriesModule } from "./queries/services/queries.module";
 
 // Application Layer - Queries
 import { GetUserUseCase } from "./queries/identity/use-cases/get-user.use-case";
@@ -27,7 +29,6 @@ import { MentorProfileUseCase } from "./queries/identity/use-cases/mentor-profil
 import { CounselorListUseCase } from "./queries/identity/use-cases/counselor-list.use-case";
 import { SchoolListUseCase } from "./queries/identity/use-cases/school-list.use-case";
 import { MajorListUseCase } from "./queries/identity/use-cases/major-list.use-case";
-import { IdentityQueryRepositoriesModule } from "./queries/identity/infrastructure/query-repositories.module";
 import { ServiceBalanceQuery } from "./queries/contract/service-balance.query";
 import { GetStudentContractsUseCase } from "./queries/contract/use-cases/get-student-contracts.use-case";
 import { GetServiceConsumptionUseCase } from "./queries/contract/use-cases/get-service-consumption.use-case";
@@ -36,11 +37,10 @@ import { GetSessionTypesUseCase } from "./queries/services/session-types/use-cas
 import { GetRecommLetterTypesUseCase } from "./queries/services/recomm-letter-types/use-cases/get-recomm-letter-types.use-case";
 import { SessionTypesQueryRepositoriesModule } from "./queries/services/session-types/infrastructure/query-repositories.module";
 import { RecommLetterTypesQueryRepositoriesModule } from "./queries/services/recomm-letter-types/infrastructure/query-repositories.module";
-import { ServicesQueryRepositoriesModule } from "./queries/services/infrastructure/query-repositories.module";
-import { GetClassesUseCase } from "./queries/services/use-cases/get-classes.use-case";
-import { GetClassMentorsUseCase } from "./queries/services/use-cases/get-class-mentors.use-case";
-import { GetClassStudentsUseCase } from "./queries/services/use-cases/get-class-students.use-case";
-import { GetClassCounselorsUseCase } from "./queries/services/use-cases/get-class-counselors.use-case";
+import { GetClassesUseCase } from "./queries/services/class/use-cases/get-classes.use-case";
+import { GetClassMentorsUseCase } from "./queries/services/class/use-cases/get-class-mentors.use-case";
+import { GetClassStudentsUseCase } from "./queries/services/class/use-cases/get-class-students.use-case";
+import { GetClassCounselorsUseCase } from "./queries/services/class/use-cases/get-class-counselors.use-case";
 
 import { GetProductDetailUseCase } from "./queries/product/use-cases/get-product-detail.use-case";
 import { SearchProductsUseCase } from "./queries/product/use-cases/search-products.use-case";
@@ -178,7 +178,6 @@ import { AppealApprovedListener } from "@application/events/handlers/financial/a
     MockInterviewsModule,
     ClassModule,
     ResumeModule,
-    QueryModule,
     // Core Services
     CalendarModule,
     MeetingModule,
@@ -192,6 +191,7 @@ import { AppealApprovedListener } from "@application/events/handlers/financial/a
     PreferenceQueryRepositoriesModule,
     IdentityQueryRepositoriesModule,
     ServicesQueryRepositoriesModule,
+    ServicesQueriesModule,
     SessionTypesQueryRepositoriesModule,
     RecommLetterTypesQueryRepositoriesModule,
     CalendarQueryRepositoriesModule,
@@ -325,7 +325,6 @@ import { AppealApprovedListener } from "@application/events/handlers/financial/a
   exports: [
     // Domain Layer
     UserModule,
-    QueryModule,
     ResumeModule,
     RecommLetterModule,
 
@@ -334,6 +333,7 @@ import { AppealApprovedListener } from "@application/events/handlers/financial/a
     MeetingModule,
 
     // Queries
+    ServicesQueriesModule,
     GetUserUseCase,
     StudentListUseCase,
     StudentProfileUseCase,
