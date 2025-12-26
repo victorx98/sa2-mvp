@@ -100,7 +100,7 @@ export class AiCareerSessionCancelledEvent extends BaseIntegrationEvent<AiCareer
 @IntegrationEvent({
   type: "ai_career.session.meeting.operation.result",
   version: "1.0",
-  producers: ["AiCareerCreatedEventHandler"],
+  producers: ["AiCareerCreatedEventHandler", "SessionProvisioningSaga"],
   description: "Emitted after meeting create/update/cancel for AI career sessions.",
 })
 export class AiCareerSessionMeetingOperationResultEvent extends BaseIntegrationEvent<MeetingOperationResultPayload> {

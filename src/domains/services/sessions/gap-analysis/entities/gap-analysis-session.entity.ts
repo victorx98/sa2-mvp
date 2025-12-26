@@ -184,6 +184,23 @@ export class GapAnalysisSession {
   }
 
   /**
+   * Mark meeting creation as failed
+   */
+  markMeetingFailed(): void {
+    if (this.status === SessionStatus.MEETING_FAILED) {
+      return;
+    }
+    if (!canTransitionTo(this.status, SessionStatus.MEETING_FAILED)) {
+      throw new InvalidStatusTransitionException(
+        this.status,
+        SessionStatus.MEETING_FAILED,
+      );
+    }
+    this.status = SessionStatus.MEETING_FAILED;
+    this.updatedAt = new Date();
+  }
+
+  /**
    * Soft delete session
    */
   softDelete(): void {

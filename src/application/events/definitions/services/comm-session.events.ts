@@ -101,7 +101,7 @@ export class CommSessionCancelledEvent extends BaseIntegrationEvent<CommSessionC
 @IntegrationEvent({
   type: "comm_session.session.meeting.operation.result",
   version: "1.0",
-  producers: ["CommSessionCreatedEventHandler"],
+  producers: ["CommSessionCreatedEventHandler", "SessionProvisioningSaga"],
   description: "Emitted after meeting create/update/cancel for communication sessions.",
 })
 export class CommSessionMeetingOperationResultEvent extends BaseIntegrationEvent<MeetingOperationResultPayload> {

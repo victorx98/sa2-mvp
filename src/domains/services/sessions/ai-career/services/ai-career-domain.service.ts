@@ -67,6 +67,25 @@ export class AiCareerDomainService {
   }
 
   /**
+   * Mark meeting creation as failed
+   * PENDING_MEETING → MEETING_FAILED
+   */
+  async markMeetingFailed(
+    sessionId: string,
+    tx?: DrizzleTransaction,
+  ): Promise<void> {
+    this.logger.log(`Marking meeting failed for session ${sessionId}`);
+
+    const session = await this.repository.findById(sessionId);
+    if (!session) {
+      throw new SessionNotFoundException(sessionId);
+    }
+
+    session.markMeetingFailed();
+    await this.repository.update(session, tx);
+  }
+
+  /**
    * Complete session
    * SCHEDULED → COMPLETED
    */
@@ -165,4 +184,3 @@ export class AiCareerDomainService {
     return session;
   }
 }
-

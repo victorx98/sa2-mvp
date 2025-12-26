@@ -140,6 +140,7 @@ import { PlacementApplicationStatusChangedListener } from "@application/events/h
 import { PlacementApplicationStatusRolledBackListener } from "@application/events/handlers/financial/placement-application-status-rolled-back.listener";
 import { AppealApprovedListener } from "@application/events/handlers/financial/appeal-approved.listener";
 import { PreferenceModule } from "@domains/preference/preference.module";
+import { SessionProvisioningSaga } from "./sagas/services/session-provisioning.saga";
 
 /**
  * Application Layer - Root Module
@@ -227,6 +228,7 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     ClassSessionCreatedEventHandler,
     ClassSessionNotificationHandler,
     ClassSessionMeetingCompletedHandler,
+    SessionProvisioningSaga,
     MeetingCompletedListener,
     SessionCompletedListener,
     ClassStudentEventListener,

@@ -157,6 +157,9 @@ export class ClassSessionEntity {
    * Mark meeting creation as failed
    */
   markMeetingFailed(): void {
+    if (this.status === SessionStatus.MEETING_FAILED) {
+      return;
+    }
     if (this.status !== SessionStatus.PENDING_MEETING) {
       throw new InvalidSessionStateException(
         `Can only mark PENDING_MEETING sessions as failed`

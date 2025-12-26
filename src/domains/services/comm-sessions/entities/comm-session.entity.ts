@@ -151,6 +151,9 @@ export class CommSession {
    * PENDING_MEETING → MEETING_FAILED
    */
   markMeetingFailed(): void {
+    if (this.status === SessionStatus.MEETING_FAILED) {
+      return;
+    }
     if (!canTransitionTo(this.status, SessionStatus.MEETING_FAILED)) {
       throw new InvalidStatusTransitionException(
         this.status,

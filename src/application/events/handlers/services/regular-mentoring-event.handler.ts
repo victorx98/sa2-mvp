@@ -2,7 +2,6 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { sql } from 'drizzle-orm';
 import { MeetingManagerService } from '@core/meeting';
-import { CalendarService } from '@core/calendar';
 import { RegularMentoringDomainService } from '@domains/services/sessions/regular-mentoring/services/regular-mentoring-domain.service';
 import { ServiceRegistryService } from '@domains/services/service-registry/services/service-registry.service';
 import {
@@ -10,28 +9,19 @@ import {
   IntegrationEventPublisher,
   MeetingLifecycleCompletedEvent,
   RegularMentoringSessionCancelledEvent,
-  RegularMentoringSessionCreatedEvent,
   RegularMentoringSessionMeetingOperationResultEvent,
   RegularMentoringSessionUpdatedEvent,
   ServiceSessionCompletedEvent,
 } from '@application/events';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase } from '@shared/types/database.types';
-import { FEISHU_DEFAULT_HOST_USER_ID } from 'src/constants';
 import { retryWithBackoff } from '@shared/utils/retry.util';
-import { UserService } from '@domains/identity/user/user-service';
 
 /**
- * Regular Mentoring Session Created Event Handler
- * 
- * Handles async meeting creation flow triggered by RegularMentoringService.createSession()
- * 
- * Responsibilities:
- * 1. Listen to REGULAR_MENTORING_SESSION_CREATED_EVENT
- * 2. Create meeting via MeetingManagerService
- * 3. Update session (meeting_id, status=SCHEDULED) in transaction
- * 4. Update calendar slots with meeting info
- * 5. Publish MEETING_OPERATION_RESULT_EVENT (operation: create)
+ * Regular Mentoring Session Event Handler
+ *
+ * Note: session creation provisioning is handled by SessionProvisioningSaga.
+ * This handler keeps update/cancel/lifecycle logic for regular mentoring sessions.
  */
 @Injectable()
 export class RegularMentoringCreatedEventHandler {
@@ -43,134 +33,8 @@ export class RegularMentoringCreatedEventHandler {
     private readonly meetingManagerService: MeetingManagerService,
     private readonly domainRegularMentoringService: RegularMentoringDomainService,
     private readonly serviceRegistryService: ServiceRegistryService,
-    private readonly calendarService: CalendarService,
     private readonly eventPublisher: IntegrationEventPublisher,
-    private readonly userService: UserService,
   ) {}
-
-  /**
-   * Handle REGULAR_MENTORING_SESSION_CREATED_EVENT
-   * Executes the async meeting creation flow
-   * 
-   * @param event - Regular mentoring session created event
-   */
-  @OnEvent(RegularMentoringSessionCreatedEvent.eventType)
-  @HandlesEvent(RegularMentoringSessionCreatedEvent.eventType, RegularMentoringCreatedEventHandler.name)
-  async handleSessionCreated(event: RegularMentoringSessionCreatedEvent): Promise<void> {
-    const payload = event.payload;
-    this.logger.log(
-      `Handling REGULAR_MENTORING_SESSION_CREATED_EVENT: sessionId=${payload.sessionId}`,
-    );
-
-    try {
-      // Step 1: Create meeting on third-party platform with retry mechanism (max 3 retries)
-      this.logger.debug(`Creating meeting for session ${payload.sessionId}`);
-
-      const meeting = await retryWithBackoff(
-        async () => {
-          return await this.meetingManagerService.createMeeting({
-            topic: payload.topic,
-            provider: payload.meetingProvider as any,
-            startTime: typeof payload.scheduledStartTime === 'string'
-              ? payload.scheduledStartTime
-              : payload.scheduledStartTime.toISOString(),
-            duration: payload.duration,
-            hostUserId: this.getHostUserId(payload.meetingProvider),
-            autoRecord: true,
-            participantJoinEarly: true,
-          });
-        },
-        3, // Max retries
-        1000, // Initial delay
-        this.logger,
-      );
-
-      this.logger.debug(
-        `Meeting created successfully: meetingId=${meeting.id}, meetingNo=${meeting.meetingNo}, meetingUrl=${meeting.meetingUrl}`,
-      );
-
-      // Step 2: Query user display names for calendar metadata
-      const mentorName = await this.userService.getDisplayName(payload.mentorId);
-      const studentName = await this.userService.getDisplayName(payload.studentId);
-
-      // Step 3: Update session and calendar slots in a transaction
-      await this.db.transaction(async (tx) => {
-        // 3.1: Complete meeting setup for session (update meeting_id and status)
-        await this.domainRegularMentoringService.scheduleMeeting(
-          payload.sessionId,
-          meeting.id,
-          tx,
-        );
-
-        this.logger.debug(`Session meeting setup completed: sessionId=${payload.sessionId}`);
-
-        // 3.2: Update calendar slots with session_id, meeting_id, meetingUrl, and otherPartyName
-        await this.calendarService.updateSlotWithSessionAndMeeting(
-          payload.sessionId,
-          meeting.id,
-          meeting.meetingUrl,
-          payload.mentorCalendarSlotId,
-          payload.studentCalendarSlotId,
-          mentorName,
-          studentName,
-          tx,
-        );
-
-        this.logger.debug(
-          `Calendar slots updated: mentorSlotId=${payload.mentorCalendarSlotId}, studentSlotId=${payload.studentCalendarSlotId}`,
-        );
-      });
-
-      // Step 3: Publish result event (success - notify all parties)
-      await this.eventPublisher.publish(
-        new RegularMentoringSessionMeetingOperationResultEvent({
-          operation: 'create',
-          status: 'success',
-          sessionId: payload.sessionId,
-          studentId: payload.studentId,
-          mentorId: payload.mentorId,
-          counselorId: payload.counselorId,
-          scheduledAt: payload.scheduledStartTime,
-          duration: payload.duration,
-          meetingUrl: meeting.meetingUrl,
-          meetingProvider: payload.meetingProvider,
-          notifyRoles: ['counselor', 'mentor', 'student'],
-        }),
-        RegularMentoringCreatedEventHandler.name,
-      );
-
-      this.logger.log(
-        `MEETING_OPERATION_RESULT_EVENT published: operation=create, status=success, sessionId=${payload.sessionId}`,
-      );
-    } catch (error) {
-      // Error handling: Log error and publish failed result event
-      this.logger.error(
-        `Failed to create meeting for session ${payload.sessionId}: ${error.message}`,
-        error.stack,
-      );
-
-      // Publish result event (failed - notify counselor only)
-      await this.eventPublisher.publish(
-        new RegularMentoringSessionMeetingOperationResultEvent({
-          operation: 'create',
-          status: 'failed',
-          sessionId: payload.sessionId,
-          studentId: payload.studentId,
-          mentorId: payload.mentorId,
-          counselorId: payload.counselorId,
-          scheduledAt: payload.scheduledStartTime,
-          errorMessage: error.message,
-          notifyRoles: ['counselor'],
-          requireManualIntervention: true,
-        }),
-        RegularMentoringCreatedEventHandler.name,
-      );
-
-      this.logger.warn(
-        `MEETING_OPERATION_RESULT_EVENT published: operation=create, status=failed, sessionId=${payload.sessionId}`,
-      );
-    }
-  }
 
   /**
    * Handle REGULAR_MENTORING_SESSION_UPDATED_EVENT
@@ -420,22 +284,6 @@ export class RegularMentoringCreatedEventHandler {
     }
   }
 
-
-  /**
-   * Determine host user ID based on meeting provider
-   * Used to specify who will host the meeting on the third-party platform
-   * 
-   * @param provider - Meeting provider type ('feishu' | 'zoom')
-   * @returns Host user ID or undefined
-   */
-  private getHostUserId(provider: string): string | undefined {
-    // For Feishu, use system default host ID (Feishu open_id constant)
-    // For Zoom, return undefined to use authenticated account
-    if (provider === 'feishu') {
-      return FEISHU_DEFAULT_HOST_USER_ID;
-    }
-    return undefined;
-  }
 
   /**
    * Handle Meeting Lifecycle Completed Event

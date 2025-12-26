@@ -466,7 +466,7 @@ export class AiCareerService {
 
       // Step 2: Validate session status (only scheduled/pending_meeting can be cancelled)
       const statusLower = session.status?.toLowerCase();
-      if (!['scheduled', 'pending_meeting'].includes(statusLower)) {
+      if (!['scheduled', 'pending_meeting', 'meeting_failed'].includes(statusLower)) {
         throw new Error(`Cannot cancel session with status: ${session.status}`);
       }
 

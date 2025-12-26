@@ -93,7 +93,7 @@ export class ClassSessionCancelledEvent extends BaseIntegrationEvent<ClassSessio
 @IntegrationEvent({
   type: "class_session.session.meeting.operation.result",
   version: "1.0",
-  producers: ["ClassSessionCreatedEventHandler"],
+  producers: ["ClassSessionCreatedEventHandler", "SessionProvisioningSaga"],
   description: "Emitted after meeting create/update/cancel for class sessions.",
 })
 export class ClassSessionMeetingOperationResultEvent extends BaseIntegrationEvent<MeetingOperationResultPayload> {

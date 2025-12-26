@@ -9,6 +9,7 @@ export enum SessionStatus {
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
   DELETED = 'deleted',
+  MEETING_FAILED = 'meeting_failed',
 }
 
 /**
@@ -18,6 +19,7 @@ export function canBeCancelled(status: SessionStatus): boolean {
   return [
     SessionStatus.PENDING_MEETING,
     SessionStatus.SCHEDULED,
+    SessionStatus.MEETING_FAILED,
   ].includes(status);
 }
 
@@ -43,6 +45,7 @@ export function canTransitionTo(
     [SessionStatus.PENDING_MEETING]: [
       SessionStatus.SCHEDULED,
       SessionStatus.CANCELLED,
+      SessionStatus.MEETING_FAILED,
     ],
     [SessionStatus.SCHEDULED]: [
       SessionStatus.COMPLETED,
@@ -51,6 +54,9 @@ export function canTransitionTo(
     [SessionStatus.COMPLETED]: [],
     [SessionStatus.CANCELLED]: [],
     [SessionStatus.DELETED]: [],
+    [SessionStatus.MEETING_FAILED]: [
+      SessionStatus.CANCELLED,
+    ],
   };
   
   return transitions[currentStatus]?.includes(newStatus) || false;
@@ -66,6 +72,7 @@ export function fromString(value: string): SessionStatus {
     'completed': SessionStatus.COMPLETED,
     'cancelled': SessionStatus.CANCELLED,
     'deleted': SessionStatus.DELETED,
+    'meeting_failed': SessionStatus.MEETING_FAILED,
   };
   
   const status = statusMap[value.toLowerCase()];
@@ -85,4 +92,3 @@ export function isFinalStatus(status: SessionStatus): boolean {
     SessionStatus.CANCELLED,
   ].includes(status);
 }
-

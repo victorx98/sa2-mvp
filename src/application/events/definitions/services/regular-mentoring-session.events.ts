@@ -100,7 +100,7 @@ export class RegularMentoringSessionCancelledEvent extends BaseIntegrationEvent<
 @IntegrationEvent({
   type: "regular_mentoring.session.meeting.operation.result",
   version: "1.0",
-  producers: ["RegularMentoringCreatedEventHandler"],
+  producers: ["RegularMentoringCreatedEventHandler", "SessionProvisioningSaga"],
   description: "Emitted after meeting create/update/cancel for regular mentoring sessions.",
 })
 export class RegularMentoringSessionMeetingOperationResultEvent extends BaseIntegrationEvent<MeetingOperationResultPayload> {
