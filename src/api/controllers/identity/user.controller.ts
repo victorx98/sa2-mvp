@@ -1,35 +1,22 @@
 import { Controller, Get, Param, UseGuards } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiOkResponse, ApiBearerAuth, ApiParam } from "@nestjs/swagger";
-import { UserQueryService } from "@application/queries/user-query.service";
+import { GetUserUseCase } from "@application/queries/identity/use-cases/get-user.use-case";
 import { User } from "@domains/identity/user/user-interface";
+import { Gender } from "@shared/types/identity-enums";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { CurrentUser } from "@shared/decorators/current-user.decorator";
 import { ApiPrefix } from "@api/api.constants";
 import { UserResponseDto } from "@api/dto/response/user-response.dto";
 import { plainToInstance } from "class-transformer";
 import { trace } from "@opentelemetry/api";
-/**
- * API Layer - User Controller
- * 职责：
- * 1. 定义 HTTP 路由
- * 2. 提取请求参数
- * 3. 调用 Application Layer 服务
- * 4. 返回 HTTP 响应
- *
- * 设计原则：
- * ✅ 薄 Controller，只做路由
- * ✅ 直接注入 Application Layer 服务
- * ❌ 不包含业务逻辑
- * ❌ 不进行数据转换（由 Application Layer 负责）
- */
+
 @ApiTags("Users")
 @Controller(`${ApiPrefix}/users`)
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class UserController {
   constructor(
-    // ✅ 直接注入 Application Layer 服务
-    private readonly userQueryService: UserQueryService,
+    private readonly getUserUseCase: GetUserUseCase,
   ) {}
 
   @Get("me")
@@ -57,9 +44,12 @@ export class UserController {
     type: UserResponseDto,
   })
   async getUserById(@Param("id") id: string): Promise<UserResponseDto> {
-    // ✅ 直接调用 Application Layer 服务
-    const user = await this.userQueryService.getUserById(id);
-    return this.toUserResponseDto(user);
+    const user = await this.getUserUseCase.getUserById(id);
+    const userWithCorrectGender = {
+      ...user,
+      gender: user.gender as Gender,
+    } as User;
+    return this.toUserResponseDto(userWithCorrectGender);
   }
 
   private toUserResponseDto(user: User): UserResponseDto {

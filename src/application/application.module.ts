@@ -19,7 +19,7 @@ import { ResumeModule } from "@domains/services/resume/resume.module";
 import { QueryModule } from "@domains/query/query.module";
 
 // Application Layer - Queries
-import { UserQueryService } from "./queries/user-query.service";
+import { GetUserUseCase } from "./queries/identity/use-cases/get-user.use-case";
 import { StudentListUseCase } from "./queries/identity/use-cases/student-list.use-case";
 import { StudentProfileUseCase } from "./queries/identity/use-cases/student-profile.use-case";
 import { MentorListUseCase } from "./queries/identity/use-cases/mentor-list.use-case";
@@ -32,13 +32,15 @@ import { ServiceBalanceQuery } from "./queries/contract/service-balance.query";
 import { GetStudentContractsUseCase } from "./queries/contract/use-cases/get-student-contracts.use-case";
 import { GetServiceConsumptionUseCase } from "./queries/contract/use-cases/get-service-consumption.use-case";
 import { ContractQueryRepositoriesModule } from "./queries/contract/infrastructure/query-repositories.module";
-import { GetSessionTypesQuery } from "./queries/services/get-session-types.query";
-import { GetRecommLetterTypesQuery } from "./queries/services/get-recomm-letter-types.query";
+import { GetSessionTypesUseCase } from "./queries/services/session-types/use-cases/get-session-types.use-case";
+import { GetRecommLetterTypesUseCase } from "./queries/services/recomm-letter-types/use-cases/get-recomm-letter-types.use-case";
+import { SessionTypesQueryRepositoriesModule } from "./queries/services/session-types/infrastructure/query-repositories.module";
+import { RecommLetterTypesQueryRepositoriesModule } from "./queries/services/recomm-letter-types/infrastructure/query-repositories.module";
 import { ServicesQueryRepositoriesModule } from "./queries/services/infrastructure/query-repositories.module";
-import { GetClassesUseCase } from "./queries/services/use-cases/get-classes.use-case"; 
-import { GetClassMentorsUseCase } from "./queries/services/use-cases/get-class-mentors.use-case"; 
-import { GetClassStudentsUseCase } from "./queries/services/use-cases/get-class-students.use-case"; 
-import { GetClassCounselorsUseCase } from "./queries/services/use-cases/get-class-counselors.use-case"; 
+import { GetClassesUseCase } from "./queries/services/use-cases/get-classes.use-case";
+import { GetClassMentorsUseCase } from "./queries/services/use-cases/get-class-mentors.use-case";
+import { GetClassStudentsUseCase } from "./queries/services/use-cases/get-class-students.use-case";
+import { GetClassCounselorsUseCase } from "./queries/services/use-cases/get-class-counselors.use-case";
 
 import { GetProductDetailUseCase } from "./queries/product/use-cases/get-product-detail.use-case";
 import { SearchProductsUseCase } from "./queries/product/use-cases/search-products.use-case";
@@ -52,7 +54,8 @@ import { FinancialQueryRepositoriesModule } from "./queries/financial/infrastruc
 import { ListJobCategoriesUseCase } from "./queries/preference/use-cases/list-job-categories.use-case";
 import { ListJobTitlesUseCase } from "./queries/preference/use-cases/list-job-titles.use-case";
 import { PreferenceQueryRepositoriesModule } from "./queries/preference/infrastructure/query-repositories.module";
-import { CalendarQueryService } from "./queries/calendar/calendar-query.service";
+import { GetCalendarEventsUseCase } from "./queries/calendar/use-cases/get-calendar-events.use-case";
+import { CalendarQueryRepositoriesModule } from "./queries/calendar/infrastructure/query-repositories.module";
 // Mock Interviews Queries
 import { MockInterviewsQueryRepositoriesModule } from "./queries/mock-interviews/infrastructure/query-repositories.module";
 import { GetStudentMockInterviewsUseCase } from "./queries/mock-interviews/use-cases/get-student-mock-interviews.use-case";
@@ -157,51 +160,46 @@ import { PlacementApplicationStatusChangedListener } from "@application/events/h
 import { PlacementApplicationStatusRolledBackListener } from "@application/events/handlers/financial/placement-application-status-rolled-back.listener";
 import { AppealApprovedListener } from "@application/events/handlers/financial/appeal-approved.listener";
 
-/**
- * Application Layer - Root Module
- * 职责：
- * 1. 注册所有 Queries
- * 2. 注册所有 Commands
- * 3. 注册所有 Sagas
- * 4. 导出供 Operations Layer 使用
- */
 @Module({
   imports: [
     // Domain Layer
-    UserModule, // 用户领域模块（提供 USER_SERVICE）
-    ContractModule, // 合同领域模块（提供 ContractService）
-    FinancialModule, // 财务领域模块（提供 IMentorPayableService 等）
-    PreferenceModule, // 偏好设置领域模块（提供 JobCategoryService、JobTitleService）
-    SessionTypesModule, // 会话类型模块（提供 SessionTypesQueryService）
-    RecommLetterTypesModule, // 推荐信类型模块（提供 RecommLetterTypesService）
-    RecommLetterModule, // 推荐信领域模块（提供 RecommLetterDomainService）
-    RecommLettersModule, // 推荐信模块（提供 RECOMM_LETTERS_REPOSITORY）
-    RegularMentoringModule, // 常规指导模块（提供 RegularMentoringDomainService）
-    GapAnalysisModule, // 差距分析模块（提供 GapAnalysisDomainService）
-    AiCareerModule, // AI职业模块（提供 AiCareerDomainService）
-    CommSessionsModule, // 沟通会话模块（提供 CommSessionDomainService）
-    MockInterviewsModule, // Mock面试模块（提供 MockInterviewDomainService）
-    ClassModule, // 班级模块（提供 ClassDomainService、ClassSessionDomainService）
-    ResumeModule, // 简历模块（提供 ResumeDomainService）
-    QueryModule, // 查询模块（提供 RegularMentoringQueryService、GapAnalysisQueryService、AiCareerQueryService、CommSessionQueryService、MockInterviewQueryService）
+    UserModule,
+    ContractModule,
+    FinancialModule,
+    PreferenceModule,
+    SessionTypesModule,
+    RecommLetterTypesModule,
+    RecommLetterModule,
+    RecommLettersModule,
+    RegularMentoringModule,
+    GapAnalysisModule,
+    AiCareerModule,
+    CommSessionsModule,
+    MockInterviewsModule,
+    ClassModule,
+    ResumeModule,
+    QueryModule,
     // Core Services
-    CalendarModule, // 导入日历模块（包含事件监听器）
-    MeetingModule, // 导入会议提供者模块
-    NotificationModule, // 导入通知模块（包含通知队列和定时任务）
-    TelemetryModule, // 导入遥测模块
+    CalendarModule,
+    MeetingModule,
+    NotificationModule,
+    TelemetryModule,
     // Query Repositories
-    PlacementQueryRepositoriesModule, // Placement Query Repositories
-    FinancialQueryRepositoriesModule, // Financial Query Repositories
-    ProductQueryRepositoriesModule, // Product Query Repositories
-    ContractQueryRepositoriesModule, // Contract Query Repositories
-    PreferenceQueryRepositoriesModule, // Preference Query Repositories
-    IdentityQueryRepositoriesModule, // Identity Query Repositories
-    ServicesQueryRepositoriesModule, // Services Query Repositories
-    MockInterviewsQueryRepositoriesModule, // Mock Interviews Query Repositories
+    PlacementQueryRepositoriesModule,
+    FinancialQueryRepositoriesModule,
+    ProductQueryRepositoriesModule,
+    ContractQueryRepositoriesModule,
+    PreferenceQueryRepositoriesModule,
+    IdentityQueryRepositoriesModule,
+    ServicesQueryRepositoriesModule,
+    SessionTypesQueryRepositoriesModule,
+    RecommLetterTypesQueryRepositoriesModule,
+    CalendarQueryRepositoriesModule,
+    MockInterviewsQueryRepositoriesModule,
   ],
   providers: [
     // Queries
-    UserQueryService,
+    GetUserUseCase,
     StudentListUseCase,
     StudentProfileUseCase,
     MentorListUseCase,
@@ -212,8 +210,8 @@ import { AppealApprovedListener } from "@application/events/handlers/financial/a
     ServiceBalanceQuery,
     GetStudentContractsUseCase,
     GetServiceConsumptionUseCase,
-    GetSessionTypesQuery,
-    GetRecommLetterTypesQuery,
+    GetSessionTypesUseCase,
+    GetRecommLetterTypesUseCase,
     GetProductDetailUseCase,
     SearchProductsUseCase,
     QueryJobsUseCase,
@@ -222,7 +220,7 @@ import { AppealApprovedListener } from "@application/events/handlers/financial/a
     ListMentorAppealsUseCase,
     ListJobCategoriesUseCase,
     ListJobTitlesUseCase,
-    CalendarQueryService,
+    GetCalendarEventsUseCase,
     GetClassesUseCase,
     GetClassMentorsUseCase,
     GetClassStudentsUseCase,
@@ -326,17 +324,17 @@ import { AppealApprovedListener } from "@application/events/handlers/financial/a
   ],
   exports: [
     // Domain Layer
-    UserModule, // 导出 UserModule 以提供 USER_SERVICE 给 ApiModule
-    QueryModule, // 导出 QueryModule 以提供 ClassSessionQueryService 等查询服务给 ApiModule
-    ResumeModule, // 导出 ResumeModule 以提供 ResumeDomainService 给 ApiModule
-    RecommLetterModule, // 导出 RecommLetterModule 以提供 RecommLetterDomainService 给 ApiModule
+    UserModule,
+    QueryModule,
+    ResumeModule,
+    RecommLetterModule,
 
     // Core Services
     CalendarModule,
     MeetingModule,
 
     // Queries
-    UserQueryService,
+    GetUserUseCase,
     StudentListUseCase,
     StudentProfileUseCase,
     MentorListUseCase,
@@ -347,8 +345,8 @@ import { AppealApprovedListener } from "@application/events/handlers/financial/a
     ServiceBalanceQuery,
     GetStudentContractsUseCase,
     GetServiceConsumptionUseCase,
-    GetSessionTypesQuery,
-    GetRecommLetterTypesQuery,
+    GetSessionTypesUseCase,
+    GetRecommLetterTypesUseCase,
     GetProductDetailUseCase,
     SearchProductsUseCase,
     QueryJobsUseCase,
@@ -357,7 +355,7 @@ import { AppealApprovedListener } from "@application/events/handlers/financial/a
     ListMentorAppealsUseCase,
     ListJobCategoriesUseCase,
     ListJobTitlesUseCase,
-    CalendarQueryService,
+    GetCalendarEventsUseCase,
     GetClassesUseCase,
     GetClassMentorsUseCase,
     GetClassStudentsUseCase,
