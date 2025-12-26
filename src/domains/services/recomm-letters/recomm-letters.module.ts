@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
+import { DatabaseModule } from '@infrastructure/database/database.module';
 import { RecommLettersRepository } from './infrastructure/repositories/recomm-letters.repository';
 import { RECOMM_LETTERS_REPOSITORY } from './repositories/recomm-letters.repository.interface';
 
 @Module({
+  imports: [DatabaseModule],
   providers: [
     {
       provide: RECOMM_LETTERS_REPOSITORY,

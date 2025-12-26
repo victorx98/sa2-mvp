@@ -28,10 +28,10 @@ export class DrizzleClassQueryRepository implements IClassQueryRepository {
     if (status) filters.push(eq(classes.status, status));
     if (type) filters.push(eq(classes.type, type));
 
-    const total = await this.db.select({ count: sql<number>`count(*)` })
+    const total = await this.db.select({ count: sql`count(*)` })
       .from(classes)
       .where(filters.length > 0 ? and(...filters) : undefined)
-      .then((result) => result[0]?.count || 0);
+      .then((result) => parseInt(result[0]?.count?.toString() || '0', 10) || 0);
 
     const data = await this.db
       .select({

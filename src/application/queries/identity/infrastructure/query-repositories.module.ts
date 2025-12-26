@@ -3,6 +3,7 @@
  * 身份查询仓储模块（学生、导师、顾问、学校、专业）
  */
 import { Module } from '@nestjs/common';
+import { DatabaseModule } from '@infrastructure/database/database.module';
 import { QueryModule } from '@domains/query/query.module';
 import {
   STUDENT_QUERY_REPOSITORY,
@@ -13,12 +14,12 @@ import {
 } from '../interfaces/identity-query.repository.interface';
 import { StudentQueryAdapter } from './repositories/student-query.adapter';
 import { MentorQueryAdapter } from './repositories/mentor-query.adapter';
-import { CounselorQueryAdapter } from './repositories/counselor-query.adapter';
+import { DrizzleCounselorQueryRepository } from './repositories/counselor-query.adapter';
 import { SchoolQueryAdapter } from './repositories/school-query.adapter';
 import { MajorQueryAdapter } from './repositories/major-query.adapter';
 
 @Module({
-  imports: [QueryModule],
+  imports: [DatabaseModule, QueryModule],
   providers: [
     {
       provide: STUDENT_QUERY_REPOSITORY,
@@ -30,7 +31,7 @@ import { MajorQueryAdapter } from './repositories/major-query.adapter';
     },
     {
       provide: COUNSELOR_QUERY_REPOSITORY,
-      useClass: CounselorQueryAdapter,
+      useClass: DrizzleCounselorQueryRepository,
     },
     {
       provide: SCHOOL_QUERY_REPOSITORY,

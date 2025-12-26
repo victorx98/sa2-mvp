@@ -74,8 +74,10 @@ export class SupabaseAuthService {
     // Always use proxy agent if available (removes NODE_ENV restriction)
     // This helps with DNS resolution in restricted network environments (e.g., WSL2)
     if (httpsProxyUrl && node_env === "development") {
-      this.logger.log(`Using HTTPS proxy for Supabase: ${httpsProxyUrl}`);
-      axiosConfig.httpsAgent = new HttpsProxyAgent(httpsProxyUrl);
+      // 确保代理 URL 有协议前缀，如果没有则添加 http://
+      const normalizedProxyUrl = this.normalizeProxyUrl(httpsProxyUrl);
+      this.logger.log(`Using HTTPS proxy for Supabase: ${normalizedProxyUrl}`);
+      axiosConfig.httpsAgent = new HttpsProxyAgent(normalizedProxyUrl);
     } else {
       // Even without proxy URL, we need to set httpsAgent to handle DNS properly in WSL2
       this.logger.warn('No HTTPS proxy configured. If Supabase connection fails, consider setting HTTPS_PROXY environment variable.');
@@ -94,6 +96,28 @@ export class SupabaseAuthService {
   }
 
   private readonly publicHeaders: Record<string, string>;
+
+  /**
+   * 规范化代理 URL，确保有协议前缀
+   * Normalize proxy URL to ensure it has a protocol prefix
+   */
+  private normalizeProxyUrl(url: string): string {
+    if (!url || url.trim().length === 0) {
+      return url;
+    }
+    
+    const trimmedUrl = url.trim();
+    
+    // 如果已经有协议前缀（http:// 或 https://），直接返回
+    // If already has protocol prefix (http:// or https://), return as is
+    if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+      return trimmedUrl;
+    }
+    
+    // 如果没有协议前缀，添加 http://
+    // If no protocol prefix, add http://
+    return `http://${trimmedUrl}`;
+  }
 
   /**
    * Create Supabase Auth user via Admin API
