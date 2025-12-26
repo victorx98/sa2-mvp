@@ -189,8 +189,8 @@ export type UpdateMentorPriceDto = UpdateMentorPriceRequestDto;
 export type UpdateMentorPriceStatusDto = UpdateMentorPriceStatusRequestDto;
 
 export enum SortDirection {
-  ASC = "asc",
-  DESC = "desc",
+  ASC = 'asc',
+  DESC = 'desc',
 }
 
 export class ListMentorPricesQueryDto {
