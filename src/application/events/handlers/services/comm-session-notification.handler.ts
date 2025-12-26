@@ -199,13 +199,13 @@ export class CommSessionNotificationHandler {
 
   /**
    * Handle create failed
-   * No action needed - resources already released
+   * Send immediate notification to counselor
    */
   private async handleCreateFailed(payload: any): Promise<void> {
     this.logger.log(
       `Handling create failed for session ${payload.sessionId}: ${payload.errorMessage}`,
     );
-    // No action needed
+    await this.sendFailureNotification('create', payload);
   }
 
   /**
@@ -262,13 +262,13 @@ export class CommSessionNotificationHandler {
 
   /**
    * Handle update failed
-   * No action needed
+   * Send immediate notification to counselor
    */
   private async handleUpdateFailed(payload: any): Promise<void> {
     this.logger.log(
       `Handling update failed for session ${payload.sessionId}: ${payload.errorMessage}`,
     );
-    // No action needed
+    await this.sendFailureNotification('update', payload);
   }
 
   /**
@@ -313,13 +313,13 @@ export class CommSessionNotificationHandler {
 
   /**
    * Handle cancel failed
-   * No action needed
+   * Send immediate notification to counselor
    */
   private async handleCancelFailed(payload: any): Promise<void> {
     this.logger.log(
       `Handling cancel failed for session ${payload.sessionId}: ${payload.errorMessage}`,
     );
-    // No action needed
+    await this.sendFailureNotification('cancel', payload);
   }
 
   /**
@@ -382,5 +382,65 @@ You can join this meeting from your browser.
 
 Powered by SuperAcademy`;
   }
-}
 
+  /**
+   * Send failure notification to counselor
+   * Common logic for create/update/cancel failures
+   * Note: Comm sessions may have mentor OR counselor (not both)
+   * 
+   * @param operation - Operation type
+   * @param payload - Event payload
+   */
+  private async sendFailureNotification(
+    operation: 'create' | 'update' | 'cancel',
+    payload: any,
+  ): Promise<void> {
+    try {
+      // Get counselor email (prefer createdByCounselorId, fallback to counselorId)
+      const counselorId = payload.createdByCounselorId || payload.counselorId;
+      const counselorEmail = counselorId
+        ? await this.getUserEmail(counselorId).catch(() => null)
+        : null;
+
+      if (!counselorEmail) {
+        this.logger.warn(`No counselor email found for session ${payload.sessionId}, skipping notification`);
+        return;
+      }
+
+      // Get user names for context
+      const mentorName = payload.mentorId
+        ? await this.userService.getDisplayName(payload.mentorId)
+        : undefined;
+      const studentName = payload.studentId
+        ? await this.userService.getDisplayName(payload.studentId)
+        : undefined;
+
+      // Build error notification content
+      const content = this.notificationQueueService.buildErrorNotificationContent({
+        sessionId: payload.sessionId,
+        operation,
+        errorMessage: payload.errorMessage,
+        requireManualIntervention: payload.requireManualIntervention || false,
+        sessionInfo: {
+          studentName,
+          mentorName,
+          scheduledAt: payload.scheduledAt || payload.newScheduledAt,
+        },
+      });
+
+      // Send immediate notification
+      await this.notificationQueueService.sendImmediateNotification({
+        recipients: [counselorEmail],
+        subject: `⚠️ Session ${operation.charAt(0).toUpperCase() + operation.slice(1)} Failed - ${payload.sessionId}`,
+        content,
+      });
+
+      this.logger.log(`Sent ${operation} failure notification to counselor for session ${payload.sessionId}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send ${operation} failure notification for session ${payload.sessionId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error.stack : '',
+      );
+    }
+  }
+}

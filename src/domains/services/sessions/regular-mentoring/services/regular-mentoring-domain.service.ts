@@ -196,15 +196,4 @@ export class RegularMentoringDomainService {
   async findByMeetingId(meetingId: string): Promise<RegularMentoringSession | null> {
     return this.repository.findByMeetingId(meetingId);
   }
-
-  /**
-   * Get session by ID
-   */
-  async getSessionById(id: string): Promise<RegularMentoringSession> {
-    const session = await this.repository.findById(id);
-    if (!session) {
-      throw new SessionNotFoundException(id);
-    }
-    return session;
-  }
 }

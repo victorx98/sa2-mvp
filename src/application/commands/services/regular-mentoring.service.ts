@@ -106,8 +106,6 @@ export class RegularMentoringService {
     try {
       addSpanEvent('session.creation.start');
 
-      
-
       // Convert Date to ISO string for API requirements
       const scheduledAtIso = dto.scheduledAt instanceof Date 
         ? dto.scheduledAt.toISOString() 
@@ -307,21 +305,22 @@ export class RegularMentoringService {
       const updatedSession = await this.db.transaction(async (tx: DrizzleTransaction) => {
 
         // Update service hold when time/duration changes (rescheduling consumes credits)
-        // if (durationChanged) {
-        //   const oldHoldId = (oldSession as any).serviceHoldId;
-        //   if (oldHoldId) {
-        //     await this.serviceHoldService.updateHold(
-        //       oldHoldId,
-        //       {
-        //         studentId: oldSession.studentUserId,
-        //         serviceType: oldSession.serviceType,
-        //         quantity: parseFloat((dto.duration/60).toFixed(1)),
-        //       },
-        //       tx,
-        //     );
-        //     this.logger.debug(`Service hold updated for rescheduling: ${oldHoldId}`);
-        //   }
-        // }
+        if (durationChanged) {
+          const oldHoldId = (oldSession as any).serviceHoldId;
+          if (oldHoldId) {
+            await this.serviceHoldService.updateHold(
+              {
+                holdId: oldHoldId,
+                quantity: parseFloat((dto.duration/60).toFixed(1)),
+                expiryAt: new Date(scheduledAtIso),
+                reason: dto.description || 'session rescheduled',
+                updatedBy: oldSession.createdByCounselorId,
+              },
+              tx,
+            );
+            this.logger.debug(`Service hold updated for rescheduling: ${oldHoldId}`);
+          }
+        }
 
         // Update calendar if either scheduled time or duration changed
         if (timeChanged || durationChanged) {

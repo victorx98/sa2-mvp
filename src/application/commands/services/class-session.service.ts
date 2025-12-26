@@ -18,6 +18,7 @@ import {
   ClassSessionUpdatedEvent,
   IntegrationEventPublisher,
 } from '@application/events';
+import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
 import { ClassSessionDomainService } from '@domains/services/class/class-sessions/services/class-session-domain.service';
 import { ClassSessionStatus, SessionType as ClassSessionType } from '@domains/services/class/class-sessions/entities/class-session.entity';
 import { ClassDomainService } from '@domains/services/class/classes/services/class-domain.service';
@@ -66,6 +67,7 @@ export class ClassSessionService {
     private readonly calendarService: CalendarService,
     private readonly eventPublisher: IntegrationEventPublisher,
     private readonly metricsService: MetricsService,
+    private readonly serviceHoldService: ServiceHoldService,
   ) {}
 
   /**
@@ -237,6 +239,24 @@ export class ClassSessionService {
 
       // Step 4: Execute transaction to update calendar and session
       await this.db.transaction(async (tx: DrizzleTransaction) => {
+
+        if (durationChanged) {
+          const oldHoldId = (oldSession as any).serviceHoldId;
+          if (oldHoldId) {
+            await this.serviceHoldService.updateHold(
+              {
+                holdId: oldHoldId,
+                quantity: parseFloat((dto.duration/60).toFixed(1)),
+                expiryAt: new Date(scheduledAtIso),
+                reason: dto.description || 'class session rescheduled',
+                updatedBy: oldSession.createdByCounselorId,
+              },
+              tx,
+            );
+            this.logger.debug(`Service hold updated for class session rescheduling: ${oldHoldId}`);
+          }
+        }
+
         // Update calendar if time or duration changed
         if (timeChanged || durationChanged) {
           // Cancel old calendar slots

@@ -13,6 +13,7 @@ import {
   IEmailRecipients,
   IEmailContent,
 } from '../interfaces';
+import { EmailService } from '@core/email/services/email.service';
 
 /**
  * Notification Queue Service
@@ -27,6 +28,7 @@ export class NotificationQueueService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
+    private readonly emailService: EmailService,
   ) {}
 
   /**
@@ -323,6 +325,101 @@ export class NotificationQueueService {
     `;
 
     const text = `Session Reminder: Your session will start in ${timeBeforeTextEN}. Session: ${dto.sessionInfo.title}, Student: ${studentName}, Mentor: ${mentorName}, Meeting URL: ${dto.sessionInfo.meetingUrl}`;
+
+    return { html, text };
+  }
+
+  /**
+   * Send immediate notification (without queuing)
+   * Used for error alerts and urgent notifications
+   * 
+   * @param params - Notification parameters
+   */
+  async sendImmediateNotification(params: {
+    recipients: string[];
+    subject: string;
+    content: IEmailContent;
+  }): Promise<void> {
+    try {
+      // Send email to each recipient
+      for (const recipient of params.recipients) {
+        await this.emailService.send({
+          to: recipient,
+          subject: params.subject,
+          html: params.content.html,
+        });
+      }
+
+      this.logger.log(
+        `Sent immediate notification to ${params.recipients.length} recipient(s): ${params.subject}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to send immediate notification: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error.stack : '',
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Build error notification content
+   * 
+   * @param params - Error notification parameters
+   * @returns Email content
+   */
+  buildErrorNotificationContent(params: {
+    sessionId: string;
+    operation: string;
+    errorMessage: string;
+    requireManualIntervention: boolean;
+    sessionInfo?: {
+      studentName?: string;
+      mentorName?: string;
+      scheduledAt?: Date | string;
+    };
+  }): IEmailContent {
+    const scheduledAtStr = params.sessionInfo?.scheduledAt
+      ? new Date(params.sessionInfo.scheduledAt).toLocaleString('en-US', {
+          timeZone: 'Asia/Shanghai',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        })
+      : 'N/A';
+
+    const html = `
+      <html>
+        <body>
+          <h2 style="color: #d32f2f;">⚠️ Session ${params.operation} Failed</h2>
+          <p>Hello Counselor,</p>
+          <p>A session operation has failed and requires your attention.</p>
+          
+          <h3>Error Details:</h3>
+          <ul>
+            <li><strong>Session ID:</strong> ${params.sessionId}</li>
+            <li><strong>Operation:</strong> ${params.operation}</li>
+            <li><strong>Error:</strong> ${params.errorMessage}</li>
+            ${params.sessionInfo?.studentName ? `<li><strong>Student:</strong> ${params.sessionInfo.studentName}</li>` : ''}
+            ${params.sessionInfo?.mentorName ? `<li><strong>Mentor:</strong> ${params.sessionInfo.mentorName}</li>` : ''}
+            ${params.sessionInfo?.scheduledAt ? `<li><strong>Scheduled At:</strong> ${scheduledAtStr}</li>` : ''}
+          </ul>
+          
+          ${params.requireManualIntervention ? `
+          <p style="color: #d32f2f;"><strong>⚠️ Manual Intervention Required</strong></p>
+          <p>Please check the system and take appropriate action.</p>
+          ` : ''}
+          
+          <br/>
+          <p style="color: #666; font-size: 12px;">Powered by SuperAcademy</p>
+        </body>
+      </html>
+    `;
+
+    const text = `Session ${params.operation} Failed - Session ID: ${params.sessionId}, Error: ${params.errorMessage}${params.requireManualIntervention ? ' - Manual intervention required' : ''}`;
 
     return { html, text };
   }

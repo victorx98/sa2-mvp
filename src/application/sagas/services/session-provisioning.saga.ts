@@ -556,8 +556,9 @@ export class SessionProvisioningSaga extends SagaBase {
       const compensation = await this.compensateCreateFailure({
         meetingId,
         slotIds: [payload.mentorCalendarSlotId],
-        markMeetingFailed: () =>
-          this.classSessionService.markMeetingFailed(payload.sessionId),
+        markMeetingFailed: async () => {
+          await this.classSessionService.markMeetingFailed(payload.sessionId);
+        },
       });
 
       await this.eventPublisher.publish(
