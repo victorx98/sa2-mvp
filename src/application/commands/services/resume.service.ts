@@ -1,18 +1,12 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ResumeDomainService } from '@domains/services/resume/services/resume-domain.service';
 import { ServiceHoldService } from '@domains/contract/services/service-hold.service';
-import { UserQueryService } from '@application/queries/user-query.service';
+import { GetUserUseCase } from '@application/queries/identity/use-cases/get-user.use-case';
 import { DATABASE_CONNECTION } from '@infrastructure/database/database.provider';
 import type { DrizzleDatabase, DrizzleTransaction } from '@shared/types/database.types';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ResumeEntity } from '@domains/services/resume/entities/resume.entity';
 
-/**
- * Application Layer - Resume Service
- *
- * Orchestrates resume billing operations with service hold management
- * Coordinates between Domain Services (Resume, ServiceHold)
- */
 @Injectable()
 export class ResumeService {
   private readonly logger = new Logger(ResumeService.name);
@@ -22,18 +16,12 @@ export class ResumeService {
     private readonly db: DrizzleDatabase,
     private readonly domainResumeService: ResumeDomainService,
     private readonly serviceHoldService: ServiceHoldService,
-    private readonly userQueryService: UserQueryService,
+    private readonly getUserUseCase: GetUserUseCase,
   ) {}
 
-  /**
-   * List resumes with enriched mentor details
-   * 
-   * @param studentUserId Student user ID
-   */
   async listResumesWithDetails(studentUserId: string) {
     const grouped = await this.domainResumeService.listByStudent(studentUserId);
     
-    // Step 1: Collect all unique user IDs (mentors, uploaded by, billed by)
     const allResumes = Object.values(grouped).flat();
     const userIds = [...new Set([
       ...allResumes.map(r => r.getMentorUserId()).filter(Boolean),
@@ -41,13 +29,11 @@ export class ResumeService {
       ...allResumes.map(r => r.getBilledBy()).filter(Boolean),
     ])] as string[];
     
-    // Step 2: Batch query all users (1 query instead of N queries)
     const users = userIds.length > 0 
-      ? await this.userQueryService.getUsersByIds(userIds)
+      ? await this.getUserUseCase.getUsersByIds(userIds)
       : [];
     const userMap = new Map(users.map(u => [u.id, u]));
     
-    // Step 3: Enrich resumes with user info
     const enrichedGrouped: Record<string, any[]> = {};
     
     for (const [jobTitle, resumes] of Object.entries(grouped)) {
@@ -105,17 +91,6 @@ export class ResumeService {
     return enrichedGrouped;
   }
 
-  /**
-   * Bill resume with service hold validation
-   * 
-   * Flow:
-   * 1. Create service hold (check balance)
-   * 2. Call domain layer billing logic
-   * 
-   * @param resumeId Resume ID
-   * @param params Billing params (mentorId, description, studentId, serviceType)
-   * @param userId Counselor ID
-   */
   async billResume(
     resumeId: string,
     params: {
@@ -129,9 +104,7 @@ export class ResumeService {
     this.logger.log(`Billing resume: resumeId=${resumeId}, studentId=${params.studentId}`);
 
     try {
-      // Execute in transaction
       return await this.db.transaction(async (tx: DrizzleTransaction) => {
-        // Step 1: Create service hold (check and reserve balance)
         const hold = await this.serviceHoldService.createHold(
           {
             studentId: params.studentId,
@@ -144,7 +117,6 @@ export class ResumeService {
 
         this.logger.debug(`Service hold created: ${hold.id}`);
 
-        // Step 2: Call domain layer billing logic
         const result = await this.domainResumeService.billResume(
           resumeId,
           {
@@ -163,17 +135,6 @@ export class ResumeService {
     }
   }
 
-  /**
-   * Cancel resume billing with service hold release
-   * 
-   * Flow:
-   * 1. Cancel billing in domain layer
-   * 2. Release service hold
-   * 
-   * @param resumeId Resume ID
-   * @param params Cancel params (description, serviceType)
-   * @param userId Counselor ID
-   */
   async cancelBillResume(
     resumeId: string,
     params: {
@@ -185,7 +146,6 @@ export class ResumeService {
     this.logger.log(`Canceling resume billing: resumeId=${resumeId}`);
 
     try {
-      // Get resume to find related hold
       const resume = await this.domainResumeService.findById(resumeId);
       if (!resume) {
         throw new NotFoundException('RESUME_NOT_FOUND');
@@ -195,9 +155,7 @@ export class ResumeService {
         throw new BadRequestException('RESUME_NOT_BILLED');
       }
 
-      // Execute in transaction
       return await this.db.transaction(async (tx: DrizzleTransaction) => {
-        // Step 1: Cancel billing in domain layer
         const result = await this.domainResumeService.cancelBillResume(
           resumeId,
           {
@@ -207,7 +165,6 @@ export class ResumeService {
           tx,
         );
 
-        // Step 2: Find and release related hold
         const activeHolds = await this.serviceHoldService.getActiveHolds(
           resume.getStudentUserId(),
           params.serviceType || 'resume_revision',
@@ -241,4 +198,3 @@ export class ResumeService {
     }
   }
 }
-

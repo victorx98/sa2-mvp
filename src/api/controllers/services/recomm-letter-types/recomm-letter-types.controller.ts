@@ -23,30 +23,22 @@ import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { RolesGuard } from '@shared/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
 import { ApiPrefix } from '@api/api.constants';
-import { GetRecommLetterTypesQuery } from '@application/queries/services/get-recomm-letter-types.query';
+import { GetRecommLetterTypesUseCase } from '@application/queries/services/recomm-letter-types/use-cases/get-recomm-letter-types.use-case';
 import { RecommLetterTypeService } from '@application/commands/services/recomm-letter-type.service';
 import { CreateRecommLetterTypeDto } from '@api/dto/request/services/recomm-letter-types';
 import { RecommLetterTypeResponseDto, AvailableTypesResponseDto } from '@api/dto/response/services/recomm-letter-types';
+import { RecommLetterTypeReadModel } from '@application/queries/services/recomm-letter-types/models/recomm-letter-type-read.model';
 
-/**
- * Recommendation Letter Types Controller
- * 
- * Provides API endpoints for managing recommendation letter types
- */
 @ApiTags('Recommendation Letter Types')
 @Controller(`${ApiPrefix}/services/recomm-letter-types`)
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class RecommLetterTypesController {
   constructor(
-    private readonly getRecommLetterTypesQuery: GetRecommLetterTypesQuery,
+    private readonly getRecommLetterTypesUseCase: GetRecommLetterTypesUseCase,
     private readonly recommLetterTypeService: RecommLetterTypeService,
   ) {}
 
-  /**
-   * Get recommendation letter types tree
-   * GET /api/services/recomm-letter-types
-   */
   @Get()
   @ApiOperation({
     summary: 'Get recommendation letter types',
@@ -66,13 +58,10 @@ export class RecommLetterTypesController {
   async getTypes(
     @Query('serviceTypeCode') serviceTypeCode?: string,
   ): Promise<RecommLetterTypeResponseDto[]> {
-    return this.getRecommLetterTypesQuery.execute(serviceTypeCode);
+    const readModels = await this.getRecommLetterTypesUseCase.execute({ serviceTypeCode });
+    return this.toResponseDtos(readModels);
   }
 
-  /**
-   * Create new recommendation letter type
-   * POST /api/services/recomm-letter-types
-   */
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(RolesGuard)
@@ -91,10 +80,6 @@ export class RecommLetterTypesController {
     return this.recommLetterTypeService.create(dto) as any;
   }
 
-  /**
-   * Get available recommendation letter types for student with statistics
-   * GET /api/services/recomm-letter-types/:studentId/available
-   */
   @Get(':studentId/available')
   @ApiOperation({
     summary: 'Get available recommendation letter types for student',
@@ -115,10 +100,6 @@ export class RecommLetterTypesController {
     return this.recommLetterTypeService.getAvailableTypes(studentId);
   }
 
-  /**
-   * Delete recommendation letter type
-   * DELETE /api/services/recomm-letter-types/:id
-   */
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
@@ -139,5 +120,34 @@ export class RecommLetterTypesController {
     await this.recommLetterTypeService.delete(id);
     return { message: 'Type deleted successfully' };
   }
-}
 
+  private toResponseDtos(readModels: RecommLetterTypeReadModel[]): RecommLetterTypeResponseDto[] {
+    const modelMap = new Map<string, RecommLetterTypeResponseDto>();
+    
+    for (const model of readModels) {
+      const dto = new RecommLetterTypeResponseDto();
+      dto.id = model.id;
+      dto.typeCode = model.code;
+      dto.typeName = model.nameZh;
+      dto.serviceTypeCode = model.serviceTypeCode || '';
+      dto.parentId = model.parentId;
+      dto.active = model.isActive;
+      dto.children = [];
+      dto.createdAt = model.createdAt;
+      dto.updatedAt = model.updatedAt;
+      modelMap.set(model.id, dto);
+    }
+
+    for (const model of readModels) {
+      const dto = modelMap.get(model.id)!;
+      if (model.parentId) {
+        const parentDto = modelMap.get(model.parentId);
+        if (parentDto) {
+          parentDto.children.push(dto);
+        }
+      }
+    }
+
+    return Array.from(modelMap.values()).filter(d => !d.parentId);
+  }
+}
