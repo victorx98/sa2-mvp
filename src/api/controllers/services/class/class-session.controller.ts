@@ -29,7 +29,8 @@ import { User } from '@domains/identity/user/user-interface';
 import { ApiPrefix } from '@api/api.constants';
 import { ClassSessionService } from '@application/commands/services/class-session.service';
 import { ClassSessionQueryService } from '@domains/query/services/class-session-query.service';
-import { ClassQueryService } from '@domains/query/services/class-query.service';
+import { GetClassCounselorsUseCase } from '@application/queries/services/use-cases/get-class-counselors.use-case';
+
 
 // Import DTOs from centralized location
 import {
@@ -67,7 +68,7 @@ export class ClassSessionController {
   constructor(
     private readonly classSessionService: ClassSessionService,
     private readonly classSessionQueryService: ClassSessionQueryService,
-    private readonly classQueryService: ClassQueryService,
+    private readonly getClassCounselorsUseCase: GetClassCounselorsUseCase,
   ) {}
 
   /**
@@ -81,7 +82,7 @@ export class ClassSessionController {
     }
 
     // Check if user is a counselor of this class
-    const counselors = await this.classQueryService.getClassCounselorsWithNames(classId);
+    const counselors = await this.getClassCounselorsUseCase.execute({ classId });
     const isCounselor = counselors.some(c => c.userId === user.id);
 
     if (!isCounselor) {
