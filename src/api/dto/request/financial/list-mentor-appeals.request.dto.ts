@@ -11,8 +11,8 @@ import {
 } from "class-validator";
 
 export enum SortDirection {
-  ASC = "asc",
-  DESC = "desc",
+  ASC = 'asc',
+  DESC = 'desc',
 }
 
 /**

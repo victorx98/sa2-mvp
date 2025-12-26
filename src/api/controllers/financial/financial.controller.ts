@@ -40,8 +40,8 @@ import { UpdateOrCreatePaymentParamsCommand } from "@application/commands/financ
 import { ModifyPaymentParamsCommand } from "@application/commands/financial/modify-payment-params.command";
 import { CreateOrUpdateMentorPaymentInfoCommand } from "@application/commands/financial/create-or-update-mentor-payment-info.command";
 import { UpdateMentorPaymentInfoStatusCommand } from "@application/commands/financial/update-mentor-payment-info-status.command";
-import { ListMentorPricesQuery } from "@application/queries/financial/list-mentor-prices.query";
-import { ListMentorAppealsQuery } from "@application/queries/financial/list-mentor-appeals.query";
+import { ListMentorPricesUseCase } from "@application/queries/financial/use-cases/list-mentor-prices.use-case";
+import { ListMentorAppealsUseCase } from "@application/queries/financial/use-cases/list-mentor-appeals.use-case";
 
 import type { CreateMentorAppealRequestDto as CreateAppealDto } from "@api/dto/request/financial/mentor-appeal.request.dto";
 import type { ApproveMentorAppealRequestDto as ApproveAppealDto } from "@api/dto/request/financial/mentor-appeal.request.dto";
@@ -154,8 +154,8 @@ export class FinancialController {
     private readonly updateMentorPaymentInfoStatusCommand: UpdateMentorPaymentInfoStatusCommand,
 
     // 查询相关
-    private readonly listMentorPricesQuery: ListMentorPricesQuery,
-    private readonly listMentorAppealsQuery: ListMentorAppealsQuery,
+    private readonly listMentorPricesUseCase: ListMentorPricesUseCase,
+    private readonly listMentorAppealsUseCase: ListMentorAppealsUseCase,
   ) {}
 
   // Helper methods for mapping domain objects to DTOs [将领域对象映射到DTO的辅助方法]
@@ -253,7 +253,7 @@ export class FinancialController {
   async listMentorAppeals(
     @Query() query: ListMentorAppealsQueryDto,
   ): Promise<PaginatedMentorAppealResponseDto> {
-    const result = await this.listMentorAppealsQuery.execute(query);
+    const result = await this.listMentorAppealsUseCase.execute(query);
 
     // 映射结果到响应 DTO [Map results to response DTO]
     const data: MentorAppealWithRelationsResponseDto[] = result.data.map((item) => ({
@@ -496,7 +496,7 @@ export class FinancialController {
   async listMentorPrices(
     @Query() query: ListMentorPricesQueryDto,
   ): Promise<PaginatedMentorPriceResponseDto> {
-    const result = await this.listMentorPricesQuery.execute(query);
+    const result = await this.listMentorPricesUseCase.execute(query);
 
     // 映射结果到响应 DTO [Map results to response DTO]
     const data: MentorPriceWithMentorResponseDto[] = result.data.map((item) => ({

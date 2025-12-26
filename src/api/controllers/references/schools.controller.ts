@@ -1,7 +1,7 @@
 import { Controller, Get, Query, UseGuards } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiOkResponse, ApiQuery, ApiBearerAuth } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
-import { SchoolListQuery } from "@application/queries/school/school-list.query";
+import { SchoolListUseCase } from "@application/queries/identity/use-cases/school-list.use-case";
 import { ApiPrefix } from "@api/api.constants";
 import { SchoolResponseDto } from "@api/dto/response/school-response.dto";
 import { plainToInstance } from "class-transformer";
@@ -25,7 +25,7 @@ import { plainToInstance } from "class-transformer";
 @ApiBearerAuth()
 export class SchoolsController {
   constructor(
-    private readonly schoolListQuery: SchoolListQuery,
+    private readonly schoolListQuery: SchoolListUseCase,
   ) {}
 
   @Get()
@@ -44,8 +44,8 @@ export class SchoolsController {
   async getSchools(
     @Query("text") text?: string,
   ): Promise<SchoolResponseDto[]> {
-    const items = await this.schoolListQuery.search(text);
-    return plainToInstance(SchoolResponseDto, items, {
+    const items = await this.schoolListQuery.listSchools({ keyword: text });
+    return plainToInstance(SchoolResponseDto, items.data, {
       enableImplicitConversion: false,
     });
   }

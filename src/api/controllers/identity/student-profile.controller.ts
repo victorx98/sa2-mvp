@@ -20,7 +20,7 @@ import { ApiPrefix } from "@api/api.constants";
 import { UpdateStudentProfileDto } from "@api/dto/request/update-student-profile.dto";
 import { UpdateStudentProfileCommand } from "@application/commands/profile/update-student-profile.command";
 import { UpdateStudentProfileInput } from "@application/commands/profile/dto/update-student-profile.input";
-import { StudentProfileQuery } from "@application/queries/student/student-profile.query";
+import { StudentProfileUseCase } from "@application/queries/identity/use-cases/student-profile.use-case";
 
 /**
  * API Layer - Student Profile Controller
@@ -42,7 +42,7 @@ import { StudentProfileQuery } from "@application/queries/student/student-profil
 export class StudentProfileController {
   constructor(
     private readonly updateStudentProfileCommand: UpdateStudentProfileCommand,
-    private readonly studentProfileQuery: StudentProfileQuery,
+    private readonly studentProfileQuery: StudentProfileUseCase,
   ) {}
 
   @Get()
@@ -51,7 +51,7 @@ export class StudentProfileController {
     description: "Student profile retrieved successfully",
   })
   async getProfile(@Param("studentId") studentId: string) {
-    return this.studentProfileQuery.getProfile(studentId);
+    return this.studentProfileQuery.getStudentProfile(studentId);
   }
 
   @Put()

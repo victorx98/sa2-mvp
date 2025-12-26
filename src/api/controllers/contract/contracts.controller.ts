@@ -36,7 +36,8 @@ import type { UpdateContractStatusRequestDto as UpdateContractStatusDto } from "
 import type { ConsumeServiceRequestDto as ConsumeServiceDto } from "@api/dto/request/contract/contract.request.dto";
 import type { AddAmendmentLedgerRequestDto as AddAmendmentLedgerDto } from "@api/dto/request/contract/contract.request.dto";
 import { UpdateContractStatusCommand } from "@application/commands/contract/update-contract-status.command";
-import { StudentContractsQuery } from "@application/queries/contract/student-contracts.query";
+import { GetStudentContractsUseCase } from "@application/queries/contract/use-cases/get-student-contracts.use-case";
+import { GetServiceConsumptionUseCase } from "@application/queries/contract/use-cases/get-service-consumption.use-case";
 import { ServiceBalanceQuery } from "@application/queries/contract/service-balance.query";
 import { ServiceBalanceResponseDto } from "@api/dto/response/service-balance-response.dto";
 import {
@@ -81,7 +82,8 @@ export class ContractsController {
     private readonly updateContractCommand: UpdateContractCommand,
     private readonly consumeServiceCommand: ConsumeServiceCommand,
     private readonly addAmendmentLedgerCommand: AddAmendmentLedgerCommand,
-    private readonly studentContractsQuery: StudentContractsQuery,
+    private readonly studentContractsQuery: GetStudentContractsUseCase,
+    private readonly serviceConsumptionQuery: GetServiceConsumptionUseCase,
     private readonly serviceBalanceQuery: ServiceBalanceQuery,
   ) { }
 
@@ -146,14 +148,21 @@ export class ContractsController {
     @Param("studentId") studentId: string,
   ): Promise<StudentContractResponseDto[]> {
     this.logger.log(`Getting contracts for student: ${studentId}`);
-    const result = await this.studentContractsQuery.getStudentContracts(
-      studentId,
-    );
+    const result = await this.studentContractsQuery.execute({
+      filters: {
+        studentId,
+      },
+    });
     this.logger.log(
-      `Retrieved ${result.length} contract(s) for student: ${studentId}`,
+      `Retrieved ${result.data.length} contract(s) for student: ${studentId}`,
     );
-    return result.map(item => ({
-      ...item,
+    return result.data.map(item => ({
+      id: item.id,
+      contract_number: item.contractNumber,
+      product: {
+        id: item.productSnapshotId || '',
+        name: item.productName,
+      },
       status: item.status as ContractStatus,
     }));
   }
@@ -167,20 +176,17 @@ export class ContractsController {
   async getContracts(
     @Query() queryDto: ContractListQueryDto,
   ): Promise<ContractListResponseDto> {
-    const result = await this.studentContractsQuery.getContractsWithPagination(
-      {
+    const result = await this.studentContractsQuery.execute({
+      filters: {
         studentId: queryDto.studentId,
         status: queryDto.status,
-        productId: queryDto.productId,
-        startDate: queryDto.startDate,
-        endDate: queryDto.endDate,
-        keyword: queryDto.keyword,
+        productName: queryDto.keyword,
       },
-      {
+      pagination: {
         page: queryDto.page || 1,
         pageSize: queryDto.pageSize || 20,
       },
-    );
+    });
 
     // Map status to ContractStatus enum
     return {
@@ -407,22 +413,21 @@ export class ContractsController {
   ) {
     this.logger.log("Getting all service type consumption records with query params", queryDto);
     try {
-      const result = await this.studentContractsQuery.getServiceTypeConsumptionRecords(
-        {
+      const result = await this.serviceConsumptionQuery.execute({
+        filters: {
           studentId: queryDto.studentId,
-          mentorId: queryDto.mentorId,
+          serviceTypeCode: queryDto.serviceType,
           status: queryDto.status,
-          serviceType: queryDto.serviceType,
         },
-        {
+        pagination: {
           page: queryDto.page,
           pageSize: queryDto.pageSize,
         },
-        {
-          sortField: queryDto.sortField,
-          sortOrder: queryDto.sortOrder,
+        sort: {
+          field: queryDto.sortField,
+          direction: queryDto.sortOrder,
         },
-      );
+      });
       this.logger.log(`Retrieved ${result.data.length} service type consumption records out of ${result.total} total records`);
       return result;
     } catch (error) {

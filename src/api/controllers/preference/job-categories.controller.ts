@@ -27,7 +27,7 @@ import { plainToInstance } from 'class-transformer';
 import { CreateJobCategoryCommand } from '@application/commands/preference/create-job-category.command';
 import { UpdateJobCategoryCommand } from '@application/commands/preference/update-job-category.command';
 import { DeleteJobCategoryCommand } from '@application/commands/preference/delete-job-category.command';
-import { ListJobCategoriesQuery } from '@application/queries/preference/list-job-categories.query';
+import { ListJobCategoriesUseCase } from '@application/queries/preference/use-cases/list-job-categories.use-case';
 import { CreateJobCategoryDto } from '@api/dto/request/preference/create-job-category.dto';
 import { UpdateJobCategoryDto } from '@api/dto/request/preference/update-job-category.dto';
 import { JobCategoryQueryDto } from '@api/dto/request/preference/job-category-query.dto';
@@ -59,7 +59,7 @@ export class JobCategoriesController {
     private readonly createJobCategoryCommand: CreateJobCategoryCommand,
     private readonly updateJobCategoryCommand: UpdateJobCategoryCommand,
     private readonly deleteJobCategoryCommand: DeleteJobCategoryCommand,
-    private readonly listJobCategoriesQuery: ListJobCategoriesQuery,
+    private readonly listJobCategoriesQuery: ListJobCategoriesUseCase,
   ) {}
 
   @Post()

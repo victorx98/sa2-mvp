@@ -11,30 +11,33 @@ import { PlacementModule } from "@domains/placement/placement.module";
 
 // Application Layer - Queries
 import { UserQueryService } from "./queries/user-query.service";
-import { StudentListQuery } from "./queries/student/student-list.query";
-import { StudentProfileQuery } from "./queries/student/student-profile.query";
-import { MentorListQuery } from "./queries/mentor/mentor-list.query";
-import { MentorProfileQuery } from "./queries/mentor/mentor-profile.query";
-import { CounselorListQuery } from "./queries/counselor/counselor-list.query";
-import { SchoolListQuery } from "./queries/school/school-list.query";
-import { MajorListQuery } from "./queries/major/major-list.query";
+import { StudentListUseCase } from "./queries/identity/use-cases/student-list.use-case";
+import { StudentProfileUseCase } from "./queries/identity/use-cases/student-profile.use-case";
+import { MentorListUseCase } from "./queries/identity/use-cases/mentor-list.use-case";
+import { MentorProfileUseCase } from "./queries/identity/use-cases/mentor-profile.use-case";
+import { CounselorListUseCase } from "./queries/identity/use-cases/counselor-list.use-case";
+import { SchoolListUseCase } from "./queries/identity/use-cases/school-list.use-case";
+import { MajorListUseCase } from "./queries/identity/use-cases/major-list.use-case";
+import { IdentityQueryRepositoriesModule } from "./queries/identity/infrastructure/query-repositories.module";
 import { ServiceBalanceQuery } from "./queries/contract/service-balance.query";
-import { StudentContractsQuery } from "./queries/contract/student-contracts.query";
-import { RegularMentoringQueryService } from "./queries/services/regular-mentoring-query.service";
-import { ClassQueryService } from "./queries/services/class.query.service";
-import { ClassSessionQueryService } from "./queries/services/class-session.query.service";
-import { CommSessionQueryService } from "./queries/services/comm-session.query.service";
+import { GetStudentContractsUseCase } from "./queries/contract/use-cases/get-student-contracts.use-case";
+import { GetServiceConsumptionUseCase } from "./queries/contract/use-cases/get-service-consumption.use-case";
+import { ContractQueryRepositoriesModule } from "./queries/contract/infrastructure/query-repositories.module";
 import { MockInterviewQueryService } from "@domains/query/services/mock-interview-query.service";
 import { GetSessionTypesQuery } from "./queries/services/get-session-types.query";
 import { GetRecommLetterTypesQuery } from "./queries/services/get-recomm-letter-types.query";
-import { GetProductDetailQuery } from "./queries/product/get-product-detail.query";
-import { SearchProductsQuery } from "./queries/product/search-products.query";
-import { QueryJobsQuery } from "./queries/placement/query-jobs.query";
-import { QueryJobApplicationsQuery } from "./queries/placement/query-job-applications.query";
-import { ListMentorPricesQuery } from "./queries/financial/list-mentor-prices.query";
-import { ListMentorAppealsQuery } from "./queries/financial/list-mentor-appeals.query";
-import { ListJobCategoriesQuery } from "./queries/preference/list-job-categories.query";
-import { ListJobTitlesQuery } from "./queries/preference/list-job-titles.query";
+import { GetProductDetailUseCase } from "./queries/product/use-cases/get-product-detail.use-case";
+import { SearchProductsUseCase } from "./queries/product/use-cases/search-products.use-case";
+import { ProductQueryRepositoriesModule } from "./queries/product/infrastructure/query-repositories.module";
+import { QueryJobsUseCase } from "./queries/placement/use-cases/query-jobs.use-case";
+import { QueryJobApplicationsUseCase } from "./queries/placement/use-cases/query-job-applications.use-case";
+import { PlacementQueryRepositoriesModule } from "./queries/placement/infrastructure/query-repositories.module";
+import { ListMentorPricesUseCase } from "./queries/financial/use-cases/list-mentor-prices.use-case";
+import { ListMentorAppealsUseCase } from "./queries/financial/use-cases/list-mentor-appeals.use-case";
+import { FinancialQueryRepositoriesModule } from "./queries/financial/infrastructure/query-repositories.module";
+import { ListJobCategoriesUseCase } from "./queries/preference/use-cases/list-job-categories.use-case";
+import { ListJobTitlesUseCase } from "./queries/preference/use-cases/list-job-titles.use-case";
+import { PreferenceQueryRepositoriesModule } from "./queries/preference/infrastructure/query-repositories.module";
 import { CalendarQueryService } from "./queries/calendar/calendar-query.service";
 
 // Application Layer - Commands
@@ -161,34 +164,37 @@ import { PreferenceModule } from "@domains/preference/preference.module";
     PlacementModule, // Domain层：Placement
     PreferenceModule, // Domain层：Preference (参考数据)
     QueryModule, // Domain层：Query (跨域查询)
+    PlacementQueryRepositoriesModule, // Placement Query Repositories
+    FinancialQueryRepositoriesModule, // Financial Query Repositories
+    ProductQueryRepositoriesModule, // Product Query Repositories
+    ContractQueryRepositoriesModule, // Contract Query Repositories
+    PreferenceQueryRepositoriesModule, // Preference Query Repositories
+    IdentityQueryRepositoriesModule, // Identity Query Repositories
   ],
   providers: [
     // Queries
     UserQueryService,
-    StudentListQuery,
-    StudentProfileQuery,
-    MentorListQuery,
-    MentorProfileQuery,
-    CounselorListQuery,
-    SchoolListQuery,
-    MajorListQuery,
+    StudentListUseCase,
+    StudentProfileUseCase,
+    MentorListUseCase,
+    MentorProfileUseCase,
+    CounselorListUseCase,
+    SchoolListUseCase,
+    MajorListUseCase,
     ServiceBalanceQuery,
-    StudentContractsQuery,
-    RegularMentoringQueryService,
-    ClassQueryService,
-    ClassSessionQueryService,
-    CommSessionQueryService,
+    GetStudentContractsUseCase,
+    GetServiceConsumptionUseCase,
     MockInterviewQueryService,
     GetSessionTypesQuery,
     GetRecommLetterTypesQuery,
-    GetProductDetailQuery,
-    SearchProductsQuery,
-    QueryJobsQuery,
-    QueryJobApplicationsQuery,
-    ListMentorPricesQuery,
-    ListMentorAppealsQuery,
-    ListJobCategoriesQuery,
-    ListJobTitlesQuery,
+    GetProductDetailUseCase,
+    SearchProductsUseCase,
+    QueryJobsUseCase,
+    QueryJobApplicationsUseCase,
+    ListMentorPricesUseCase,
+    ListMentorAppealsUseCase,
+    ListJobCategoriesUseCase,
+    ListJobTitlesUseCase,
     CalendarQueryService,
 
     // Commands
@@ -299,30 +305,27 @@ import { PreferenceModule } from "@domains/preference/preference.module";
 
     // Queries
     UserQueryService,
-    StudentListQuery,
-    StudentProfileQuery,
-    MentorListQuery,
-    MentorProfileQuery,
-    CounselorListQuery,
-    SchoolListQuery,
-    MajorListQuery,
+    StudentListUseCase,
+    StudentProfileUseCase,
+    MentorListUseCase,
+    MentorProfileUseCase,
+    CounselorListUseCase,
+    SchoolListUseCase,
+    MajorListUseCase,
     ServiceBalanceQuery,
-    StudentContractsQuery,
-    RegularMentoringQueryService,
-    ClassQueryService,
-    ClassSessionQueryService,
-    CommSessionQueryService,
+    GetStudentContractsUseCase,
+    GetServiceConsumptionUseCase,
     MockInterviewQueryService,
     GetSessionTypesQuery,
     GetRecommLetterTypesQuery,
-    GetProductDetailQuery,
-    SearchProductsQuery,
-    QueryJobsQuery,
-    QueryJobApplicationsQuery,
-    ListMentorPricesQuery,
-    ListMentorAppealsQuery,
-    ListJobCategoriesQuery,
-    ListJobTitlesQuery,
+    GetProductDetailUseCase,
+    SearchProductsUseCase,
+    QueryJobsUseCase,
+    QueryJobApplicationsUseCase,
+    ListMentorPricesUseCase,
+    ListMentorAppealsUseCase,
+    ListJobCategoriesUseCase,
+    ListJobTitlesUseCase,
     CalendarQueryService,
 
     // Commands

@@ -2,7 +2,7 @@ import { Controller, Get, Query, UseGuards } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiOkResponse, ApiQuery, ApiBearerAuth } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { ApiPrefix } from "@api/api.constants";
-import { CounselorListQuery } from "@application/queries/counselor/counselor-list.query";
+import { CounselorListUseCase } from "@application/queries/identity/use-cases/counselor-list.use-case";
 import { CounselorSummaryResponseDto } from "@api/dto/response/counselor-response.dto";
 import { plainToInstance } from "class-transformer";
 
@@ -24,7 +24,7 @@ import { plainToInstance } from "class-transformer";
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class CounselorsController {
-  constructor(private readonly counselorListQuery: CounselorListQuery) {}
+  constructor(private readonly counselorListQuery: CounselorListUseCase) { }
 
   @Get("find")
   @ApiOperation({ summary: "find counselor" })
@@ -42,8 +42,8 @@ export class CounselorsController {
   async findCounselors(
     @Query("text") text?: string,
   ): Promise<CounselorSummaryResponseDto[]> {
-    const counselors = await this.counselorListQuery.execute(text);
-    return plainToInstance(CounselorSummaryResponseDto, counselors, {
+    const counselors = await this.counselorListQuery.listCounselors({ keyword: text });
+    return plainToInstance(CounselorSummaryResponseDto, counselors.data, {
       enableImplicitConversion: false,
     });
   }
