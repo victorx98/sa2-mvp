@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation, ApiOkResponse, ApiQuery, ApiBearerAuth } from "@
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { SchoolListUseCase } from "@application/queries/identity/use-cases/school-list.use-case";
 import { ApiPrefix } from "@api/api.constants";
-import { SchoolResponseDto } from "@api/dto/response/school-response.dto";
+import { SchoolResponseDto } from "@api/dto/response/preference/school-response.dto";
 import { plainToInstance } from "class-transformer";
 
 /**

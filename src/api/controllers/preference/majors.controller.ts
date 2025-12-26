@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation, ApiOkResponse, ApiQuery, ApiBearerAuth } from "@
 import { JwtAuthGuard } from "@shared/guards/jwt-auth.guard";
 import { MajorListUseCase } from "@application/queries/identity/use-cases/major-list.use-case";
 import { ApiPrefix } from "@api/api.constants";
-import { MajorResponseDto } from "@api/dto/response/major-response.dto";
+import { MajorResponseDto } from "@api/dto/response/preference/major-response.dto";
 import { plainToInstance } from "class-transformer";
 
 /**
